@@ -1,0 +1,136 @@
+import type { GridSize, ShapeKind, WorkplaneWorkspaceSettings } from "@/types/layerling";
+
+export const LAYERLING_MCP_ROUTE = "/api/layerling-mcp";
+export const LAYERLING_MCP_STALE_MS = 15_000;
+export const LAYERLING_MCP_HEARTBEAT_MS = 5_000;
+export const LAYERLING_MCP_LONG_POLL_TIMEOUT_MS = 25_000;
+export const LAYERLING_MCP_POLL_RETRY_MS = 1_000;
+
+export type LayerlingMcpViewFace = "current" | "home" | "top" | "bottom" | "front" | "back" | "right" | "left";
+
+export type LayerlingMcpShapeSummary = {
+  id: string;
+  name: string;
+  kind: ShapeKind;
+  color: string;
+  hole: boolean;
+  locked: boolean;
+  hidden: boolean;
+  position: {
+    x: number;
+    z: number;
+    elevation: number;
+  };
+  dimensions: {
+    width: number;
+    depth: number;
+    height: number;
+    size: number;
+  };
+  rotation: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  mirror: {
+    x: boolean;
+    y: boolean;
+    z: boolean;
+  };
+  edgeTreatments: unknown[];
+  groupedCount: number;
+  importedTriangles: number;
+  cadDisplayEdgeCount: number | null;
+  sketchPointCount: number;
+  sketchSegmentCount: number;
+  children?: LayerlingMcpShapeSummary[];
+};
+
+export type LayerlingMcpSceneSummary = {
+  projectId: string | null;
+  projectName: string;
+  notice: string;
+  selectedIds: string[];
+  shapeCount: number;
+  workspace: WorkplaneWorkspaceSettings;
+  snap: GridSize | null;
+  shapes: LayerlingMcpShapeSummary[];
+};
+
+export type LayerlingMcpEditorSummary = {
+  editorId: string;
+  editorNumber: number;
+  projectId: string | null;
+  projectName: string;
+  url: string;
+  focused: boolean;
+  shapeCount: number;
+  selectedCount: number;
+  notice: string;
+  lastError: string | null;
+  lastSeen: number;
+};
+
+export type LayerlingMcpCommandName =
+  | "get_scene"
+  | "list_objects"
+  | "select_objects"
+  | "delete_objects"
+  | "create_shape"
+  | "import_mesh"
+  | "update_object"
+  | "align_objects"
+  | "group_objects"
+  | "ungroup_objects"
+  | "boolean_cut"
+  | "separate_parts"
+  | "list_edges"
+  | "apply_edge_treatment"
+  | "inspect_errors"
+  | "capture_image";
+
+export type LayerlingMcpCommand = {
+  id: string;
+  action: LayerlingMcpCommandName;
+  params: Record<string, unknown>;
+  createdAt: number;
+};
+
+export type LayerlingMcpCommandResult = {
+  commandId: string;
+  ok: boolean;
+  data?: unknown;
+  error?: string;
+  completedAt?: number;
+};
+
+export type LayerlingMcpHeartbeatPayload = {
+  type: "heartbeat";
+  editor: Omit<LayerlingMcpEditorSummary, "lastSeen">;
+};
+
+export type LayerlingMcpPollPayload = {
+  type: "poll";
+  editorId: string;
+};
+
+export type LayerlingMcpResultPayload = {
+  type: "result";
+  editorId: string;
+  result: LayerlingMcpCommandResult;
+};
+
+export type LayerlingMcpDispatchPayload = {
+  type: "command";
+  editorId?: string;
+  editorNumber?: number;
+  action: LayerlingMcpCommandName;
+  params?: Record<string, unknown>;
+  timeoutMs?: number;
+};
+
+export type LayerlingMcpApiPayload =
+  | LayerlingMcpHeartbeatPayload
+  | LayerlingMcpPollPayload
+  | LayerlingMcpResultPayload
+  | LayerlingMcpDispatchPayload;

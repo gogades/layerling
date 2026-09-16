@@ -1,0 +1,50 @@
+{
+  "name": "layerling",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Easy 3D CAD for 3D printing. A local-first 3D editor that runs in your browser.",
+  "author": {
+    "name": "Layerling contributors"
+  },
+  "homepage": "https://github.com/henmedia/layerling",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "copy:occt": "node scripts/copy-occt-wasm.mjs",
+    "predev": "npm run copy:occt",
+    "dev": "next dev apps/web",
+    "prebuild": "npm run copy:occt",
+    "build": "next build apps/web",
+    "export": "node scripts/build-static-export.mjs",
+    "verify:static-worker-assets": "node scripts/verify-static-worker-assets.mjs",
+    "start": "next start apps/web",
+    "typecheck": "tsc -p apps/web/tsconfig.json --noEmit",
+    "test": "vitest run --config tests/vitest.config.ts",
+    "test:watch": "vitest --config tests/vitest.config.ts",
+    "test:e2e": "vitest run --config tests/vitest.e2e.config.ts",
+    "perf": "vitest run --config tests/vitest.perf.config.ts --reporter verbose",
+    "ci": "npm run typecheck && npm run test",
+    "mcp:layerling": "node scripts/layerling-mcp-server.mjs"
+  },
+  "dependencies": {
+    "@types/three": "^0.184.1",
+    "brepjs": "^18.118.0",
+    "fflate": "^0.8.2",
+    "lucide-react": "^0.511.0",
+    "manifold-3d": "^3.5.0",
+    "next": "^15.3.2",
+    "occt-wasm": "^3.6.1",
+    "react": "^19.1.0",
+    "react-colorful": "^5.8.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.184.0",
+    "three-bvh-csg": "^0.0.18",
+    "three-mesh-bvh": "^0.9.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.18",
+    "@types/react": "^19.1.4",
+    "@types/react-dom": "^19.1.5",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.8"
+  }
+}
