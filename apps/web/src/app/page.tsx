@@ -2,6 +2,7 @@
 
 import { Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, List, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AppFooter, LEGAL_LINKS, SOURCE_CODE_URL } from "@/components/AppFooter";
 import { LayerlingEditor, importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg } from "@/components/LayerlingEditor";
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
@@ -115,22 +116,6 @@ const DOWNLOAD_FOLDER_STORAGE_KEY = "layerling.downloadFolder";
 const PROJECT_NAME_TOOLBAR_STORAGE_KEY = "layerling.showProjectNameInToolbar";
 const PROJECT_ACCENTS: DashboardProject["accent"][] = ["cyan", "green", "gold", "red"];
 const STATIC_EXPORT_BUILD = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
-const SOURCE_CODE_URL = process.env.NEXT_PUBLIC_SOURCE_CODE_URL?.trim() || "https://github.com/henmedia/layerling";
-
-/** Der Verweis in der Fußzeile zeigt auf die Anleitung in der gewählten Sprache. */
-function readmeUrl(language: Language) {
-  return `${SOURCE_CODE_URL.replace(/\/+$/, "")}/blob/main/${language === "de" ? "README.de.md" : "README.md"}`;
-}
-// Whoever operates a layerling installation may be required to publish a legal
-// notice - in Germany every business site needs an Impressum. The pages differ
-// per operator and are not part of this project, so they are linked through
-// build-time variables and the links disappear when nothing is configured.
-const LEGAL_LINKS = ([
-  { url: process.env.NEXT_PUBLIC_IMPRINT_URL, label: process.env.NEXT_PUBLIC_IMPRINT_LABEL, fallbackLabel: "Impressum" },
-  { url: process.env.NEXT_PUBLIC_PRIVACY_URL, label: process.env.NEXT_PUBLIC_PRIVACY_LABEL, fallbackLabel: "Datenschutz" },
-] as const)
-  .map((link) => ({ href: link.url?.trim() ?? "", label: link.label?.trim() || link.fallbackLabel }))
-  .filter((link) => link.href.length > 0);
 const EDITOR_SKELETON_MIN_DURATION_MS = 320;
 const knownProjectResourceKeys = new Map<string, Set<string>>();
 
@@ -1711,12 +1696,7 @@ function Dashboard({
               )}
             </>
           )}
-          <footer className="dashboard-legal">
-            {LEGAL_LINKS.map((link) => (
-              <a key={link.href} href={link.href}>{link.label}</a>
-            ))}
-            <a href={readmeUrl(language)} target="_blank" rel="noreferrer">{t("dashboard.projectOnGitHub")}</a>
-          </footer>
+          <AppFooter version={LYL_CREATED_WITH_VERSION} />
         </section>
       </div>
 

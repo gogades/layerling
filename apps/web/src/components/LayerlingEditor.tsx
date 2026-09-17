@@ -104,7 +104,8 @@ import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceF
 import { findSketchOutlineIntersection } from "@/lib/sketchProfileValidation";
 import { addLineIntersectionPoints, splitSketchSegment } from "@/lib/sketchPointRefinement";
 import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketchRevolveSettings, type SketchRevolveMesh } from "@/lib/sketchRevolve";
-import { exportLylProject, LYL_MEDIA_TYPE } from "@/lib/lylProject";
+import { AppFooter } from "@/components/AppFooter";
+import { exportLylProject, LYL_CREATED_WITH_VERSION, LYL_MEDIA_TYPE } from "@/lib/lylProject";
 import { makeShapeFromAsset, sceneShape, shapeAssetLabel, toolbarShapeAssets, type ToolbarShapeAsset } from "@/lib/shapeCatalog";
 import { importExtensionSupported } from "@/lib/importExtensions";
 import { importedShapeFromStl } from "@/lib/stlImport";
@@ -9368,6 +9369,7 @@ export function LayerlingEditor({
           />
         )}
       </div>
+      <AppFooter variant="editor" version={LYL_CREATED_WITH_VERSION} />
       {edgeModifier ? (
         <EdgeModifierPanel
           kind={edgeModifier.kind}

@@ -405,6 +405,7 @@ input:where([type='button'], [type='reset'], [type='submit']),
   --dashboard-topbar-height: 70px;
   --editor-toolbar-height: 120px;
   --editor-toolbar-tools-height: 76px;
+  --editor-footer-height: 30px;
 
   /* Filament palette: the eight spool colours the whole interface draws from.
      Object colours in the scene and the tool group keys come from this one set. */
@@ -958,14 +959,60 @@ button {
 }
 
 /* The operator's legal pages, where a visitor expects them. */
+/* Two halves that push apart: this installation on the left, the project on
+   the right. At phone width they stop pushing and stack instead. */
 .dashboard-legal {
   display: flex;
-  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 24px;
   margin-top: 28px;
   padding-top: 14px;
   border-top: 1px solid #ede4d4;
   font-size: 13px;
   font-weight: 700;
+}
+
+.dashboard-legal-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-legal-dot {
+  color: #c0ac93;
+  font-weight: 400;
+}
+
+/* The version is a statement, not somewhere to go, so it stays unlinked and a
+   shade quieter than the links it sits beside. */
+.dashboard-legal-version {
+  color: #9a836a;
+}
+
+/* The one thing in this row that asks for something, so it is the one thing
+   that looks like a control. Both selectors carry the element too, otherwise
+   `.dashboard-legal a` above wins on specificity and the colour never lands.
+   The negative vertical margin keeps the padded pill from making the row
+   taller than the plain links beside it. */
+.dashboard-legal a.dashboard-legal-sponsor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-block: -5px;
+  padding: 5px 12px;
+  border: 1px solid #edcfa2;
+  border-radius: 999px;
+  background: #fdf3e2;
+  color: #9a5a06;
+}
+
+.dashboard-legal a.dashboard-legal-sponsor:hover {
+  border-color: #ad6206;
+  background: #fbe8cc;
+  color: #8a4f05;
+  text-decoration: none;
 }
 
 .dashboard-legal a {
@@ -3069,7 +3116,7 @@ button {
 
 .export-dialog-body {
   display: grid;
-  max-height: calc(100vh - var(--editor-toolbar-height) - 96px);
+  max-height: calc(100vh - var(--editor-toolbar-height) - var(--editor-footer-height) - 96px);
   overflow-y: auto;
   background: #fcfaf6;
 }
@@ -3641,8 +3688,8 @@ button {
 
 .editor-toast {
   position: fixed;
-  left: 64px;
-  bottom: 18px;
+  left: 20px;
+  bottom: calc(var(--editor-footer-height) + 14px);
   z-index: 50;
   max-width: min(420px, calc(100vw - 380px));
   padding: 8px 12px;
@@ -3661,17 +3708,50 @@ button {
 
 .editor-body {
   position: fixed;
-  inset: var(--editor-toolbar-height) 0 0 0;
+  inset: var(--editor-toolbar-height) 0 var(--editor-footer-height) 0;
   display: flex;
   min-height: 0;
   background: var(--background);
+}
+
+/* The same row as on the start page, pinned under the workspace so it stays in
+   view while modelling. The workspace above ends where this band begins - the
+   two are laid out against the same variable, so the 3D view never hides
+   behind it. */
+.dashboard-legal.editor-legal {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  align-items: center;
+  height: var(--editor-footer-height);
+  margin-top: 0;
+  padding: 0 18px;
+  border-top: 1px solid var(--border);
+  background: var(--subbar);
+  font-size: 12px;
+}
+
+/* A band this shallow has no room for a second line, so the parts stay on one
+   row and the long link gives way first. */
+.dashboard-legal.editor-legal,
+.dashboard-legal.editor-legal .dashboard-legal-group {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.dashboard-legal.editor-legal .dashboard-legal-group a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workplane-stage {
   position: relative;
   flex: 1;
   min-width: 0;
-  height: calc(100vh - var(--editor-toolbar-height));
+  height: calc(100vh - var(--editor-toolbar-height) - var(--editor-footer-height));
   overflow: hidden;
   background: var(--background);
 }
@@ -3680,7 +3760,7 @@ button {
   position: relative;
   flex: 1;
   min-width: 0;
-  height: calc(100vh - var(--editor-toolbar-height));
+  height: calc(100vh - var(--editor-toolbar-height) - var(--editor-footer-height));
   overflow: hidden;
   background: #fcfbf8;
 }
@@ -4331,7 +4411,9 @@ button {
 .view-cube {
   position: absolute;
   top: 22px;
-  left: 28px;
+  /* Flush with the camera controls below it, so the left edge of the stage
+     reads as one column instead of two slightly different indents. */
+  left: 10px;
   z-index: 4;
   width: 82px;
   height: 82px;
@@ -6636,7 +6718,7 @@ button {
   position: relative;
   z-index: 10;
   width: 276px;
-  height: calc(100vh - var(--editor-toolbar-height));
+  height: calc(100vh - var(--editor-toolbar-height) - var(--editor-footer-height));
   flex: 0 0 276px;
   overflow: hidden;
   background: var(--panel);
@@ -7134,8 +7216,8 @@ button {
 
   .workspace-modal-card {
     width: calc(100vw - 16px);
-    height: calc(100vh - var(--editor-toolbar-height) - 24px);
-    max-height: calc(100vh - var(--editor-toolbar-height) - 24px);
+    height: calc(100vh - var(--editor-toolbar-height) - var(--editor-footer-height) - 24px);
+    max-height: calc(100vh - var(--editor-toolbar-height) - var(--editor-footer-height) - 24px);
   }
 
   .workspace-modal-layout {
@@ -7187,7 +7269,7 @@ button {
   }
 
   .view-cube {
-    left: 18px;
+    left: 6px;
     transform: scale(0.82);
     transform-origin: top left;
   }
@@ -7382,6 +7464,26 @@ html[data-theme="dark"] .dashboard-legal {
 
 html[data-theme="dark"] .dashboard-legal a {
   color: #a89179;
+}
+
+html[data-theme="dark"] .dashboard-legal-version {
+  color: #8d7660;
+}
+
+html[data-theme="dark"] .dashboard-legal-dot {
+  color: #6f5c48;
+}
+
+html[data-theme="dark"] .dashboard-legal a.dashboard-legal-sponsor {
+  border-color: #6b5326;
+  background: #3a2c16;
+  color: #f3a452;
+}
+
+html[data-theme="dark"] .dashboard-legal a.dashboard-legal-sponsor:hover {
+  border-color: #f3a452;
+  background: #4a3820;
+  color: #f7b978;
 }
 
 html[data-theme="dark"] .dashboard-section-header span,
