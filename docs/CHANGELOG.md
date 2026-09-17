@@ -1,11 +1,28 @@
 # Changelog
 
-## Unreleased
+layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
+Everything from 1.0.9 downwards is SketchForge's history, kept here because the
+code still carries it - so a lower number further down is older, not newer.
 
+## 1.0.1
+
+- Added a welcome panel that greets a first visit in place of the empty project list, with a short guide aimed at people arriving from Tinkercad. Once projects exist it folds into a single line under the list.
+- Put the footer under the workspace as well, so the version, the legal pages and the way to the source stay in view while modelling.
+- Added the version of the running build and a link to the release notes to that footer, plus an optional sponsor button configured through `NEXT_PUBLIC_SPONSOR_URL`.
+- Fixed the wordmark clipping the descender of its g: the line box was shorter than the glyphs, and the rule that gives the name its ellipsis on narrow windows cut off everything below.
+- Subtracted the new footer from every height inside the editor that was measured against the toolbar alone; the workspace and the sketch surface had been reaching past their container.
+
+## 1.0.0
+
+First release of the fork, based on SketchForge 1.0.9 and under the same licence.
+
+- Translated the whole interface into German alongside English - not only the menus, but notices, dialogues and the names new projects are given.
 - Renamed the project format to `.lyl` with the schema identifier `com.layerling.project`. Files written as `.skf` still open, whatever their format version, and are saved back as `.lyl`.
 - Fixed the multi-second freeze that followed a simple transform in large projects: autosave no longer writes a full copy of every object's display edges into every undo state.
-- Raised the `.skf` format to version 2, which stores display edges as deduplicated assets. Version 1 and the version 0 prototype are still opened; a reader that only knows version 1 refuses a version 2 package.
+- Raised the project format to version 2, which stores display edges as deduplicated assets. Version 1 and the version 0 prototype are still opened; a reader that only knows version 1 refuses a version 2 package.
 - Encoded and hashed mesh, display-edge, and imported-source data is now reused across saves instead of being rebuilt for every autosave, and restored undo states share one display-edge list per object.
+- Reworked the ribbon: groups tell themselves apart by colour, the icons fit at every window width, and a Help group offers a keyboard-shortcut overview and a short guide to the editor.
+- Added arrow-key nudging by the snap grid's own step, framing the camera on the selection, centring a selection on the active workplane, a label on the workplane's front edge, and dimension labels that stay clear of the rotation handle.
 
 ## 1.0.9
 
