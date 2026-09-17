@@ -76,7 +76,7 @@ SketchForge remains an excellent project and the reason this one exists.
 
 The shortest way is the hosted version. Nothing to install, nothing to sign up for - open it and build:
 
-**http://layerling.henmedia.de/**
+**http://layerling.com/**
 
 The rest of this page is about running your own copy: on your computer, or on a machine in the workshop that everyone opens in their browser. [Working on layerling](#working-on-layerling) is the way there.
 
