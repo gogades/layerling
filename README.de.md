@@ -76,7 +76,7 @@ SketchForge bleibt ein hervorragendes Projekt und der Grund, warum es dieses hie
 
 Am schnellsten geht es mit der gehosteten Fassung. Nichts zu installieren, nichts anzumelden – öffnen und bauen:
 
-**http://layerling.henmedia.de/**
+**http://layerling.com/**
 
 Der Rest dieser Seite handelt davon, eine eigene Instanz zu betreiben: auf deinem Rechner oder auf einem Rechner in der
 Werkstatt, den alle im Browser öffnen. Der Weg dorthin steht unter [An layerling arbeiten](#an-layerling-arbeiten).
