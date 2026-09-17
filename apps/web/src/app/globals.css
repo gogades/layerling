@@ -870,16 +870,22 @@ button {
 .dashboard-brand-text {
   display: grid;
   min-width: 0;
-  gap: 1px;
+  /* The name below carries its own breathing room in its line height, so the
+     two lines need no extra gap on top of it. */
+  gap: 0;
 }
 
 .dashboard-brand-name {
+  /* `overflow: hidden` is what makes the ellipsis work when the window gets
+     narrow - but it also clips whatever sticks out of the line box. At 1.12 the
+     box was shorter than the glyphs, and the descender of the g was cut off.
+     1.4 leaves the letters room; the name is a wordmark, not running text. */
   overflow: hidden;
   color: #231a11;
   font-size: 23px;
   font-weight: 800;
   letter-spacing: -0.035em;
-  line-height: 1.12;
+  line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1481,6 +1487,141 @@ button {
 .project-empty strong {
   color: #573f26;
   font-size: 18px;
+}
+
+/* Shown only on a genuine first visit. The steps are numbered because they are
+   a sequence - each one needs the one before it - and the numbers sit in their
+   own column so the text lines up whatever the wording. */
+.dashboard-welcome {
+  margin-top: 18px;
+  padding: 0;
+  background: #ffffff;
+  border: 1px solid #ede4d4;
+  border-radius: 10px;
+}
+
+/* The fold handle. It carries the heading, so a reader who never opens it still
+   learns what is inside; the arrow is drawn here rather than left to the
+   browser's own marker, which differs from engine to engine. */
+.dashboard-welcome-summary {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 2px 12px;
+  padding: 16px 22px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.dashboard-welcome-summary::-webkit-details-marker {
+  display: none;
+}
+
+.dashboard-welcome-summary::before {
+  grid-row: span 2;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  margin-left: 4px;
+  border-right: 2px solid #ad6206;
+  border-bottom: 2px solid #ad6206;
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+  content: "";
+}
+
+.dashboard-welcome[open] .dashboard-welcome-summary::before {
+  transform: rotate(45deg);
+}
+
+.dashboard-welcome-summary:hover .dashboard-welcome-summary-title {
+  color: #ad6206;
+}
+
+.dashboard-welcome-summary-title {
+  color: #573f26;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-welcome-summary-hint {
+  color: #96816a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dashboard-welcome-body {
+  display: grid;
+  gap: 16px;
+  padding: 4px 22px 24px 52px;
+}
+
+.dashboard-welcome p {
+  max-width: 84ch;
+  margin: 0;
+  color: #7a6650;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.dashboard-welcome ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: welcome-step;
+}
+
+.dashboard-welcome li {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 4px 12px;
+  color: #7a6650;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.dashboard-welcome li::before {
+  counter-increment: welcome-step;
+  content: counter(welcome-step);
+  grid-row: span 2;
+  width: 26px;
+  height: 26px;
+  color: #9a5a06;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 26px;
+  text-align: center;
+  background: #fdf3e2;
+  border: 1px solid #edcfa2;
+  border-radius: 50%;
+}
+
+.dashboard-welcome li strong {
+  color: #573f26;
+  font-size: 15px;
+}
+
+/* The one emphasised thing in the panel, because it is the sentence this
+   project exists for: people arriving from Tinkercad. */
+.dashboard-welcome-switch {
+  padding: 13px 16px;
+  color: #6c5640;
+  background: #fdf4e3;
+  border-left: 3px solid #e8a865;
+  border-radius: 0 7px 7px 0;
+}
+
+.dashboard-welcome-switch strong {
+  color: #9a5a06;
+}
+
+/* ... which leaves the pointer to the in-editor help as a quiet closing line,
+   not a second box competing with it. */
+.dashboard-welcome-help {
+  color: #8a745c;
+  font-size: 13px;
 }
 
 .preview-grid {
@@ -7468,6 +7609,41 @@ html[data-theme="dark"] .dashboard-legal a {
 
 html[data-theme="dark"] .dashboard-legal-version {
   color: #8d7660;
+}
+
+html[data-theme="dark"] .dashboard-welcome {
+  background: var(--panel);
+  border-color: #514130;
+}
+
+html[data-theme="dark"] .dashboard-welcome h2,
+html[data-theme="dark"] .dashboard-welcome li strong {
+  color: #f3ede3;
+}
+
+html[data-theme="dark"] .dashboard-welcome p,
+html[data-theme="dark"] .dashboard-welcome li {
+  color: #bda78e;
+}
+
+html[data-theme="dark"] .dashboard-welcome li::before {
+  color: #f3a452;
+  background: #3a2c16;
+  border-color: #6b5326;
+}
+
+html[data-theme="dark"] .dashboard-welcome-switch {
+  color: #cdb99f;
+  background: #332619;
+  border-left-color: #b9762c;
+}
+
+html[data-theme="dark"] .dashboard-welcome-switch strong {
+  color: #f3a452;
+}
+
+html[data-theme="dark"] .dashboard-welcome-help {
+  color: #a08a71;
 }
 
 html[data-theme="dark"] .dashboard-legal-dot {

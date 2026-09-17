@@ -1240,6 +1240,7 @@ export default function Home() {
           dashboardNotice={dashboardNotice}
           downloadFolder={downloadFolder}
           downloadMode={downloadMode}
+          hasProjects={projects.length > 0}
           projects={visibleProjects}
           query={query}
           settingsOpen={settingsOpen}
@@ -1385,6 +1386,7 @@ function Dashboard({
   dashboardNotice,
   downloadFolder,
   downloadMode,
+  hasProjects,
   projects,
   query,
   settingsOpen,
@@ -1416,6 +1418,7 @@ function Dashboard({
   dashboardNotice: string;
   downloadFolder: string;
   downloadMode: DownloadMode;
+  hasProjects: boolean;
   projects: DashboardProject[];
   query: string;
   settingsOpen: boolean;
@@ -1688,12 +1691,48 @@ function Dashboard({
                     </article>
                   ))}
                 </div>
-              ) : (
+              ) : query.trim().length > 0 ? (
                 <div className="project-empty">
                   <strong>{t("dashboard.emptyTitle")}</strong>
                   <span>{t("dashboard.emptyHint")}</span>
                 </div>
-              )}
+              ) : null}
+              {/* Open on a first visit, when there is nothing else to look at,
+                  and folded away to a single line once projects exist - still
+                  there for anyone who wants to read it again. `open` is keyed
+                  to the unfiltered count, so a fruitless search neither opens
+                  nor closes it behind the reader's back. */}
+              <details className="dashboard-welcome" open={!hasProjects}>
+                <summary className="dashboard-welcome-summary">
+                  <span className="dashboard-welcome-summary-title">{t("welcome.teaserTitle")}</span>
+                  <span className="dashboard-welcome-summary-hint">{t("welcome.teaserHint")}</span>
+                </summary>
+                <div className="dashboard-welcome-body">
+                  <p>{t("welcome.lead")}</p>
+                  <p className="dashboard-welcome-switch">
+                    <strong>{t("welcome.switchTitle")}</strong> {t("welcome.switchBody")}
+                  </p>
+                  <ol>
+                    <li>
+                      <strong>{t("welcome.step1Title")}</strong>
+                      <span>{t("welcome.step1Body")}</span>
+                    </li>
+                    <li>
+                      <strong>{t("welcome.step2Title")}</strong>
+                      <span>{t("welcome.step2Body")}</span>
+                    </li>
+                    <li>
+                      <strong>{t("welcome.step3Title")}</strong>
+                      <span>{t("welcome.step3Body")}</span>
+                    </li>
+                    <li>
+                      <strong>{t("welcome.step4Title")}</strong>
+                      <span>{t("welcome.step4Body")}</span>
+                    </li>
+                  </ol>
+                  <p className="dashboard-welcome-help">{t("welcome.help")}</p>
+                </div>
+              </details>
             </>
           )}
           <AppFooter version={LYL_CREATED_WITH_VERSION} />
