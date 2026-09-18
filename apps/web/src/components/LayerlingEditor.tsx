@@ -35,7 +35,6 @@ import {
   ToolbarCopyIcon,
   ToolbarDuplicateIcon,
   ToolbarDropToWorkplaneIcon,
-  ToolbarExportIcon,
   ToolbarGroupIcon,
   ToolbarGuideIcon,
   ToolbarHideSelectedIcon,
@@ -65,7 +64,6 @@ import {
   cloneWorkplaneShapeTreeWithFreshIds,
   cleanNearZero,
   cleanRotationDegrees,
-  fallbackSolidColor,
   meshYawDegrees,
   mirroredAxisCount,
   mirrorSign,
@@ -111,7 +109,7 @@ import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketc
 import { AppFooter } from "@/components/AppFooter";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { exportLylProject, LYL_CREATED_WITH_VERSION, LYL_MEDIA_TYPE } from "@/lib/lylProject";
-import { makeShapeFromAsset, sceneShape, shapeAssetLabel, shapeAssetMenuLabel, toolbarShapeAssets, type ToolbarShapeAsset } from "@/lib/shapeCatalog";
+import { makeShapeFromAsset, sceneShape, shapeAssetLabel, shapeAssetMenuLabel, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { importExtensionSupported } from "@/lib/importExtensions";
 import { importedShapeFromStl } from "@/lib/stlImport";
 import { exportMeshesToStl } from "@/lib/stlExport";
