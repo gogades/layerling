@@ -61,13 +61,13 @@ const tools = [
   },
   {
     name: "layerling_create_shape",
-    description: "Create a box/cube, cylinder, or simple extruded sketch in Layerling.",
+    description: "Create a box/cube, cylinder, raised text, or simple extruded sketch in Layerling.",
     inputSchema: {
       ...editorTargetSchema,
       required: ["kind"],
       properties: {
         ...editorTargetSchema.properties,
-        kind: { type: "string", enum: ["box", "cube", "cylinder", "sketch"] },
+        kind: { type: "string", enum: ["box", "cube", "cylinder", "text", "sketch"] },
         name: { type: "string" },
         color: { type: "string" },
         x: { type: "number" },
@@ -80,7 +80,11 @@ const tools = [
         rotation: { type: "number" },
         rotationX: { type: "number" },
         rotationZ: { type: "number" },
-        sides: { type: "number" },
+        sides: { type: "number", description: "Cylinder only. Left out, the side count follows the diameter the way the editor does it." },
+        text: { type: "string", description: "Text only. The lettering itself. Defaults to TEXT." },
+        font: { type: "string", description: "Text only. Defaults to Multilanguage." },
+        bevel: { type: "number", description: "Text only. Rounds the edge of the lettering. Defaults to 0." },
+        segments: { type: "number", description: "Text only. Steps in the bevel. Defaults to 2." },
       },
     },
   },

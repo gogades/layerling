@@ -1,6 +1,6 @@
 ---
 name: layerling-mcp-skill
-description: Control a live local layerling editor through its MCP server. Use when Codex needs to list currently open layerling editor tabs, target a tab by editorNumber/projectName, read the current scene, list or select objects, create boxes/cubes/cylinders/sketch extrusions, update dimensions/position/rotation, align objects, group/ungroup/cut/separate parts, list exact CAD edge ids, apply chamfer/fillet to specific edges, inspect editor errors, or capture viewport images from view-cube angles.
+description: Control a live local layerling editor through its MCP server. Use when Codex needs to list currently open layerling editor tabs, target a tab by editorNumber/projectName, read the current scene, list or select objects, create boxes/cubes/cylinders/raised text/sketch extrusions, update dimensions/position/rotation, align objects, group/ungroup/cut/separate parts, list exact CAD edge ids, apply chamfer/fillet to specific edges, inspect editor errors, or capture viewport images from view-cube angles.
 ---
 
 # layerling MCP
@@ -55,7 +55,7 @@ Useful tools:
 
 - `layerling_select_objects`: select ids in the live editor.
 - `layerling_delete_objects`: delete ids in the live editor, or delete the current selection when ids are omitted.
-- `layerling_create_shape`: create `box`, `cube`, `cylinder`, or `sketch`.
+- `layerling_create_shape`: create `box`, `cube`, `cylinder`, `text`, or `sketch`. A cylinder without `sides` picks its own side count from the diameter, the way the editor does.
 - `layerling_import_mesh`: import STL-style mesh data into the editor.
 - `layerling_update_object`: set exact dimensions, position, color, name, hole state, and `rotation`/`rotationX`/`rotationZ`.
 - `layerling_align_objects`: align two or more ids using the same logic as the editor Alignment button.

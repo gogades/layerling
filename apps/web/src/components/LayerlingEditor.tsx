@@ -8021,8 +8021,11 @@ export function LayerlingEditor({
         const x = mcpNumber(params.x, 0);
         const z = mcpNumber(params.z, 0);
         const elevation = mcpNumber(params.elevation, placementElevation);
-        const color = mcpString(params.color, kind === "cylinder" ? "#d97813" : "#d41721");
-        const name = mcpString(params.name, kind === "cylinder" ? "Cylinder" : kind === "sketch" ? "Sketch extrusion" : rawKind === "cube" ? "Cube" : "Box");
+        // Die Farbe steht schon im Katalog; zwei fest eingetragene Farbwerte
+        // waeren die dritte Stelle, an der eine neue Form vergessen wird.
+        const asset = toolbarShapeAssets.find((entry) => entry.kind === kind);
+        const color = mcpString(params.color, asset?.color ?? "#d41721");
+        const name = mcpString(params.name, kind === "cylinder" ? "Cylinder" : kind === "text" ? "Text" : kind === "sketch" ? "Sketch extrusion" : rawKind === "cube" ? "Cube" : "Box");
         let shape: WorkplaneShape;
         if (kind === "sketch") {
           const profile = defaultMcpSketchProfile(width, depth);
@@ -8053,7 +8056,11 @@ export function LayerlingEditor({
             rotation: mcpNumber(params.rotation, 0),
             rotationX: mcpNumber(params.rotationX, 0),
             rotationZ: mcpNumber(params.rotationZ, 0),
-            sides: kind === "cylinder" ? Math.max(3, Math.floor(mcpNumber(params.sides, 96))) : undefined,
+            // Ohne ausdrueckliche Angabe bleibt die Seitenzahl offen und folgt
+            // der Groesse - sonst legte eine KI andere Zylinder an als die Maus.
+            sides: kind === "cylinder" && typeof params.sides === "number" && Number.isFinite(params.sides)
+              ? Math.max(3, Math.floor(params.sides))
+              : undefined,
             text: kind === "text" ? mcpString(params.text, "TEXT") : undefined,
             font: kind === "text" ? mcpString(params.font, "Multilanguage") : undefined,
             bevel: kind === "text" ? Math.max(0, mcpNumber(params.bevel, 0)) : undefined,
