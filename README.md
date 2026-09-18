@@ -126,21 +126,40 @@ http://127.0.0.1:3000/
 
 Leave the terminal open while you use the app. To stop the development server, press `Ctrl+C` in the terminal.
 
-### Shared Projects on a Network
+### Shared Designs on a Network
 
 If you run layerling with `npm run dev` or `npm run start` on a machine other people open in their browser, it can offer a
-shared folder for `.lyl` projects. Point `LAYERLING_SHARED_PROJECTS_DIR` at a directory before starting:
+shared folder for `.lyl` designs. Point `LAYERLING_SHARED_PROJECTS_DIR` at a directory before starting:
 
 ```bash
 LAYERLING_SHARED_PROJECTS_DIR=/srv/layerling-projects npm run start
 ```
 
-The **Shared** dashboard section then lists what is in there, and **Export → LYL → Save to shared** writes the current
-project into it. Thumbnails land beside the files in `.thumbnails`. Private designs stay untouched in each user's browser.
+The start page then shows a folder named **On the server** beside your browser designs. Open it and you are in that
+folder: **New design** starts one right there, **New folder** makes a subfolder, and a trail under the heading says where
+you are. A `..` tile leads back out. Designs move by dragging them onto a folder, onto that tile or onto a step of the
+trail - or through **Move to ...** in their menu. A design from your browser goes onto the server the same way: drag its
+card onto the server folder.
 
-Opening a shared file gives you a private local working copy. Saving back checks the revision on the server first; if
-someone else changed the file in the meantime, layerling refuses to overwrite it and asks you to reload or save under a
-different name. This is shared file storage, not simultaneous editing.
+A design that lives on the server saves itself back there, five seconds after the last change and when you leave the
+editor. Thumbnails land beside the files in `.thumbnails`. Designs that are only in your browser stay there, untouched.
+
+Opening a design from the server gives you a private local working copy. Saving back checks the revision on the server
+first; if someone else changed the file in the meantime, layerling refuses to overwrite it and asks you to reload or save
+under a different name. This is shared file storage, not simultaneous editing.
+
+#### Without Node: the `store` folder
+
+An installation served as a static export - plain files on a web server - cannot write anything by itself. For that case
+`store.php` travels with the export. Create a folder named `store` next to `index.html` that the web server may write to,
+and layerling offers the same shared storage as above, folders and all. Without the folder the feature stays invisible, and the short guide
+in the editor explains how to switch it on. The web server needs PHP.
+
+The folder has **no login**: whoever can reach the page can read, write and delete what is in it. On a home network or in
+a workshop that is the point; on a publicly reachable site, protect it or leave it out.
+
+One thing to remember when deploying: if you mirror the export with an option that removes anything extra - `rsync
+--delete`, `robocopy /MIR`, WinSCP `-delete` - exclude `store` explicitly, or every update will wipe the projects.
 
 ### Useful Developer Commands
 

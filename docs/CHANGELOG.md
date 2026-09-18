@@ -4,6 +4,14 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.1.0
+
+- Designs can now be kept on the server instead of only in the browser, and everyone who opens the page sees them. Where layerling runs on Node, `LAYERLING_SHARED_PROJECTS_DIR` points at the folder; where it is served as a static export, `store.php` travels with it and a folder named `store` beside `index.html` switches it on. Without either, nothing changes.
+- Designs on the server can be organised in subfolders, moved between them by dragging or through **Move to ...** in their menu, and dragged over from the browser. A design started inside a folder is created there, and every change saves itself back - five seconds after the last one and when the editor is left.
+- Neither route has a login: whoever reaches the page can read, write and delete what is in the folder. It refuses anything that is not a `.lyl` package and any path that would lead out of the folder, and it will not overwrite a file that changed in the meantime.
+- Dropped the settings window. The save path it offered only ever worked where layerling runs on Node on the same machine, and version, licence and source were in the footer anyway. The language moved to the top right corner as two small flags, where a website's language picker is looked for - and where the editor can show it too, so the language can be changed without leaving a design.
+- Settled on one word for the thing you build: **Entwurf** throughout the German interface, **design** throughout the English. "Project" now only means layerling itself.
+
 ## 1.0.1
 
 - Added a welcome panel that greets a first visit in place of the empty project list, with a short guide aimed at people arriving from Tinkercad. Once projects exist it folds into a single line under the list.

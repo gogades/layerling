@@ -55,8 +55,8 @@ describe("message catalogues", () => {
 
 describe("translation", () => {
   it("fills placeholders", () => {
-    expect(translate("en", "dashboard.projectsVisible", { count: 3 })).toBe("3 visible");
-    expect(translate("de", "dashboard.projectsVisible", { count: 3 })).toBe("3 sichtbar");
+    expect(translate("en", "dashboard.projectsVisibleMany", { count: 3 })).toBe("3 in this browser");
+    expect(translate("de", "dashboard.projectsVisibleMany", { count: 3 })).toBe("3 in diesem Browser");
   });
 
   it("leaves an unknown placeholder untouched instead of printing undefined", () => {

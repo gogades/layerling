@@ -13,43 +13,57 @@ import { useLanguage } from "@/lib/useLanguage";
  */
 type GuideSection = { title: MessageKey; lines: MessageKey[] };
 
-const GUIDE_SECTIONS: GuideSection[] = [
-  {
-    title: "guide.group.view",
-    lines: ["guide.view.orbit", "guide.view.cube", "guide.view.projection"],
-  },
-  {
-    title: "guide.group.shapes",
-    lines: ["guide.shapes.add", "guide.shapes.inspector", "guide.shapes.handles"],
-  },
-  {
-    title: "guide.group.select",
-    lines: ["guide.select.click", "guide.select.group", "guide.select.align"],
-  },
-  {
-    title: "guide.group.solid",
-    lines: ["guide.solid.modes", "guide.solid.group", "guide.solid.intersect"],
-  },
-  {
-    title: "guide.group.edges",
-    lines: ["guide.edges.pick", "guide.edges.apply", "guide.edges.undo"],
-  },
-  {
-    title: "guide.group.sketch",
-    lines: ["guide.sketch.start", "guide.sketch.draw", "guide.sketch.image"],
-  },
-  {
-    title: "guide.group.files",
-    lines: ["guide.files.autosave", "guide.files.project", "guide.files.export", "guide.files.import"],
-  },
-  {
-    title: "guide.group.settings",
-    lines: ["guide.settings.workspace", "guide.settings.language"],
-  },
-];
+/**
+ * The last line of the file section depends on the installation: where a shared
+ * folder exists it says how to use it, and where none does it says how to make
+ * one. Nobody is told about a button that is not there.
+ */
+function guideSections(sharedStore: boolean): GuideSection[] {
+  return [
+    {
+      title: "guide.group.view",
+      lines: ["guide.view.orbit", "guide.view.cube", "guide.view.projection"],
+    },
+    {
+      title: "guide.group.shapes",
+      lines: ["guide.shapes.add", "guide.shapes.inspector", "guide.shapes.handles"],
+    },
+    {
+      title: "guide.group.select",
+      lines: ["guide.select.click", "guide.select.group", "guide.select.align"],
+    },
+    {
+      title: "guide.group.solid",
+      lines: ["guide.solid.modes", "guide.solid.group", "guide.solid.intersect"],
+    },
+    {
+      title: "guide.group.edges",
+      lines: ["guide.edges.pick", "guide.edges.apply", "guide.edges.undo"],
+    },
+    {
+      title: "guide.group.sketch",
+      lines: ["guide.sketch.start", "guide.sketch.draw", "guide.sketch.image"],
+    },
+    {
+      title: "guide.group.files",
+      lines: [
+        "guide.files.autosave",
+        "guide.files.project",
+        "guide.files.export",
+        "guide.files.import",
+        sharedStore ? "guide.files.storeOn" : "guide.files.storeOff",
+      ],
+    },
+    {
+      title: "guide.group.settings",
+      lines: ["guide.settings.workspace", "guide.settings.language"],
+    },
+  ];
+}
 
-export function GuideModal({ onClose }: { onClose: () => void }) {
+export function GuideModal({ onClose, sharedStore = false }: { onClose: () => void; sharedStore?: boolean }) {
   useLanguage();
+  const sections = guideSections(sharedStore);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -83,7 +97,7 @@ export function GuideModal({ onClose }: { onClose: () => void }) {
           <div className="workspace-modal-body shortcuts-modal-body">
             <p className="shortcuts-intro">{t("guide.intro")}</p>
             <div className="shortcuts-groups">
-              {GUIDE_SECTIONS.map((section) => (
+              {sections.map((section) => (
                 <section className="shortcuts-group guide-section" key={section.title}>
                   <h3>{t(section.title)}</h3>
                   <ul>

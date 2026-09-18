@@ -1,12 +1,15 @@
 "use client";
 
-import { Clock3, EllipsisVertical, FileUp, FolderKanban, Grid3X3, List, Pencil, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppFooter, LEGAL_LINKS, SOURCE_CODE_URL } from "@/components/AppFooter";
+import { Clock3, EllipsisVertical, FileUp, FolderInput, FolderKanban, FolderPlus, FolderUp, Grid3X3, List, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { AppFooter } from "@/components/AppFooter";
+import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { sharedProjectSaveTarget } from "@/lib/sharedProjectTarget";
+import { storeFolderNameProblem, suggestStoreFolderName } from "@/lib/storeFolderName";
 import { LayerlingEditor, importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg } from "@/components/LayerlingEditor";
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
-import { detectLanguage, LANGUAGES, LANGUAGE_NAMES, setLanguage, t, type Language } from "@/lib/i18n";
+import { detectLanguage, setLanguage, t, type Language } from "@/lib/i18n";
 import { migrateLegacyProjectShapes, migrateLegacyStorageKeys, PROJECT_SHAPES_DB_NAME } from "@/lib/storageMigration";
 import { useLanguage } from "@/lib/useLanguage";
 import { createLocalId } from "@/lib/localIds";
@@ -26,7 +29,6 @@ import type { GridSize, ProjectAsset, WorkplaneShape, WorkplaneWorkspaceSettings
 type AppView = "dashboard" | "editor";
 type ViewMode = "grid" | "list";
 type DashboardSection = "home" | "shared";
-type DownloadMode = "browser" | "folder";
 
 type DashboardProject = {
   id: string;
@@ -43,17 +45,41 @@ type DashboardProject = {
   placementElevation?: number;
   placementWorkplane?: PlacementWorkplane;
   sketchPlacementWorkplane?: PlacementWorkplane;
-  sharedProject?: { fileName: string; revision: string };
+  sharedProject?: { fileName: string; revision: string; path?: string };
 };
 
 type SharedProject = {
   fileName: string;
+  /** Folder inside the store, "" at the top. Projects saved before folders existed have none. */
+  path?: string;
   name: string;
   updatedAt: number;
   size: number;
   revision: string;
   thumbnailUrl?: string;
 };
+
+/** Counts come with the listing, so a confirmation can say what is at stake. */
+type SharedFolder = { name: string; projects?: number; folders?: number };
+
+/** The query both endpoints expect: the file, and the folder when there is one. */
+function storeQuery(path: string, fileName?: string) {
+  const query = new URLSearchParams();
+  if (fileName) query.set("fileName", fileName);
+  if (path) query.set("path", path);
+  return query.toString();
+}
+
+/** Joins a folder path with a name, without leaving a stray slash at the front. */
+function joinStorePath(path: string, name: string) {
+  return path ? `${path}/${name}` : name;
+}
+
+/** The folder one level up, or "" when already at the top. */
+function parentStorePath(path: string) {
+  const cut = path.lastIndexOf("/");
+  return cut === -1 ? "" : path.slice(0, cut);
+}
 
 type StoredDashboardProject = Partial<DashboardProject> & {
   designShapes?: unknown;
@@ -111,11 +137,14 @@ type ProjectShapeResourceRecord =
 const PROJECTS_STORAGE_KEY = "layerling.projects";
 const PROJECT_SHAPES_STORE_NAME = "projectShapes";
 const PROJECT_SHAPE_RESOURCES_STORE_NAME = "projectShapeResources";
-const DOWNLOAD_MODE_STORAGE_KEY = "layerling.downloadMode";
-const DOWNLOAD_FOLDER_STORAGE_KEY = "layerling.downloadFolder";
 const PROJECT_NAME_TOOLBAR_STORAGE_KEY = "layerling.showProjectNameInToolbar";
 const PROJECT_ACCENTS: DashboardProject["accent"][] = ["cyan", "green", "gold", "red"];
 const STATIC_EXPORT_BUILD = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
+// Two ways to the same shared folder. The Node build answers on its own route;
+// an installation served as plain files has no route, so it asks store.php,
+// which speaks the same JSON. The path stays relative because the app may be
+// served from a sub-directory.
+const SHARED_PROJECTS_ENDPOINT = STATIC_EXPORT_BUILD ? "store.php" : "/api/shared-projects";
 const EDITOR_SKELETON_MIN_DURATION_MS = 320;
 const knownProjectResourceKeys = new Map<string, Set<string>>();
 
@@ -310,6 +339,60 @@ async function loadProjectShapes(projectId: string) {
   };
 }
 
+/** The .lyl bytes of a project: the stored package, or a freshly packed one. */
+async function projectPackageBytes(project: DashboardProject) {
+  const stored = await loadProjectPackage(project.id);
+  if (stored) return stored;
+  const context = projectShapeSaveContext(project);
+  return exportLylProject({
+    projectId: project.id,
+    projectName: context.projectName,
+    createdAt: context.createdAt,
+    modifiedAt: project.updatedAt,
+    shapes: [],
+    history: [],
+    historyIndex: 0,
+    assets: [],
+    workspace: context.workspace,
+    snapGrid: context.snapGrid,
+    placementElevation: context.placementElevation,
+    placementWorkplane: context.placementWorkplane,
+    sketchPlacementWorkplane: context.sketchPlacementWorkplane,
+    compressionLevel: 1,
+  });
+}
+
+/** The card picture as a PNG the server will take, or nothing. */
+async function projectThumbnailBlob(thumbnailUrl: string | null | undefined): Promise<Blob | null> {
+  if (!thumbnailUrl) return null;
+  try {
+    const blob = await (await fetch(thumbnailUrl)).blob();
+    if (blob.type !== "image/png" || blob.size === 0 || blob.size > 5 * 1024 * 1024) return null;
+    return blob;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The finished .lyl package of a project, straight out of the browser's own
+ * storage. The editor writes it there on every change, so nothing has to be
+ * exported again just to hand the project to the server.
+ */
+async function loadProjectPackage(projectId: string): Promise<Uint8Array | null> {
+  const database = await openProjectShapesDb();
+  const record = await new Promise<ProjectShapeRecord | null>((resolve, reject) => {
+    const transaction = database.transaction(PROJECT_SHAPES_STORE_NAME, "readonly");
+    const request = transaction.objectStore(PROJECT_SHAPES_STORE_NAME).get(projectId);
+    request.onerror = () => reject(request.error ?? new Error("Could not load project shapes"));
+    request.onsuccess = () => resolve((request.result as ProjectShapeRecord | undefined) ?? null);
+    transaction.onerror = () => reject(transaction.error ?? new Error("Could not load project shapes"));
+  });
+  database.close();
+  const stored = record?.lylPackage ?? record?.skfPackage ?? null;
+  return stored ? new Uint8Array(stored) : null;
+}
+
 async function saveProjectShapes(projectId: string, entry: ProjectShapeCacheEntry, context: ProjectShapeSaveContext) {
   const lylPackage = await exportLylProject({
     projectId,
@@ -426,7 +509,11 @@ function readStoredProjects() {
           placementWorkplane: normalizePlacementWorkplane(project.placementWorkplane, project.placementElevation),
           sketchPlacementWorkplane: normalizePlacementWorkplane(project.sketchPlacementWorkplane),
           sharedProject: typeof project.sharedProject?.fileName === "string" && typeof project.sharedProject.revision === "string"
-            ? { fileName: project.sharedProject.fileName, revision: project.sharedProject.revision }
+            ? {
+              fileName: project.sharedProject.fileName,
+              revision: project.sharedProject.revision,
+              path: typeof project.sharedProject.path === "string" ? project.sharedProject.path : "",
+            }
             : undefined,
         };
       });
@@ -525,18 +612,18 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortMode, setSortMode] = useState("recent");
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [themePreference, setThemePreference] = useState<AppThemePreference>("system");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedAppTheme>("light");
-  const [downloadMode, setDownloadMode] = useState<DownloadMode>("browser");
-  const [downloadFolder, setDownloadFolder] = useState("");
   const [showProjectNameInToolbar, setShowProjectNameInToolbar] = useState(true);
   const [dashboardNotice, setDashboardNotice] = useState("");
   const [sharedProjects, setSharedProjects] = useState<SharedProject[]>([]);
+  const [sharedFolders, setSharedFolders] = useState<SharedFolder[]>([]);
+  const [sharedPath, setSharedPath] = useState("");
   const [sharedProjectsEnabled, setSharedProjectsEnabled] = useState(false);
   const [sharedProjectsLoading, setSharedProjectsLoading] = useState(false);
   const [projectShapesById, setProjectShapesById] = useState<Record<string, ProjectShapeCacheEntry>>({});
   const projectsJsonRef = useRef("");
+  const sharedPathRef = useRef("");
   const dashboardImportInputRef = useRef<HTMLInputElement | null>(null);
   const nextProjectRevisionRef = useRef(0);
   const projectShapeSaveQueuesRef = useRef<Record<string, Promise<void>>>({});
@@ -547,18 +634,25 @@ export default function Home() {
     setEditorLoading(true);
   }, []);
 
-  const refreshSharedProjects = useCallback(async () => {
-    if (STATIC_EXPORT_BUILD) return;
+  const refreshSharedProjects = useCallback(async (path?: string) => {
+    const wanted = path ?? sharedPathRef.current;
     setSharedProjectsLoading(true);
     try {
-      const response = await fetch("/api/shared-projects", { cache: "no-store" });
-      const payload = await response.json() as { enabled?: boolean; projects?: SharedProject[]; error?: string };
+      const query = wanted ? `?path=${encodeURIComponent(wanted)}` : "";
+      const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}${query}`, { cache: "no-store" });
+      const payload = await response.json() as { enabled?: boolean; path?: string; folders?: SharedFolder[]; projects?: SharedProject[]; error?: string };
       setSharedProjectsEnabled(Boolean(payload.enabled));
       setSharedProjects(Array.isArray(payload.projects) ? payload.projects : []);
+      setSharedFolders(Array.isArray(payload.folders) ? payload.folders : []);
+      // A folder that is gone takes us back to where it was, not to an error.
+      const landed = typeof payload.path === "string" ? payload.path : "";
+      sharedPathRef.current = response.ok ? landed : parentStorePath(wanted);
+      setSharedPath(sharedPathRef.current);
       if (!response.ok && payload.enabled) setDashboardNotice(payload.error ?? t("notice.sharedLoadFailed"));
     } catch {
       setSharedProjectsEnabled(false);
       setSharedProjects([]);
+      setSharedFolders([]);
     } finally {
       setSharedProjectsLoading(false);
     }
@@ -589,8 +683,6 @@ export default function Home() {
         });
       });
     }
-    setDownloadMode(!STATIC_EXPORT_BUILD && window.localStorage.getItem(DOWNLOAD_MODE_STORAGE_KEY) === "folder" ? "folder" : "browser");
-    setDownloadFolder(window.localStorage.getItem(DOWNLOAD_FOLDER_STORAGE_KEY) ?? "");
     setShowProjectNameInToolbar(window.localStorage.getItem(PROJECT_NAME_TOOLBAR_STORAGE_KEY) !== "false");
 
     const params = new URLSearchParams(window.location.search);
@@ -742,16 +834,18 @@ export default function Home() {
 
   useEffect(() => {
     if (!mounted) return;
-    window.localStorage.setItem(DOWNLOAD_MODE_STORAGE_KEY, downloadMode);
-    window.localStorage.setItem(DOWNLOAD_FOLDER_STORAGE_KEY, downloadFolder);
     window.localStorage.setItem(PROJECT_NAME_TOOLBAR_STORAGE_KEY, String(showProjectNameInToolbar));
-  }, [downloadFolder, downloadMode, mounted, showProjectNameInToolbar]);
+  }, [mounted, showProjectNameInToolbar]);
 
   const visibleProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const filtered = normalizedQuery ? projects.filter((project) => project.name.toLowerCase().includes(normalizedQuery)) : projects;
+    // A project that lives on the server belongs in the folder, not twice in
+    // one view. If the server is out of reach the local copy is all there is,
+    // so then it does appear here rather than vanishing with the folder.
+    const byLocation = sharedProjectsEnabled ? projects.filter((project) => !project.sharedProject) : projects;
+    const filtered = normalizedQuery ? byLocation.filter((project) => project.name.toLowerCase().includes(normalizedQuery)) : byLocation;
     return sortMode === "name" ? [...filtered].sort((a, b) => a.name.localeCompare(b.name)) : [...filtered].sort((a, b) => b.updatedAt - a.updatedAt);
-  }, [projects, query, sortMode]);
+  }, [projects, query, sharedProjectsEnabled, sortMode]);
 
   const visibleSharedProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -971,25 +1065,38 @@ export default function Home() {
     try {
       const restored = await importLylProject(await file.arrayBuffer());
       const now = Date.now();
+      // A project on the server has one working copy here, not one per opening.
+      // Without this, every visit to the folder left another namesake behind.
+      const existing = sharedProject
+        ? projects.find((project) => project.sharedProject?.fileName === sharedProject.fileName
+          && (project.sharedProject?.path ?? "") === (sharedProject.path ?? ""))
+        : undefined;
       const project: DashboardProject = {
-        ...newProject(restored.projectName, projects.length, restored.shapes.length),
+        ...(existing ?? newProject(restored.projectName, projects.length, restored.shapes.length)),
         createdAt: restored.createdAt,
         updatedAt: now,
         revision: now,
+        shapes: restored.shapes.length,
         workspace: restored.workspace,
         snapGrid: restored.snapGrid,
         placementElevation: restored.placementElevation,
         placementWorkplane: restored.placementWorkplane,
         sketchPlacementWorkplane: restored.sketchPlacementWorkplane,
-        sharedProject: sharedProject ? { fileName: sharedProject.fileName, revision: sharedProject.revision } : undefined,
+        sharedProject: sharedProject ? { fileName: sharedProject.fileName, revision: sharedProject.revision, path: sharedProject.path ?? "" } : undefined,
       };
       const entry = projectShapeCacheEntry(now, restored.shapes, restored.history, restored.historyIndex, restored.assets);
       await saveProjectShapes(project.id, entry, projectShapeSaveContext(project));
       setProjectShapesById((current) => ({ ...current, [project.id]: entry }));
-      setProjects((current) => [project, ...current]);
-      setDashboardNotice(sharedProject ? `Opened shared project ${sharedProject.name}; edits autosave locally until you save back to shared` : `Opened ${file.name} as a new editable local project`);
+      setProjects((current) => existing
+        ? current.map((entryProject) => (entryProject.id === project.id ? project : entryProject))
+        : [project, ...current]);
+      setDashboardNotice(sharedProject
+        ? t("notice.openedServerProject", { name: sharedProject.name })
+        : t("notice.openedLocalProject", { name: file.name }));
       openEditor(project.id, { allowMissingFromStorage: true });
-      return { ok: true, message: sharedProject ? `Opened shared project ${sharedProject.name}` : `Opened ${file.name} as a new editable local project` };
+      return { ok: true, message: sharedProject
+        ? t("notice.openedServerProject", { name: sharedProject.name })
+        : t("notice.openedLocalProject", { name: file.name }) };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not open layerling project";
       setDashboardNotice(message);
@@ -1000,7 +1107,7 @@ export default function Home() {
   const openSharedProject = useCallback(async (sharedProject: SharedProject) => {
     setDashboardNotice(t("notice.openingShared", { name: sharedProject.name }));
     try {
-      const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(sharedProject.fileName)}`, { cache: "no-store" });
+      const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?${storeQuery(sharedProject.path ?? "", sharedProject.fileName)}`, { cache: "no-store" });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(payload.error ?? "Could not download shared project");
@@ -1016,7 +1123,7 @@ export default function Home() {
   const deleteSharedProject = useCallback(async (sharedProject: SharedProject) => {
     setDashboardNotice(t("notice.deletingShared", { name: sharedProject.name }));
     try {
-      const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(sharedProject.fileName)}`, {
+      const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?${storeQuery(sharedProject.path ?? "", sharedProject.fileName)}`, {
         method: "DELETE",
         headers: { "If-Match": `"${sharedProject.revision}"` },
       });
@@ -1025,6 +1132,14 @@ export default function Home() {
         throw new Error(payload.error ?? "Could not delete shared project");
       }
       setSharedProjects((current) => current.filter((project) => project.fileName !== sharedProject.fileName));
+      // The working copy in this browser outlives the file on the server, so it
+      // is let go of its binding - otherwise it would stay hidden for good.
+      setProjects((current) => current.map((project) => {
+        const binding = project.sharedProject;
+        if (!binding || binding.fileName !== sharedProject.fileName || (binding.path ?? "") !== (sharedProject.path ?? "")) return project;
+        const { sharedProject: _gone, ...rest } = project;
+        return rest;
+      }));
       setDashboardNotice(t("notice.deletedShared", { name: sharedProject.name }));
     } catch (error) {
       setDashboardNotice(error instanceof Error ? error.message : t("notice.deleteSharedFailed"));
@@ -1032,14 +1147,56 @@ export default function Home() {
     }
   }, [refreshSharedProjects]);
 
-  const saveActiveProjectToShared = useCallback(async ({ exportName, bytes, thumbnailDataUrl }: { exportName: string; bytes: Uint8Array; thumbnailDataUrl: string }) => {
+  /** Dropping a project on a folder: the file changes place, nothing else. */
+  const moveSharedProject = useCallback(async (sharedProject: SharedProject, targetPath: string) => {
+    const from = sharedProject.path ?? "";
+    if (targetPath === from) return;
+    setDashboardNotice(t("notice.movingShared", { name: sharedProject.name }));
+    try {
+      const query = new URLSearchParams({ fileName: sharedProject.fileName, moveTo: targetPath });
+      if (from) query.set("path", from);
+      const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?${query.toString()}`, {
+        method: "POST",
+        headers: { "If-Match": `"${sharedProject.revision}"` },
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string; project?: SharedProject; currentRevision?: string };
+      if (!response.ok || !payload.project) {
+        // Both refusals are a 409; only the one about a changed file names the
+        // revision it found, which is what tells the two apart.
+        const nameTaken = response.status === 409 && payload.currentRevision === undefined;
+        throw new Error(nameTaken ? t("notice.moveNameTaken", { name: sharedProject.name }) : payload.error ?? t("notice.moveSharedFailed"));
+      }
+      const moved = payload.project;
+      // A working copy in this browser follows its file, so the next automatic
+      // save still writes where the project now lives.
+      setProjects((current) => current.map((project) => {
+        const binding = project.sharedProject;
+        if (!binding || binding.fileName !== moved.fileName || (binding.path ?? "") !== from) return project;
+        return { ...project, sharedProject: { ...binding, path: moved.path ?? targetPath, revision: moved.revision } };
+      }));
+      await refreshSharedProjects();
+      // "in Server" reads like a folder nobody named that way, so the top of
+      // the store gets a sentence of its own.
+      setDashboardNotice(targetPath
+        ? t("notice.movedShared", { name: moved.name, folder: targetPath.split("/").slice(-1)[0] })
+        : t("notice.movedSharedRoot", { name: moved.name }));
+    } catch (error) {
+      setDashboardNotice(error instanceof Error ? error.message : t("notice.moveSharedFailed"));
+      await refreshSharedProjects();
+    }
+  }, [refreshSharedProjects]);
+
+  const saveActiveProjectToShared = useCallback(async ({ exportName, bytes, thumbnailDataUrl, targetFileName }: { exportName: string; bytes: Uint8Array; thumbnailDataUrl: string; targetFileName?: string }) => {
     const activeProject = projects.find((project) => project.id === activeProjectId);
-    if (!activeProject) throw new Error("Open a local project before saving it to the shared space");
-    const normalizedExportName = exportName.trim() || activeProject.name;
-    const saveBackToSource = Boolean(activeProject.sharedProject && normalizedExportName === activeProject.name);
-    const fileName = saveBackToSource && activeProject.sharedProject
-      ? activeProject.sharedProject.fileName
-      : `${normalizedExportName.replace(/\.(lyl|skf)$/i, "")}.lyl`;
+    if (!activeProject) throw new Error(t("status.sharedNoProject"));
+    const { fileName, saveBackToSource } = sharedProjectSaveTarget({
+      projectName: activeProject.name,
+      exportName,
+      binding: activeProject.sharedProject,
+      targetFileName,
+    });
+    // Back into its own folder, or into the one currently open in the store.
+    const targetPath = saveBackToSource ? (activeProject.sharedProject?.path ?? "") : sharedPathRef.current;
     const headers: Record<string, string> = {};
     if (saveBackToSource && activeProject.sharedProject) headers["If-Match"] = `"${activeProject.sharedProject.revision}"`;
     else headers["If-None-Match"] = "*";
@@ -1050,16 +1207,193 @@ export default function Home() {
     const formData = new FormData();
     formData.append("project", new Blob([body], { type: LYL_MEDIA_TYPE }), fileName);
     formData.append("thumbnail", thumbnail, `${fileName}.png`);
-    const response = await fetch(`/api/shared-projects?fileName=${encodeURIComponent(fileName)}`, { method: "POST", headers, body: formData });
+    const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?${storeQuery(targetPath, fileName)}`, { method: "POST", headers, body: formData });
     const payload = await response.json().catch(() => ({})) as { error?: string; project?: SharedProject };
-    if (!response.ok || !payload.project) throw new Error(payload.error ?? "Could not save the shared project");
+    if (!response.ok || !payload.project) {
+      const failure = new Error(payload.error ?? t("notice.saveSharedFailed"));
+      // 409 and 412 mean somebody else changed the file; retrying would either
+      // overwrite their work or fail again. Everything else may be temporary.
+      (failure as Error & { conflict?: boolean }).conflict = response.status === 409 || response.status === 412;
+      throw failure;
+    }
     const savedProject = payload.project;
     setProjects((current) => current.map((project) => project.id === activeProject.id
-      ? { ...project, sharedProject: { fileName: savedProject.fileName, revision: savedProject.revision } }
+      ? { ...project, sharedProject: { fileName: savedProject.fileName, revision: savedProject.revision, path: savedProject.path ?? targetPath } }
       : project));
     await refreshSharedProjects();
-    return `Saved ${savedProject.name} to the shared project space`;
+    return t("notice.savedToServer", { name: savedProject.name });
   }, [activeProjectId, projects, refreshSharedProjects]);
+
+  /** Puts a project into a folder of the store as a file that is not there yet. */
+  const putProjectOnServer = useCallback(async (project: DashboardProject, targetPath: string) => {
+    const bytes = await projectPackageBytes(project);
+    const { fileName } = sharedProjectSaveTarget({ projectName: project.name, exportName: project.name, binding: undefined });
+    const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const projectBlob = new Blob([body], { type: LYL_MEDIA_TYPE });
+    // The card keeps its picture when it has one. Without a picture the upload
+    // is the bare package, which both endpoints accept.
+    const thumbnail = await projectThumbnailBlob(project.thumbnailUrl);
+    let payload: BodyInit = projectBlob;
+    if (thumbnail) {
+      const formData = new FormData();
+      formData.append("project", projectBlob, fileName);
+      formData.append("thumbnail", thumbnail, `${fileName}.png`);
+      payload = formData;
+    }
+    const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?${storeQuery(targetPath, fileName)}`, {
+      method: "POST",
+      headers: { "If-None-Match": "*" },
+      body: payload,
+    });
+    const answer = await response.json().catch(() => ({})) as { error?: string; project?: SharedProject };
+    if (!response.ok || !answer.project) {
+      throw new Error(response.status === 409 ? t("notice.serverNameTaken", { name: project.name }) : answer.error ?? t("notice.saveSharedFailed"));
+    }
+    return answer.project;
+  }, []);
+
+  /**
+   * A project from this browser, dropped on the server folder. It is a move,
+   * not a copy: once the file is on the server the local card is bound to it
+   * and the project is shown in the folder instead of beside it.
+   */
+  const sendProjectToServer = useCallback(async (projectId: string) => {
+    const project = projects.find((candidate) => candidate.id === projectId);
+    if (!project || project.sharedProject) return;
+    setDashboardNotice(t("notice.sendingToServer", { name: project.name }));
+    try {
+      const saved = await putProjectOnServer(project, sharedPathRef.current);
+      setProjects((current) => current.map((candidate) => candidate.id === projectId
+        ? { ...candidate, sharedProject: { fileName: saved.fileName, revision: saved.revision, path: saved.path ?? sharedPathRef.current } }
+        : candidate));
+      await refreshSharedProjects();
+      setDashboardNotice(t("notice.savedToServer", { name: saved.name }));
+    } catch (error) {
+      setDashboardNotice(error instanceof Error ? error.message : t("notice.saveSharedFailed"));
+    }
+  }, [projects, refreshSharedProjects]);
+
+  /**
+   * A new design started inside a folder of the store. It is put there right
+   * away - an empty file, but a real one - so the editor's automatic save has
+   * somewhere to write from the first change on.
+   */
+  const createProjectInStoreFolder = useCallback(async () => {
+    const targetPath = sharedPathRef.current;
+    // The name has to be free in both places, or the upload would collide with
+    // a file this browser cannot see in its own list.
+    const taken = new Set([
+      ...projects.map((project) => project.name.toLowerCase()),
+      ...sharedProjects.map((project) => project.name.toLowerCase()),
+    ]);
+    let number = projects.length + 1;
+    let name = t("dashboard.untitledDesign", { number });
+    while (taken.has(name.toLowerCase())) {
+      number += 1;
+      name = t("dashboard.untitledDesign", { number });
+    }
+
+    const project = newProject(name, projects.length);
+    const entry = projectShapeCacheEntry(project.revision ?? project.updatedAt, []);
+    setProjectShapesById((current) => ({ ...current, [project.id]: entry }));
+    await saveProjectShapes(project.id, entry, projectShapeSaveContext(project)).catch(() => {
+      setDashboardNotice(t("notice.projectShapesPrepareFailed"));
+    });
+
+    let binding: DashboardProject["sharedProject"];
+    try {
+      const saved = await putProjectOnServer(project, targetPath);
+      binding = { fileName: saved.fileName, revision: saved.revision, path: saved.path ?? targetPath };
+    } catch (error) {
+      // The design still exists, it just stays in this browser for now.
+      setDashboardNotice(error instanceof Error ? error.message : t("notice.saveSharedFailed"));
+    }
+    setProjects((current) => [{ ...project, sharedProject: binding }, ...current]);
+    if (binding) void refreshSharedProjects();
+    openEditor(project.id, { allowMissingFromStorage: true });
+  }, [projects, putProjectOnServer, refreshSharedProjects, sharedProjects]);
+
+  const openStoreFolder = useCallback((path: string) => {
+    void refreshSharedProjects(path);
+  }, [refreshSharedProjects]);
+
+  const createStoreFolder = useCallback(async (name: string) => {
+    if (!name.trim()) return;
+    try {
+      const query = new URLSearchParams({ folder: name.trim() });
+      if (sharedPathRef.current) query.set("path", sharedPathRef.current);
+      const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?${query.toString()}`, { method: "POST" });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? t("notice.folderCreateFailed"));
+      await refreshSharedProjects();
+    } catch (error) {
+      setDashboardNotice(error instanceof Error ? error.message : t("notice.folderCreateFailed"));
+    }
+  }, [refreshSharedProjects]);
+
+  /**
+   * Renaming a folder on the server. Everything inside travels with it, so the
+   * working copies in this browser have to be told where their file went - a
+   * binding that still points at the old folder would save into thin air.
+   */
+  const renameStoreFolder = useCallback(async (folderPath: string, name: string) => {
+    const wanted = name.trim();
+    if (!wanted || !folderPath) return;
+    setDashboardNotice(t("notice.renamingFolder", { name: folderPath.split("/").slice(-1)[0] }));
+    try {
+      const query = new URLSearchParams({ path: folderPath, renameTo: wanted });
+      const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?${query.toString()}`, { method: "POST" });
+      const payload = await response.json().catch(() => ({})) as { error?: string; path?: string };
+      if (!response.ok || typeof payload.path !== "string") throw new Error(payload.error ?? t("notice.folderRenameFailed"));
+      const renamedTo = payload.path;
+      setProjects((current) => current.map((project) => {
+        const binding = project.sharedProject;
+        const where = binding?.path ?? "";
+        if (!binding || (where !== folderPath && !where.startsWith(`${folderPath}/`))) return project;
+        return { ...project, sharedProject: { ...binding, path: renamedTo + where.slice(folderPath.length) } };
+      }));
+      // Standing inside the folder that was renamed means following it.
+      if (sharedPathRef.current === folderPath || sharedPathRef.current.startsWith(`${folderPath}/`)) {
+        await refreshSharedProjects(renamedTo + sharedPathRef.current.slice(folderPath.length));
+      } else {
+        await refreshSharedProjects();
+      }
+      setDashboardNotice(t("notice.renamedFolder", { name: renamedTo.split("/").slice(-1)[0] }));
+    } catch (error) {
+      setDashboardNotice(error instanceof Error ? error.message : t("notice.folderRenameFailed"));
+      await refreshSharedProjects();
+    }
+  }, [refreshSharedProjects]);
+
+  /**
+   * Removing a folder from the server. What was inside is gone from there, so
+   * every working copy that pointed into it becomes an ordinary browser
+   * project again rather than a card nobody can see.
+   */
+  const deleteStoreFolder = useCallback(async (folderPath: string, recursive: boolean) => {
+    if (!folderPath) return;
+    const folderName = folderPath.split("/").slice(-1)[0];
+    setDashboardNotice(t("notice.deletingFolder", { name: folderName }));
+    try {
+      const query = new URLSearchParams({ path: folderPath, deleteFolder: "1" });
+      if (recursive) query.set("recursive", "1");
+      const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?${query.toString()}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({})) as { error?: string; deleted?: boolean };
+      if (!response.ok || !payload.deleted) throw new Error(payload.error ?? t("notice.folderDeleteFailed"));
+      setProjects((current) => current.map((project) => {
+        const binding = project.sharedProject;
+        const where = binding?.path ?? "";
+        if (!binding || (where !== folderPath && !where.startsWith(`${folderPath}/`))) return project;
+        const { sharedProject: _gone, ...rest } = project;
+        return rest;
+      }));
+      await refreshSharedProjects();
+      setDashboardNotice(t("notice.deletedFolder", { name: folderName }));
+    } catch (error) {
+      setDashboardNotice(error instanceof Error ? error.message : t("notice.folderDeleteFailed"));
+      await refreshSharedProjects();
+    }
+  }, [refreshSharedProjects]);
 
   const importFilesFromDashboard = useCallback(
     async (files: File[]) => {
@@ -1161,10 +1495,12 @@ export default function Home() {
   };
 
   const openDashboard = () => {
+    const leavingProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
     if (activeProjectId) {
       setProjects((current) => current.map((project) => (project.id === activeProjectId ? { ...project, updatedAt: Date.now() } : project)));
     }
-    setDashboardSection("home");
+    // Back where you came from: a project opened from the folder returns to it.
+    setDashboardSection(leavingProject?.sharedProject ? "shared" : "home");
     setEditorLoading(false);
     setView("dashboard");
     if (typeof window !== "undefined") {
@@ -1238,28 +1574,29 @@ export default function Home() {
         <Dashboard
           dashboardSection={dashboardSection}
           dashboardNotice={dashboardNotice}
-          downloadFolder={downloadFolder}
-          downloadMode={downloadMode}
           hasProjects={projects.length > 0}
           projects={visibleProjects}
           query={query}
-          settingsOpen={settingsOpen}
+          sharedFolders={sharedFolders}
+          sharedPath={sharedPath}
           sharedProjects={visibleSharedProjects}
+          onCreateInStoreFolder={() => void createProjectInStoreFolder()}
+          onCreateStoreFolder={(name) => void createStoreFolder(name)}
+          onRenameStoreFolder={(folderPath, name) => void renameStoreFolder(folderPath, name)}
+          onDeleteStoreFolder={(folderPath, recursive) => void deleteStoreFolder(folderPath, recursive)}
+          onOpenStoreFolder={openStoreFolder}
+          onMoveSharedProject={(project, targetPath) => void moveSharedProject(project, targetPath)}
+          onSendProjectToServer={(projectId) => void sendProjectToServer(projectId)}
           sharedProjectsEnabled={sharedProjectsEnabled}
           sharedProjectsLoading={sharedProjectsLoading}
-          staticExportBuild={STATIC_EXPORT_BUILD}
           sortMode={sortMode}
           viewMode={viewMode}
-          onCloseSettings={() => setSettingsOpen(false)}
           onCreate={() => createAndOpenProject()}
           onDeleteProject={deleteProject}
           onDeleteSharedProject={(project) => void deleteSharedProject(project)}
-          onDownloadFolderChange={setDownloadFolder}
-          onDownloadModeChange={setDownloadMode}
           onImportFile={() => dashboardImportInputRef.current?.click()}
           onOpenSharedProject={(project) => void openSharedProject(project)}
           onOpenProject={openEditor}
-          onOpenSettings={() => setSettingsOpen(true)}
           onQueryChange={setQuery}
           onRenameProject={renameProject}
           onRefreshSharedProjects={() => void refreshSharedProjects()}
@@ -1287,6 +1624,7 @@ export default function Home() {
             onHome={openDashboard}
             onOpenLylProjectFile={openLylProjectFromFile}
             onSaveSharedProject={saveActiveProjectToShared}
+            serverFileName={activeProject?.sharedProject?.fileName ?? null}
             onProjectShapesChange={updateProjectShapes}
             onProjectSnapshot={updateProjectSnapshot}
             onProjectWorkspaceChange={updateProjectWorkspace}
@@ -1384,28 +1722,29 @@ function EditorLoadingSkeleton() {
 function Dashboard({
   dashboardSection,
   dashboardNotice,
-  downloadFolder,
-  downloadMode,
   hasProjects,
   projects,
   query,
-  settingsOpen,
+  sharedFolders,
+  sharedPath,
   sharedProjects,
+  onCreateInStoreFolder,
+  onCreateStoreFolder,
+  onRenameStoreFolder,
+  onDeleteStoreFolder,
+  onOpenStoreFolder,
+  onMoveSharedProject,
+  onSendProjectToServer,
   sharedProjectsEnabled,
   sharedProjectsLoading,
-  staticExportBuild,
   sortMode,
   viewMode,
-  onCloseSettings,
   onCreate,
   onDeleteProject,
   onDeleteSharedProject,
-  onDownloadFolderChange,
-  onDownloadModeChange,
   onImportFile,
   onOpenSharedProject,
   onOpenProject,
-  onOpenSettings,
   onQueryChange,
   onRenameProject,
   onRefreshSharedProjects,
@@ -1416,31 +1755,32 @@ function Dashboard({
 }: {
   dashboardSection: DashboardSection;
   dashboardNotice: string;
-  downloadFolder: string;
-  downloadMode: DownloadMode;
   hasProjects: boolean;
   projects: DashboardProject[];
   query: string;
-  settingsOpen: boolean;
+  sharedFolders: SharedFolder[];
+  sharedPath: string;
   sharedProjects: SharedProject[];
+  onCreateInStoreFolder: () => void;
+  onCreateStoreFolder: (name: string) => void;
+  onRenameStoreFolder: (folderPath: string, name: string) => void;
+  onDeleteStoreFolder: (folderPath: string, recursive: boolean) => void;
+  onOpenStoreFolder: (path: string) => void;
+  onMoveSharedProject: (project: SharedProject, targetPath: string) => void;
+  onSendProjectToServer: (projectId: string) => void;
   sharedProjectsEnabled: boolean;
   sharedProjectsLoading: boolean;
-  staticExportBuild: boolean;
   sortMode: string;
   viewMode: ViewMode;
-  onCloseSettings: () => void;
   onCreate: () => void;
   onDeleteProject: (projectId: string) => void;
   onDeleteSharedProject: (project: SharedProject) => void;
-  onDownloadFolderChange: (value: string) => void;
-  onDownloadModeChange: (value: DownloadMode) => void;
   onImportFile: () => void;
   onOpenSharedProject: (project: SharedProject) => void;
   onOpenProject: (projectId: string) => void;
-  onOpenSettings: () => void;
   onQueryChange: (value: string) => void;
   onRenameProject: (projectId: string, name: string) => void;
-  onRefreshSharedProjects: () => void;
+  onRefreshSharedProjects: (path?: string) => void;
   onSharedProjects: () => void;
   onSortModeChange: (value: string) => void;
   onViewModeChange: (value: ViewMode) => void;
@@ -1451,8 +1791,21 @@ function Dashboard({
   const [openSharedProjectMenuFileName, setOpenSharedProjectMenuFileName] = useState<string | null>(null);
   const [projectPendingDeleteId, setProjectPendingDeleteId] = useState<string | null>(null);
   const [sharedProjectPendingDeleteFileName, setSharedProjectPendingDeleteFileName] = useState<string | null>(null);
+  // Which project is being dragged, and which drop target it is hovering over.
+  // The target is a store path, and "" is the store's own root - so null, not
+  // the empty string, means "nothing under the pointer".
+  const [draggedSharedFileName, setDraggedSharedFileName] = useState<string | null>(null);
+  const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
+  const [dropFolderPath, setDropFolderPath] = useState<string | null>(null);
   const [projectPendingRenameId, setProjectPendingRenameId] = useState<string | null>(null);
   const [projectNameDraft, setProjectNameDraft] = useState("");
+  // One dialog for both jobs: a new folder and a folder being renamed differ
+  // in their heading and their button, not in what has to be typed.
+  const [folderDialog, setFolderDialog] = useState<{ mode: "create" } | { mode: "rename"; path: string; current: string } | null>(null);
+  const [folderNameDraft, setFolderNameDraft] = useState("");
+  const [openFolderMenuName, setOpenFolderMenuName] = useState<string | null>(null);
+  const [folderPendingDeleteName, setFolderPendingDeleteName] = useState<string | null>(null);
+  const [projectPendingMoveFileName, setProjectPendingMoveFileName] = useState<string | null>(null);
   const projectPendingDelete = projects.find((project) => project.id === projectPendingDeleteId) ?? null;
   const sharedProjectPendingDelete = sharedProjects.find((project) => project.fileName === sharedProjectPendingDeleteFileName) ?? null;
   const projectPendingRename = projects.find((project) => project.id === projectPendingRenameId) ?? null;
@@ -1487,6 +1840,58 @@ function Dashboard({
     setProjectNameDraft(project.name);
   };
 
+  // Folder cards and the steps of the trail are the same kind of target: they
+  // only stand for different folders, so they share one set of handlers.
+  const storeDropTarget = (targetPath: string) => ({
+    onDragOver: (event: DragEvent<HTMLElement>) => {
+      if (!draggedSharedFileName) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      setDropFolderPath(targetPath);
+    },
+    onDragLeave: () => setDropFolderPath((current) => (current === targetPath ? null : current)),
+    onDrop: (event: DragEvent<HTMLElement>) => {
+      event.preventDefault();
+      const dragged = sharedProjects.find((project) => project.fileName === draggedSharedFileName);
+      setDraggedSharedFileName(null);
+      setDropFolderPath(null);
+      if (dragged) onMoveSharedProject(dragged, targetPath);
+    },
+  });
+
+  // A folder keeps its own name while it is being renamed, so that name is not
+  // one of the names that are taken.
+  const folderNames = sharedFolders
+    .map((folder) => folder.name)
+    .filter((name) => !(folderDialog?.mode === "rename" && name === folderDialog.current));
+  const folderProblem = folderDialog ? storeFolderNameProblem(folderNameDraft, folderNames) : null;
+  const folderProblemMessage = folderProblem === "start"
+    ? t("shared.folderNameBadStart")
+    : folderProblem === "chars"
+      ? t("shared.folderNameBadChars")
+      : folderProblem === "taken"
+        ? t("shared.folderNameTaken")
+        : "";
+
+  const projectPendingMove = sharedProjects.find((project) => project.fileName === projectPendingMoveFileName) ?? null;
+  const folderPendingDelete = sharedFolders.find((folder) => folder.name === folderPendingDeleteName) ?? null;
+  const folderPendingDeleteProjects = folderPendingDelete?.projects ?? 0;
+  const folderPendingDeleteFolders = folderPendingDelete?.folders ?? 0;
+
+  const closeFolderDialog = () => {
+    setFolderDialog(null);
+    setFolderNameDraft("");
+  };
+
+  const confirmFolderDialog = () => {
+    if (!folderDialog || folderProblem) return;
+    const name = folderNameDraft.trim();
+    if (folderDialog.mode === "create") onCreateStoreFolder(name);
+    // Confirming an unchanged name is the same as closing the dialog.
+    else if (name !== folderDialog.current) onRenameStoreFolder(folderDialog.path, name);
+    closeFolderDialog();
+  };
+
   const closeProjectRename = () => {
     setProjectPendingRenameId(null);
     setProjectNameDraft("");
@@ -1512,33 +1917,180 @@ function Dashboard({
           <Search size={18} strokeWidth={2.4} />
           <input value={query} onChange={(event) => onQueryChange(event.currentTarget.value)} placeholder={t("dashboard.searchPlaceholder")} aria-label={t("dashboard.searchLabel")} />
         </div>
+        {/* Oben rechts, wo Webseiten ihre Sprachwahl haben. Die dritte Spalte
+            der Kopfzeile war bisher leer. */}
+        <LanguageSwitch />
       </header>
 
       <div className="dashboard-layout">
-        <section className="dashboard-main" aria-label={dashboardSection === "shared" ? "Shared projects" : "Dashboard"}>
+        <section className="dashboard-main" aria-label={dashboardSection === "shared" ? t("shared.title") : t("dashboard.projects")}>
           {dashboardSection === "shared" ? (
             <>
               {dashboardNotice ? <div className="dashboard-import-notice" role="status">{dashboardNotice}</div> : null}
               <div className="dashboard-section-header shared-projects-header">
                 <div>
                   <h1>{t("shared.title")}</h1>
-                  <span>{t("shared.availableFrom", { count: sharedProjects.length })}</span>
+                  {/* The trail is the address: every step back is a step you
+                      can take, and the last one names where you are. */}
+                  <nav className="store-trail" aria-label={t("shared.trailLabel")}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenStoreFolder("")}
+                      disabled={!sharedPath}
+                      className={dropFolderPath === "" ? "drop-target" : undefined}
+                      {...storeDropTarget("")}
+                    >
+                      {t("shared.trailRoot")}
+                    </button>
+                    {sharedPath.split("/").filter(Boolean).map((segment, index, all) => {
+                      const upTo = all.slice(0, index + 1).join("/");
+                      const here = index === all.length - 1;
+                      return (
+                        <Fragment key={upTo}>
+                          <span className="store-trail-separator" aria-hidden="true">/</span>
+                          <button
+                            type="button"
+                            onClick={() => onOpenStoreFolder(upTo)}
+                            disabled={here}
+                            className={dropFolderPath === upTo ? "drop-target" : undefined}
+                            {...storeDropTarget(upTo)}
+                          >
+                            {segment}
+                          </button>
+                        </Fragment>
+                      );
+                    })}
+                  </nav>
                 </div>
-                <button className="shared-projects-refresh" type="button" onClick={onRefreshSharedProjects} disabled={sharedProjectsLoading}>
-                  <RefreshCw size={16} className={sharedProjectsLoading ? "spinning" : undefined} />
-                  <span>{t("shared.refresh")}</span>
-                </button>
+                <div className="shared-projects-actions">
+                  <button className="shared-projects-refresh" type="button" onClick={onCreateInStoreFolder}>
+                    <Plus size={16} strokeWidth={2.6} />
+                    <span>{t("shared.newDesign")}</span>
+                  </button>
+                  <button
+                    className="shared-projects-refresh"
+                    type="button"
+                    onClick={() => {
+                      setFolderNameDraft(suggestStoreFolderName(t("shared.newFolderSuggestion"), sharedFolders.map((folder) => folder.name)));
+                      setFolderDialog({ mode: "create" });
+                    }}
+                  >
+                    <FolderPlus size={16} />
+                    <span>{t("shared.newFolder")}</span>
+                  </button>
+                  <button className="shared-projects-refresh" type="button" onClick={() => onRefreshSharedProjects()} disabled={sharedProjectsLoading}>
+                    <RefreshCw size={16} className={sharedProjectsLoading ? "spinning" : undefined} />
+                    <span>{t("shared.refresh")}</span>
+                  </button>
+                </div>
               </div>
-              {sharedProjects.length > 0 ? (
+              {/* Inside a folder the grid is drawn even when there is nothing in
+                  it, because the way back is one of its tiles. */}
+              {sharedProjects.length > 0 || sharedFolders.length > 0 || sharedPath ? (
                 <div className={viewMode === "grid" ? "project-grid" : "project-list"}>
+                  {/* The way back, where the file managers have always put it:
+                      first in the row, called after the two dots. It takes a
+                      dropped project too, which is how one moves a project up
+                      a level. */}
+                  {sharedPath ? (
+                    <article
+                      className={`project-card server-folder-card store-parent-card${dropFolderPath === parentStorePath(sharedPath) ? " drop-target" : ""}`}
+                      {...storeDropTarget(parentStorePath(sharedPath))}
+                    >
+                      <button className="project-card-open" type="button" onClick={() => onOpenStoreFolder(parentStorePath(sharedPath))}>
+                        <span className="project-preview server-folder-preview">
+                          <FolderUp aria-hidden="true" />
+                        </span>
+                        <span className="project-card-title">..</span>
+                        <span className="project-card-meta">
+                          {parentStorePath(sharedPath)
+                            ? t("shared.parentFolderIn", { name: parentStorePath(sharedPath).split("/").slice(-1)[0] })
+                            : t("shared.parentFolderRoot")}
+                        </span>
+                      </button>
+                    </article>
+                  ) : null}
+                  {sharedFolders.map((folder) => {
+                    const folderPath = joinStorePath(sharedPath, folder.name);
+                    return (
+                    <article
+                      className={`project-card server-folder-card${dropFolderPath === folderPath ? " drop-target" : ""}`}
+                      key={`folder-${folder.name}`}
+                      {...storeDropTarget(folderPath)}
+                    >
+                      <button className="project-card-open" type="button" onClick={() => onOpenStoreFolder(folderPath)}>
+                        <span className="project-preview server-folder-preview">
+                          <FolderKanban aria-hidden="true" />
+                        </span>
+                        <span className="project-card-title">{folder.name}</span>
+                        <span className="project-card-meta">{t("shared.folderMeta")}</span>
+                      </button>
+                      <button
+                        className="project-menu-trigger"
+                        type="button"
+                        aria-label={t("shared.folderOptionsFor", { name: folder.name })}
+                        aria-expanded={openFolderMenuName === folder.name}
+                        title={t("shared.folderOptions")}
+                        onClick={() => {
+                          setOpenProjectMenuId(null);
+                          setOpenSharedProjectMenuFileName(null);
+                          setOpenFolderMenuName((current) => (current === folder.name ? null : folder.name));
+                        }}
+                      >
+                        <EllipsisVertical size={19} strokeWidth={2.5} />
+                      </button>
+                      {openFolderMenuName === folder.name ? (
+                        <div className="project-card-menu" role="menu" aria-label={t("shared.folderMenuFor", { name: folder.name })}>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setOpenFolderMenuName(null);
+                              setFolderNameDraft(folder.name);
+                              setFolderDialog({ mode: "rename", path: folderPath, current: folder.name });
+                            }}
+                          >
+                            <Pencil size={16} />
+                            <span>{t("common.rename")}</span>
+                          </button>
+                          <button
+                            className="delete"
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setOpenFolderMenuName(null);
+                              setFolderPendingDeleteName(folder.name);
+                            }}
+                          >
+                            <Trash2 size={16} />
+                            <span>{t("common.delete")}</span>
+                          </button>
+                        </div>
+                      ) : null}
+                    </article>
+                    );
+                  })}
                   {sharedProjects.map((project, index) => (
-                    <article className="project-card shared-project-card" key={project.fileName}>
+                    <article
+                      className={`project-card shared-project-card${draggedSharedFileName === project.fileName ? " dragging" : ""}`}
+                      key={project.fileName}
+                      draggable
+                      title={t("shared.dragHint")}
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", project.fileName);
+                        setDraggedSharedFileName(project.fileName);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedSharedFileName(null);
+                        setDropFolderPath(null);
+                      }}
+                    >
                       <button className="project-card-open" type="button" onClick={() => onOpenSharedProject(project)}>
                         <ProjectPreview accent={PROJECT_ACCENTS[index % PROJECT_ACCENTS.length]} thumbnailUrl={project.thumbnailUrl} />
                         <span className="project-card-title">{project.name}</span>
                         <span className="project-card-meta">{formatUpdated(project.updatedAt, language)} - {formatFileSize(project.size)}</span>
                       </button>
-                      <span className="shared-project-badge">{t("shared.badge")}</span>
                       <button
                         className="project-menu-trigger"
                         type="button"
@@ -1547,6 +2099,7 @@ function Dashboard({
                         title={t("shared.options")}
                         onClick={() => {
                           setOpenProjectMenuId(null);
+                          setOpenFolderMenuName(null);
                           setOpenSharedProjectMenuFileName((current) => (current === project.fileName ? null : project.fileName));
                         }}
                       >
@@ -1554,6 +2107,17 @@ function Dashboard({
                       </button>
                       {openSharedProjectMenuFileName === project.fileName ? (
                         <div className="project-card-menu" role="menu" aria-label={t("shared.menuFor", { name: project.name })}>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setOpenSharedProjectMenuFileName(null);
+                              setProjectPendingMoveFileName(project.fileName);
+                            }}
+                          >
+                            <FolderInput size={16} />
+                            <span>{t("shared.moveTo")}</span>
+                          </button>
                           <button
                             className="delete"
                             type="button"
@@ -1571,15 +2135,19 @@ function Dashboard({
                     </article>
                   ))}
                 </div>
-              ) : (
+              ) : null}
+              {sharedProjects.length === 0 && sharedFolders.length === 0 ? (
                 <div className="project-empty">
-                  <strong>{sharedProjectsLoading ? "Loading shared projects" : "No shared projects yet"}</strong>
+                  <strong>{sharedProjectsLoading ? t("shared.loadingTitle") : t("shared.emptyTitle")}</strong>
                   <span>{t("shared.emptyHint")}</span>
                 </div>
-              )}
+              ) : null}
             </>
           ) : (
             <>
+              {/* Order follows what someone actually does: start something new,
+                  pick up where they left off, open something that exists, then
+                  the shared folder beside it. Settings close the row. */}
               <div className="dashboard-actions-band">
                 <button className="dashboard-action-tile create" type="button" onClick={onCreate}>
                   <span className="dashboard-action-icon">
@@ -1587,32 +2155,18 @@ function Dashboard({
                   </span>
                   <span>{t("dashboard.createDesign")}</span>
                 </button>
-                <button className="dashboard-action-tile" type="button" onClick={onImportFile}>
-                  <span className="dashboard-action-icon">
-                    <FileUp size={24} strokeWidth={2.4} />
-                  </span>
-                  <span>{t("dashboard.importGeometry")}</span>
-                </button>
                 <button className="dashboard-action-tile" type="button" onClick={onWorkspace}>
                   <span className="dashboard-action-icon">
                     <Clock3 size={24} strokeWidth={2.4} />
                   </span>
                   <span>{t("dashboard.continueWorkplane")}</span>
                 </button>
-                <button className="dashboard-action-tile" type="button" onClick={onOpenSettings}>
+                <button className="dashboard-action-tile" type="button" onClick={onImportFile}>
                   <span className="dashboard-action-icon">
-                    <Settings size={24} strokeWidth={2.4} />
+                    <FileUp size={24} strokeWidth={2.4} />
                   </span>
-                  <span>{t("dashboard.settings")}</span>
+                  <span>{t("dashboard.importGeometry")}</span>
                 </button>
-                {sharedProjectsEnabled ? (
-                  <button className="dashboard-action-tile" type="button" onClick={onSharedProjects}>
-                    <span className="dashboard-action-icon">
-                      <FolderKanban size={24} strokeWidth={2.4} />
-                    </span>
-                    <span>{t("dashboard.sharedProjects")}</span>
-                  </button>
-                ) : null}
               </div>
               {dashboardNotice ? (
                 <div className="dashboard-import-notice" role="status">
@@ -1623,7 +2177,9 @@ function Dashboard({
               <div className="dashboard-section-header">
                 <div>
                   <h1>{t("dashboard.projects")}</h1>
-                  <span>{t("dashboard.projectsVisible", { count: projects.length })}</span>
+                  <span className="dashboard-section-subtitle">{projects.length === 1
+                    ? t("dashboard.projectsVisibleOne")
+                    : t("dashboard.projectsVisibleMany", { count: projects.length })}</span>
                 </div>
                 <div className="dashboard-controls">
                   <label className="dashboard-select">
@@ -1644,10 +2200,57 @@ function Dashboard({
                 </div>
               </div>
 
-              {projects.length > 0 ? (
+              {/* Two places, one row: the folder on the left holds what is on the
+                  server, the cards beside it what this browser holds. Side by
+                  side they cannot be mistaken for one another - and the folder
+                  stays visible even when the browser has nothing in it yet. */}
+              {projects.length > 0 || sharedProjectsEnabled ? (
                 <div className={viewMode === "grid" ? "project-grid" : "project-list"}>
+                  {sharedProjectsEnabled ? (
+                    <article
+                      className={`project-card server-folder-card${dropFolderPath === "server" ? " drop-target" : ""}`}
+                      onDragOver={(event) => {
+                        if (!draggedProjectId) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                        setDropFolderPath("server");
+                      }}
+                      onDragLeave={() => setDropFolderPath((current) => (current === "server" ? null : current))}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const projectId = draggedProjectId;
+                        setDraggedProjectId(null);
+                        setDropFolderPath(null);
+                        if (projectId) onSendProjectToServer(projectId);
+                      }}
+                    >
+                      <button className="project-card-open" type="button" onClick={onSharedProjects}>
+                        <span className="project-preview server-folder-preview">
+                          <FolderKanban size={46} strokeWidth={1.5} aria-hidden="true" />
+                        </span>
+                        <span className="project-card-title">{t("dashboard.sharedProjects")}</span>
+                        <span className="project-card-meta">{sharedProjects.length === 1
+                            ? t("dashboard.serverFolderCountOne")
+                            : t("dashboard.serverFolderCountMany", { count: sharedProjects.length })}</span>
+                      </button>
+                    </article>
+                  ) : null}
                   {projects.map((project) => (
-                    <article className="project-card" key={project.id}>
+                    <article
+                      className={`project-card${draggedProjectId === project.id ? " dragging" : ""}`}
+                      key={project.id}
+                      draggable={sharedProjectsEnabled}
+                      title={sharedProjectsEnabled ? t("dashboard.dragToServerHint") : undefined}
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", project.name);
+                        setDraggedProjectId(project.id);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedProjectId(null);
+                        setDropFolderPath(null);
+                      }}
+                    >
                       <button className="project-card-open" type="button" onClick={() => onOpenProject(project.id)}>
                         <ProjectPreview accent={project.accent} thumbnailUrl={project.thumbnailUrl} />
                         <span className="project-card-title">{project.name}</span>
@@ -1663,6 +2266,7 @@ function Dashboard({
                         title={t("dashboard.projectOptions")}
                         onClick={() => {
                           setOpenSharedProjectMenuFileName(null);
+                          setOpenFolderMenuName(null);
                           setOpenProjectMenuId((current) => (current === project.id ? null : project.id));
                         }}
                       >
@@ -1820,64 +2424,148 @@ function Dashboard({
         </section>
       ) : null}
 
-      {settingsOpen ? (
-        <section className="dashboard-settings-panel" role="dialog" aria-modal="true" aria-label={t("settings.title")}>
-          <header>
-            <strong>{t("settings.title")}</strong>
-            <button type="button" aria-label={t("settings.close")} onClick={onCloseSettings}>
-              <X size={18} />
-            </button>
-          </header>
-          <label className="dashboard-setting-row">
-            <span>{t("common.language")}</span>
-            <select
-              value={language}
-              onChange={(event) => setLanguage(event.currentTarget.value as Language)}
-            >
-              {LANGUAGES.map((option) => (
-                <option key={option} value={option}>{LANGUAGE_NAMES[option]}</option>
-              ))}
-            </select>
-          </label>
-          <label className="dashboard-setting-row">
-            <span>{t("settings.saveMethod")}</span>
-            <select
-              value={downloadMode}
-              onChange={(event) => onDownloadModeChange(!staticExportBuild && event.currentTarget.value === "folder" ? "folder" : "browser")}
-            >
-              <option value="browser">{t("settings.saveBrowser")}</option>
-              {!staticExportBuild ? <option value="folder">{t("settings.saveFolder")}</option> : null}
-            </select>
-          </label>
-          <label className="dashboard-setting-row">
-            <span>{t("settings.folderPath")}</span>
-            <input
-              disabled={staticExportBuild || downloadMode !== "folder"}
-              value={downloadFolder}
-              onChange={(event) => onDownloadFolderChange(event.currentTarget.value)}
-              placeholder="C:\\Users\\username\\Downloads"
-            />
-          </label>
-          <div className="dashboard-version-row">
-            <span>{t("settings.version")}</span>
-            <strong>{LYL_CREATED_WITH_VERSION}</strong>
-          </div>
-          <div className="dashboard-version-row">
-            <span>{t("settings.license")}</span>
-            <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer">AGPLv3</a>
-          </div>
-          <div className="dashboard-version-row">
-            <span>{t("settings.source")}</span>
-            <a href={SOURCE_CODE_URL} target="_blank" rel="noreferrer">{t("settings.viewSource")}</a>
-          </div>
-          {LEGAL_LINKS.map((link) => (
-            <div className="dashboard-version-row" key={link.href}>
-              <span>{link.label}</span>
-              <a href={link.href}>{t("common.open")}</a>
+      {/* What can be reached by dragging, reachable without a mouse: the folder
+          above and the folders in this one. Anything further away is two moves,
+          exactly as it would be with the mouse. */}
+      {projectPendingMove ? (
+        <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="move-project-title">
+          <div className="dashboard-confirm-dialog">
+            <header>
+              <strong id="move-project-title">{t("shared.moveToTitle", { name: projectPendingMove.name })}</strong>
+              <button type="button" aria-label={t("shared.moveToCancel")} onClick={() => setProjectPendingMoveFileName(null)}>
+                <X size={18} />
+              </button>
+            </header>
+            {sharedPath || sharedFolders.length > 0 ? (
+              <div className="store-move-targets">
+                {sharedPath ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMoveSharedProject(projectPendingMove, parentStorePath(sharedPath));
+                      setProjectPendingMoveFileName(null);
+                    }}
+                  >
+                    <FolderUp size={18} />
+                    <span>{parentStorePath(sharedPath)
+                      ? t("shared.parentFolderIn", { name: parentStorePath(sharedPath).split("/").slice(-1)[0] })
+                      : t("shared.parentFolderRoot")}</span>
+                  </button>
+                ) : null}
+                {sharedFolders.map((folder) => (
+                  <button
+                    key={`move-${folder.name}`}
+                    type="button"
+                    onClick={() => {
+                      onMoveSharedProject(projectPendingMove, joinStorePath(sharedPath, folder.name));
+                      setProjectPendingMoveFileName(null);
+                    }}
+                  >
+                    <FolderKanban size={18} />
+                    <span>{folder.name}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p>{t("shared.moveNoTargets")}</p>
+            )}
+            <div className="dashboard-confirm-actions">
+              <button className="dashboard-confirm-cancel" type="button" onClick={() => setProjectPendingMoveFileName(null)}>
+                {t("confirm.cancel")}
+              </button>
             </div>
-          ))}
+          </div>
         </section>
       ) : null}
+
+      {folderPendingDelete ? (
+        <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-folder-title">
+          <div className="dashboard-confirm-dialog">
+            <header>
+              <strong id="delete-folder-title">{t("shared.deleteFolderTitle")}</strong>
+              <button type="button" aria-label={t("shared.deleteFolderCancel")} onClick={() => setFolderPendingDeleteName(null)}>
+                <X size={18} />
+              </button>
+            </header>
+            <p>
+              {t("confirm.deleteFolderBody", { name: folderPendingDelete.name })}
+              {/* What is inside is named before it goes, not afterwards. */}
+              {folderPendingDeleteProjects > 0 ? ` ${folderPendingDeleteProjects === 1
+                ? t("confirm.deleteFolderProjectOne")
+                : t("confirm.deleteFolderProjectMany", { count: folderPendingDeleteProjects })}` : ""}
+              {folderPendingDeleteFolders > 0 ? ` ${t("confirm.deleteFolderSubfolders")}` : ""}
+            </p>
+            <div className="dashboard-confirm-actions">
+              <button className="dashboard-confirm-cancel" type="button" onClick={() => setFolderPendingDeleteName(null)}>
+                {t("confirm.cancel")}
+              </button>
+              <button
+                className="dashboard-confirm-delete"
+                type="button"
+                onClick={() => {
+                  const recursive = folderPendingDeleteProjects > 0 || folderPendingDeleteFolders > 0;
+                  onDeleteStoreFolder(joinStorePath(sharedPath, folderPendingDelete.name), recursive);
+                  setFolderPendingDeleteName(null);
+                }}
+              >
+                {t("confirm.delete")}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* The folder dialog is the rename dialog's twin on purpose: same frame,
+          same pair of buttons. It only adds the line that says why a name will
+          not do, because the server refuses the same names a second later. */}
+      {folderDialog ? (
+        <section className="dashboard-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="new-folder-title">
+          <form
+            className="dashboard-confirm-dialog dashboard-rename-dialog"
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmFolderDialog();
+            }}
+          >
+            <header>
+              <strong id="new-folder-title">{folderDialog.mode === "create" ? t("shared.newFolderTitle") : t("shared.renameFolderTitle")}</strong>
+              <button type="button" aria-label={folderDialog.mode === "create" ? t("shared.newFolderCancel") : t("shared.renameFolderCancel")} onClick={closeFolderDialog}>
+                <X size={18} />
+              </button>
+            </header>
+            <label>
+              <span>{t("shared.folderName")}</span>
+              <input
+                autoFocus
+                maxLength={80}
+                value={folderNameDraft}
+                onChange={(event) => setFolderNameDraft(event.currentTarget.value)}
+                onFocus={(event) => event.currentTarget.select()}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") closeFolderDialog();
+                }}
+                aria-label={t("shared.folderName")}
+                aria-invalid={folderProblem && folderProblem !== "empty" ? true : undefined}
+                aria-describedby={folderProblemMessage ? "new-folder-problem" : undefined}
+              />
+              {/* Inside the label, so it stands right under the field it is
+                  about instead of a dialog's worth of padding below it. */}
+              {folderProblemMessage ? (
+                <span className="dashboard-dialog-problem" id="new-folder-problem" role="status">{folderProblemMessage}</span>
+              ) : null}
+            </label>
+            <div className="dashboard-confirm-actions">
+              <button className="dashboard-confirm-cancel" type="button" onClick={closeFolderDialog}>
+                {t("confirm.cancel")}
+              </button>
+              <button className="dashboard-confirm-save" type="submit" disabled={Boolean(folderProblem)}>
+                {folderDialog.mode === "create" ? t("shared.createFolder") : t("common.save")}
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
+
     </main>
   );
 }

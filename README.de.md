@@ -129,7 +129,7 @@ http://127.0.0.1:3000/
 
 Lass das Terminal offen, solange du die App benutzt. Zum Beenden des Entwicklungsservers `Strg+C` drücken.
 
-### Gemeinsame Projekte im Netz
+### Gemeinsame Entwürfe im Netz
 
 Betreibst du layerling mit `npm run dev` oder `npm run start` auf einem Rechner, den andere im Browser öffnen, kann es
 einen gemeinsamen Ordner für `.lyl`-Projekte anbieten. Setze dazu vor dem Start `LAYERLING_SHARED_PROJECTS_DIR` auf ein
@@ -139,13 +139,32 @@ Verzeichnis:
 LAYERLING_SHARED_PROJECTS_DIR=/srv/layerling-projekte npm run start
 ```
 
-Der Dashboard-Bereich **Shared** listet dann, was dort liegt, und **Export → LYL → Save to shared** schreibt das aktuelle
-Projekt hinein. Vorschaubilder landen daneben in `.thumbnails`. Private Entwürfe bleiben davon unberührt im Browser jedes
-Benutzers.
+Auf der Startseite steht dann neben deinen Browser-Entwürfen der Ordner **Auf dem Server**. Öffnest du ihn, bist du in
+diesem Ordner: **Neuer Entwurf** legt einen darin an, **Neuer Ordner** einen Unterordner, und die Pfadzeile unter der
+Überschrift sagt, wo du bist. Eine `..`-Kachel führt wieder hinaus. Entwürfe wandern per Ziehen auf einen Ordner, auf
+diese Kachel oder auf einen Schritt der Pfadzeile - oder über **Verschieben nach …** in ihrem Menü. Ein Entwurf aus dem
+Browser kommt genauso auf den Server: seine Kachel auf den Serverordner ziehen.
+
+Ein Entwurf, der auf dem Server liegt, sichert sich von selbst dorthin zurück - fünf Sekunden nach der letzten Änderung
+und beim Verlassen des Editors. Vorschaubilder landen daneben in `.thumbnails`. Was nur im Browser liegt, bleibt dort und
+bleibt unberührt.
 
 Wer eine gemeinsame Datei öffnet, erhält eine private lokale Arbeitskopie. Beim Zurückspeichern wird zuerst der Stand auf
 dem Server geprüft; hat jemand anderes die Datei inzwischen geändert, verweigert layerling das Überschreiben und bittet
 darum, neu zu laden oder unter anderem Namen zu speichern. Das ist gemeinsame Dateiablage, kein gleichzeitiges Bearbeiten.
+
+#### Ohne Node: der Ordner `store`
+
+Wird layerling als statischer Export ausgeliefert - also als reine Dateien auf einem Webserver -, kann es von sich aus
+nichts schreiben. Für diesen Fall reist `store.php` mit dem Export. Lege neben `index.html` einen Ordner `store` an, den
+der Webserver beschreiben darf, und layerling bietet dieselbe gemeinsame Ablage an wie oben, samt Ordnern. Fehlt der Ordner, bleibt die
+Funktion unsichtbar, und die Kurzanleitung im Editor sagt, wie man sie einschaltet. Der Webserver muss PHP können.
+
+Der Ordner hat **keine Anmeldung**: Wer die Seite erreicht, kann darin lesen, schreiben und löschen. Im Heimnetz oder in
+der Werkstatt ist genau das der Zweck; auf einer öffentlich erreichbaren Seite schütze ihn oder lege ihn nicht an.
+
+Beim Ausliefern daran denken: Wer den Export mit einer Option spiegelt, die Überzähliges löscht - `rsync --delete`,
+`robocopy /MIR`, WinSCP `-delete` -, muss `store` ausdrücklich ausnehmen. Sonst räumt jedes Update die Projekte weg.
 
 ### Nützliche Befehle für Entwickler
 

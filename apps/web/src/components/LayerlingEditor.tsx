@@ -105,6 +105,7 @@ import { findSketchOutlineIntersection } from "@/lib/sketchProfileValidation";
 import { addLineIntersectionPoints, splitSketchSegment } from "@/lib/sketchPointRefinement";
 import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketchRevolveSettings, type SketchRevolveMesh } from "@/lib/sketchRevolve";
 import { AppFooter } from "@/components/AppFooter";
+import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { exportLylProject, LYL_CREATED_WITH_VERSION, LYL_MEDIA_TYPE } from "@/lib/lylProject";
 import { makeShapeFromAsset, sceneShape, shapeAssetLabel, toolbarShapeAssets, type ToolbarShapeAsset } from "@/lib/shapeCatalog";
 import { importExtensionSupported } from "@/lib/importExtensions";
@@ -182,7 +183,6 @@ type EdgeFeatureRevertOption = {
   removesNewerCount: number;
 };
 type ManifoldSolid = ReturnType<ManifoldToplevel["Manifold"]["cube"]>;
-type DownloadResult = { mode: "browser" } | { mode: "folder"; path: string };
 type GroupBuildResult = {
   group: WorkplaneShape | null;
   booleanSelection: WorkplaneShape[];
@@ -215,8 +215,6 @@ type BooleanAutomationResult = {
   groupId?: string;
   error?: string;
 };
-const DOWNLOAD_MODE_STORAGE_KEY = "layerling.downloadMode";
-const DOWNLOAD_FOLDER_STORAGE_KEY = "layerling.downloadFolder";
 const SHARED_CLIPBOARD_STORAGE_KEY = "layerling.clipboard";
 const SYSTEM_CLIPBOARD_PREFIX = "LAYERLING/1\n";
 const STATIC_EXPORT_BUILD = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
@@ -2634,39 +2632,11 @@ function triggerBrowserDownload(filename: string, content: string, type: string)
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function downloadTextFile(filename: string, content: string, type: string): Promise<DownloadResult> {
-  const mode = window.localStorage.getItem(DOWNLOAD_MODE_STORAGE_KEY);
-  const folder = window.localStorage.getItem(DOWNLOAD_FOLDER_STORAGE_KEY)?.trim() ?? "";
-  if (!STATIC_EXPORT_BUILD && mode === "folder" && folder) {
-    const response = await fetch("/api/local-download", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, filename, folder }),
-    });
-    const payload = (await response.json().catch(() => null)) as { error?: string; path?: string } | null;
-    if (!response.ok || !payload?.path) {
-      throw new Error(payload?.error ?? "Could not save export");
-    }
-    return { mode: "folder", path: payload.path };
-  }
-
+async function downloadTextFile(filename: string, content: string, type: string) {
   triggerBrowserDownload(filename, content, type);
-  return { mode: "browser" };
 }
 
-async function downloadBlobFile(filename: string, blob: Blob): Promise<DownloadResult> {
-  const mode = window.localStorage.getItem(DOWNLOAD_MODE_STORAGE_KEY);
-  const folder = window.localStorage.getItem(DOWNLOAD_FOLDER_STORAGE_KEY)?.trim() ?? "";
-  if (!STATIC_EXPORT_BUILD && mode === "folder" && folder) {
-    const formData = new FormData();
-    formData.set("file", blob, filename);
-    formData.set("filename", filename);
-    formData.set("folder", folder);
-    const response = await fetch("/api/local-download", { method: "POST", body: formData });
-    const payload = (await response.json().catch(() => null)) as { error?: string; path?: string } | null;
-    if (!response.ok || !payload?.path) throw new Error(payload?.error ?? "Could not save export");
-    return { mode: "folder", path: payload.path };
-  }
+async function downloadBlobFile(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -2676,7 +2646,6 @@ async function downloadBlobFile(filename: string, blob: Blob): Promise<DownloadR
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  return { mode: "browser" };
 }
 
 function shapeAabb(shape: WorkplaneShape): Cuboid {
@@ -5395,6 +5364,7 @@ export function LayerlingEditor({
   onHome,
   onOpenLylProjectFile,
   onSaveSharedProject,
+  serverFileName = null,
   onProjectShapesChange,
   onProjectSnapshot,
   onProjectWorkspaceChange,
@@ -5421,7 +5391,9 @@ export function LayerlingEditor({
   initialPlacementWorkplane?: PlacementWorkplane;
   onHome?: () => void;
   onOpenLylProjectFile?: (file: File) => Promise<{ ok: boolean; message: string } | void> | { ok: boolean; message: string } | void;
-  onSaveSharedProject?: (request: { exportName: string; bytes: Uint8Array; thumbnailDataUrl: string }) => Promise<string>;
+  onSaveSharedProject?: (request: { exportName: string; bytes: Uint8Array; thumbnailDataUrl: string; targetFileName?: string }) => Promise<string>;
+  /** Set while the open project came from the server; then it saves back there by itself. */
+  serverFileName?: string | null;
   onProjectShapesChange?: (snapshot: {
     projectId: string;
     shapes: WorkplaneShape[];
@@ -8626,11 +8598,7 @@ export function LayerlingEditor({
     const selectedNotice = exportable.length === 1
       ? t("status.exportedSelectedOne")
       : t("status.exportedSelectedMany", { count: exportable.length });
-    const finishNotice = (label: string, result: DownloadResult) => {
-      if (result.mode === "folder") {
-        setNotice(t("status.savedTo", { label, path: result.path }));
-        return;
-      }
+    const finishNotice = (label: string) => {
       setNotice(hasSelection
         ? t("status.exportedSelectedAs", { selected: selectedNotice, label })
         : t("status.exportedAs", { label }));
@@ -8642,7 +8610,7 @@ export function LayerlingEditor({
       setNotice(t("status.buildingSvg"));
       void toSvg(exportable, exportName.trim() || projectName)
         .then((content) => downloadTextFile(projectExportFileName(exportName, "svg"), content, "image/svg+xml;charset=utf-8"))
-        .then((result) => finishNotice("SVG", result))
+        .then(() => finishNotice("SVG"))
         .catch((error: unknown) => failNotice("SVG", error));
       return;
     }
@@ -8650,12 +8618,12 @@ export function LayerlingEditor({
     if (format === "stl") {
       const blob = new Blob([exportMeshesToStl(meshes)], { type: "model/stl" });
       void downloadBlobFile(projectExportFileName(exportName, "stl"), blob)
-        .then((result) => finishNotice("STL", result))
+        .then(() => finishNotice("STL"))
         .catch((error: unknown) => failNotice("STL", error));
       return;
     }
     void downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(meshes), "text/plain")
-      .then((result) => finishNotice("OBJ", result))
+      .then(() => finishNotice("OBJ"))
       .catch((error: unknown) => failNotice("OBJ", error));
   }, [hasSelection, projectName, selectedShapes, shapes]);
 
@@ -8674,17 +8642,11 @@ export function LayerlingEditor({
       const { exportShapesToStep } = await import("@/lib/stepExport");
       const { blob, exportedCount, skipped } = await exportShapesToStep(sourceShapes);
       const text = await blob.text();
-      const result = await downloadTextFile(projectExportFileName(exportName, "step"), text, "application/step");
+      await downloadTextFile(projectExportFileName(exportName, "step"), text, "application/step");
       const skipNote = skipped.length > 0 ? `; skipped ${skipped.length} non-primitive shape${skipped.length === 1 ? "" : "s"}` : "";
-      if (result.mode === "folder") {
-        setNotice(exportedCount === 1
-          ? t("status.savedStepOne", { path: result.path, skipNote })
-          : t("status.savedStepMany", { count: exportedCount, path: result.path, skipNote }));
-      } else {
-        setNotice(exportedCount === 1
-          ? t("status.exportedStepOne", { skipNote })
-          : t("status.exportedStepMany", { count: exportedCount, skipNote }));
-      }
+      setNotice(exportedCount === 1
+        ? t("status.exportedStepOne", { skipNote })
+        : t("status.exportedStepMany", { count: exportedCount, skipNote }));
     } catch (error: unknown) {
       setNotice(error instanceof Error ? error.message : t("status.exportStepFailed"));
     } finally {
@@ -8732,9 +8694,7 @@ export function LayerlingEditor({
       } else {
         const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
         const result = await downloadBlobFile(projectExportFileName(exportName, "lyl"), new Blob([buffer], { type: LYL_MEDIA_TYPE }));
-        setNotice(result.mode === "folder"
-          ? t("status.savedProjectTo", { path: result.path })
-          : t("status.savedProject"));
+        setNotice(t("status.savedProject"));
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : t("status.saveProjectFailed"));
@@ -8742,6 +8702,98 @@ export function LayerlingEditor({
       setLylExporting(false);
     }
   }, [onSaveSharedProject, placementElevation, placementWorkplane, projectCreatedAt, projectModifiedAt, projectName, lylExporting, snapGrid]);
+
+  /**
+   * A project opened from the server keeps working on the fast local copy, and
+   * the server copy is brought up to date by itself.
+   *
+   * Not on every change: packing a project means zipping and hashing all of it,
+   * which is what made large designs stutter before. It happens once the work
+   * pauses, and again when the editor is left. A drag in progress postpones it
+   * rather than interrupting it, and the history that travels is whatever the
+   * workspace limit has already trimmed the in-memory history to.
+   */
+  const SERVER_SAVE_IDLE_MS = 5000;
+  const serverSaveTimerRef = useRef<number | null>(null);
+  const serverSavePendingRef = useRef(false);
+  const serverSaveRunningRef = useRef(false);
+  const serverSaveStoppedRef = useRef(false);
+  const serverSaveProjectRef = useRef<string | null>(null);
+
+  const saveToServerNow = useCallback(async () => {
+    if (!serverFileName || !onSaveSharedProject) return;
+    if (serverSaveStoppedRef.current || serverSaveRunningRef.current || !serverSavePendingRef.current) return;
+    if (projectInteractionActiveRef.current) return;
+    serverSaveRunningRef.current = true;
+    serverSavePendingRef.current = false;
+    try {
+      const thumbnailDataUrl = await (window.layerlingCaptureCanvasAsync?.() ?? Promise.resolve(""));
+      if (!thumbnailDataUrl.startsWith("data:image/png;base64,") || thumbnailDataUrl.length <= 100) {
+        // No preview to be had yet - keep the change pending for the next round.
+        serverSavePendingRef.current = true;
+        return;
+      }
+      const exportedHistory = editorHistoryForExport(historyRef.current, historyIndexRef.current, "unlimited");
+      const bytes = await exportLylProject({
+        projectId: projectInfoRef.current.projectId,
+        projectName,
+        createdAt: projectCreatedAt,
+        modifiedAt: Date.now(),
+        shapes: shapesRef.current,
+        history: exportedHistory.entries,
+        historyIndex: exportedHistory.index,
+        assets: projectAssetsRef.current,
+        workspace: workspaceSettingsRef.current,
+        snapGrid,
+        placementElevation,
+        placementWorkplane,
+        sketchPlacementWorkplane: placementWorkplane,
+      });
+      await onSaveSharedProject({ exportName: projectName, bytes, thumbnailDataUrl, targetFileName: serverFileName });
+      setNotice(t("status.serverSaved"));
+    } catch (error) {
+      const conflict = Boolean((error as Error & { conflict?: boolean }).conflict);
+      if (conflict) {
+        // Somebody else changed the file. Carrying on would overwrite their work.
+        serverSaveStoppedRef.current = true;
+        setNotice(t("status.serverSaveStopped"));
+      } else {
+        // A hiccup on the way, not a decision: keep the change pending and say
+        // plainly what the server answered instead of falling silent.
+        serverSavePendingRef.current = true;
+        setNotice(error instanceof Error ? error.message : t("status.serverSaveRetry"));
+      }
+    } finally {
+      serverSaveRunningRef.current = false;
+    }
+  }, [onSaveSharedProject, placementElevation, placementWorkplane, projectCreatedAt, projectName, serverFileName, snapGrid]);
+
+  const saveToServerRef = useRef(saveToServerNow);
+  saveToServerRef.current = saveToServerNow;
+
+  useEffect(() => {
+    if (!serverFileName) return;
+    if (serverSaveProjectRef.current !== (projectId ?? null)) {
+      // First pass for this project: it was just loaded, nothing to save yet.
+      serverSaveProjectRef.current = projectId ?? null;
+      serverSaveStoppedRef.current = false;
+      serverSavePendingRef.current = false;
+      return;
+    }
+    serverSavePendingRef.current = true;
+    if (serverSaveTimerRef.current !== null) window.clearTimeout(serverSaveTimerRef.current);
+    serverSaveTimerRef.current = window.setTimeout(() => {
+      serverSaveTimerRef.current = null;
+      void saveToServerRef.current();
+    }, SERVER_SAVE_IDLE_MS);
+  }, [projectId, serverFileName, shapes]);
+
+  // Leaving the editor is the other moment worth saving at. The upload itself
+  // lives in the page above, so it survives this component going away.
+  useEffect(() => () => {
+    if (serverSaveTimerRef.current !== null) window.clearTimeout(serverSaveTimerRef.current);
+    void saveToServerRef.current();
+  }, []);
 
   const clearDesign = useCallback(() => {
     commitShapes([], [], t("status.newDesign"));
@@ -9476,7 +9528,7 @@ export function LayerlingEditor({
       {shortcutsOpen ? (
         <ShortcutsModal sketchMode={toolbarMode === "sketch"} onClose={() => setShortcutsOpen(false)} />
       ) : null}
-      {guideOpen ? <GuideModal onClose={() => setGuideOpen(false)} /> : null}
+      {guideOpen ? <GuideModal sharedStore={sharedProjectsEnabled} onClose={() => setGuideOpen(false)} /> : null}
       <div className="editor-toast" role="status">
         {notice}
       </div>
@@ -10265,6 +10317,7 @@ function SecondaryToolbar({
             </label>
           </div>
         ) : null}
+        <LanguageSwitch />
       </div>
     </div>
   );

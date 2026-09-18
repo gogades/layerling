@@ -991,8 +991,56 @@ button {
   font-weight: 400;
 }
 
-/* The version is a statement, not somewhere to go, so it stays unlinked and a
-   shade quieter than the links it sits beside. */
+/* Die Sprachwahl oben rechts: zwei kleine Fahnen mit Kürzel, die gewählte
+   hervorgehoben. Sie steht in der Kopfzeile der Startseite und in der
+   Titelzeile des Editors, deshalb bringt sie ihre Größe selbst mit. */
+.language-switch {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboard-topbar .language-switch {
+  justify-self: end;
+}
+
+/* Im Editor ans rechte Ende der Titelzeile, mit etwas Luft zum Rand. */
+.toolbar-title-row .language-switch {
+  margin: 0 14px 7px auto;
+  align-self: center;
+}
+
+.language-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  color: #8a7560;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.language-switch button:hover,
+.language-switch button:focus-visible {
+  color: #9a5a06;
+  background: #f5ebdc;
+}
+
+.language-switch button.active {
+  color: #573f26;
+  background: #f0e4d2;
+}
+
+.language-switch svg {
+  width: 15px;
+  height: 11px;
+  border: 1px solid rgba(87, 63, 38, 0.25);
+  border-radius: 2px;
+}
+
 .dashboard-legal-version {
   color: #9a836a;
 }
@@ -1112,7 +1160,11 @@ button {
   line-height: 1.1;
 }
 
-.dashboard-section-header span {
+/* The line under the heading. It used to be written as `.dashboard-section-header
+   span`, which reached every span in the header - the folder in the trail and
+   the labels inside the buttons beside it, all pushed down by those 4px. It is
+   a class now, so it only touches the one line it was written for. */
+.dashboard-section-subtitle {
   display: inline-block;
   margin-top: 4px;
   color: #97836e;
@@ -1227,21 +1279,124 @@ button {
   box-shadow: 0 1px 2px rgba(71, 52, 31, 0.05);
 }
 
-.shared-project-badge {
-  position: absolute;
-  top: 18px;
-  right: 54px;
-  z-index: 2;
-  padding: 4px 7px;
-  color: #9f5508;
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  pointer-events: none;
-  background: rgba(255, 246, 237, 0.94);
-  border: 1px solid #dfac77;
-  border-radius: 999px;
+/* The trail through the store, and the two buttons beside it. The step you are
+   standing on is disabled rather than hidden, so the row does not jump about as
+   you walk in and out of folders. */
+.store-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  /* The steps are buttons, so they carry padding for their hover pill. That
+     padding would push the first one to the right of the heading above it -
+     the negative margin pulls the row back onto the same left edge. */
+  margin: 2px 0 0 -6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.store-trail button {
+  padding: 2px 6px;
+  color: #ad6206;
+  background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.store-trail button:hover:not(:disabled) {
+  background: #fbe8cc;
+}
+
+.store-trail button:disabled {
+  color: #7a6650;
+  cursor: default;
+}
+
+.store-trail .store-trail-separator {
+  color: #c0ac93;
+}
+
+/* The line under a dialog's input that says why a name will not do. It sits
+   in the flow rather than over the field, so nothing jumps when it appears.
+   Two classes, because the label around it sets both colour and weight. */
+.dashboard-rename-dialog .dashboard-dialog-problem {
+  margin: 0;
+  color: #a33a12;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shared-projects-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The folder that stands for the server, sitting among the cards that stand
+   for this browser. Same frame and same size as a project card, so the row
+   reads as one shelf - only the contents of the picture area differ. */
+.server-folder-preview {
+  display: grid;
+  place-items: center;
+  color: #b07a2e;
+  background: #fdf3e2;
+  border: 1px dashed #e8c79a;
+}
+
+/* The icon is sized by the card, not by a fixed pixel value, so it keeps
+   filling the tile at every column width the grid settles on. The nudge is
+   for the eye, not the ruler: the raised tab sits on the left, so a folder
+   centred to the pixel reads as if it had slipped that way. */
+.server-folder-preview svg {
+  width: 58%;
+  height: auto;
+  transform: translateX(2.5%);
+}
+
+/* The way back is a folder card, but a quieter one: dashed like the others,
+   without the nudge the closed folder needs, and its title is two dots. */
+.store-parent-card .server-folder-preview svg {
+  width: 44%;
+  transform: none;
+}
+
+.store-parent-card .project-card-title {
+  letter-spacing: 0.12em;
+}
+
+.server-folder-card .project-card-open:hover .server-folder-preview {
+  color: #9a5a06;
+  background: #fbe8cc;
+  border-color: #ad6206;
+}
+
+/* Dragging a project into a folder. The card being carried fades, and whatever
+   sits under the pointer - a folder card or a step of the trail - lights up in
+   the same amber, so both kinds of target read as one idea. */
+.shared-project-card[draggable="true"] {
+  cursor: grab;
+}
+
+.shared-project-card.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.project-card.drop-target {
+  border-color: #ad6206;
+  box-shadow: 0 0 0 2px rgba(173, 98, 6, 0.28);
+}
+
+.project-card.drop-target .server-folder-preview {
+  color: #9a5a06;
+  background: #fbe8cc;
+  border-color: #ad6206;
+}
+
+.store-trail button.drop-target:not(:disabled) {
+  color: #9a5a06;
+  background: #fbe8cc;
+  box-shadow: inset 0 0 0 1px #ad6206;
 }
 
 .project-list .project-card {
@@ -1406,6 +1561,38 @@ button {
 .dashboard-confirm-dialog p span {
   color: #48331d;
   font-weight: 800;
+}
+
+/* The destinations in the move dialog: one row each, like a menu, so the list
+   grows downwards without the dialog having to guess a width. */
+.store-move-targets {
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  padding: 6px 12px;
+  overflow-y: auto;
+}
+
+.store-move-targets button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  color: #573f26;
+  text-align: left;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.store-move-targets button:hover,
+.store-move-targets button:focus-visible {
+  color: #9a5a06;
+  background: #fbe8cc;
+}
+
+.store-move-targets svg {
+  flex: none;
+  color: #b07a2e;
 }
 
 .dashboard-confirm-actions {
@@ -7611,6 +7798,44 @@ html[data-theme="dark"] .dashboard-legal-version {
   color: #8d7660;
 }
 
+html[data-theme="dark"] .store-trail button {
+  color: #f3a452;
+}
+
+html[data-theme="dark"] .store-trail button:hover:not(:disabled) {
+  background: #3a2c16;
+}
+
+html[data-theme="dark"] .store-trail button:disabled {
+  color: #bda78e;
+}
+
+html[data-theme="dark"] .server-folder-preview {
+  color: #f3a452;
+  background: #332619;
+  border-color: #6b5326;
+}
+
+html[data-theme="dark"] .dashboard-rename-dialog .dashboard-dialog-problem {
+  color: #f0956a;
+}
+
+html[data-theme="dark"] .project-card.drop-target {
+  border-color: #f3a452;
+  box-shadow: 0 0 0 2px rgba(243, 164, 82, 0.3);
+}
+
+html[data-theme="dark"] .project-card.drop-target .server-folder-preview,
+html[data-theme="dark"] .store-trail button.drop-target:not(:disabled) {
+  color: #ffc98a;
+  background: #40301d;
+  border-color: #f3a452;
+}
+
+html[data-theme="dark"] .store-trail button.drop-target:not(:disabled) {
+  box-shadow: inset 0 0 0 1px #f3a452;
+}
+
 html[data-theme="dark"] .dashboard-welcome {
   background: var(--panel);
   border-color: #514130;
@@ -7662,7 +7887,17 @@ html[data-theme="dark"] .dashboard-legal a.dashboard-legal-sponsor:hover {
   color: #f7b978;
 }
 
-html[data-theme="dark"] .dashboard-section-header span,
+html[data-theme="dark"] .store-move-targets button {
+  color: #eee4d4;
+}
+
+html[data-theme="dark"] .store-move-targets button:hover,
+html[data-theme="dark"] .store-move-targets button:focus-visible {
+  color: #f3a452;
+  background: #3a2c16;
+}
+
+html[data-theme="dark"] .dashboard-section-subtitle,
 html[data-theme="dark"] .project-card-meta,
 html[data-theme="dark"] .dashboard-import-notice,
 html[data-theme="dark"] .dashboard-setting-row,
@@ -8651,4 +8886,23 @@ html[data-theme="dark"] .shortcuts-or {
 
 html[data-theme="dark"] .guide-section li {
   color: #cbbba6;
+}
+
+html[data-theme="dark"] .language-switch button {
+  color: #a89179;
+}
+
+html[data-theme="dark"] .language-switch button:hover,
+html[data-theme="dark"] .language-switch button:focus-visible {
+  color: #f3a452;
+  background: #3a2c16;
+}
+
+html[data-theme="dark"] .language-switch button.active {
+  color: #f3ede3;
+  background: #40301d;
+}
+
+html[data-theme="dark"] .language-switch svg {
+  border-color: rgba(243, 237, 227, 0.3);
 }

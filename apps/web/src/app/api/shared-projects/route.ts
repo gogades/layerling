@@ -3,6 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
 import { inspectLylProjectPackage, LYL_LIMITS, LYL_MEDIA_TYPE } from "@/lib/lylProject";
+import { storeFolderNameProblem } from "@/lib/storeFolderName";
 
 export const runtime = "nodejs";
 export const revalidate = false;
@@ -15,12 +16,27 @@ const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
 type SharedProjectFile = {
   fileName: string;
+  path: string;
   name: string;
   updatedAt: number;
   size: number;
   revision: string;
   thumbnailUrl?: string;
 };
+
+/** A refusal with the status it deserves, so handlers can simply throw. */
+class RequestFailure extends Error {
+  constructor(message: string, readonly status: number, readonly extra: Record<string, unknown> = {}) {
+    super(message);
+  }
+}
+
+function failureResponse(error: unknown, fallback: string, fallbackStatus = 500) {
+  if (error instanceof RequestFailure) {
+    return NextResponse.json({ error: error.message, ...error.extra }, { status: error.status });
+  }
+  return NextResponse.json({ error: error instanceof Error ? error.message : fallback }, { status: fallbackStatus });
+}
 
 function sharedProjectsDirectory() {
   const configured = (process.env[SHARED_PROJECTS_ENV])?.trim();
@@ -49,28 +65,66 @@ function existingProjectFileName(requestedName: string) {
   return `${sharedProjectStem(requestedName)}${extension}`;
 }
 
+/**
+ * Turns the path from the query into a real directory inside the store.
+ *
+ * This is the one place where something from the network chooses a location on
+ * disk, so it is deliberately narrow: every segment is judged on its own by the
+ * rules the dialog uses (`storeFolderNameProblem`, shared with store.php), and
+ * the resolved result must still sit inside the store.
+ */
+async function resolveFolder(root: string, requested: string | null, mustExist = true) {
+  const trimmed = (requested ?? "").replace(/\\/g, "/").trim().replace(/^\/+|\/+$/g, "");
+  if (!trimmed) return root;
+  const segments = trimmed.split("/").map((segment) => segment.trim());
+  for (const segment of segments) {
+    if (storeFolderNameProblem(segment, []) !== null) throw new RequestFailure("That folder name is not allowed", 400);
+  }
+  const candidate = path.join(root, ...segments);
+  if (!mustExist) return candidate;
+  const resolved = await fs.realpath(candidate).catch(() => null);
+  const rootReal = await fs.realpath(root);
+  if (!resolved) throw new RequestFailure("That folder is not on the server", 404);
+  // realpath has followed every link by now, so this catches the ways out.
+  if (resolved !== rootReal && !resolved.startsWith(rootReal + path.sep)) {
+    throw new RequestFailure("That folder is not allowed", 400);
+  }
+  const stat = await fs.lstat(resolved);
+  if (!stat.isDirectory()) throw new RequestFailure("That folder is not on the server", 404);
+  return resolved;
+}
+
+/** The part of a path that goes back to the browser, always with forward slashes. */
+function folderKey(root: string, folder: string) {
+  if (folder === root) return "";
+  return path.relative(root, folder).split(path.sep).join("/");
+}
+
 function revisionForStat(stat: { size: number; mtimeMs: number }) {
   return `${stat.size.toString(16)}-${Math.round(stat.mtimeMs * 1000).toString(16)}`;
 }
 
-function sharedThumbnailPath(root: string, fileName: string, revision: string) {
-  return path.join(root, SHARED_THUMBNAILS_DIR, `${fileName}.${revision}.png`);
+function sharedThumbnailPath(folder: string, fileName: string, revision: string) {
+  return path.join(folder, SHARED_THUMBNAILS_DIR, `${fileName}.${revision}.png`);
 }
 
-function sharedThumbnailUrl(fileName: string, revision: string) {
+/** Relative on purpose: the app may be served from a sub-directory. */
+function sharedThumbnailUrl(fileName: string, revision: string, folderPath: string) {
   const query = new URLSearchParams({ fileName, thumbnail: "1", v: revision });
+  if (folderPath) query.set("path", folderPath);
   return `/api/shared-projects?${query.toString()}`;
 }
 
-function projectRecord(fileName: string, stat: { size: number; mtimeMs: number }, hasThumbnail = false): SharedProjectFile {
+function projectRecord(fileName: string, stat: { size: number; mtimeMs: number }, hasThumbnail = false, folderPath = ""): SharedProjectFile {
   const revision = revisionForStat(stat);
   return {
     fileName,
+    path: folderPath,
     name: fileName.replace(/\.(lyl|skf)$/i, ""),
     updatedAt: stat.mtimeMs,
     size: stat.size,
     revision,
-    ...(hasThumbnail ? { thumbnailUrl: sharedThumbnailUrl(fileName, revision) } : {}),
+    ...(hasThumbnail ? { thumbnailUrl: sharedThumbnailUrl(fileName, revision, folderPath) } : {}),
   };
 }
 
@@ -128,6 +182,41 @@ async function regularFileStat(filePath: string) {
   }
 }
 
+/** What is inside a folder, without looking any deeper. */
+async function folderContentsCount(folder: string) {
+  const entries = await fs.readdir(folder, { withFileTypes: true }).catch(() => []);
+  let projects = 0;
+  let folders = 0;
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    if (entry.isDirectory()) folders += 1;
+    else if (entry.isFile() && /\.(lyl|skf)$/i.test(entry.name)) projects += 1;
+  }
+  return { projects, folders };
+}
+
+/** A folder and everything under it. Links are unlinked rather than followed. */
+async function removeFolderTree(folder: string) {
+  for (const entry of await fs.readdir(folder, { withFileTypes: true })) {
+    const full = path.join(folder, entry.name);
+    if (entry.isDirectory()) await removeFolderTree(full);
+    else await fs.unlink(full);
+  }
+  await fs.rmdir(folder);
+}
+
+async function acquireLock(filePath: string) {
+  const lockPath = `${filePath}.lock`;
+  try {
+    return { handle: await fs.open(lockPath, "wx"), lockPath };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new RequestFailure("This shared project is currently being changed by someone else", 409);
+    }
+    throw error;
+  }
+}
+
 function disabledResponse() {
   return NextResponse.json(
     { enabled: false, projects: [], error: `${SHARED_PROJECTS_ENV} is not configured` },
@@ -141,11 +230,13 @@ export async function GET(request: Request) {
   try {
     await fs.mkdir(root, { recursive: true });
     const requestUrl = new URL(request.url);
+    const folder = await resolveFolder(root, requestUrl.searchParams.get("path"));
+    const folderPath = folderKey(root, folder);
     const requestedFile = requestUrl.searchParams.get("fileName");
     if (requestedFile) {
       const fileName = existingProjectFileName(requestedFile);
       if (fileName !== requestedFile) return NextResponse.json({ error: "Invalid shared project name" }, { status: 400 });
-      const filePath = path.join(root, fileName);
+      const filePath = path.join(folder, fileName);
       const stat = await regularFileStat(filePath);
       if (!stat) return NextResponse.json({ error: "Shared project was not found" }, { status: 404 });
       if (requestUrl.searchParams.get("thumbnail") === "1") {
@@ -154,7 +245,7 @@ export async function GET(request: Request) {
         if (requestedRevision && requestedRevision !== revision) {
           return new NextResponse("Shared project thumbnail revision is stale", { status: 404 });
         }
-        const imagePath = sharedThumbnailPath(root, fileName, revision);
+        const imagePath = sharedThumbnailPath(folder, fileName, revision);
         const imageStat = await regularFileStat(imagePath);
         if (!imageStat) return new NextResponse("Shared project thumbnail was not found", { status: 404 });
         const image = await fs.readFile(imagePath);
@@ -179,23 +270,139 @@ export async function GET(request: Request) {
       });
     }
 
-    const entries = await fs.readdir(root, { withFileTypes: true });
+    const entries = await fs.readdir(folder, { withFileTypes: true });
     const projects = await Promise.all(entries
       .filter((entry) => entry.isFile() && /\.(lyl|skf)$/i.test(entry.name))
       .map(async (entry) => {
-        const stat = await regularFileStat(path.join(root, entry.name));
+        const stat = await regularFileStat(path.join(folder, entry.name));
         if (!stat) return null;
         const revision = revisionForStat(stat);
-        const thumbnailStat = await regularFileStat(sharedThumbnailPath(root, entry.name, revision));
-        return projectRecord(entry.name, stat, Boolean(thumbnailStat));
+        const thumbnailStat = await regularFileStat(sharedThumbnailPath(folder, entry.name, revision));
+        return projectRecord(entry.name, stat, Boolean(thumbnailStat), folderPath);
       }));
+    const folders = await Promise.all(entries
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+      .map(async (entry) => ({ name: entry.name, ...(await folderContentsCount(path.join(folder, entry.name))) })));
     return NextResponse.json(
-      { enabled: true, projects: projects.filter((entry): entry is SharedProjectFile => Boolean(entry)).sort((a, b) => b.updatedAt - a.updatedAt) },
+      {
+        enabled: true,
+        path: folderPath,
+        folders: folders.sort((a, b) => a.name.localeCompare(b.name)),
+        projects: projects.filter((entry): entry is SharedProjectFile => Boolean(entry)).sort((a, b) => b.updatedAt - a.updatedAt),
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    if (error instanceof RequestFailure) return failureResponse(error, "");
     return NextResponse.json({ enabled: true, projects: [], error: error instanceof Error ? error.message : "Could not read shared projects" }, { status: 500 });
   }
+}
+
+/** Creating a folder is the one write that touches no project at all. */
+async function createFolder(root: string, folder: string, name: string) {
+  const wanted = name.trim();
+  if (storeFolderNameProblem(wanted, []) !== null) throw new RequestFailure("That folder name is not allowed", 400);
+  const target = path.join(folder, wanted);
+  if (await fs.stat(target).then(() => true, () => false)) {
+    throw new RequestFailure("A folder of that name is already there", 409);
+  }
+  await fs.mkdir(target);
+  return NextResponse.json({ created: true, path: folderKey(root, target) }, { status: 201, headers: { "Cache-Control": "no-store" } });
+}
+
+/**
+ * Renaming a folder. The projects inside travel with it, and so do their
+ * pictures - they live in the folder, not in a register somewhere else.
+ */
+async function renameFolder(root: string, folder: string, name: string) {
+  if (folder === root) throw new RequestFailure("The store folder itself cannot be renamed", 400);
+  const wanted = name.trim();
+  if (storeFolderNameProblem(wanted, []) !== null) throw new RequestFailure("That folder name is not allowed", 400);
+  const current = path.basename(folder);
+  if (wanted === current) throw new RequestFailure("That folder is already called that", 409);
+  const target = path.join(path.dirname(folder), wanted);
+  // A file system that ignores case reports the folder itself as being in the
+  // way when only the spelling of the name changes. That one is allowed.
+  const sameFolderInOtherCase = wanted.toLowerCase() === current.toLowerCase();
+  if (!sameFolderInOtherCase && await fs.stat(target).then(() => true, () => false)) {
+    throw new RequestFailure("A folder of that name is already there", 409);
+  }
+  await fs.rename(folder, target);
+  return NextResponse.json(
+    { renamed: true, from: folderKey(root, folder), path: folderKey(root, target) },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
+/**
+ * Moving a project into another folder.
+ *
+ * Only the file and its picture travel; nothing is rewritten. rename() keeps
+ * the modification time, so the revision the browser holds - and with it the
+ * thumbnail's name - survives the move.
+ */
+async function moveProject(root: string, folder: string, requestedTarget: string, request: Request) {
+  const requestUrl = new URL(request.url);
+  const requested = requestUrl.searchParams.get("fileName") ?? "";
+  if (!requested) throw new RequestFailure("Shared project name is required", 400);
+  const fileName = existingProjectFileName(requested);
+  if (fileName !== requested) throw new RequestFailure("Invalid shared project name", 400);
+
+  const target = await resolveFolder(root, requestedTarget);
+  if (target === folder) throw new RequestFailure("That project is already in this folder", 409);
+
+  const filePath = path.join(folder, fileName);
+  const sourceLock = await acquireLock(filePath);
+  try {
+    const currentStat = await regularFileStat(filePath);
+    if (!currentStat) throw new RequestFailure("Shared project was not found", 404);
+    const currentRevision = revisionForStat(currentStat);
+    const expectedRevision = unquoteEtag(request.headers.get("if-match"));
+    if (!expectedRevision) {
+      throw new RequestFailure("Reload shared projects before moving so the current revision can be verified", 428, { currentRevision });
+    }
+    if (expectedRevision !== currentRevision) {
+      throw new RequestFailure("The shared project changed after you loaded it. Refresh the shared projects list and try again.", 409, { currentRevision });
+    }
+
+    const targetPath = path.join(target, fileName);
+    if (await fs.stat(targetPath).then(() => true, () => false)) {
+      throw new RequestFailure("A project of that name is already in that folder", 409);
+    }
+    await fs.rename(filePath, targetPath);
+
+    const movedStat = await fs.stat(targetPath);
+    const movedRevision = revisionForStat(movedStat);
+    const thumbnail = sharedThumbnailPath(folder, fileName, currentRevision);
+    let hasThumbnail = false;
+    if (await regularFileStat(thumbnail)) {
+      await fs.mkdir(path.join(target, SHARED_THUMBNAILS_DIR), { recursive: true });
+      hasThumbnail = await fs.rename(thumbnail, sharedThumbnailPath(target, fileName, movedRevision)).then(() => true, () => false);
+    }
+    const record = projectRecord(fileName, movedStat, hasThumbnail, folderKey(root, target));
+    return NextResponse.json(
+      { project: record, movedFrom: folderKey(root, folder) },
+      { headers: { "Cache-Control": "no-store", ETag: `"${record.revision}"` } },
+    );
+  } finally {
+    await sourceLock.handle.close().catch(() => undefined);
+    await fs.unlink(sourceLock.lockPath).catch(() => undefined);
+  }
+}
+
+/**
+ * Removing a folder. An empty one goes without further ado; one that still
+ * holds something needs `recursive=1`, so a request that lost its way cannot
+ * take a tree of projects with it.
+ */
+async function deleteFolder(root: string, folder: string, recursive: boolean) {
+  if (folder === root) throw new RequestFailure("The store folder itself cannot be removed", 400);
+  const counts = await folderContentsCount(folder);
+  if (!recursive && (counts.projects > 0 || counts.folders > 0)) {
+    throw new RequestFailure("That folder is not empty", 409, counts);
+  }
+  await removeFolderTree(folder);
+  return NextResponse.json({ deleted: true, path: folderKey(root, folder), ...counts }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function DELETE(request: Request) {
@@ -206,24 +413,22 @@ export async function DELETE(request: Request) {
   let lockHandle: Awaited<ReturnType<typeof fs.open>> | null = null;
   let lockPath = "";
   try {
+    await fs.mkdir(root, { recursive: true });
     const requestUrl = new URL(request.url);
+    const folder = await resolveFolder(root, requestUrl.searchParams.get("path"));
+    if (requestUrl.searchParams.get("deleteFolder") === "1") {
+      return await deleteFolder(root, folder, requestUrl.searchParams.get("recursive") === "1");
+    }
+
     const requestedFile = requestUrl.searchParams.get("fileName");
     if (!requestedFile) return NextResponse.json({ error: "Shared project name is required" }, { status: 400 });
     const fileName = existingProjectFileName(requestedFile);
     if (fileName !== requestedFile) return NextResponse.json({ error: "Invalid shared project name" }, { status: 400 });
 
-    await fs.mkdir(root, { recursive: true });
-    const filePath = path.join(root, fileName);
-    lockPath = `${filePath}.lock`;
-
-    try {
-      lockHandle = await fs.open(lockPath, "wx");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-        return NextResponse.json({ error: "This shared project is currently being changed by someone else" }, { status: 409 });
-      }
-      throw error;
-    }
+    const filePath = path.join(folder, fileName);
+    const lock = await acquireLock(filePath);
+    lockHandle = lock.handle;
+    lockPath = lock.lockPath;
 
     const currentStat = await regularFileStat(filePath);
     if (!currentStat) return NextResponse.json({ error: "Shared project was not found" }, { status: 404 });
@@ -243,7 +448,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const thumbnailPath = sharedThumbnailPath(root, fileName, currentRevision);
+    const thumbnailPath = sharedThumbnailPath(folder, fileName, currentRevision);
     await fs.unlink(filePath);
     await fs.unlink(thumbnailPath).catch((error) => {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -253,7 +458,7 @@ export async function DELETE(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not delete shared project" }, { status: 500 });
+    return failureResponse(error, "Could not delete shared project");
   } finally {
     if (lockHandle) await lockHandle.close().catch(() => undefined);
     if (lockPath) await fs.unlink(lockPath).catch(() => undefined);
@@ -265,36 +470,43 @@ export async function POST(request: Request) {
   if (!root) return NextResponse.json({ error: "Shared project storage is disabled" }, { status: 404 });
   if (!sameOriginRequest(request)) return NextResponse.json({ error: "Shared projects only accept same-origin saves" }, { status: 403 });
 
-  const declaredLength = Number(request.headers.get("content-length") ?? 0);
-  const multipartRequest = request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data") ?? false;
-  const requestLimit = LYL_LIMITS.archiveBytes + (multipartRequest ? MAX_THUMBNAIL_BYTES + MAX_MULTIPART_OVERHEAD_BYTES : 0);
-  if (Number.isFinite(declaredLength) && declaredLength > requestLimit) {
-    return NextResponse.json({ error: ".lyl file exceeds the shared storage size limit" }, { status: 413 });
-  }
-
   let lockHandle: Awaited<ReturnType<typeof fs.open>> | null = null;
   let lockPath = "";
   let temporaryPath = "";
   let temporaryThumbnailPath = "";
   try {
+    await fs.mkdir(root, { recursive: true });
+    const requestUrl = new URL(request.url);
+    const folder = await resolveFolder(root, requestUrl.searchParams.get("path"));
+    const folderPath = folderKey(root, folder);
+
+    // The three writes that are not a project upload, in the order store.php
+    // answers them. An empty moveTo is the store's own root, so that one is
+    // asked for by presence rather than by value.
+    const newFolder = requestUrl.searchParams.get("folder");
+    if (newFolder) return await createFolder(root, folder, newFolder);
+    const renameTo = requestUrl.searchParams.get("renameTo");
+    if (renameTo) return await renameFolder(root, folder, renameTo);
+    const moveTo = requestUrl.searchParams.get("moveTo");
+    if (moveTo !== null) return await moveProject(root, folder, moveTo, request);
+
+    const declaredLength = Number(request.headers.get("content-length") ?? 0);
+    const multipartRequest = request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data") ?? false;
+    const requestLimit = LYL_LIMITS.archiveBytes + (multipartRequest ? MAX_THUMBNAIL_BYTES + MAX_MULTIPART_OVERHEAD_BYTES : 0);
+    if (Number.isFinite(declaredLength) && declaredLength > requestLimit) {
+      return NextResponse.json({ error: ".lyl file exceeds the shared storage size limit" }, { status: 413 });
+    }
+
     const { projectBytes: bytes, thumbnailBytes } = await sharedProjectRequestBytes(request);
     if (bytes.byteLength > LYL_LIMITS.archiveBytes) return NextResponse.json({ error: ".lyl file exceeds the shared storage size limit" }, { status: 413 });
     const summary = await inspectLylProjectPackage(bytes);
-    const requestUrl = new URL(request.url);
     const fileName = safeProjectFileName(requestUrl.searchParams.get("fileName") ?? summary.projectName);
-    await fs.mkdir(root, { recursive: true });
-    const filePath = path.join(root, fileName);
-    lockPath = `${filePath}.lock`;
-    temporaryPath = path.join(root, `.${fileName}.${randomUUID()}.tmp`);
+    const filePath = path.join(folder, fileName);
+    temporaryPath = path.join(folder, `.${fileName}.${randomUUID()}.tmp`);
 
-    try {
-      lockHandle = await fs.open(lockPath, "wx");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-        return NextResponse.json({ error: "This shared project is currently being saved by someone else" }, { status: 409 });
-      }
-      throw error;
-    }
+    const lock = await acquireLock(filePath);
+    lockHandle = lock.handle;
+    lockPath = lock.lockPath;
 
     const currentStat = await regularFileStat(filePath);
     const currentRevision = currentStat ? revisionForStat(currentStat) : null;
@@ -319,11 +531,9 @@ export async function POST(request: Request) {
     }
     const pendingStat = await fs.stat(temporaryPath);
     const savedRevision = revisionForStat(pendingStat);
-    let savedThumbnailPath = "";
     if (thumbnailBytes) {
-      const thumbnailsRoot = path.join(root, SHARED_THUMBNAILS_DIR);
+      const thumbnailsRoot = path.join(folder, SHARED_THUMBNAILS_DIR);
       await fs.mkdir(thumbnailsRoot, { recursive: true });
-      savedThumbnailPath = sharedThumbnailPath(root, fileName, savedRevision);
       temporaryThumbnailPath = path.join(thumbnailsRoot, `.${fileName}.${randomUUID()}.tmp`);
       const thumbnailHandle = await fs.open(temporaryThumbnailPath, "wx");
       try {
@@ -332,22 +542,27 @@ export async function POST(request: Request) {
       } finally {
         await thumbnailHandle.close();
       }
-      await fs.rename(temporaryThumbnailPath, savedThumbnailPath);
+      await fs.rename(temporaryThumbnailPath, sharedThumbnailPath(folder, fileName, savedRevision));
       temporaryThumbnailPath = "";
     }
     await fs.rename(temporaryPath, filePath);
     temporaryPath = "";
     const savedStat = await fs.stat(filePath);
-    const project = projectRecord(fileName, savedStat, Boolean(thumbnailBytes));
+    const project = projectRecord(fileName, savedStat, Boolean(thumbnailBytes), folderPath);
+    // Moving the file can change its modification time, so the thumbnail is
+    // named after the revision the project ended up with.
+    if (thumbnailBytes && savedRevision !== project.revision) {
+      await fs.rename(sharedThumbnailPath(folder, fileName, savedRevision), sharedThumbnailPath(folder, fileName, project.revision)).catch(() => undefined);
+    }
     if (currentRevision && currentRevision !== project.revision) {
-      await fs.unlink(sharedThumbnailPath(root, fileName, currentRevision)).catch(() => undefined);
+      await fs.unlink(sharedThumbnailPath(folder, fileName, currentRevision)).catch(() => undefined);
     }
     return NextResponse.json(
       { project: { ...project, name: summary.projectName } },
       { status: currentStat ? 200 : 201, headers: { "Cache-Control": "no-store", ETag: `"${project.revision}"` } },
     );
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Could not save shared project" }, { status: 400 });
+    return failureResponse(error, "Could not save shared project", 400);
   } finally {
     if (lockHandle) await lockHandle.close().catch(() => undefined);
     if (temporaryPath) await fs.unlink(temporaryPath).catch(() => undefined);
