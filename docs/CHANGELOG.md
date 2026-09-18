@@ -4,6 +4,17 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.2.1
+
+- Fixed the workspace settings losing what they had been told about threads and springs. **Shape defaults** offered the fields and the value took effect at once, but the next time layerling started it stood at standard again: the list those settings are checked against had never learned the two shapes that arrived in 1.2.0, and whatever is not on that list is dropped without a word on the way into storage. Every other shape kept its defaults all along.
+- The MCP bridge can now build every shape the palette has a tile for - polygons, spheres, cones, pyramids, wedges, roofs, tori, tubes, gears, springs and threads - instead of boxes, cylinders and sketches alone. It takes its list from the same catalogue the shape menu is built from, so a shape added later is offered without anybody remembering to say so.
+- What a shape is beyond its size now travels in both directions. A thread can be asked for by diameter and pitch, a spring by turns and wire, a text by its lettering, and the same values can be set again afterwards - a cylinder's side count can finally be pinned once the cylinder already stands there. Changing a thread's diameter moves its width and depth with it, and a head that sat at the standard height for its size moves to the standard for the new one.
+- Reading a scene tells what a shape is made of. Until now the answer carried sizes only, so a client read the dimensions of a screw without ever learning whether M4 or M5 stood on it. A round body that has no side count of its own reports the number it is drawn with at its current size, and says that the number follows the size.
+- A locked object was a dead end over the bridge: four operations refused to touch it and nothing could release it. The same call may now pass `locked: false`, and `hidden` can be set as well.
+- Everything arriving over the bridge is held to the limits the panel uses, so a value cannot enter a design that would then be refused when that design is saved. A pitch of 99 on an M5 arrives as 3.75.
+
+The bridge is the local development server's `/api/layerling-mcp`; static builds and layerling.com do not carry it, and none of this changes what the editor does by hand.
+
 ## 1.2.0
 
 - Added threads as a shape of their own, in four forms: a threaded rod, a screw with a socket, countersunk or hex head, a hex nut, and a tapped hole. The thread is cut from the real ISO profile - sixty degrees, with the crest and the root flattened the way the standard prescribes - not from a sawtooth. That is what makes a printed screw actually run in a printed nut.
