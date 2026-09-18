@@ -1,6 +1,6 @@
 {
   "name": "layerling",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Easy 3D CAD for 3D printing. A local-first 3D editor that runs in your browser.",
   "author": {
@@ -22,6 +22,7 @@
     "test:watch": "vitest --config tests/vitest.config.ts",
     "test:e2e": "vitest run --config tests/vitest.e2e.config.ts",
     "perf": "vitest run --config tests/vitest.perf.config.ts --reporter verbose",
+    "icons:shapes": "vitest run --config tests/vitest.tools.config.ts",
     "ci": "npm run typecheck && npm run test",
     "mcp:layerling": "node scripts/layerling-mcp-server.mjs"
   },

@@ -28,6 +28,8 @@ import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { orthographicFramingZoom, perspectiveFramingDistance } from "@/lib/cameraFraming";
 import { createGearGeometry } from "@/lib/gearGeometry";
+import { createThreadGeometry } from "@/lib/threadGeometry";
+import { createSpringGeometry } from "@/lib/springGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { createMoveDimensionOverlay, type MoveDimensionAxis, type MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
 import {
@@ -42,6 +44,8 @@ import {
   type PlacementWorkplane,
 } from "@/lib/placementWorkplane";
 import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
+import { roundSideCount } from "@/lib/roundSideCount";
+import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
 import { interiorWorkplaneGridCoordinates, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
@@ -115,6 +119,8 @@ const SHAPE_KINDS = new Set<ShapeAsset["kind"]>([
   "torus",
   "tube",
   "gear",
+  "thread",
+  "spring",
   "ring",
   "wedge",
   "polygon",
@@ -894,6 +900,8 @@ function rulerShapeTopologyKey(shape: WorkplaneShape): string {
     segments: shape.segments,
     topRadius: shape.topRadius,
     baseRadius: shape.baseRadius,
+    topWidth: shape.topWidth,
+    topDepth: shape.topDepth,
     taperTopWidth: shape.taperTopWidth,
     taperTopDepth: shape.taperTopDepth,
     taperBottomWidth: shape.taperBottomWidth,
@@ -906,6 +914,18 @@ function rulerShapeTopologyKey(shape: WorkplaneShape): string {
     centerHoleSize: shape.centerHoleSize,
     gearType: shape.gearType,
     helixAngle: shape.helixAngle,
+    threadRole: shape.threadRole,
+    threadHead: shape.threadHead,
+    threadHand: shape.threadHand,
+    threadDiameter: shape.threadDiameter,
+    threadPitch: shape.threadPitch,
+    threadClearance: shape.threadClearance,
+    threadQuality: shape.threadQuality,
+    threadHeadHeight: shape.threadHeadHeight,
+    threadChamfer: shape.threadChamfer,
+    springTurns: shape.springTurns,
+    springWire: shape.springWire,
+    springQuality: shape.springQuality,
     helixQuality: shape.helixQuality,
     text: shape.text,
     font: shape.font,
@@ -955,8 +975,18 @@ function shapeMaterialSignature(shape: WorkplaneShape): string {
   });
 }
 
+/**
+ * Die Seitenzahl der beiden Vielkoerper. Der Mehrkant ist eckig und bleibt bei
+ * dem, was eingestellt ist; beim Zylinder waechst sie ohne eigene Angabe mit
+ * dem Durchmesser mit.
+ */
+function polygonSidesForShape(shape: WorkplaneShape) {
+  if (shape.kind === "polygon") return shape.sides ?? 6;
+  return roundSideCount(shape.sides, shapeWidth(shape), shapeDepth(shape));
+}
+
 function shapeGeometrySignature(shape: WorkplaneShape): string {
-  const taper = shape.kind === "gear" || !shapeHasTaper(shape)
+  const taper = shape.kind === "gear" || shape.kind === "thread" || shape.kind === "spring" || !shapeHasTaper(shape)
     ? null
     : { ...shapeTaperDimensions(shape), baseWidth: shapeWidth(shape), baseDepth: shapeDepth(shape) };
   if (shape.groupedShapes?.length && !shape.importedMesh) {
@@ -993,13 +1023,13 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     return JSON.stringify({ kind: "box", taper });
   }
   if (shape.kind === "cylinder") {
-    return JSON.stringify({ kind: "cylinder", sides: shape.sides, segments: shape.segments, taper });
+    return JSON.stringify({ kind: "cylinder", sides: polygonSidesForShape(shape), segments: shape.segments, taper });
+  }
+  if (shape.kind === "polygon") {
+    return JSON.stringify({ kind: "polygon", sides: shape.sides, segments: shape.segments, taper });
   }
   if (shape.kind === "sphere") {
     return JSON.stringify({ kind: "sphere", steps: shape.steps, taper });
-  }
-  if (shape.kind === "polygon") {
-    return JSON.stringify({ kind: "polygon", taper });
   }
 
   return JSON.stringify({
@@ -1015,6 +1045,8 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     segments: shape.segments,
     topRadius: shape.topRadius,
     baseRadius: shape.baseRadius,
+    topWidth: shape.topWidth,
+    topDepth: shape.topDepth,
     taperTopWidth: shape.taperTopWidth,
     taperTopDepth: shape.taperTopDepth,
     taperBottomWidth: shape.taperBottomWidth,
@@ -1027,6 +1059,18 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     centerHoleSize: shape.centerHoleSize,
     gearType: shape.gearType,
     helixAngle: shape.helixAngle,
+    threadRole: shape.threadRole,
+    threadHead: shape.threadHead,
+    threadHand: shape.threadHand,
+    threadDiameter: shape.threadDiameter,
+    threadPitch: shape.threadPitch,
+    threadClearance: shape.threadClearance,
+    threadQuality: shape.threadQuality,
+    threadHeadHeight: shape.threadHeadHeight,
+    threadChamfer: shape.threadChamfer,
+    springTurns: shape.springTurns,
+    springWire: shape.springWire,
+    springQuality: shape.springQuality,
     helixQuality: shape.helixQuality,
     text: shape.text,
     font: shape.font,
@@ -6178,6 +6222,8 @@ function syncShapeObjectDimensions(object: THREE.Group, shape: WorkplaneShape) {
   const width = shapeWidth(shape);
   const depth = shapeDepth(shape);
   let scale: THREE.Vector3 | null = null;
+  let offsetX = 0;
+  let offsetZ = 0;
   if (shape.importedMesh && !preservesEdgeTreatmentSize(shape)) {
     scale = new THREE.Vector3(
       width / Math.max(0.001, shape.importedMesh.baseWidth),
@@ -6187,7 +6233,10 @@ function syncShapeObjectDimensions(object: THREE.Group, shape: WorkplaneShape) {
   } else if (shape.kind === "box" && !(shape.radius && shape.radius > 0)) {
     scale = new THREE.Vector3(width, shape.height, depth);
   } else if (shape.kind === "cylinder" || shape.kind === "polygon") {
-    scale = new THREE.Vector3(width / 2, shape.height, depth / 2);
+    const fit = regularPolygonFootprintScale(width, depth, polygonSidesForShape(shape));
+    scale = new THREE.Vector3(fit.x, shape.height, fit.z);
+    offsetX = fit.offsetX;
+    offsetZ = fit.offsetZ;
   } else if (shape.kind === "sphere") {
     scale = new THREE.Vector3(width / 2, shape.height / 2, depth / 2);
   }
@@ -6196,7 +6245,8 @@ function syncShapeObjectDimensions(object: THREE.Group, shape: WorkplaneShape) {
   object.position.y = (shape.elevation ?? 0) + shape.height / 2;
   object.updateMatrix();
   surface.scale.copy(scale);
-  surface.position.y = -shape.height / 2;
+  // Ein Vieleck mit ungerader Seitenzahl liegt nicht mittig in seinem Rahmen.
+  surface.position.set(offsetX, -shape.height / 2, offsetZ);
   surface.updateMatrix();
   object.children.forEach((child) => {
     if (!child.userData.shapeEdge) return;
@@ -7560,8 +7610,24 @@ function createShapeObject(
       );
       break;
     case "cylinder":
-      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.CylinderGeometry(1, 1, 1, shape.sides ?? 96, shape.segments ?? 1)), material, shape, undefined, undefined, new THREE.Vector3(width / 2, height, depth / 2));
+    case "polygon": {
+      // Zylinder und Mehrkant sind derselbe Koerper, nur mit anderer
+      // Seitenzahl. Die Geometrie bleibt ein Einheitskoerper und wird ueber
+      // die Maschenskalierung in den Rahmen gesetzt - so baut ein Zug am
+      // Anfasser nicht jedes Mal ein neues Vieleck.
+      const sides = polygonSidesForShape(shape);
+      const fit = regularPolygonFootprintScale(width, depth, sides);
+      addMesh(
+        group,
+        sharedShapeGeometry(geometryCacheKey, () => new THREE.CylinderGeometry(1, 1, 1, sides, shape.segments ?? 1)),
+        material,
+        shape,
+        new THREE.Vector3(fit.offsetX, 0, fit.offsetZ),
+        undefined,
+        new THREE.Vector3(fit.x, height, fit.z),
+      );
       break;
+    }
     case "sphere": {
       const { widthSegments, heightSegments } = sphereTessellation(shape.steps);
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.SphereGeometry(1, widthSegments, heightSegments)), material, shape, undefined, undefined, new THREE.Vector3(width / 2, height / 2, depth / 2));
@@ -7570,7 +7636,7 @@ function createShapeObject(
     case "cone":
       addMesh(
         group,
-        sharedShapeGeometry(geometryCacheKey, () => new THREE.CylinderGeometry(shape.topRadius ?? 0, shape.baseRadius ?? width / 2, height, shape.sides ?? 96)),
+        sharedShapeGeometry(geometryCacheKey, () => new THREE.CylinderGeometry(shape.topRadius ?? 0, shape.baseRadius ?? width / 2, height, roundSideCount(shape.sides, width, depth))),
         material,
         shape,
         undefined,
@@ -7579,7 +7645,7 @@ function createShapeObject(
       );
       break;
     case "pyramid":
-      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createPyramidGeometry(width, height, depth, shape.sides ?? 4)), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createPyramidGeometry(width, height, depth, shape.sides ?? 4, shape.topWidth, shape.topDepth)), material, shape);
       break;
     case "roof":
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createRoofGeometry(width, height, depth)), material, shape);
@@ -7594,10 +7660,8 @@ function createShapeObject(
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createTorusGeometry(width, height, depth)), material, shape);
       break;
     case "ring":
-      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, 144)), material, shape);
-      break;
     case "tube":
-      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, 144)), material, shape);
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, roundSideCount(shape.sides, width, depth))), material, shape);
       break;
     case "gear":
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createGearGeometry({
@@ -7613,11 +7677,34 @@ function createShapeObject(
         helixQuality: shape.helixQuality,
       })), material, shape);
       break;
+    case "thread":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createThreadGeometry({
+        width,
+        depth,
+        height,
+        threadRole: shape.threadRole,
+        threadHead: shape.threadHead,
+        threadHand: shape.threadHand,
+        threadDiameter: shape.threadDiameter,
+        threadPitch: shape.threadPitch,
+        threadClearance: shape.threadClearance,
+        threadQuality: shape.threadQuality,
+        threadHeadHeight: shape.threadHeadHeight,
+        threadChamfer: shape.threadChamfer,
+      })), material, shape);
+      break;
+    case "spring":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createSpringGeometry({
+        width,
+        depth,
+        height,
+        springTurns: shape.springTurns,
+        springWire: shape.springWire,
+        springQuality: shape.springQuality,
+      })), material, shape);
+      break;
     case "wedge":
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createWedgeGeometry(width, height, depth)), material, shape);
-      break;
-    case "polygon":
-      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.CylinderGeometry(1, 1, 1, 6)), material, shape, undefined, undefined, new THREE.Vector3(width / 2, height, depth / 2));
       break;
     case "icosahedron":
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.IcosahedronGeometry(size / 2, 1)), material, shape);
@@ -7812,7 +7899,7 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
   const complexEdges =
     shape.kind === "mesh" ||
     Boolean(shape.importedMesh) ||
-    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "gear", "wedge"].includes(shape.kind);
+    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "gear", "wedge", "polygon"].includes(shape.kind);
   const importedTriangleCount = shape.importedMesh?.triangleCount ?? 0;
   const skipHeavyImportedEdges = Boolean(shape.importedMesh) && importedTriangleCount > IMPORTED_SELECTED_EDGE_TRIANGLE_LIMIT;
   if ((group.userData.showEdges || complexEdges) && !skipHeavyImportedEdges) {
@@ -7823,7 +7910,10 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
     if (selectedOutline && shape.importedMesh && shape.cadDisplayEdgesVersion === 2 && Boolean(shape.cadDisplayEdges?.length)) {
       addCadDisplayEdges(group, shape, edgeColor, edgeOpacity);
     } else {
-      const selectedThreshold = shape.importedMesh ? NORMAL_IMPORTED_SELECTION_EDGE_ANGLE : 1;
+      // Ein Gewinde bei einem Grad Schwelle waere ein Knaeuel aus zehntausenden
+      // Linien. Bei 25 Grad bleiben genau die Kanten stehen, die den Gang
+      // zeichnen: Kuppe, Grund und die beiden Flanken.
+      const selectedThreshold = shape.importedMesh ? NORMAL_IMPORTED_SELECTION_EDGE_ANGLE : shape.kind === "thread" ? 25 : 1;
       const edges = new THREE.LineSegments(getEdgesGeometry(shape, prepared, selectedOutline ? selectedThreshold : complexEdges ? 14 : 25), sharedLineMaterial(edgeColor, edgeOpacity));
       edges.userData.complexEdge = complexEdges;
       edges.userData.shapeDecoration = true;
@@ -8000,35 +8090,6 @@ function createWedgeGeometry(width: number, height: number, depth: number) {
     0, 1, 4, 0, 4, 3,
     1, 2, 5, 1, 5, 4,
     0, 3, 5, 0, 5, 2,
-  ];
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-  geometry.setIndex(indices);
-  return geometry.toNonIndexed();
-}
-
-function createPyramidGeometry(width: number, height: number, depth: number, sides = 4) {
-  const count = Math.max(3, Math.round(sides));
-  if (count !== 4) {
-    const footprintScale = regularPolygonFootprintScale(width, depth, count);
-    const geometry = new THREE.ConeGeometry(1, height, count);
-    geometry.scale(footprintScale.x, 1, footprintScale.z);
-    geometry.translate(footprintScale.offsetX, height / 2, footprintScale.offsetZ);
-    return geometry.toNonIndexed();
-  }
-
-  const w = width / 2;
-  const d = depth / 2;
-  const vertices = new Float32Array([
-    -w, 0, -d, w, 0, -d, w, 0, d, -w, 0, d,
-    0, height, 0,
-  ]);
-  const indices = [
-    0, 1, 2, 0, 2, 3,
-    0, 4, 1,
-    1, 4, 2,
-    2, 4, 3,
-    3, 4, 0,
   ];
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));

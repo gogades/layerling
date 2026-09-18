@@ -1,0 +1,716 @@
+import * as THREE from "three";
+import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import type { ThreadHand, ThreadHead, ThreadRole } from "@/types/layerling";
+
+export const DEFAULT_THREAD_ROLE: ThreadRole = "rod";
+export const DEFAULT_THREAD_HEAD: ThreadHead = "cylinder";
+export const DEFAULT_THREAD_HAND: ThreadHand = "right";
+export const DEFAULT_THREAD_DIAMETER = 6;
+export const DEFAULT_THREAD_PITCH = 1;
+export const DEFAULT_THREAD_CLEARANCE = 0.2;
+export const DEFAULT_THREAD_QUALITY = 48;
+
+export const MIN_THREAD_DIAMETER = 1;
+export const MAX_THREAD_DIAMETER = 160;
+export const MIN_THREAD_PITCH = 0.2;
+export const MAX_THREAD_PITCH = 12;
+export const MIN_THREAD_CLEARANCE = 0;
+export const MAX_THREAD_CLEARANCE = 1.5;
+export const MIN_THREAD_QUALITY = 12;
+export const MAX_THREAD_QUALITY = 96;
+
+/**
+ * Ein Gewinde kann viele Gaenge haben, und jeder Gang kostet vier Reihen
+ * Punkte. Ohne Deckel liefe ein M2 ueber 100 mm in die Hunderttausende, also
+ * wird die Zahl der Spalten gesenkt, bevor die Punktzahl entgleist.
+ */
+const MAX_THREAD_VERTICES = 140000;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function finite(value: number | undefined, fallback: number) {
+  return Number.isFinite(value) ? (value as number) : fallback;
+}
+
+/** Wie weit Durchmesser und Steigung von der Norm abweichen duerfen und trotzdem als Normgroesse gelten. */
+const SIZE_MATCH_TOLERANCE = 0.001;
+
+export type ThreadSystem = "metric" | "inch";
+
+export type ThreadSizeSpec = {
+  /** Bleibt unuebersetzt: "M6" heisst in jeder Sprache M6. */
+  id: string;
+  system: ThreadSystem;
+  diameter: number;
+  pitch: number;
+  /** Schluesselweite des Innensechskants. */
+  socket: number;
+  /** Zylinderkopf nach ISO 4762. */
+  headDiameter: number;
+  headHeight: number;
+  /** Schluesselweite von Sechskantkopf und Mutter. */
+  acrossFlats: number;
+  nutHeight: number;
+  /** Kopfdurchmesser des 90-Grad-Senkkopfs nach ISO 7046. */
+  countersunkDiameter: number;
+};
+
+/**
+ * Die metrischen Regelgewinde, mit denen man beim Drucken tatsaechlich zu tun
+ * hat. Die Kopfmasse stammen aus ISO 4762, 4032 und 7046, damit eine M6 hier
+ * auch zu einer gekauften M6 passt; fuer freie Durchmesser rechnet
+ * `derivedSizeSpec` dieselben Verhaeltnisse nach.
+ */
+const METRIC_SIZES: readonly ThreadSizeSpec[] = [
+  { id: "M2", system: "metric", diameter: 2, pitch: 0.4, socket: 1.5, headDiameter: 3.8, headHeight: 2, acrossFlats: 4, nutHeight: 1.6, countersunkDiameter: 3.8 },
+  { id: "M2.5", system: "metric", diameter: 2.5, pitch: 0.45, socket: 2, headDiameter: 4.5, headHeight: 2.5, acrossFlats: 5, nutHeight: 2, countersunkDiameter: 4.7 },
+  { id: "M3", system: "metric", diameter: 3, pitch: 0.5, socket: 2.5, headDiameter: 5.5, headHeight: 3, acrossFlats: 5.5, nutHeight: 2.4, countersunkDiameter: 6 },
+  { id: "M4", system: "metric", diameter: 4, pitch: 0.7, socket: 3, headDiameter: 7, headHeight: 4, acrossFlats: 7, nutHeight: 3.2, countersunkDiameter: 8 },
+  { id: "M5", system: "metric", diameter: 5, pitch: 0.8, socket: 4, headDiameter: 8.5, headHeight: 5, acrossFlats: 8, nutHeight: 4, countersunkDiameter: 10 },
+  { id: "M6", system: "metric", diameter: 6, pitch: 1, socket: 5, headDiameter: 10, headHeight: 6, acrossFlats: 10, nutHeight: 5, countersunkDiameter: 12 },
+  { id: "M8", system: "metric", diameter: 8, pitch: 1.25, socket: 6, headDiameter: 13, headHeight: 8, acrossFlats: 13, nutHeight: 6.5, countersunkDiameter: 16 },
+  { id: "M10", system: "metric", diameter: 10, pitch: 1.5, socket: 8, headDiameter: 16, headHeight: 10, acrossFlats: 16, nutHeight: 8, countersunkDiameter: 20 },
+  { id: "M12", system: "metric", diameter: 12, pitch: 1.75, socket: 10, headDiameter: 18, headHeight: 12, acrossFlats: 18, nutHeight: 10, countersunkDiameter: 24 },
+];
+
+const MILLIMETRES_PER_INCH = 25.4;
+
+/**
+ * Zollgewinde in Grob (UNC) und Fein (UNF). Beide haben denselben
+ * Flankenwinkel und dieselben Abflachungen wie das metrische ISO-Gewinde, also
+ * baut sie derselbe Geometriezweig - es aendern sich nur Durchmesser und
+ * Steigung. Die Masse stehen hier in Zoll, wie in den Normen ASME B18.3 und
+ * B18.2.2, und werden beim Aufbau der Liste umgerechnet.
+ *
+ * Eine Abweichung ist bewusst: der Senkkopf bleibt auch hier ein 90-Grad-Kegel
+ * wie beim metrischen Gewinde, waehrend die Zollnorm 82 Grad vorsieht. Der
+ * Kopfdurchmesser stimmt, die Hoehe faellt dadurch etwas flacher aus und laesst
+ * sich von Hand nachstellen.
+ */
+type InchSizeRow = {
+  label: string;
+  diameter: number;
+  coarse: number;
+  fine: number;
+  headDiameter: number;
+  headHeight: number;
+  socket: number;
+  acrossFlats: number;
+  nutHeight: number;
+  countersunkDiameter: number;
+};
+
+const INCH_ROWS: readonly InchSizeRow[] = [
+  { label: "#4", diameter: 0.112, coarse: 40, fine: 48, headDiameter: 0.183, headHeight: 0.112, socket: 0.0938, acrossFlats: 0.25, nutHeight: 0.094, countersunkDiameter: 0.225 },
+  { label: "#6", diameter: 0.138, coarse: 32, fine: 40, headDiameter: 0.226, headHeight: 0.138, socket: 0.1094, acrossFlats: 0.3125, nutHeight: 0.109, countersunkDiameter: 0.279 },
+  { label: "#8", diameter: 0.164, coarse: 32, fine: 36, headDiameter: 0.27, headHeight: 0.164, socket: 0.1406, acrossFlats: 0.34375, nutHeight: 0.125, countersunkDiameter: 0.332 },
+  { label: "#10", diameter: 0.19, coarse: 24, fine: 32, headDiameter: 0.312, headHeight: 0.19, socket: 0.1563, acrossFlats: 0.375, nutHeight: 0.125, countersunkDiameter: 0.385 },
+  { label: "1/4\"", diameter: 0.25, coarse: 20, fine: 28, headDiameter: 0.375, headHeight: 0.25, socket: 0.1875, acrossFlats: 0.4375, nutHeight: 0.219, countersunkDiameter: 0.507 },
+  { label: "5/16\"", diameter: 0.3125, coarse: 18, fine: 24, headDiameter: 0.469, headHeight: 0.3125, socket: 0.25, acrossFlats: 0.5, nutHeight: 0.266, countersunkDiameter: 0.635 },
+  { label: "3/8\"", diameter: 0.375, coarse: 16, fine: 24, headDiameter: 0.562, headHeight: 0.375, socket: 0.3125, acrossFlats: 0.5625, nutHeight: 0.328, countersunkDiameter: 0.762 },
+  { label: "7/16\"", diameter: 0.4375, coarse: 14, fine: 20, headDiameter: 0.656, headHeight: 0.4375, socket: 0.375, acrossFlats: 0.6875, nutHeight: 0.375, countersunkDiameter: 0.812 },
+  { label: "1/2\"", diameter: 0.5, coarse: 13, fine: 20, headDiameter: 0.75, headHeight: 0.5, socket: 0.375, acrossFlats: 0.75, nutHeight: 0.4375, countersunkDiameter: 0.875 },
+  { label: "5/8\"", diameter: 0.625, coarse: 11, fine: 18, headDiameter: 0.938, headHeight: 0.625, socket: 0.5, acrossFlats: 0.9375, nutHeight: 0.547, countersunkDiameter: 1 },
+  { label: "3/4\"", diameter: 0.75, coarse: 10, fine: 16, headDiameter: 1.125, headHeight: 0.75, socket: 0.625, acrossFlats: 1.125, nutHeight: 0.641, countersunkDiameter: 1.25 },
+  { label: "1\"", diameter: 1, coarse: 8, fine: 12, headDiameter: 1.5, headHeight: 1, socket: 0.75, acrossFlats: 1.5, nutHeight: 0.859, countersunkDiameter: 1.5 },
+];
+
+function inchSpec(row: InchSizeRow, threadsPerInch: number, series: "UNC" | "UNF"): ThreadSizeSpec {
+  const inches = (value: number) => value * MILLIMETRES_PER_INCH;
+  return {
+    id: `${row.label}-${threadsPerInch} ${series}`,
+    system: "inch",
+    diameter: inches(row.diameter),
+    pitch: MILLIMETRES_PER_INCH / threadsPerInch,
+    socket: inches(row.socket),
+    headDiameter: inches(row.headDiameter),
+    headHeight: inches(row.headHeight),
+    acrossFlats: inches(row.acrossFlats),
+    nutHeight: inches(row.nutHeight),
+    countersunkDiameter: inches(row.countersunkDiameter),
+  };
+}
+
+const INCH_COARSE_SIZES: readonly ThreadSizeSpec[] = INCH_ROWS.map((row) => inchSpec(row, row.coarse, "UNC"));
+const INCH_FINE_SIZES: readonly ThreadSizeSpec[] = INCH_ROWS.map((row) => inchSpec(row, row.fine, "UNF"));
+
+export const THREAD_SIZE_GROUPS: ReadonlyArray<{ series: string; sizes: readonly ThreadSizeSpec[] }> = [
+  { series: "metric", sizes: METRIC_SIZES },
+  { series: "UNC", sizes: INCH_COARSE_SIZES },
+  { series: "UNF", sizes: INCH_FINE_SIZES },
+];
+
+export const THREAD_SIZES: readonly ThreadSizeSpec[] = THREAD_SIZE_GROUPS.flatMap((group) => group.sizes);
+
+/**
+ * Ob die Steigung als Gaenge je Zoll abgefragt wird. Entschieden wird das am
+ * Durchmesser, nicht an der gewaehlten Groesse: so bleibt das Feld stehen,
+ * waehrend man die Gangzahl von einem Normwert wegdreht.
+ */
+export function threadUsesInchPitch(diameter: number) {
+  return INCH_ROWS.some((row) => Math.abs(row.diameter * MILLIMETRES_PER_INCH - diameter) < SIZE_MATCH_TOLERANCE);
+}
+
+/** Aus Millimetern Steigung werden Gaenge je Zoll - und zurueck. */
+export function pitchToThreadsPerInch(pitch: number) {
+  return MILLIMETRES_PER_INCH / Math.max(1e-6, pitch);
+}
+
+export function threadsPerInchToPitch(threadsPerInch: number) {
+  return MILLIMETRES_PER_INCH / Math.max(0.25, threadsPerInch);
+}
+
+function derivedSizeSpec(diameter: number): ThreadSizeSpec {
+  return {
+    id: "",
+    system: threadUsesInchPitch(diameter) ? "inch" : "metric",
+    diameter,
+    pitch: defaultThreadPitch(diameter),
+    socket: diameter * 0.55,
+    headDiameter: diameter * 1.6,
+    headHeight: diameter,
+    acrossFlats: diameter * 1.6,
+    nutHeight: diameter * 0.85,
+    countersunkDiameter: diameter * 2,
+  };
+}
+
+/** Die Normgroesse zu Durchmesser und Steigung, oder nichts bei freien Werten. */
+export function threadSizeFor(diameter: number, pitch: number): ThreadSizeSpec | null {
+  return THREAD_SIZES.find((size) => (
+    Math.abs(size.diameter - diameter) < SIZE_MATCH_TOLERANCE && Math.abs(size.pitch - pitch) < SIZE_MATCH_TOLERANCE
+  )) ?? null;
+}
+
+/** Kopf- und Mutternmasse: aus der Norm, wo der Durchmesser eine ist, sonst gerechnet. */
+export function threadSizeSpec(diameter: number, pitch: number): ThreadSizeSpec {
+  return threadSizeFor(diameter, pitch) ?? derivedSizeSpec(diameter);
+}
+
+/** Die Regelsteigung des naechstgelegenen Normdurchmessers. */
+export function defaultThreadPitch(diameter: number) {
+  let nearest = THREAD_SIZES[0];
+  for (const size of THREAD_SIZES) {
+    if (Math.abs(size.diameter - diameter) < Math.abs(nearest.diameter - diameter)) nearest = size;
+  }
+  return nearest.pitch;
+}
+
+export function normalizeThreadRole(value?: string): ThreadRole {
+  return value === "screw" || value === "nut" || value === "bore" ? value : DEFAULT_THREAD_ROLE;
+}
+
+export function normalizeThreadHead(value?: string): ThreadHead {
+  return value === "countersunk" || value === "hex" ? value : DEFAULT_THREAD_HEAD;
+}
+
+export function normalizeThreadHand(value?: string): ThreadHand {
+  return value === "left" ? "left" : DEFAULT_THREAD_HAND;
+}
+
+export function normalizeThreadDiameter(value?: number) {
+  return clamp(finite(value, DEFAULT_THREAD_DIAMETER), MIN_THREAD_DIAMETER, MAX_THREAD_DIAMETER);
+}
+
+/**
+ * Die Gewindetiefe waechst mit der Steigung. Waere die Steigung zu gross fuer
+ * den Durchmesser, faellt der Kernquerschnitt auf null und der Koerper hat
+ * keine Mitte mehr - deshalb die obere Grenze am Durchmesser.
+ */
+export function threadPitchLimits(diameter: number) {
+  const normalizedDiameter = normalizeThreadDiameter(diameter);
+  return { min: MIN_THREAD_PITCH, max: Math.min(MAX_THREAD_PITCH, normalizedDiameter * 0.75) };
+}
+
+export function normalizeThreadPitch(value: number | undefined, diameter: number) {
+  const limits = threadPitchLimits(diameter);
+  return clamp(finite(value, defaultThreadPitch(normalizeThreadDiameter(diameter))), limits.min, limits.max);
+}
+
+export function normalizeThreadClearance(value?: number) {
+  return clamp(finite(value, DEFAULT_THREAD_CLEARANCE), MIN_THREAD_CLEARANCE, MAX_THREAD_CLEARANCE);
+}
+
+/**
+ * Die Fase an den Enden. Vorgabe ist genau die Gewindetiefe: dann laeuft der
+ * Kegel unter 45 Grad bis auf den Kern hinunter und nimmt der Stange die
+ * scharfe Schneide, die ein frisch abgelaengtes Gewinde sonst hat. Bei
+ * Innengewinden zeigt dieselbe Zahl nach aussen und wird zur Ansenkung am
+ * Mundloch.
+ */
+export function defaultThreadChamfer(pitch: number) {
+  return pitch * THREAD_DEPTH_PER_PITCH;
+}
+
+export function threadChamferLimits(settings: Pick<ThreadSettings, "role" | "diameter" | "pitch">) {
+  if (settings.role === "nut") {
+    const spec = threadSizeSpec(settings.diameter, settings.pitch);
+    // Die Ansenkung darf die Schluesselflaeche nicht durchbrechen.
+    const room = Math.max(0, spec.acrossFlats / 2 - settings.diameter / 2) * 0.7;
+    return { min: 0, max: Math.max(0.05, Math.min(settings.pitch * 3, room)) };
+  }
+  return { min: 0, max: Math.max(0.05, Math.min(settings.pitch * 3, settings.diameter / 3)) };
+}
+
+export function normalizeThreadChamfer(value: number | undefined, settings: Pick<ThreadSettings, "role" | "diameter" | "pitch">) {
+  const limits = threadChamferLimits(settings);
+  return clamp(finite(value, defaultThreadChamfer(settings.pitch)), limits.min, limits.max);
+}
+
+/**
+ * Die Spaltenzahl bleibt durch sechs teilbar, damit die Ecken von
+ * Sechskantkopf, Mutter und Innensechskant auf Stuetzpunkte fallen und die
+ * Flaechen dazwischen wirklich eben sind.
+ */
+export function normalizeThreadQuality(value?: number) {
+  const rounded = Math.round(clamp(finite(value, DEFAULT_THREAD_QUALITY), MIN_THREAD_QUALITY, MAX_THREAD_QUALITY) / 6) * 6;
+  return clamp(rounded, MIN_THREAD_QUALITY, MAX_THREAD_QUALITY);
+}
+
+export type ThreadShapeFields = {
+  threadRole?: ThreadRole;
+  threadHead?: ThreadHead;
+  threadHand?: ThreadHand;
+  threadDiameter?: number;
+  threadPitch?: number;
+  threadClearance?: number;
+  threadQuality?: number;
+  threadHeadHeight?: number;
+  threadChamfer?: number;
+};
+
+export type ThreadSettings = {
+  role: ThreadRole;
+  head: ThreadHead;
+  hand: ThreadHand;
+  diameter: number;
+  pitch: number;
+  clearance: number;
+  quality: number;
+  headHeight: number;
+  chamfer: number;
+};
+
+export function threadSettings(shape: ThreadShapeFields): ThreadSettings {
+  const diameter = normalizeThreadDiameter(shape.threadDiameter);
+  const head: HeadShape = {
+    role: normalizeThreadRole(shape.threadRole),
+    head: normalizeThreadHead(shape.threadHead),
+    diameter,
+    pitch: normalizeThreadPitch(shape.threadPitch, diameter),
+  };
+  return {
+    ...head,
+    hand: normalizeThreadHand(shape.threadHand),
+    clearance: normalizeThreadClearance(shape.threadClearance),
+    quality: normalizeThreadQuality(shape.threadQuality),
+    headHeight: normalizeThreadHeadHeight(shape.threadHeadHeight, head),
+    chamfer: normalizeThreadChamfer(shape.threadChamfer, head),
+  };
+}
+
+/** Nur Innengewinde bekommen Spiel: aussen wuerde es den Bolzen duenner machen. */
+function radialAllowance(role: ThreadRole, clearance: number) {
+  return role === "bore" || role === "nut" ? clearance / 2 : 0;
+}
+
+type HeadShape = Pick<ThreadSettings, "role" | "head" | "diameter" | "pitch">;
+
+/** Die Kopfhoehe nach Norm, gemessen von der Aufstandsflaeche bis zum Schaftbeginn. */
+export function defaultThreadHeadHeight(settings: HeadShape) {
+  if (settings.role !== "screw") return 0;
+  const spec = threadSizeSpec(settings.diameter, settings.pitch);
+  if (settings.head === "countersunk") return (spec.countersunkDiameter - settings.diameter) / 2;
+  if (settings.head === "hex") return spec.headHeight * 0.7;
+  return spec.headHeight;
+}
+
+export function threadHeadHeightLimits(settings: HeadShape) {
+  return { min: 0.2, max: Math.max(1, settings.diameter * 3) };
+}
+
+export function normalizeThreadHeadHeight(value: number | undefined, settings: HeadShape) {
+  if (settings.role !== "screw") return 0;
+  const limits = threadHeadHeightLimits(settings);
+  return clamp(finite(value, defaultThreadHeadHeight(settings)), limits.min, limits.max);
+}
+
+/**
+ * Der Senkkopf ist ein 90-Grad-Kegel, also haengen Durchmesser und Hoehe
+ * aneinander: wer den Kopf flacher zieht, macht ihn zwangslaeufig kleiner.
+ * Zylinder- und Sechskantkopf behalten ihren Durchmesser.
+ */
+export function threadHeadDiameter(settings: Pick<ThreadSettings, "role" | "head" | "diameter" | "pitch" | "headHeight">) {
+  const spec = threadSizeSpec(settings.diameter, settings.pitch);
+  if (settings.head === "countersunk") return settings.diameter + settings.headHeight * 2;
+  return spec.headDiameter;
+}
+
+/** Die Hoehe, mit der ein frisch gewaehlter Gewindetyp auf die Ebene kommt. */
+export function threadNaturalHeight(settings: Pick<ThreadSettings, "role" | "head" | "diameter" | "pitch" | "headHeight">) {
+  if (settings.role === "nut") return threadSizeSpec(settings.diameter, settings.pitch).nutHeight;
+  if (settings.role === "screw") return settings.headHeight + settings.diameter * 4;
+  if (settings.role === "bore") return settings.diameter * 3;
+  return settings.diameter * 5;
+}
+
+/**
+ * Der Platz, den der Koerper von oben einnimmt. Ein Sechskant ist nie
+ * quadratisch: ueber die Ecken misst er mehr als ueber die Schluesselflaechen,
+ * und genau das muss der Auswahlrahmen zeigen.
+ */
+export function threadNaturalFootprint(settings: ThreadSettings) {
+  const spec = threadSizeSpec(settings.diameter, settings.pitch);
+  const allowance = radialAllowance(settings.role, settings.clearance);
+  if (settings.role === "nut") {
+    return { width: spec.acrossFlats / Math.cos(Math.PI / 6), depth: spec.acrossFlats };
+  }
+  if (settings.role === "screw") {
+    if (settings.head === "hex") {
+      return { width: spec.acrossFlats / Math.cos(Math.PI / 6), depth: spec.acrossFlats };
+    }
+    const diameter = Math.max(settings.diameter, threadHeadDiameter(settings));
+    return { width: diameter, depth: diameter };
+  }
+  // Beim Gewindeloch weitet die Fase das Schneidwerkzeug am Mund auf; der
+  // Rahmen muss diese Ansenkung mitzaehlen, sonst steht er im Koerper.
+  const flare = settings.role === "bore" ? settings.chamfer * 2 : 0;
+  const diameter = settings.diameter + allowance * 2 + flare;
+  return { width: diameter, depth: diameter };
+}
+
+// Ein metrisches Gewinde ist ein gleichseitiges Dreieck mit der Steigung als
+// Grundlinie, oben um H/8 und unten um H/4 gekappt. Ueber eine Steigung
+// verteilt sich das auf Kuppenbreite P/8, Flanke 5P/16, Grundbreite P/4,
+// Flanke 5P/16 - zusammen genau P.
+const PROFILE_U = [0, 1 / 8, 7 / 16, 11 / 16] as const;
+/** Wie fein das Profil dort abgetastet wird, wo der Fasenkegel es beschneidet. */
+const CHAMFER_SUBDIVISIONS = 4;
+const CREST_END = 1 / 8;
+const FLANK_END = 7 / 16;
+const ROOT_END = 11 / 16;
+/** Die Flankentiefe: 5/8 der Dreieckshoehe H = P mal Wurzel(3)/2. */
+const THREAD_DEPTH_PER_PITCH = (5 / 8) * (Math.sqrt(3) / 2);
+
+function wrapUnit(value: number) {
+  return ((value % 1) + 1) % 1;
+}
+
+function profileRadius(u: number, major: number, minor: number) {
+  const phase = wrapUnit(u);
+  if (phase <= CREST_END) return major;
+  if (phase <= FLANK_END) return major + (minor - major) * ((phase - CREST_END) / (FLANK_END - CREST_END));
+  if (phase <= ROOT_END) return minor;
+  return minor + (major - minor) * ((phase - ROOT_END) / (1 - ROOT_END));
+}
+
+/** Der Radius eines Sechskants unter dem Winkel, Ecken auf Vielfachen von 60 Grad. */
+function hexRadius(angle: number, acrossFlats: number) {
+  const apothem = acrossFlats / 2;
+  const sector = Math.PI / 3;
+  return apothem / Math.cos(wrapUnit(angle / sector) * sector - sector / 2);
+}
+
+type Builder = { positions: number[]; indices: number[] };
+
+function pushVertex(builder: Builder, angle: number, radius: number, y: number) {
+  const index = builder.positions.length / 3;
+  builder.positions.push(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+  return index;
+}
+
+function pushCenter(builder: Builder, y: number) {
+  const index = builder.positions.length / 3;
+  builder.positions.push(0, y, 0);
+  return index;
+}
+
+/** Entartete Dreiecke entstehen dort, wo das Gewinde an den Deckel stoesst; sie fliegen hier raus. */
+function triangle(builder: Builder, a: number, b: number, c: number) {
+  if (a === b || b === c || a === c) return;
+  builder.indices.push(a, b, c);
+}
+
+function quad(builder: Builder, a: number, b: number, c: number, d: number) {
+  triangle(builder, a, b, c);
+  triangle(builder, a, c, d);
+}
+
+function ring(builder: Builder, angles: readonly number[], radiusAt: (angle: number, index: number) => number, y: number) {
+  return angles.map((angle, index) => pushVertex(builder, angle, radiusAt(angle, index), y));
+}
+
+/** Mantelflaeche zwischen zwei Ringen; `inward` dreht die Sichtseite nach innen. */
+function wall(builder: Builder, lower: readonly number[], upper: readonly number[], inward = false) {
+  for (let index = 0; index < lower.length - 1; index += 1) {
+    if (inward) quad(builder, lower[index], lower[index + 1], upper[index + 1], upper[index]);
+    else quad(builder, lower[index], upper[index], upper[index + 1], lower[index + 1]);
+  }
+}
+
+function capFan(builder: Builder, edge: readonly number[], y: number, up: boolean) {
+  const center = pushCenter(builder, y);
+  for (let index = 0; index < edge.length - 1; index += 1) {
+    if (up) triangle(builder, center, edge[index + 1], edge[index]);
+    else triangle(builder, center, edge[index], edge[index + 1]);
+  }
+}
+
+function capRing(builder: Builder, inner: readonly number[], outer: readonly number[], up: boolean) {
+  for (let index = 0; index < inner.length - 1; index += 1) {
+    if (up) {
+      triangle(builder, inner[index], outer[index + 1], outer[index]);
+      triangle(builder, inner[index], inner[index + 1], outer[index + 1]);
+    } else {
+      triangle(builder, inner[index], outer[index], outer[index + 1]);
+      triangle(builder, inner[index], outer[index + 1], inner[index + 1]);
+    }
+  }
+}
+
+/**
+ * Die Gewindeflaeche selbst. Jede Spalte traegt dieselbe Folge von
+ * Profilpunkten, nur um den Vorschub einer Teilumdrehung in der Hoehe
+ * versetzt - dadurch verbindet Reihe zu Reihe genau die Wendel, und die Naht
+ * bei 360 Grad faellt wieder auf den Anfang. Was ueber die Enden hinausragt,
+ * faellt auf den Randpunkt derselben Spalte zusammen; die Deckel bleiben eben.
+ */
+function threadWall(
+  builder: Builder,
+  angles: readonly number[],
+  bottomY: number,
+  topY: number,
+  major: number,
+  minor: number,
+  pitch: number,
+  handSign: number,
+  inward: boolean,
+  limitRadius: (y: number, radius: number) => number,
+  subdivisions: number,
+  bandHeight: number,
+) {
+  const profileRadii = [major, major, minor, minor] as const;
+  const turns = (topY - bottomY) / pitch;
+  const firstTurn = -2;
+  const lastTurn = Math.ceil(turns) + 1;
+  const columns: number[][] = [];
+  const bottomEdge: number[] = [];
+  const topEdge: number[] = [];
+
+  for (let column = 0; column < angles.length; column += 1) {
+    const angle = angles[column];
+    const advance = handSign * (column / (angles.length - 1)) * pitch;
+    const bottomRadius = limitRadius(bottomY, profileRadius(-advance / pitch, major, minor));
+    const topRadius = limitRadius(topY, profileRadius((topY - bottomY - advance) / pitch, major, minor));
+    const bottomVertex = pushVertex(builder, angle, bottomRadius, bottomY);
+    const topVertex = pushVertex(builder, angle, topRadius, topY);
+    const rows: number[] = [bottomVertex];
+    for (let turn = firstTurn; turn <= lastTurn; turn += 1) {
+      for (let step = 0; step < PROFILE_U.length; step += 1) {
+        const nextIndex = step + 1;
+        const uStart = PROFILE_U[step];
+        const uEnd = nextIndex < PROFILE_U.length ? PROFILE_U[nextIndex] : 1;
+        const rStart = profileRadii[step];
+        const rEnd = nextIndex < PROFILE_U.length ? profileRadii[nextIndex] : major;
+        const segmentY = bottomY + advance + (turn + uStart) * pitch;
+        /*
+         * Feiner abgetastet wird nur dort, wo der Fasenkegel das Profil
+         * beschneidet. Entschieden wird das an der Hoehe des Abschnitts, nicht
+         * an der Nummer des Gangs: die Naht bei 360 Grad trifft denselben
+         * Abschnitt einen Gang weiter oben, und nur ueber die Hoehe faellt
+         * dort dieselbe Entscheidung. Ausserhalb des Bandes wird derselbe
+         * Punkt mehrfach eingetragen, damit jede Spalte gleich viele Reihen
+         * behaelt - die entarteten Dreiecke daraus fallen beim Verbinden raus.
+         */
+        const dense = bandHeight > 0 && (segmentY < bottomY + bandHeight || segmentY > topY - bandHeight);
+        let firstOfSegment = -1;
+        for (let sub = 0; sub < subdivisions; sub += 1) {
+          if (!dense && sub > 0) {
+            rows.push(firstOfSegment);
+            continue;
+          }
+          const fraction = sub / subdivisions;
+          const y = bottomY + advance + (turn + uStart + (uEnd - uStart) * fraction) * pitch;
+          const vertex = y <= bottomY
+            ? bottomVertex
+            : y >= topY
+              ? topVertex
+              : pushVertex(builder, angle, limitRadius(y, rStart + (rEnd - rStart) * fraction), y);
+          if (sub === 0) firstOfSegment = vertex;
+          rows.push(vertex);
+        }
+      }
+    }
+    rows.push(topVertex);
+    columns.push(rows);
+    bottomEdge.push(bottomVertex);
+    topEdge.push(topVertex);
+  }
+
+  for (let column = 0; column < columns.length - 1; column += 1) {
+    const here = columns[column];
+    const next = columns[column + 1];
+    for (let row = 0; row < here.length - 1; row += 1) {
+      if (inward) quad(builder, here[row], next[row], next[row + 1], here[row + 1]);
+      else quad(builder, here[row], here[row + 1], next[row + 1], next[row]);
+    }
+  }
+
+  return { bottomEdge, topEdge };
+}
+
+export type ThreadFootprintPatch = ThreadShapeFields & { width: number; depth: number };
+
+/**
+ * Breite und Tiefe gehoeren beim Gewinde dem Durchmesser, nicht umgekehrt. Ein
+ * Zug am Anfasser im Arbeitsbereich schreibt aber direkt in Breite und Tiefe -
+ * deshalb wird er hier in einen gleichmaessigen Massstab zurueckgerechnet und
+ * wandert in Durchmesser, Steigung und Kopfhoehe. So bleibt das Gewinde rund,
+ * ein ovales kann gar nicht erst entstehen, und der Auswahlrahmen sitzt wieder
+ * genau auf dem Koerper.
+ */
+export function threadFootprintPatch(shape: ThreadShapeFields & { width?: number; depth?: number }): ThreadFootprintPatch {
+  const settings = threadSettings(shape);
+  const natural = threadNaturalFootprint(settings);
+  const widthFactor = Number.isFinite(shape.width) && (shape.width as number) > 0 ? (shape.width as number) / natural.width : 1;
+  const depthFactor = Number.isFinite(shape.depth) && (shape.depth as number) > 0 ? (shape.depth as number) / natural.depth : 1;
+  const drift = Math.max(Math.abs(widthFactor - 1), Math.abs(depthFactor - 1));
+  const scaled = drift < 1e-6 ? settings : (() => {
+    const factor = Math.max(0.01, (widthFactor + depthFactor) / 2);
+    const diameter = normalizeThreadDiameter(settings.diameter * factor);
+    const pitch = normalizeThreadPitch(settings.pitch * factor, diameter);
+    const head: HeadShape = { role: settings.role, head: settings.head, diameter, pitch };
+    return {
+      ...settings,
+      diameter,
+      pitch,
+      headHeight: normalizeThreadHeadHeight(settings.headHeight * factor, head),
+      chamfer: normalizeThreadChamfer(settings.chamfer * factor, head),
+    };
+  })();
+  const footprint = drift < 1e-6 ? natural : threadNaturalFootprint(scaled);
+  return {
+    width: footprint.width,
+    depth: footprint.depth,
+    threadRole: scaled.role,
+    threadHead: scaled.head,
+    threadHand: scaled.hand,
+    threadDiameter: scaled.diameter,
+    threadPitch: scaled.pitch,
+    threadClearance: scaled.clearance,
+    threadQuality: scaled.quality,
+    threadHeadHeight: scaled.headHeight,
+    threadChamfer: scaled.chamfer,
+  };
+}
+
+export type ThreadGeometryOptions = ThreadShapeFields & {
+  width: number;
+  depth: number;
+  height: number;
+};
+
+export function createThreadGeometry(options: ThreadGeometryOptions) {
+  const settings = threadSettings(options);
+  const height = Math.max(0.05, options.height);
+  const spec = threadSizeSpec(settings.diameter, settings.pitch);
+  const allowance = radialAllowance(settings.role, settings.clearance);
+  const major = settings.diameter / 2 + allowance;
+  const minor = Math.max(0.02, major - settings.pitch * THREAD_DEPTH_PER_PITCH);
+  const handSign = settings.hand === "left" ? -1 : 1;
+
+  const headHeight = Math.min(height * 0.9, settings.headHeight);
+  const shaftBottom = settings.role === "screw" ? headHeight : 0;
+  const chamfer = Math.min(settings.chamfer, (height - shaftBottom) * 0.45);
+  // Am Schraubenkopf gibt es nichts zu brechen; dort sitzt der Kopf.
+  const chamferBottom = settings.role !== "screw";
+  // Nach innen geschnittene Gewinde bekommen die Fase andersherum: dort muss
+  // der Werkzeugkoerper weiter werden, nicht schmaler.
+  const inward = settings.role === "bore" || settings.role === "nut";
+  const limitRadius = chamfer <= 0.001
+    ? (_y: number, radius: number) => radius
+    : (y: number, radius: number) => {
+      const fromBottom = chamferBottom ? chamfer - (y - shaftBottom) : 0;
+      const fromTop = chamfer - (height - y);
+      const cut = Math.max(0, fromBottom, fromTop);
+      if (cut <= 0) return radius;
+      return inward ? Math.max(radius, major + cut) : Math.min(radius, Math.max(0.05, major - cut));
+    };
+  const spanTurns = Math.ceil((height - shaftBottom) / settings.pitch) + 4;
+  const bandHeight = chamfer <= 0.001 ? 0 : chamfer + settings.pitch;
+  const subdivisions = bandHeight > 0 ? CHAMFER_SUBDIVISIONS : 1;
+  const denseSpan = Math.min(spanTurns, Math.ceil(bandHeight / settings.pitch) * 2 + 2);
+  const rows = ((spanTurns - denseSpan) * 4 + denseSpan * 4 * subdivisions) + 2;
+  const requested = normalizeThreadQuality(settings.quality);
+  const affordable = Math.floor(MAX_THREAD_VERTICES / Math.max(1, rows) / 6) * 6;
+  const segments = clamp(Math.min(requested, affordable), MIN_THREAD_QUALITY, MAX_THREAD_QUALITY);
+  // Die letzte Spalte liegt wieder bei null statt bei zwei Pi: sonst weicht
+  // ihr Sinus um ein Rechenkorn ab und die Naht klafft, wenn auch nur um
+  // ein Zehnbillionstel Millimeter.
+  const angles = Array.from({ length: segments + 1 }, (_, index) => ((index % segments) / segments) * Math.PI * 2);
+
+  const builder: Builder = { positions: [], indices: [] };
+
+  if (settings.role === "nut") {
+    const outerBottom = ring(builder, angles, (angle) => hexRadius(angle, spec.acrossFlats), 0);
+    const outerTop = ring(builder, angles, (angle) => hexRadius(angle, spec.acrossFlats), height);
+    wall(builder, outerBottom, outerTop);
+    const bore = threadWall(builder, angles, 0, height, major, minor, settings.pitch, handSign, true, limitRadius, subdivisions, bandHeight);
+    capRing(builder, bore.bottomEdge, outerBottom, false);
+    capRing(builder, bore.topEdge, outerTop, true);
+  } else if (settings.role === "screw") {
+    const shaft = threadWall(builder, angles, shaftBottom, height, major, minor, settings.pitch, handSign, false, limitRadius, subdivisions, bandHeight);
+    capFan(builder, shaft.topEdge, height, true);
+
+    const headRadiusAt = (angle: number, y: number) => {
+      if (settings.head === "hex") return hexRadius(angle, spec.acrossFlats);
+      if (settings.head === "countersunk") {
+        const progress = headHeight > 0 ? y / headHeight : 1;
+        const crown = threadHeadDiameter(settings) / 2;
+        return crown + (settings.diameter / 2 - crown) * progress;
+      }
+      return spec.headDiameter / 2;
+    };
+    const headBottom = ring(builder, angles, (angle) => headRadiusAt(angle, 0), 0);
+    const headTop = ring(builder, angles, (angle) => headRadiusAt(angle, headHeight), headHeight);
+    wall(builder, headBottom, headTop);
+    capRing(builder, shaft.bottomEdge, headTop, true);
+
+    // Der Innensechskant sitzt in der freien Kopfflaeche. Der Sechskantkopf
+    // bekommt keinen: den fasst man von aussen an.
+    const socketDepth = settings.head === "hex" ? 0 : Math.min(headHeight * 0.6, settings.diameter * 0.55);
+    if (socketDepth > 0.05) {
+      const socketMouth = ring(builder, angles, (angle) => hexRadius(angle, spec.socket), 0);
+      const socketFloor = ring(builder, angles, (angle) => hexRadius(angle, spec.socket), socketDepth);
+      capRing(builder, socketMouth, headBottom, false);
+      wall(builder, socketMouth, socketFloor, true);
+      capFan(builder, socketFloor, socketDepth, false);
+    } else {
+      capFan(builder, headBottom, 0, false);
+    }
+  } else {
+    const rod = threadWall(builder, angles, 0, height, major, minor, settings.pitch, handSign, false, limitRadius, subdivisions, bandHeight);
+    capFan(builder, rod.bottomEdge, 0, false);
+    capFan(builder, rod.topEdge, height, true);
+  }
+
+  const natural = threadNaturalFootprint(settings);
+  const scaleX = Math.max(0.01, options.width) / Math.max(Number.EPSILON, natural.width);
+  const scaleZ = Math.max(0.01, options.depth) / Math.max(Number.EPSILON, natural.depth);
+  if (scaleX !== 1 || scaleZ !== 1) {
+    for (let offset = 0; offset < builder.positions.length; offset += 3) {
+      builder.positions[offset] *= scaleX;
+      builder.positions[offset + 2] *= scaleZ;
+    }
+  }
+
+  const indexed = new THREE.BufferGeometry();
+  indexed.setAttribute("position", new THREE.Float32BufferAttribute(builder.positions, 3));
+  indexed.setIndex(builder.indices);
+  const geometry = toCreasedNormals(indexed, THREE.MathUtils.degToRad(20));
+  indexed.dispose();
+  geometry.computeBoundingBox();
+  return geometry;
+}

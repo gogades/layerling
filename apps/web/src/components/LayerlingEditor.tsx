@@ -22,7 +22,11 @@ import { manifoldModuleSource } from "@/generated/manifoldModuleSource";
 import { manifoldWasmBase64 } from "@/generated/manifoldWasmBase64";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import { createGearGeometry } from "@/lib/gearGeometry";
-import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
+import { createPrismGeometry } from "@/lib/prismGeometry";
+import { createPyramidGeometry } from "@/lib/pyramidGeometry";
+import { roundSideCount } from "@/lib/roundSideCount";
+import { createThreadGeometry } from "@/lib/threadGeometry";
+import { createSpringGeometry } from "@/lib/springGeometry";
 import {
   ToolbarAlignIcon,
   ToolbarCenterOnWorkplaneIcon,
@@ -107,7 +111,7 @@ import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketc
 import { AppFooter } from "@/components/AppFooter";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { exportLylProject, LYL_CREATED_WITH_VERSION, LYL_MEDIA_TYPE } from "@/lib/lylProject";
-import { makeShapeFromAsset, sceneShape, shapeAssetLabel, toolbarShapeAssets, type ToolbarShapeAsset } from "@/lib/shapeCatalog";
+import { makeShapeFromAsset, sceneShape, shapeAssetLabel, shapeAssetMenuLabel, toolbarShapeAssets, type ToolbarShapeAsset } from "@/lib/shapeCatalog";
 import { importExtensionSupported } from "@/lib/importExtensions";
 import { importedShapeFromStl } from "@/lib/stlImport";
 import { exportMeshesToStl } from "@/lib/stlExport";
@@ -1985,35 +1989,6 @@ function createBooleanWedgeGeometry(width: number, height: number, depth: number
   return geometry;
 }
 
-function createBooleanPyramidGeometry(width: number, height: number, depth: number, sides = 4) {
-  const count = Math.max(3, Math.round(sides));
-  if (count !== 4) {
-    const footprintScale = regularPolygonFootprintScale(width, depth, count);
-    const geometry = new THREE.ConeGeometry(1, height, count);
-    geometry.scale(footprintScale.x, 1, footprintScale.z);
-    geometry.translate(footprintScale.offsetX, height / 2, footprintScale.offsetZ);
-    return geometry;
-  }
-
-  const w = width / 2;
-  const d = depth / 2;
-  const vertices = new Float32Array([
-    -w, 0, -d, w, 0, -d, w, 0, d, -w, 0, d,
-    0, height, 0,
-  ]);
-  const indices = [
-    0, 1, 2, 0, 2, 3,
-    0, 4, 1,
-    1, 4, 2,
-    2, 4, 3,
-    3, 4, 0,
-  ];
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
-  geometry.setIndex(indices);
-  return geometry;
-}
-
 function createBooleanRoundRoofGeometry(width: number, height: number, depth: number, sides = 64) {
   const radius = width / 2;
   const segments = Math.max(4, Math.round(sides));
@@ -2176,8 +2151,7 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         : new THREE.BoxGeometry(width, height, depth);
       break;
     case "cylinder":
-      geometry = new THREE.CylinderGeometry(1, 1, height, shape.sides ?? 96, shape.segments ?? 1);
-      geometry.scale(width / 2, 1, depth / 2);
+      geometry = createPrismGeometry(width, height, depth, roundSideCount(shape.sides, width, depth), shape.segments ?? 1);
       break;
     case "sphere":
       geometry = new THREE.SphereGeometry(1, sphereTessellation(shape.steps).widthSegments, sphereTessellation(shape.steps).heightSegments);
@@ -2185,12 +2159,12 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
       break;
     case "cone": {
       const baseRadius = shape.baseRadius ?? width / 2;
-      geometry = new THREE.CylinderGeometry(shape.topRadius ?? 0, baseRadius, height, shape.sides ?? 96);
+      geometry = new THREE.CylinderGeometry(shape.topRadius ?? 0, baseRadius, height, roundSideCount(shape.sides, width, depth));
       geometry.scale(1, 1, depth / Math.max(0.001, width));
       break;
     }
     case "pyramid":
-      geometry = createBooleanPyramidGeometry(width, height, depth, shape.sides ?? 4);
+      geometry = createPyramidGeometry(width, height, depth, shape.sides ?? 4, shape.topWidth, shape.topDepth);
       break;
     case "roof":
       geometry = createBooleanRoofGeometry(width, height, depth);
@@ -2206,7 +2180,7 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
       break;
     case "ring":
     case "tube":
-      geometry = createBooleanHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, 144);
+      geometry = createBooleanHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, roundSideCount(shape.sides, width, depth));
       break;
     case "gear":
       geometry = createGearGeometry({
@@ -2222,12 +2196,37 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         helixQuality: shape.helixQuality,
       });
       break;
+    case "thread":
+      geometry = createThreadGeometry({
+        width,
+        depth,
+        height,
+        threadRole: shape.threadRole,
+        threadHead: shape.threadHead,
+        threadHand: shape.threadHand,
+        threadDiameter: shape.threadDiameter,
+        threadPitch: shape.threadPitch,
+        threadClearance: shape.threadClearance,
+        threadQuality: shape.threadQuality,
+        threadHeadHeight: shape.threadHeadHeight,
+        threadChamfer: shape.threadChamfer,
+      });
+      break;
+    case "spring":
+      geometry = createSpringGeometry({
+        width,
+        depth,
+        height,
+        springTurns: shape.springTurns,
+        springWire: shape.springWire,
+        springQuality: shape.springQuality,
+      });
+      break;
     case "wedge":
       geometry = createBooleanWedgeGeometry(width, height, depth);
       break;
     case "polygon":
-      geometry = new THREE.CylinderGeometry(1, 1, height, 6);
-      geometry.scale(width / 2, 1, depth / 2);
+      geometry = createPrismGeometry(width, height, depth, shape.sides ?? 6);
       break;
     case "icosahedron":
       geometry = new THREE.IcosahedronGeometry(size / 2, 1);
@@ -9989,7 +9988,7 @@ function SecondaryToolbar({
                     }}
                   >
                     <img src={shape.menuIcon} alt="" draggable={false} />
-                    <span>{shapeAssetLabel(shape)}</span>
+                    <span>{shapeAssetMenuLabel(shape)}</span>
                   </button>
                 ))}
               </div>

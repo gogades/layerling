@@ -99,10 +99,14 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
     if (kind === "sphere" || kind === "halfSphere") {
       entry.steps = optionalShapeNumber(source.steps, fallbackEntry?.steps, 6, 64, true);
     }
-    if (kind === "cylinder" || kind === "cone") {
+    if (kind === "cylinder" || kind === "cone" || kind === "tube" || kind === "ring") {
       entry.sides = optionalShapeNumber(source.sides, fallbackEntry?.sides, 3, MAX_HIGH_RESOLUTION_SIDES, true);
-    } else if (kind === "pyramid") {
+    } else if (kind === "pyramid" || kind === "polygon") {
       entry.sides = optionalShapeNumber(source.sides, fallbackEntry?.sides, 3, 24, true);
+      if (kind === "pyramid") {
+        entry.topWidth = optionalShapeNumber(source.topWidth, fallbackEntry?.topWidth, 0, MAX_CUSTOM_SHAPE_DIMENSION);
+        entry.topDepth = optionalShapeNumber(source.topDepth, fallbackEntry?.topDepth, 0, MAX_CUSTOM_SHAPE_DIMENSION);
+      }
     } else if (kind === "roundRoof") {
       entry.sides = optionalShapeNumber(source.sides, fallbackEntry?.sides, 4, MAX_HIGH_RESOLUTION_SIDES, true);
     }
@@ -122,6 +126,33 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
           : fallbackEntry?.font;
       entry.bevel = optionalShapeNumber(source.bevel, fallbackEntry?.bevel, 0, 8);
       entry.segments = optionalShapeNumber(source.segments, fallbackEntry?.segments, 0, 24, true);
+    }
+    if (kind === "spring") {
+      entry.springTurns = optionalShapeNumber(source.springTurns, fallbackEntry?.springTurns, 1, 60, true);
+      entry.springWire = optionalShapeNumber(source.springWire, fallbackEntry?.springWire, 0.3, 120);
+      entry.springQuality = optionalShapeNumber(source.springQuality, fallbackEntry?.springQuality, 12, 96, true);
+    }
+    if (kind === "thread") {
+      entry.threadRole = source.threadRole === undefined
+        ? fallbackEntry?.threadRole
+        : ["rod", "screw", "nut", "bore"].includes(source.threadRole)
+          ? source.threadRole
+          : fallbackEntry?.threadRole;
+      entry.threadHead = source.threadHead === undefined
+        ? fallbackEntry?.threadHead
+        : ["cylinder", "countersunk", "hex"].includes(source.threadHead)
+          ? source.threadHead
+          : fallbackEntry?.threadHead;
+      entry.threadHand = source.threadHand === undefined
+        ? fallbackEntry?.threadHand
+        : source.threadHand === "right" || source.threadHand === "left"
+          ? source.threadHand
+          : fallbackEntry?.threadHand;
+      entry.threadDiameter = optionalShapeNumber(source.threadDiameter, fallbackEntry?.threadDiameter, 1, 160);
+      entry.threadPitch = optionalShapeNumber(source.threadPitch, fallbackEntry?.threadPitch, 0.2, 12);
+      entry.threadClearance = optionalShapeNumber(source.threadClearance, fallbackEntry?.threadClearance, 0, 1.5);
+      entry.threadQuality = optionalShapeNumber(source.threadQuality, fallbackEntry?.threadQuality, 12, 96, true);
+      entry.threadChamfer = optionalShapeNumber(source.threadChamfer, fallbackEntry?.threadChamfer, 0, 40);
     }
     if (kind === "gear") {
       entry.teeth = optionalShapeNumber(source.teeth, fallbackEntry?.teeth, 6, 64, true);

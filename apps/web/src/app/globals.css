@@ -3205,7 +3205,8 @@ button {
   top: var(--editor-toolbar-tools-height);
   left: 0;
   z-index: 60;
-  width: 244px;
+  /* Mehrspaltig, damit alle Formen ohne Rollen zu sehen sind. */
+  width: min(672px, calc(100vw - 32px));
   max-height: min(650px, calc(100vh - 92px));
   overflow: hidden;
   color: #573f25;
@@ -3227,9 +3228,10 @@ button {
 }
 
 .shape-menu-list {
-  display: flex;
+  display: grid;
   max-height: min(608px, calc(100vh - 136px));
-  flex-direction: column;
+  grid-template-columns: repeat(auto-fill, minmax(206px, 1fr));
+  align-content: start;
   gap: 4px;
   padding: 8px;
   overflow-y: auto;
@@ -3281,13 +3283,16 @@ button {
   pointer-events: none;
 }
 
+/* Laengere Beschriftungen brechen um, statt am Rand abgeschnitten zu werden:
+   hinter einem Eintrag koennen mehrere Bauteile stecken. */
 .shape-menu-item span {
-  overflow: hidden;
   min-width: 0;
   max-width: 150px;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+  /* Zeilenumbrueche aus dem Katalog gelten; Leerraum wird trotzdem gefaltet. */
+  white-space: pre-line;
 }
 
 .action-buttons button {
@@ -5960,6 +5965,50 @@ button {
   object-fit: contain;
 }
 
+/* Die gezeichneten Kacheln brauchen weniger Platz als die Rasterbilder und
+   nehmen ihre Farbe aus der Schaltflaeche, damit die Auswahl mitfaerbt. */
+.gear-type-options.icon-options.two-up {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gear-type-options.icon-options button {
+  min-height: 74px;
+}
+
+.gear-type-options.icon-options svg {
+  display: block;
+  width: 44px;
+  height: 44px;
+  color: inherit;
+  opacity: 0.85;
+}
+
+.gear-type-options.icon-options button.selected svg {
+  opacity: 1;
+}
+
+/* Ein Schalter im Merkmalsfeld, etwa fuer Werte, die sich selbst einstellen. */
+.check-property {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #7d6b58;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.check-property input {
+  width: 16px;
+  height: 16px;
+  accent-color: #b3711f;
+  cursor: pointer;
+}
+
+.check-property input:disabled {
+  cursor: default;
+}
+
 .range-property {
   display: grid;
   gap: 7px;
@@ -7485,7 +7534,8 @@ button {
     position: fixed;
     top: var(--editor-toolbar-height);
     left: 10px;
-    width: min(264px, calc(100vw - 20px));
+    /* Auch im schmalen Fenster so viele Spalten, wie hineinpassen. */
+    width: min(672px, calc(100vw - 20px));
   }
 
   .workspace-modal {
@@ -8155,6 +8205,7 @@ html[data-theme="dark"] .color-card-header {
   color: #efe7d8;
 }
 
+html[data-theme="dark"] .check-property,
 html[data-theme="dark"] .gear-type-property,
 html[data-theme="dark"] .range-property,
 html[data-theme="dark"] .range-property-name,

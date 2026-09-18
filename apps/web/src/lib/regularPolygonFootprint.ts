@@ -5,11 +5,14 @@ export type RegularPolygonFootprintScale = {
   offsetZ: number;
 };
 
-export function regularPolygonFootprintScale(
-  width: number,
-  depth: number,
-  sides: number,
-): RegularPolygonFootprintScale {
+export type RegularPolygonBounds = {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+};
+
+function regularPolygonBounds(sides: number, angleOffset = 0): RegularPolygonBounds {
   const count = Math.max(3, Math.round(sides));
   let minX = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -17,7 +20,7 @@ export function regularPolygonFootprintScale(
   let maxZ = Number.NEGATIVE_INFINITY;
 
   for (let index = 0; index < count; index += 1) {
-    const angle = (index / count) * Math.PI * 2;
+    const angle = (index / count) * Math.PI * 2 + angleOffset;
     const x = Math.sin(angle);
     const z = Math.cos(angle);
     minX = Math.min(minX, x);
@@ -25,7 +28,27 @@ export function regularPolygonFootprintScale(
     minZ = Math.min(minZ, z);
     maxZ = Math.max(maxZ, z);
   }
+  return { minX, maxX, minZ, maxZ };
+}
 
+/**
+ * Wie breit und wie tief ein Vieleck mit Umkreis 1 misst. Ein Sechskant ist
+ * ueber die Ecken breiter als ueber die Flaechen, ein Fuenfkant ganz anders -
+ * wer die Seitenzahl aendert und trotzdem ein regelmaessiges Vieleck behalten
+ * will, muss Breite und Tiefe in diesem Verhaeltnis mitziehen.
+ */
+export function regularPolygonAspect(sides: number, angleOffset = 0) {
+  const bounds = regularPolygonBounds(sides, angleOffset);
+  return { width: bounds.maxX - bounds.minX, depth: bounds.maxZ - bounds.minZ };
+}
+
+export function regularPolygonFootprintScale(
+  width: number,
+  depth: number,
+  sides: number,
+  angleOffset = 0,
+): RegularPolygonFootprintScale {
+  const { minX, maxX, minZ, maxZ } = regularPolygonBounds(sides, angleOffset);
   const x = Math.max(0.001, width) / Math.max(0.001, maxX - minX);
   const z = Math.max(0.001, depth) / Math.max(0.001, maxZ - minZ);
   return {

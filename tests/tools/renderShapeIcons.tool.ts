@@ -1,0 +1,324 @@
+import { describe, it } from "vitest";
+import { deflateSync } from "node:zlib";
+import { writeFileSync } from "node:fs";
+import type * as THREE from "three";
+import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
+import { createPrismGeometry } from "@/lib/prismGeometry";
+import { createSpringGeometry } from "@/lib/springGeometry";
+import { createThreadGeometry } from "@/lib/threadGeometry";
+
+/*
+ * Zeichnet die Symbole fuer die Formenliste aus genau der Geometrie, die der
+ * Editor auch auf die Arbeitsebene legt - ein gemaltes Gewinde war jedes Mal
+ * daneben. Aufruf: npm run icons:shapes
+ *
+ * Orthografische Sicht auf derselben Achse wie die uebrigen Symbole,
+ * Gouraud-Schattierung, Konturen aus Tiefen- und Normalensprung, vierfach
+ * ueberabgetastet. Das Ergebnis liegt als PNG neben den anderen Symbolen.
+ */
+
+const SIZE = 256;
+const SS = 4;
+const W = SIZE * SS;
+const MARGIN = 16 * SS;
+const SILHOUETTE_RADIUS = 8;
+const CREASE_RADIUS = 2;
+const LINE = [0x33, 0x33, 0x33];
+
+function crcTable() {
+  const table = new Int32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c;
+  }
+  return table;
+}
+const CRC = crcTable();
+
+function crc32(buffer: Buffer) {
+  let c = 0xffffffff;
+  for (let i = 0; i < buffer.length; i += 1) c = CRC[(c ^ buffer[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function chunk(type: string, data: Buffer) {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body), 0);
+  return Buffer.concat([length, body, crc]);
+}
+
+function encodePng(rgba: Uint8Array, size: number) {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8;
+  header[9] = 6;
+  const raw = Buffer.alloc((size * 4 + 1) * size);
+  for (let y = 0; y < size; y += 1) {
+    raw[y * (size * 4 + 1)] = 0;
+    for (let x = 0; x < size * 4; x += 1) raw[y * (size * 4 + 1) + 1 + x] = rgba[y * size * 4 + x];
+  }
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(raw, { level: 9 })),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+/** In die Ansicht drehen, die auch die uebrigen Symbole zeigen. */
+function makeProject(AZIMUTH: number, ELEVATION: number, lay: boolean) {
+  return function project(x: number, y: number, z: number) {
+  // Die Stange steht in der Geometrie auf der Y-Achse; fuer ein liegendes
+  // Symbol wird sie vorher umgelegt.
+  const lx = lay ? y : x;
+  const ly = lay ? -x : y;
+  const lz = z;
+  const ca = Math.cos(AZIMUTH);
+  const sa = Math.sin(AZIMUTH);
+  const rx = lx * ca + lz * sa;
+  const rz = -lx * sa + lz * ca;
+  const ce = Math.cos(ELEVATION);
+  const se = Math.sin(ELEVATION);
+  const ry = ly * ce - rz * se;
+  const rz2 = ly * se + rz * ce;
+  return { x: rx, y: ry, z: rz2 };
+  };
+}
+
+function maxFilter(mask: Uint8Array, radius: number) {
+  const out = new Uint8Array(W * W);
+  const tmp = new Uint8Array(W * W);
+  for (let y = 0; y < W; y += 1) {
+    for (let x = 0; x < W; x += 1) {
+      let value = 0;
+      for (let k = -radius; k <= radius && value === 0; k += 1) {
+        const sx = x + k;
+        if (sx < 0 || sx >= W) continue;
+        if (mask[y * W + sx]) value = 1;
+      }
+      tmp[y * W + x] = value;
+    }
+  }
+  for (let y = 0; y < W; y += 1) {
+    for (let x = 0; x < W; x += 1) {
+      let value = 0;
+      for (let k = -radius; k <= radius && value === 0; k += 1) {
+        const sy = y + k;
+        if (sy < 0 || sy >= W) continue;
+        if (tmp[sy * W + x]) value = 1;
+      }
+      out[y * W + x] = value;
+    }
+  }
+  return out;
+}
+
+type Variant = {
+  name: string;
+  build: () => THREE.BufferGeometry;
+  height: number;
+  lay: boolean;
+  azimuth: number;
+  elevation: number;
+};
+
+function render({ name, build, height, lay, azimuth, elevation }: Variant) {
+  {
+    const project = makeProject((azimuth * Math.PI) / 180, (elevation * Math.PI) / 180, lay);
+    const geometry = build();
+    const position = geometry.getAttribute("position");
+    const normal = geometry.getAttribute("normal");
+    const count = position.count;
+
+    const px = new Float64Array(count);
+    const py = new Float64Array(count);
+    const pz = new Float64Array(count);
+    const nx = new Float64Array(count);
+    const ny = new Float64Array(count);
+    const nz = new Float64Array(count);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (let i = 0; i < count; i += 1) {
+      const p = project(position.getX(i), position.getY(i) - height / 2, position.getZ(i));
+      px[i] = p.x; py[i] = p.y; pz[i] = p.z;
+      const n = project(normal.getX(i), normal.getY(i), normal.getZ(i));
+      nx[i] = n.x; ny[i] = n.y; nz[i] = n.z;
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const scale = Math.min((W - MARGIN * 2) / (maxX - minX), (W - MARGIN * 2) / (maxY - minY));
+    const offsetX = W / 2 - ((minX + maxX) / 2) * scale;
+    const offsetY = W / 2 + ((minY + maxY) / 2) * scale;
+    const sx = (i: number) => px[i] * scale + offsetX;
+    const sy = (i: number) => -py[i] * scale + offsetY;
+
+    const depth = new Float64Array(W * W).fill(-Infinity);
+    const shade = new Float64Array(W * W);
+    const normalBuffer = new Float64Array(W * W * 3);
+    const cover = new Uint8Array(W * W);
+
+    const lx = -0.45, ly = 0.74, lz = 0.5;
+    const ll = Math.hypot(lx, ly, lz);
+
+    for (let t = 0; t < count; t += 3) {
+      const ax = sx(t), ay = sy(t);
+      const bx = sx(t + 1), by = sy(t + 1);
+      const cx = sx(t + 2), cy = sy(t + 2);
+      const area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+      if (Math.abs(area) < 1e-9) continue;
+      const loX = Math.max(0, Math.floor(Math.min(ax, bx, cx)));
+      const hiX = Math.min(W - 1, Math.ceil(Math.max(ax, bx, cx)));
+      const loY = Math.max(0, Math.floor(Math.min(ay, by, cy)));
+      const hiY = Math.min(W - 1, Math.ceil(Math.max(ay, by, cy)));
+      for (let y = loY; y <= hiY; y += 1) {
+        for (let x = loX; x <= hiX; x += 1) {
+          const qx = x + 0.5, qy = y + 0.5;
+          const w0 = ((bx - ax) * (qy - ay) - (by - ay) * (qx - ax)) / area;
+          const w1 = ((qx - ax) * (cy - ay) - (qy - ay) * (cx - ax)) / area;
+          if (w0 < 0 || w1 < 0 || w0 + w1 > 1) continue;
+          const w2 = 1 - w0 - w1;
+          const z = pz[t] * w2 + pz[t + 2] * w0 + pz[t + 1] * w1;
+          const index = y * W + x;
+          if (z <= depth[index]) continue;
+          depth[index] = z;
+          cover[index] = 1;
+          let vx = nx[t] * w2 + nx[t + 2] * w0 + nx[t + 1] * w1;
+          let vy = ny[t] * w2 + ny[t + 2] * w0 + ny[t + 1] * w1;
+          let vz = nz[t] * w2 + nz[t + 2] * w0 + nz[t + 1] * w1;
+          const len = Math.hypot(vx, vy, vz) || 1;
+          vx /= len; vy /= len; vz /= len;
+          normalBuffer[index * 3] = vx;
+          normalBuffer[index * 3 + 1] = vy;
+          normalBuffer[index * 3 + 2] = vz;
+          const lambert = Math.max(0, (vx * lx + vy * ly + vz * lz) / ll);
+          shade[index] = 0.38 + 0.62 * lambert;
+        }
+      }
+    }
+
+    const silhouette = new Uint8Array(W * W);
+    const crease = new Uint8Array(W * W);
+    for (let y = 0; y < W - 1; y += 1) {
+      for (let x = 0; x < W - 1; x += 1) {
+        const a = y * W + x;
+        const neighbours = [a + 1, a + W];
+        for (const b of neighbours) {
+          if (cover[a] !== cover[b]) {
+            silhouette[cover[a] ? a : b] = 1;
+            continue;
+          }
+          if (!cover[a]) continue;
+          if (Math.abs(depth[a] - depth[b]) > 0.6) {
+            crease[depth[a] < depth[b] ? a : b] = 1;
+            continue;
+          }
+          const dot = normalBuffer[a * 3] * normalBuffer[b * 3]
+            + normalBuffer[a * 3 + 1] * normalBuffer[b * 3 + 1]
+            + normalBuffer[a * 3 + 2] * normalBuffer[b * 3 + 2];
+          if (dot < Math.cos((42 * Math.PI) / 180)) crease[a] = 1;
+        }
+      }
+    }
+    const thickSilhouette = maxFilter(silhouette, SILHOUETTE_RADIUS);
+    const thickCrease = maxFilter(crease, CREASE_RADIUS);
+
+    const big = new Uint8Array(W * W * 4);
+    for (let i = 0; i < W * W; i += 1) {
+      const isLine = thickSilhouette[i] || thickCrease[i];
+      if (isLine) {
+        big[i * 4] = LINE[0];
+        big[i * 4 + 1] = LINE[1];
+        big[i * 4 + 2] = LINE[2];
+        big[i * 4 + 3] = 255;
+      } else if (cover[i]) {
+        const grey = Math.max(0, Math.min(255, Math.round(126 + 129 * shade[i])));
+        big[i * 4] = grey;
+        big[i * 4 + 1] = grey;
+        big[i * 4 + 2] = grey;
+        big[i * 4 + 3] = 255;
+      }
+    }
+
+    const small = new Uint8Array(SIZE * SIZE * 4);
+    for (let y = 0; y < SIZE; y += 1) {
+      for (let x = 0; x < SIZE; x += 1) {
+        let r = 0, g = 0, b = 0, a = 0;
+        for (let oy = 0; oy < SS; oy += 1) {
+          for (let ox = 0; ox < SS; ox += 1) {
+            const i = ((y * SS + oy) * W + x * SS + ox) * 4;
+            const alpha = big[i + 3] / 255;
+            r += big[i] * alpha; g += big[i + 1] * alpha; b += big[i + 2] * alpha; a += alpha;
+          }
+        }
+        const n = SS * SS;
+        const index = (y * SIZE + x) * 4;
+        small[index] = a > 0 ? Math.round(r / a) : 0;
+        small[index + 1] = a > 0 ? Math.round(g / a) : 0;
+        small[index + 2] = a > 0 ? Math.round(b / a) : 0;
+        small[index + 3] = Math.round((a / n) * 255);
+      }
+    }
+
+    writeFileSync(name, encodePng(small, SIZE));
+  }
+}
+
+describe("palette icons", () => {
+  it("renders them from the real geometry", () => {
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/thread.png",
+      height: 14,
+      lay: true,
+      azimuth: 45,
+      elevation: 30,
+      build: () => createThreadGeometry({
+        width: 6,
+        depth: 6,
+        height: 14,
+        threadRole: "rod",
+        threadDiameter: 6,
+        threadPitch: 1.4,
+        threadQuality: 96,
+      }),
+    });
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/spring.png",
+      height: 30,
+      lay: false,
+      azimuth: 35,
+      elevation: 24,
+      build: () => createSpringGeometry({
+        width: 20,
+        depth: 20,
+        height: 30,
+        springTurns: 5,
+        springWire: 3.4,
+        springQuality: 72,
+      }),
+    });
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/polygon.png",
+      height: 20,
+      lay: false,
+      azimuth: 20,
+      elevation: 30,
+      build: () => {
+        // Breite und Tiefe im Verhaeltnis des Sechskants: sonst waere das
+        // Vieleck im Symbol gestaucht statt gleichseitig.
+        const aspect = regularPolygonAspect(6);
+        const longest = Math.max(aspect.width, aspect.depth);
+        const prism = createPrismGeometry((20 * aspect.width) / longest, 20, (20 * aspect.depth) / longest, 6)
+          .toNonIndexed();
+        // Flache Normalen, damit die Flaechen als Flaechen stehen.
+        prism.computeVertexNormals();
+        return prism;
+      },
+    });
+  });
+});

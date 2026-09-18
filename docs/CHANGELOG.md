@@ -4,6 +4,21 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.2.0
+
+- Added threads as a shape of their own, in four forms: a threaded rod, a screw with a socket, countersunk or hex head, a hex nut, and a tapped hole. The thread is cut from the real ISO profile - sixty degrees, with the crest and the root flattened the way the standard prescribes - not from a sawtooth. That is what makes a printed screw actually run in a printed nut.
+- M2 to M12 are listed by name, and so are UNC and UNF from #4 up to one inch. Diameter and pitch can also be set freely, and for an inch size the pitch field asks for threads per inch instead of millimetres, because that is the number written on the part. Left-hand threads are a switch, not a separate shape.
+- A clearance value sets how much room the thread leaves, so a nut printed at 0.2 mm clearance turns on a rod instead of welding itself to it, and both thread ends can take a chamfer that leads the first turn in.
+- In the panel, **Length** means the thread alone and the head has its own height slider, so shortening a screw no longer shrinks its head. The diameter is one slider: dragging a handle in the workspace scales both horizontal axes together, so a thread can never come out oval.
+- The tapped hole is a cutting tool like any other. Drag it into a part, group the two, and the part has a thread in it.
+- Added springs - a wire wound along a helix, with the number of turns, the wire thickness and the resolution as separate values. The spring fills the box it is given exactly, including the wire at both ends, so a spring of 30 mm measures 30 mm.
+- Added the polygon: a prism of three to twenty-four sides, sitting exactly in its footprint. A hexagon inserted at 20 mm measures 20 mm across the flats and is equilateral, not squashed.
+- The pyramid now has **Top length** and **Top width** instead of running to a point, which makes a frustum a matter of two numbers. Taper did the same job worse and has been dropped there, along with everywhere else it had nothing to act on.
+- Corrected the footprint of round shapes: a cylinder drawn at 20 mm now measures 20 mm, where a low side count used to leave it noticeably smaller - a six-sided one measured 17.32.
+- Round shapes now pick their own number of sides, following the diameter, so that no flat sits more than five thousandths of a millimetre off the true circle. A small pin no longer carries the polygon count of a large disc, and a large disc no longer shows its facets. **Sides follow the size** turns the following off and pins the number by hand; existing designs keep the number they were saved with.
+- The shape list is laid out in several columns and no longer needs scrolling, and its heading is simply **Shapes**.
+- Note for older versions: threads, springs, polygons and pyramid frustums are new shape types in the `.lyl` package. The format version is unchanged, so designs written here still open in 1.1, but a design that contains one of the new shapes does not.
+
 ## 1.1.0
 
 - Designs can now be kept on the server instead of only in the browser, and everyone who opens the page sees them. Where layerling runs on Node, `LAYERLING_SHARED_PROJECTS_DIR` points at the folder; where it is served as a static export, `store.php` travels with it and a folder named `store` beside `index.html` switches it on. Without either, nothing changes.

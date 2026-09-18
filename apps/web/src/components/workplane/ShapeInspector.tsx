@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, LockKeyhole, LockKeyholeOpen, Split } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { ToolbarHideSelectedIcon } from "@/components/icons";
 import {
   DEFAULT_GEAR_HELIX_ANGLE,
@@ -21,13 +21,56 @@ import {
   normalizeGearType,
   gearToothPitch,
 } from "@/lib/gearGeometry";
+import {
+  MAX_THREAD_CLEARANCE,
+  MAX_THREAD_DIAMETER,
+  MAX_THREAD_QUALITY,
+  MIN_THREAD_CLEARANCE,
+  MIN_THREAD_DIAMETER,
+  MIN_THREAD_QUALITY,
+  THREAD_SIZE_GROUPS,
+  defaultThreadHeadHeight,
+  normalizeThreadChamfer,
+  normalizeThreadClearance,
+  normalizeThreadDiameter,
+  normalizeThreadHand,
+  normalizeThreadHead,
+  normalizeThreadHeadHeight,
+  normalizeThreadPitch,
+  normalizeThreadQuality,
+  normalizeThreadRole,
+  threadNaturalFootprint,
+  pitchToThreadsPerInch,
+  threadChamferLimits,
+  threadHeadHeightLimits,
+  threadNaturalHeight,
+  threadPitchLimits,
+  threadSettings,
+  threadSizeFor,
+  threadUsesInchPitch,
+  threadsPerInchToPitch,
+  type ThreadSettings,
+} from "@/lib/threadGeometry";
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, measurementOptionLabel, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeWidth } from "@/lib/workplaneShapes";
 import { normalizeSketchRevolveSettings } from "@/lib/sketchRevolve";
+import { roundSideCount } from "@/lib/roundSideCount";
+import { normalizePyramidTop } from "@/lib/pyramidGeometry";
+import {
+  MAX_SPRING_QUALITY,
+  MIN_SPRING_QUALITY,
+  normalizeSpringQuality,
+  normalizeSpringTurns,
+  normalizeSpringWire,
+  springSettings,
+  springTurnLimits,
+  springWireLimits,
+} from "@/lib/springGeometry";
+import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
 import { MAX_HIGH_RESOLUTION_SIDES } from "@/lib/workplaneSettings";
-import type { GearType, GridSize, MeasurementAccuracy, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
 const MIN_SHAPE_SIZE = 0.01;
@@ -68,6 +111,17 @@ const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: MessageKey }> = [
   { value: "helical", label: "gear.helical" },
   { value: "bevel", label: "gear.bevel" },
 ];
+const THREAD_ROLE_OPTIONS: Array<{ value: ThreadRole; label: MessageKey }> = [
+  { value: "rod", label: "thread.rod" },
+  { value: "screw", label: "thread.screw" },
+  { value: "nut", label: "thread.nut" },
+  { value: "bore", label: "thread.bore" },
+];
+const THREAD_HEAD_OPTIONS: Array<{ value: ThreadHead; label: MessageKey }> = [
+  { value: "cylinder", label: "thread.headCylinder" },
+  { value: "countersunk", label: "thread.headCountersunk" },
+  { value: "hex", label: "thread.headHex" },
+];
 
 type RangePropertyConfig = {
   type?: "range";
@@ -78,7 +132,17 @@ type RangePropertyConfig = {
   min: number;
   max: number;
   step?: number;
+  /** Zusaetzlich zur Sperre des ganzen Objekts, etwa bei automatischen Werten. */
+  disabled?: boolean;
   onChange: (value: number) => void;
+};
+
+type TogglePropertyConfig = {
+  type: "toggle";
+  id: string;
+  label: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
 };
 
 type TextPropertyConfig = {
@@ -89,16 +153,23 @@ type TextPropertyConfig = {
   onChange: (value: string) => void;
 };
 
+type SelectPropertyOption = {
+  value: string;
+  label: string;
+  /** Ueberschrift, unter der der Eintrag im aufgeklappten Feld steht. */
+  group?: string;
+};
+
 type SelectPropertyConfig = {
   type: "select";
   id: string;
   label: string;
   value: string;
-  options: string[];
+  options: SelectPropertyOption[];
   onChange: (value: string) => void;
 };
 
-type ShapePropertyConfig = RangePropertyConfig | TextPropertyConfig | SelectPropertyConfig;
+type ShapePropertyConfig = RangePropertyConfig | TextPropertyConfig | SelectPropertyConfig | TogglePropertyConfig;
 export type ShapeInspectorUpdateOptions = { resizeAxis?: "width" | "depth" | "height" };
 type ShapeInspectorUpdate = (patch: Partial<WorkplaneShape>, options?: ShapeInspectorUpdateOptions) => void;
 
@@ -112,7 +183,41 @@ function formatPropertyNumber(value: number, accuracy: MeasurementAccuracy, step
 }
 
 function propertyUsesLengthUnit(key: string) {
-  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth"].includes(key);
+  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "threadLength", "headHeight", "chamfer", "wire"].includes(key);
+}
+
+/**
+ * Der Schalter und der Regler fuer die Seitenzahl runder Koerper. Ohne eigene
+ * Angabe folgt sie der Groesse; der Schalter haelt sie fest, indem er die
+ * gerade wirksame Zahl eintraegt.
+ */
+function roundSideProperties(
+  shape: WorkplaneShape,
+  width: number,
+  depth: number,
+  onUpdate: ShapeInspectorUpdate,
+): ShapePropertyConfig[] {
+  const followsSize = shape.sides === undefined;
+  const effectiveSides = roundSideCount(shape.sides, width, depth);
+  return [
+    {
+      type: "toggle",
+      id: "sidesFollowSize",
+      label: t("prop.sidesFollowSize"),
+      value: followsSize,
+      onChange: (follows) => onUpdate({ sides: follows ? undefined : effectiveSides }),
+    },
+    {
+      id: "sides",
+      label: t("prop.sides"),
+      value: effectiveSides,
+      min: 3,
+      max: MAX_HIGH_RESOLUTION_SIDES,
+      step: 1,
+      disabled: followsSize,
+      onChange: (sides) => onUpdate({ sides: Math.round(sides) }),
+    },
+  ];
 }
 
 function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate, textWidthMax = 260): ShapePropertyConfig[] {
@@ -184,7 +289,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
 
   if (shape.kind === "cylinder") {
     return [
-      { id: "sides", label: t("prop.sides"), value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
+      ...roundSideProperties(shape, width, depth, onUpdate),
       { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
       { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
@@ -216,16 +321,63 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
       { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
       { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setConeWidth },
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
-      { id: "sides", label: t("prop.sides"), value: shape.sides ?? 96, min: 3, max: MAX_HIGH_RESOLUTION_SIDES, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
+      ...roundSideProperties(shape, width, depth, onUpdate),
+    ];
+  }
+
+  if (shape.kind === "polygon") {
+    return [
+      {
+        id: "sides",
+        label: t("prop.sides"),
+        value: shape.sides ?? 6,
+        min: 3,
+        max: 24,
+        step: 1,
+        onChange: (value) => {
+          // Ein Fuenfkant hat ein anderes Verhaeltnis von Breite zu Tiefe als
+          // ein Sechskant. Zieht man es nicht mit, wird aus dem gleichseitigen
+          // Vieleck beim Umschalten ein gestauchtes.
+          const nextSides = Math.round(value);
+          const current = regularPolygonAspect(shape.sides ?? 6);
+          const next = regularPolygonAspect(nextSides);
+          const nextWidth = Math.max(MIN_SHAPE_SIZE, (width / current.width) * next.width);
+          const nextDepth = Math.max(MIN_SHAPE_SIZE, (depth / current.depth) * next.depth);
+          onUpdate({ sides: nextSides, width: nextWidth, depth: nextDepth, size: resizedShapeSize(nextWidth, nextDepth) });
+        },
+      },
+      { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
 
   if (shape.kind === "pyramid") {
+    // Null oben heisst Spitze. Alles darueber schneidet sie ab - das ist
+    // dasselbe, was die Verjuengung bei den uebrigen Koerpern tut, nur kann
+    // sie es hier nicht: die Spitze liegt auf der Achse, und ein Vielfaches
+    // von null bleibt null.
     return [
       { id: "sides", label: t("prop.sides"), value: shape.sides ?? 4, min: 3, max: 24, step: 1, onChange: (sides) => onUpdate({ sides: Math.round(sides) }) },
       { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
       { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+      {
+        id: "topLength",
+        label: t("prop.topLength"),
+        value: normalizePyramidTop(shape.topDepth, depth),
+        min: 0,
+        max: 160,
+        onChange: (topDepth) => onUpdate({ topDepth: normalizePyramidTop(topDepth, depth) }),
+      },
+      {
+        id: "topWidth",
+        label: t("prop.topWidth"),
+        value: normalizePyramidTop(shape.topWidth, width),
+        min: 0,
+        max: 160,
+        onChange: (topWidth) => onUpdate({ topWidth: normalizePyramidTop(topWidth, width) }),
+      },
     ];
   }
 
@@ -240,11 +392,271 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
 
   if (shape.kind === "tube" || shape.kind === "ring") {
     return [
+      ...roundSideProperties(shape, width, depth, onUpdate),
       { id: "thickness", label: t("prop.thickness"), value: shape.bevel ?? 4, min: 0.5, max: 20, onChange: (bevel) => onUpdate({ bevel }) },
       { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
       { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
+  }
+
+  if (shape.kind === "spring") {
+    const across = Math.max(width, depth);
+    const settings = springSettings(shape, across, shape.height);
+    const wireLimits = springWireLimits(across, shape.height);
+    const turnLimits = springTurnLimits(across, shape.height, settings.wire);
+    /*
+     * Draht und Windungen haengen an den Massen: eine flachere Feder traegt
+     * weniger Windungen, eine duennere weniger Draht. Wer an den Massen zieht,
+     * bekommt sie deshalb gleich mit in die neuen Grenzen gerueckt, statt
+     * einen Koerper zu sehen, der sich selbst durchdringt.
+     */
+    const fit = (nextWidth: number, nextDepth: number, nextHeight: number) => {
+      const reach = Math.max(nextWidth, nextDepth);
+      const wire = normalizeSpringWire(settings.wire, reach, nextHeight);
+      return { springWire: wire, springTurns: normalizeSpringTurns(settings.turns, reach, nextHeight, wire) };
+    };
+    return [
+      {
+        id: "turns",
+        label: t("prop.turns"),
+        value: settings.turns,
+        min: turnLimits.min,
+        max: turnLimits.max,
+        step: 1,
+        onChange: (turns) => onUpdate({ springTurns: normalizeSpringTurns(turns, across, shape.height, settings.wire) }),
+      },
+      {
+        id: "wire",
+        label: t("prop.wire"),
+        value: settings.wire,
+        min: wireLimits.min,
+        max: wireLimits.max,
+        step: 0.1,
+        onChange: (value) => {
+          const wire = normalizeSpringWire(value, across, shape.height);
+          onUpdate({ springWire: wire, springTurns: normalizeSpringTurns(settings.turns, across, shape.height, wire) });
+        },
+      },
+      {
+        id: "quality",
+        label: t("prop.quality"),
+        value: settings.quality,
+        min: MIN_SPRING_QUALITY,
+        max: MAX_SPRING_QUALITY,
+        step: 4,
+        onChange: (quality) => onUpdate({ springQuality: normalizeSpringQuality(quality) }),
+      },
+      {
+        id: "length",
+        label: t("prop.length"),
+        value: depth,
+        min: MIN_SHAPE_SIZE,
+        max: 160,
+        onChange: (value) => onUpdate({ depth: value, size: resizedShapeSize(width, value), ...fit(width, value, shape.height) }, { resizeAxis: "depth" }),
+      },
+      {
+        id: "width",
+        label: t("prop.width"),
+        value: width,
+        min: MIN_SHAPE_SIZE,
+        max: 160,
+        onChange: (value) => onUpdate({ width: value, size: resizedShapeSize(value, depth), ...fit(value, depth, shape.height) }, { resizeAxis: "width" }),
+      },
+      {
+        id: "height",
+        label: t("prop.height"),
+        value: shape.height,
+        min: MIN_SHAPE_SIZE,
+        max: 160,
+        onChange: (value) => onUpdate({ height: value, ...fit(width, depth, value) }, { resizeAxis: "height" }),
+      },
+    ];
+  }
+
+  if (shape.kind === "thread") {
+    const settings = threadSettings(shape);
+    const standard = threadSizeFor(settings.diameter, settings.pitch);
+    const pitchLimits = threadPitchLimits(settings.diameter);
+    const headLimits = threadHeadHeightLimits(settings);
+    const chamferLimits = threadChamferLimits(settings);
+    // Zollgewinde werden in Gaengen je Zoll gedacht, nicht in Millimetern.
+    const inchPitch = threadUsesInchPitch(settings.diameter);
+    const sizeOptions = [
+      ...THREAD_SIZE_GROUPS.flatMap((group) => group.sizes.map((size) => ({
+        value: size.id,
+        label: size.id,
+        group: group.series === "metric" ? t("thread.systemMetric") : group.series,
+      }))),
+      { value: "custom", label: t("thread.customSize") },
+    ];
+    // Die Hoehe des Koerpers bleibt Kopf plus Gewinde; abgefragt wird aber das
+    // Gewinde, weil ein Mass, das den Kopf mitzaehlt, niemandem etwas sagt.
+    const threadLength = Math.max(MIN_SHAPE_SIZE, shape.height - settings.headHeight);
+    const headFollowsStandard = Math.abs(settings.headHeight - defaultThreadHeadHeight(settings)) < 1e-6;
+    /**
+     * Breite und Tiefe stehen nicht mehr zur Wahl - sie folgen dem Durchmesser
+     * und der Rolle. Wer am Durchmesser dreht, bekommt einen runden Koerper in
+     * der richtigen Groesse, und der Kopf waechst mit, solange er auf seinem
+     * Normmass steht.
+     */
+    const applyThread = (patch: Partial<ThreadSettings>, nextLength?: number, resetHeight = false) => {
+      const next: ThreadSettings = { ...settings, ...patch };
+      next.diameter = normalizeThreadDiameter(next.diameter);
+      next.pitch = normalizeThreadPitch(next.pitch, next.diameter);
+      next.clearance = normalizeThreadClearance(next.clearance);
+      next.quality = normalizeThreadQuality(next.quality);
+      next.chamfer = normalizeThreadChamfer(next.chamfer, { role: next.role, diameter: next.diameter, pitch: next.pitch });
+      const headBase = { role: next.role, head: next.head, diameter: next.diameter, pitch: next.pitch };
+      const keepHeadHeight = patch.headHeight !== undefined || !headFollowsStandard;
+      next.headHeight = normalizeThreadHeadHeight(
+        keepHeadHeight ? next.headHeight : defaultThreadHeadHeight(headBase),
+        headBase,
+      );
+      const footprint = threadNaturalFootprint(next);
+      const update: Partial<WorkplaneShape> = {
+        threadRole: next.role,
+        threadHead: next.head,
+        threadHand: next.hand,
+        threadDiameter: next.diameter,
+        threadPitch: next.pitch,
+        threadClearance: next.clearance,
+        threadQuality: next.quality,
+        threadHeadHeight: next.headHeight,
+        threadChamfer: next.chamfer,
+        width: footprint.width,
+        depth: footprint.depth,
+        size: resizedShapeSize(footprint.width, footprint.depth),
+        height: resetHeight
+          ? threadNaturalHeight(next)
+          : Math.max(MIN_SHAPE_SIZE, (nextLength ?? threadLength) + next.headHeight),
+      };
+      // Ein Gewindeloch ist zum Abziehen da, alles andere ist Material.
+      if (next.role === "bore") update.hole = true;
+      else if (settings.role === "bore") update.hole = false;
+      onUpdate(update);
+    };
+    const properties: ShapePropertyConfig[] = [
+      {
+        type: "select",
+        id: "threadRole",
+        label: t("inspector.threadRole"),
+        value: settings.role,
+        options: THREAD_ROLE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })),
+        onChange: (role) => applyThread({ role: normalizeThreadRole(role) }, undefined, true),
+      },
+    ];
+    if (settings.role === "screw") {
+      properties.push({
+        type: "select",
+        id: "threadHead",
+        label: t("inspector.threadHead"),
+        value: settings.head,
+        options: THREAD_HEAD_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })),
+        onChange: (head) => applyThread({ head: normalizeThreadHead(head) }),
+      });
+    }
+    properties.push(
+      {
+        type: "select",
+        id: "threadSize",
+        label: t("prop.threadSize"),
+        value: standard ? standard.id : "custom",
+        options: sizeOptions,
+        onChange: (value) => {
+          const chosen = THREAD_SIZE_GROUPS.flatMap((group) => group.sizes).find((size) => size.id === value);
+          if (chosen) applyThread({ diameter: chosen.diameter, pitch: chosen.pitch });
+        },
+      },
+      {
+        id: "diameter",
+        label: t("prop.diameter"),
+        value: settings.diameter,
+        min: MIN_THREAD_DIAMETER,
+        max: MAX_THREAD_DIAMETER,
+        step: 0.1,
+        onChange: (diameter) => applyThread({ diameter }),
+      },
+      {
+        id: "threadLength",
+        // Eine Mutter hat keine Gewindelaenge, sie hat eine Hoehe.
+        label: settings.role === "nut" ? t("prop.height") : t("prop.length"),
+        value: threadLength,
+        min: MIN_SHAPE_SIZE,
+        max: 160,
+        onChange: (length) => applyThread({}, length),
+      },
+    );
+    if (settings.role === "screw") {
+      properties.push({
+        id: "headHeight",
+        label: t("prop.headHeight"),
+        value: settings.headHeight,
+        min: headLimits.min,
+        max: headLimits.max,
+        step: 0.1,
+        onChange: (headHeight) => applyThread({ headHeight }),
+      });
+    }
+    properties.push(
+      inchPitch
+        ? {
+          id: "pitch",
+          label: t("prop.threadsPerInch"),
+          value: pitchToThreadsPerInch(settings.pitch),
+          min: Math.max(4, Math.ceil(pitchToThreadsPerInch(pitchLimits.max))),
+          max: Math.min(80, Math.floor(pitchToThreadsPerInch(pitchLimits.min))),
+          step: 1,
+          onChange: (perInch) => applyThread({ pitch: threadsPerInchToPitch(Math.round(perInch)) }),
+        }
+        : {
+          id: "pitch",
+          label: t("prop.pitch"),
+          value: settings.pitch,
+          min: pitchLimits.min,
+          max: pitchLimits.max,
+          step: 0.05,
+          onChange: (pitch) => applyThread({ pitch }),
+        },
+      {
+        type: "select",
+        id: "threadHand",
+        label: t("prop.threadHand"),
+        value: settings.hand,
+        options: [{ value: "right", label: t("thread.right") }, { value: "left", label: t("thread.left") }],
+        onChange: (hand) => applyThread({ hand: normalizeThreadHand(hand) }),
+      },
+    );
+    if (settings.role === "bore" || settings.role === "nut") {
+      properties.push({
+        id: "clearance",
+        label: t("prop.clearance"),
+        value: settings.clearance,
+        min: MIN_THREAD_CLEARANCE,
+        max: MAX_THREAD_CLEARANCE,
+        step: 0.05,
+        onChange: (clearance) => applyThread({ clearance }),
+      });
+    }
+    properties.push({
+      id: "chamfer",
+      label: t("prop.chamfer"),
+      value: settings.chamfer,
+      min: chamferLimits.min,
+      max: chamferLimits.max,
+      step: 0.05,
+      onChange: (chamfer) => applyThread({ chamfer }),
+    });
+    properties.push({
+      id: "quality",
+      label: t("prop.quality"),
+      value: settings.quality,
+      min: MIN_THREAD_QUALITY,
+      max: MAX_THREAD_QUALITY,
+      step: 6,
+      onChange: (quality) => applyThread({ quality }),
+    });
+    return properties;
   }
 
   if (shape.kind === "gear") {
@@ -352,7 +764,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
           onUpdate({ text: nextText, width: nextWidth, size: nextWidth });
         },
       },
-      { type: "select", id: "font", label: t("prop.font"), value: shape.font ?? "Multilanguage", options: TEXT_FONT_OPTIONS, onChange: (font) => onUpdate({ font }) },
+      { type: "select", id: "font", label: t("prop.font"), value: shape.font ?? "Multilanguage", options: TEXT_FONT_OPTIONS.map((value) => ({ value, label: value })), onChange: (font) => onUpdate({ font }) },
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 40, onChange: setHeight },
       { id: "bevel", label: t("prop.bevel"), value: shape.bevel ?? 0, min: 0, max: 8, onChange: (bevel) => onUpdate({ bevel }) },
       { id: "segments", label: t("prop.segments"), value: shape.segments ?? 0, min: 0, max: 24, step: 1, onChange: (segments) => onUpdate({ segments: Math.round(segments) }) },
@@ -372,7 +784,7 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
   if (customLimit === undefined) return properties;
   return properties.map((property) => {
     if (property.type === "text" || property.type === "select") return property;
-    if (["length", "width", "height"].includes(property.id)) return { ...property, max: customLimit };
+    if (["length", "width", "height", "threadLength"].includes(property.id)) return { ...property, max: customLimit };
     if (["topRadius", "baseRadius"].includes(property.id)) return { ...property, max: customLimit / 2 };
     return property;
   });
@@ -408,9 +820,23 @@ export function ShapeInspector({
   const locked = Boolean(shape.locked);
   const properties = getShapeProperties(shape, onUpdate, workspace);
   const gearType = shape.kind === "gear" ? normalizeGearType(shape.gearType) : null;
+  const isThread = shape.kind === "thread";
+  /*
+   * Wo die Verjuengung nichts ausrichtet, steht auch keine Karte dafuer: das
+   * Zahnrad, das Gewinde und die Feder nehmen sie gar nicht an, und die
+   * Pyramide hat mit Laenge und Breite oben ihre eigene, die wirklich greift.
+   */
+  const shapeIgnoresTaper = shape.kind === "gear" || shape.kind === "spring" || shape.kind === "pyramid" || isThread;
+  const threadRoleProperty = isThread ? findSelectProperty(properties, "threadRole") : null;
+  const threadHeadProperty = isThread ? findSelectProperty(properties, "threadHead") : null;
   const primaryProperties = shape.kind === "gear"
     ? properties.filter((property) => ["centerHole", "length", "width", "height"].includes(property.id))
-    : properties;
+    : isThread
+      ? properties.filter((property) => ["threadSize", "diameter", "threadLength", "headHeight"].includes(property.id))
+      : properties;
+  const threadProperties = isThread
+    ? properties.filter((property) => ["pitch", "threadHand", "clearance", "chamfer", "quality"].includes(property.id))
+    : [];
   const gearTeethProperties = shape.kind === "gear"
     ? properties.filter((property) => ["teeth", "toothSize", "toothWidth"].includes(property.id))
     : [];
@@ -419,7 +845,7 @@ export function ShapeInspector({
     : [];
   const taper = shapeTaperDimensions(shape);
   const taperDimensionMax = workspace.shapeCustomizations[shape.kind]?.maxDimension ?? 480;
-  const taperProperties: ShapePropertyConfig[] = shape.kind === "gear" ? [] : [
+  const taperProperties: ShapePropertyConfig[] = shapeIgnoresTaper ? [] : [
     {
       id: "topLength",
       label: t("prop.topLength"),
@@ -458,6 +884,7 @@ export function ShapeInspector({
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [taperOpen, setTaperOpen] = useState(false);
   const [gearTeethOpen, setGearTeethOpen] = useState(true);
+  const [threadOpen, setThreadOpen] = useState(true);
   const [gearHelixOpen, setGearHelixOpen] = useState(true);
   const [colorOpen, setColorOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -607,11 +1034,39 @@ export function ShapeInspector({
                 onChange={(gearType) => onUpdate({ gearType })}
               />
             ) : null}
+            {threadRoleProperty ? (
+              <IconOptionSelector
+                label={t("inspector.threadRole")}
+                columns={2}
+                value={threadRoleProperty.value}
+                disabled={locked}
+                options={THREAD_ROLE_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: t(option.label),
+                  preview: <ThreadRolePreview role={option.value} />,
+                }))}
+                onChange={threadRoleProperty.onChange}
+              />
+            ) : null}
+            {threadHeadProperty ? (
+              <IconOptionSelector
+                label={t("inspector.threadHead")}
+                columns={3}
+                value={threadHeadProperty.value}
+                disabled={locked}
+                options={THREAD_HEAD_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: t(option.label),
+                  preview: <ThreadHeadPreview head={option.value} />,
+                }))}
+                onChange={threadHeadProperty.onChange}
+              />
+            ) : null}
             <ShapePropertyRows properties={primaryProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
           </div>
         ) : null}
       </div>
-      {shape.kind !== "gear" ? (
+      {!shapeIgnoresTaper ? (
         <div className={`property-card ${taperOpen ? "" : "collapsed"}`}>
           <button
             className="property-card-header"
@@ -626,6 +1081,25 @@ export function ShapeInspector({
           {taperOpen ? (
             <div className="property-list" id={`taper-${shape.id}`}>
               <ShapePropertyRows properties={taperProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {isThread ? (
+        <div className={`property-card ${threadOpen ? "" : "collapsed"}`}>
+          <button
+            className="property-card-header"
+            type="button"
+            aria-expanded={threadOpen}
+            aria-controls={`thread-${shape.id}`}
+            onClick={() => setThreadOpen((open) => !open)}
+          >
+            <span>{t("inspector.thread")}</span>
+            <ChevronUp className={threadOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
+          </button>
+          {threadOpen ? (
+            <div className="property-list" id={`thread-${shape.id}`}>
+              <ShapePropertyRows properties={threadProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
             </div>
           ) : null}
         </div>
@@ -695,7 +1169,10 @@ function ShapePropertyRows({
     if (property.type === "select") {
       return <SelectProperty {...property} key={property.id} disabled={disabled} />;
     }
-    return <RangeProperty {...property} key={property.id} workspace={workspace} disabled={disabled} onInteractionActiveChange={onInteractionActiveChange} />;
+    if (property.type === "toggle") {
+      return <ToggleProperty {...property} key={property.id} disabled={disabled} />;
+    }
+    return <RangeProperty {...property} key={property.id} workspace={workspace} disabled={disabled || property.disabled} onInteractionActiveChange={onInteractionActiveChange} />;
   });
 }
 
@@ -844,17 +1321,164 @@ function TextProperty({ label, value, disabled, onChange, onInteractionActiveCha
 }
 
 function SelectProperty({ label, value, options, disabled, onChange }: Omit<SelectPropertyConfig, "id"> & { id?: string } & { disabled?: boolean }) {
+  // Aufeinanderfolgende Eintraege mit derselben Ueberschrift werden zu einem
+  // Block; ohne Ueberschrift stehen sie fuer sich.
+  const blocks: Array<{ group?: string; items: SelectPropertyOption[] }> = [];
+  options.forEach((option) => {
+    const last = blocks[blocks.length - 1];
+    if (last && last.group === option.group) last.items.push(option);
+    else blocks.push({ group: option.group, items: [option] });
+  });
   return (
     <label className="select-property">
       <span>{label}</span>
       <select value={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)}>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
+        {blocks.map((block) => (
+          block.group ? (
+            <optgroup key={block.group} label={block.group}>
+              {block.items.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </optgroup>
+          ) : (
+            <Fragment key={block.items[0].value}>
+              {block.items.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </Fragment>
+          )
         ))}
       </select>
     </label>
+  );
+}
+
+function ToggleProperty({ label, value, disabled, onChange }: Omit<TogglePropertyConfig, "id" | "type"> & { disabled?: boolean }) {
+  return (
+    <label className="check-property">
+      <input type="checkbox" checked={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.checked)} />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+/** Holt eine Auswahl aus der Merkmalsliste heraus, um sie woanders zu zeichnen. */
+function findSelectProperty(properties: ShapePropertyConfig[], id: string) {
+  const found = properties.find((property) => property.id === id);
+  return found && found.type === "select" ? found : null;
+}
+
+/**
+ * Dieselbe Kachelreihe wie bei der Zahnradart, nur mit gezeichneten Bildchen
+ * statt Rasterdateien - so bleiben sie bei jeder Groesse scharf und nehmen die
+ * Farbe des Themas an.
+ */
+function IconOptionSelector({
+  label,
+  options,
+  value,
+  columns,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  options: Array<{ value: string; label: string; preview: ReactNode }>;
+  value: string;
+  columns: 2 | 3;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="gear-type-property" role="group" aria-label={label}>
+      <span>{label}</span>
+      <div className={columns === 2 ? "gear-type-options icon-options two-up" : "gear-type-options icon-options"}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            className={value === option.value ? "selected" : ""}
+            type="button"
+            disabled={disabled}
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+          >
+            {option.preview}
+            <span>{option.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Seitenansichten: Schraube und Stange stehen, Mutter und Loch liegen aufgeschnitten. */
+function ThreadRolePreview({ role }: { role: ThreadRole }) {
+  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" as const, "aria-hidden": true };
+  if (role === "screw") {
+    return (
+      <svg {...common}>
+        <path d="M5 22v-5h14v5z" />
+        <path d="M9.5 17V2h5v15" />
+        <path d="M9.5 5l5 1.1M9.5 8.5l5 1.1M9.5 12l5 1.1" />
+        <path d="M10.5 22v-5h3v5z" />
+      </svg>
+    );
+  }
+  if (role === "nut") {
+    return (
+      <svg {...common}>
+        <path d="M12 2.2l8.5 4.9v9.8L12 21.8 3.5 16.9V7.1z" />
+        <circle cx="12" cy="12" r="4.3" />
+        <path d="M7.7 10.4l8.6 1M7.7 13.6l8.6 1" />
+      </svg>
+    );
+  }
+  if (role === "bore") {
+    return (
+      <svg {...common}>
+        <path d="M3 3h18v18H3z" />
+        <path d="M9 3v18M15 3v18" />
+        <path d="M9 6.5l6 1.1M9 10.5l6 1.1M9 14.5l6 1.1M9 18.5l6 1.1" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M8 2h8v20H8z" />
+      <path d="M8 5l8 1.4M8 9l8 1.4M8 13l8 1.4M8 17l8 1.4" />
+    </svg>
+  );
+}
+
+/** Der Kopf sitzt unten, weil die Schraube so auf der Ebene steht. */
+function ThreadHeadPreview({ head }: { head: ThreadHead }) {
+  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" as const, "aria-hidden": true };
+  if (head === "countersunk") {
+    return (
+      <svg {...common}>
+        <path d="M4 22l5-6h6l5 6z" />
+        <path d="M9 16V3h6v13" />
+        <path d="M9 6l6 1.1M9 10l6 1.1" />
+        <path d="M10 22v-2.6h4V22z" />
+      </svg>
+    );
+  }
+  if (head === "hex") {
+    return (
+      <svg {...common}>
+        <path d="M4 22v-6h16v6z" />
+        <path d="M8 16v6M16 16v6" />
+        <path d="M9 16V3h6v13" />
+        <path d="M9 6l6 1.1M9 10l6 1.1" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M5.5 22v-6h13v6z" />
+      <path d="M9 16V3h6v13" />
+      <path d="M9 6l6 1.1M9 10l6 1.1" />
+      <path d="M10.5 22v-3h3v3z" />
+    </svg>
   );
 }
 

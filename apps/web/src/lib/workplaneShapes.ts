@@ -1,4 +1,5 @@
 import { createLocalId } from "@/lib/localIds";
+import { threadFootprintPatch } from "@/lib/threadGeometry";
 import type { WorkplaneShape } from "@/types/layerling";
 
 export function normalizeDegrees(value: number) {
@@ -64,7 +65,7 @@ export function shapeTaperDimensions(shape: WorkplaneShape) {
 }
 
 export function shapeHasTaper(shape: WorkplaneShape) {
-  if (shape.kind === "gear") return false;
+  if (shape.kind === "gear" || shape.kind === "thread" || shape.kind === "spring") return false;
   const width = shapeWidth(shape);
   const depth = shapeDepth(shape);
   const taper = shapeTaperDimensions(shape);
@@ -214,6 +215,11 @@ export function canonicalizeShape(shape: WorkplaneShape): WorkplaneShape {
     mirrorY: shape.mirrorY || undefined,
     mirrorZ: shape.mirrorZ || undefined,
   };
+  if (shape.kind === "thread") {
+    const footprint = threadFootprintPatch(next);
+    Object.assign(next, footprint);
+    next.size = resizedShapeSize(footprint.width, footprint.depth);
+  }
   if (shape.groupedShapes) {
     next.groupedShapes = shape.groupedShapes.map(canonicalizeShape);
   }
@@ -261,6 +267,8 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.segments === b.segments &&
     a.topRadius === b.topRadius &&
     a.baseRadius === b.baseRadius &&
+    a.topWidth === b.topWidth &&
+    a.topDepth === b.topDepth &&
     a.taperTopWidth === b.taperTopWidth &&
     a.taperTopDepth === b.taperTopDepth &&
     a.taperBottomWidth === b.taperBottomWidth &&
@@ -274,6 +282,18 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.gearType === b.gearType &&
     a.helixAngle === b.helixAngle &&
     a.helixQuality === b.helixQuality &&
+    a.threadRole === b.threadRole &&
+    a.threadHead === b.threadHead &&
+    a.threadHand === b.threadHand &&
+    a.threadDiameter === b.threadDiameter &&
+    a.threadPitch === b.threadPitch &&
+    a.threadClearance === b.threadClearance &&
+    a.threadQuality === b.threadQuality &&
+    a.threadHeadHeight === b.threadHeadHeight &&
+    a.threadChamfer === b.threadChamfer &&
+    a.springTurns === b.springTurns &&
+    a.springWire === b.springWire &&
+    a.springQuality === b.springQuality &&
     a.text === b.text &&
     a.font === b.font &&
     a.importedMesh === b.importedMesh &&

@@ -22,7 +22,7 @@ function knownSchema(schema: unknown) {
 export const LYL_FORMAT_VERSION = 2;
 export const LYL_MINIMUM_READER_VERSION = 2;
 export const LYL_OLDEST_READABLE_FORMAT_VERSION = 1;
-export const LYL_CREATED_WITH_VERSION = "1.1.0";
+export const LYL_CREATED_WITH_VERSION = "1.2.0";
 export const LYL_MEDIA_TYPE = "application/vnd.layerling.project+zip";
 
 export const LYL_LIMITS = {
@@ -40,7 +40,7 @@ export const LYL_LIMITS = {
 
 const SHAPE_KINDS = new Set([
   "box", "cylinder", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-  "halfSphere", "torus", "tube", "gear", "ring", "wedge", "polygon", "icosahedron", "mesh",
+  "halfSphere", "torus", "tube", "gear", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "mesh",
 ]);
 
 const FEATURE_TYPES = new Set([
@@ -997,6 +997,73 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
   if (definition.sketchRevolve !== undefined) {
     const settings = objectRecord(definition.sketchRevolve, `${label}.sketchRevolve`);
     ["startAngle", "sweepAngle", "sides", "quality"].forEach((field) => finiteNumber(settings[field], `${label}.sketchRevolve.${field}`));
+  }
+  if (kind === "thread") {
+    // Fehlende Werte sind erlaubt: der Geometriebauer setzt dann seine
+    // Vorgaben ein. Verboten ist nur ein Wert, den er nicht deuten kann - ein
+    // Paket, das sich nicht mehr speichern laesst, waere der groessere Schaden.
+    if (definition.threadRole !== undefined && !["rod", "screw", "nut", "bore"].includes(definition.threadRole as string)) {
+      throw new Error(`${label}.threadRole is invalid`);
+    }
+    if (definition.threadHead !== undefined && !["cylinder", "countersunk", "hex"].includes(definition.threadHead as string)) {
+      throw new Error(`${label}.threadHead is invalid`);
+    }
+    if (definition.threadHand !== undefined && definition.threadHand !== "right" && definition.threadHand !== "left") {
+      throw new Error(`${label}.threadHand is invalid`);
+    }
+    if (definition.threadDiameter !== undefined) {
+      const threadDiameter = finiteNumber(definition.threadDiameter, `${label}.threadDiameter`);
+      if (threadDiameter < 1 || threadDiameter > 160) throw new Error(`${label}.threadDiameter is outside the supported range`);
+    }
+    if (definition.threadPitch !== undefined) {
+      const threadPitch = finiteNumber(definition.threadPitch, `${label}.threadPitch`);
+      if (threadPitch < 0.2 || threadPitch > 12) throw new Error(`${label}.threadPitch is outside the supported range`);
+    }
+    if (definition.threadClearance !== undefined) {
+      const threadClearance = finiteNumber(definition.threadClearance, `${label}.threadClearance`);
+      if (threadClearance < 0 || threadClearance > 1.5) throw new Error(`${label}.threadClearance is outside the supported range`);
+    }
+    if (definition.threadQuality !== undefined) {
+      const threadQuality = finiteNumber(definition.threadQuality, `${label}.threadQuality`);
+      if (!Number.isInteger(threadQuality) || threadQuality < 12 || threadQuality > 96) {
+        throw new Error(`${label}.threadQuality is outside the supported range`);
+      }
+    }
+    if (definition.threadHeadHeight !== undefined) {
+      const threadHeadHeight = finiteNumber(definition.threadHeadHeight, `${label}.threadHeadHeight`);
+      if (threadHeadHeight < 0 || threadHeadHeight > 480) throw new Error(`${label}.threadHeadHeight is outside the supported range`);
+    }
+    if (definition.threadChamfer !== undefined) {
+      const threadChamfer = finiteNumber(definition.threadChamfer, `${label}.threadChamfer`);
+      if (threadChamfer < 0 || threadChamfer > 480) throw new Error(`${label}.threadChamfer is outside the supported range`);
+    }
+  }
+  if (kind === "pyramid") {
+    ["topWidth", "topDepth"].forEach((field) => {
+      if (definition[field] === undefined) return;
+      const value = finiteNumber(definition[field], `${label}.${field}`);
+      if (value < 0 || value > 1e6) throw new Error(`${label}.${field} is outside the supported range`);
+    });
+  }
+  if (kind === "spring") {
+    // Fehlende Werte sind erlaubt: der Geometriebauer setzt seine Vorgaben ein.
+    // Verboten ist nur ein Wert, den er nicht deuten kann.
+    if (definition.springTurns !== undefined) {
+      const springTurns = finiteNumber(definition.springTurns, `${label}.springTurns`);
+      if (!Number.isInteger(springTurns) || springTurns < 1 || springTurns > 60) {
+        throw new Error(`${label}.springTurns is outside the supported range`);
+      }
+    }
+    if (definition.springWire !== undefined) {
+      const springWire = finiteNumber(definition.springWire, `${label}.springWire`);
+      if (springWire <= 0 || springWire > 480) throw new Error(`${label}.springWire is outside the supported range`);
+    }
+    if (definition.springQuality !== undefined) {
+      const springQuality = finiteNumber(definition.springQuality, `${label}.springQuality`);
+      if (!Number.isInteger(springQuality) || springQuality < 12 || springQuality > 96) {
+        throw new Error(`${label}.springQuality is outside the supported range`);
+      }
+    }
   }
   if (kind === "gear") {
     const teeth = finiteNumber(definition.teeth, `${label}.teeth`);

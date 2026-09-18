@@ -13,6 +13,8 @@ export type ShapeKind =
   | "torus"
   | "tube"
   | "gear"
+  | "thread"
+  | "spring"
   | "ring"
   | "wedge"
   | "polygon"
@@ -55,6 +57,8 @@ export type ShapeCustomization = {
   segments?: number;
   topRadius?: number;
   baseRadius?: number;
+  topWidth?: number;
+  topDepth?: number;
   teeth?: number;
   toothSize?: number;
   toothWidth?: number;
@@ -62,6 +66,17 @@ export type ShapeCustomization = {
   gearType?: GearType;
   helixAngle?: number;
   helixQuality?: number;
+  threadRole?: ThreadRole;
+  threadHead?: ThreadHead;
+  threadHand?: ThreadHand;
+  threadDiameter?: number;
+  threadPitch?: number;
+  threadClearance?: number;
+  threadQuality?: number;
+  threadChamfer?: number;
+  springTurns?: number;
+  springWire?: number;
+  springQuality?: number;
   text?: string;
   font?: string;
 };
@@ -139,6 +154,11 @@ export type SketchProfile = {
 export type SketchOperation = "extrude" | "revolve";
 
 export type GearType = "spur" | "helical" | "bevel";
+
+/** Was aus dem Gewinde wird: Stange, Schraube, Mutter oder das Loch dafuer. */
+export type ThreadRole = "rod" | "screw" | "nut" | "bore";
+export type ThreadHead = "cylinder" | "countersunk" | "hex";
+export type ThreadHand = "right" | "left";
 
 export type SketchRevolveSettings = {
   startAngle: number;
@@ -223,6 +243,8 @@ export type WorkplaneShape = {
   segments?: number;
   topRadius?: number;
   baseRadius?: number;
+  topWidth?: number;
+  topDepth?: number;
   taperTopWidth?: number;
   taperTopDepth?: number;
   taperBottomWidth?: number;
@@ -237,6 +259,18 @@ export type WorkplaneShape = {
   gearType?: GearType;
   helixAngle?: number;
   helixQuality?: number;
+  threadRole?: ThreadRole;
+  threadHead?: ThreadHead;
+  threadHand?: ThreadHand;
+  threadDiameter?: number;
+  threadPitch?: number;
+  threadClearance?: number;
+  threadQuality?: number;
+  threadHeadHeight?: number;
+  threadChamfer?: number;
+  springTurns?: number;
+  springWire?: number;
+  springQuality?: number;
   text?: string;
   font?: string;
   importedMesh?: {

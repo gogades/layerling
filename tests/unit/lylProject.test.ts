@@ -82,7 +82,7 @@ describe("layerling .lyl project packages", () => {
   it("round-trips every supported native shape kind and editable properties", async () => {
     const nativeKinds: ShapeKind[] = [
       "box", "cylinder", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-      "halfSphere", "torus", "tube", "gear", "ring", "wedge", "polygon", "icosahedron",
+      "halfSphere", "torus", "tube", "gear", "thread", "spring", "ring", "wedge", "polygon", "icosahedron",
     ];
     const shapes = nativeKinds.map((kind, index) => shape(kind, `${kind}-${index}`, {
       hole: index === 2,
