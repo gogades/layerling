@@ -25,7 +25,7 @@ import { createGearGeometry } from "@/lib/gearGeometry";
 import { createPrismGeometry } from "@/lib/prismGeometry";
 import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { roundSideCount } from "@/lib/roundSideCount";
-import { createThreadGeometry } from "@/lib/threadGeometry";
+import { createThreadGeometry, defaultThreadHeadHeight, normalizeThreadHeadHeight, threadNaturalFootprint, threadSettings } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import {
   ToolbarAlignIcon,
@@ -115,7 +115,7 @@ import { importedShapeFromStl } from "@/lib/stlImport";
 import { exportMeshesToStl } from "@/lib/stlExport";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
-import { keyboardNudgeStep, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
+import { keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import {
   normalizePlacementWorkplane,
   placementPatchForNewShape,
@@ -138,7 +138,7 @@ import {
 } from "@/lib/layerlingMcpProtocol";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
-import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
@@ -5347,6 +5347,71 @@ function mcpNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function mcpOptionalNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+/**
+ * Die formeigenen Werte eines Befehls, durch dieselbe Muehle gedreht wie die
+ * Vorgaben im Arbeitsbereich: gleiche Grenzen, gleiche erlaubten Woerter. Was
+ * dort nicht durchgeht, hat auch hier nichts verloren - sonst stuende spaeter
+ * ein Wert im Paket, den der Pruefer beim Speichern ablehnt, und der ganze
+ * Entwurf liesse sich nicht mehr sichern. Die Masse bleiben aussen vor, die
+ * gehen ihren eigenen Weg.
+ */
+function mcpShapeCustomization(kind: ShapeKind, params: Record<string, unknown>): ShapeCustomization {
+  const entry = normalizeShapeCustomizations({ [kind]: params })[kind] ?? {};
+  const { width: _width, depth: _depth, height: _height, maxDimension: _maxDimension, ...settings } = entry;
+  // Eine Ausnahme: Die Beschriftung darf laenger sein als eine Vorgabe im
+  // Arbeitsbereich, wo 24 Zeichen reichen. Ein Schild im Entwurf traegt mehr,
+  // und das Paketformat begrenzt sie nicht.
+  if (kind === "text" && typeof params.text === "string" && params.text.trim()) settings.text = params.text;
+  return settings;
+}
+
+/**
+ * Ein Gewinde haengt an seinem Durchmesser: Breite und Tiefe gehoeren ihm, nicht
+ * umgekehrt. Alle Gewindewerte gehen deshalb einmal durch `threadSettings` -
+ * das ist dieselbe Pruefung wie im Merkmalsfeld - und der Platzbedarf wird neu
+ * daraus gerechnet. Ohne diesen Schritt liest `canonicalizeShape` den alten
+ * Rahmen als Zug am Anfasser und rechnet einen frisch gesetzten Durchmesser
+ * wieder weg. Wer Breite oder Tiefe selbst angibt, meint genau das und behaelt
+ * sie.
+ */
+function applyMcpThreadSettings(
+  shape: WorkplaneShape,
+  params: Record<string, unknown>,
+  headFollowsStandard: boolean,
+): WorkplaneShape {
+  const requestedHead = mcpOptionalNumber(params.threadHeadHeight);
+  const merged = threadSettings({ ...shape, threadHeadHeight: requestedHead ?? shape.threadHeadHeight });
+  // Stand der Kopf auf seinem Normmass, waechst er mit dem Durchmesser mit -
+  // sonst saesse nach einem Wechsel von M8 auf M5 der Kopf einer M8 auf einer
+  // duenneren Schraube. Wer die Hoehe selbst angibt, behaelt sie.
+  const settings = requestedHead === undefined && headFollowsStandard
+    ? { ...merged, headHeight: normalizeThreadHeadHeight(defaultThreadHeadHeight(merged), merged) }
+    : merged;
+  const footprint = threadNaturalFootprint(settings);
+  const keepFootprint = params.width !== undefined || params.depth !== undefined || params.size !== undefined;
+  return {
+    ...shape,
+    threadRole: settings.role,
+    threadHead: settings.head,
+    threadHand: settings.hand,
+    threadDiameter: settings.diameter,
+    threadPitch: settings.pitch,
+    threadClearance: settings.clearance,
+    threadQuality: settings.quality,
+    threadHeadHeight: settings.headHeight,
+    threadChamfer: settings.chamfer,
+    ...(keepFootprint ? {} : {
+      width: footprint.width,
+      depth: footprint.depth,
+      size: Math.max(footprint.width, footprint.depth),
+    }),
+  };
+}
+
 function mcpString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
@@ -8066,7 +8131,12 @@ export function LayerlingEditor({
         // waeren die dritte Stelle, an der eine neue Form vergessen wird.
         const asset = toolbarShapeAssets.find((entry) => entry.kind === kind);
         const color = mcpString(params.color, asset?.color ?? "#d41721");
-        const name = mcpString(params.name, kind === "cylinder" ? "Cylinder" : kind === "text" ? "Text" : kind === "sketch" ? "Sketch extrusion" : rawKind === "cube" ? "Cube" : "Box");
+        const name = mcpString(params.name, kind === "sketch" ? "Sketch extrusion" : rawKind === "cube" ? "Cube" : asset?.name ?? "Box");
+        // Nur was ausdruecklich verlangt wurde: sonst gilt das Mass, mit dem der
+        // Katalog diese Form auch von Hand auf die Ebene legt.
+        const requestedWidth = mcpOptionalNumber(params.width ?? params.size);
+        const requestedDepth = mcpOptionalNumber(params.depth ?? params.size) ?? (rawKind === "cube" ? requestedWidth : undefined);
+        const requestedHeight = mcpOptionalNumber(params.height ?? params.size) ?? (rawKind === "cube" ? requestedWidth : undefined);
         let shape: WorkplaneShape;
         if (kind === "sketch") {
           const profile = defaultMcpSketchProfile(width, depth);
@@ -8082,33 +8152,36 @@ export function LayerlingEditor({
             rotationX: mcpNumber(params.rotationX, 0),
             rotationZ: mcpNumber(params.rotationZ, 0),
           });
-        } else if (kind === "box" || kind === "cylinder" || kind === "text") {
-          shape = sceneShape({
-            name,
-            kind,
-            color,
-            x,
-            z,
-            elevation,
-            width,
-            depth,
-            height,
-            size: Math.max(width, depth),
+        } else if (asset) {
+          // Welche Formen es gibt, sagt der Katalog - dieselbe Quelle wie das
+          // Formenmenue. Eine eigene Aufzaehlung hier waere nur die naechste
+          // Stelle, an der eine neue Form vergessen wird. Fehlende Werte fuellt
+          // `makeShapeFromAsset` genau so, wie es beim Ziehen auf die Ebene
+          // geschieht: Ein Gewinde bekommt den Platzbedarf seines Durchmessers,
+          // ein Zahnrad seine Zaehne, ein Zylinder seine offene Seitenzahl.
+          shape = makeShapeFromAsset(
+            { ...asset, name, color },
+            { x, z, elevation },
+            {
+              ...mcpShapeCustomization(asset.kind, params),
+              width: requestedWidth,
+              depth: requestedDepth,
+              height: requestedHeight,
+            },
+          );
+          shape = {
+            ...shape,
             rotation: mcpNumber(params.rotation, 0),
             rotationX: mcpNumber(params.rotationX, 0),
             rotationZ: mcpNumber(params.rotationZ, 0),
-            // Ohne ausdrueckliche Angabe bleibt die Seitenzahl offen und folgt
-            // der Groesse - sonst legte eine KI andere Zylinder an als die Maus.
-            sides: kind === "cylinder" && typeof params.sides === "number" && Number.isFinite(params.sides)
-              ? Math.max(3, Math.floor(params.sides))
-              : undefined,
-            text: kind === "text" ? mcpString(params.text, "TEXT") : undefined,
-            font: kind === "text" ? mcpString(params.font, "Multilanguage") : undefined,
-            bevel: kind === "text" ? Math.max(0, mcpNumber(params.bevel, 0)) : undefined,
-            segments: kind === "text" ? Math.max(1, Math.floor(mcpNumber(params.segments, 2))) : undefined,
-          });
+            // Ein Gewindeloch ist zum Abziehen da, alles andere ist Material.
+            hole: typeof params.hole === "boolean" ? params.hole : shape.threadRole === "bore",
+          };
+          if (shape.kind === "thread") {
+            shape = applyMcpThreadSettings(shape, params, true);
+          }
         } else {
-          throw new Error("MCP create_shape currently supports box, cube, cylinder, text, and sketch");
+          throw new Error(`MCP create_shape does not know a shape called "${rawKind}"`);
         }
         const committedShape = canonicalizeShape(bakeShapeTransformIntoMesh(shape));
         commitShapes([...currentShapes(), committedShape], committedShape.id, t("status.shapeAddedMcp", { name: committedShape.name }));
@@ -8195,9 +8268,40 @@ export function LayerlingEditor({
         if (typeof params.hole === "boolean") patch.hole = params.hole;
         if (typeof params.locked === "boolean") patch.locked = params.locked;
         if (typeof params.hidden === "boolean") patch.hidden = params.hidden;
-        if (typeof params.text === "string") patch.text = params.text;
         if (typeof params.font === "string") patch.font = params.font;
-        if (typeof params.bevel === "number" && Number.isFinite(params.bevel)) patch.bevel = Math.max(0, params.bevel);
+        // Alles Formeigene in einem Zug, mit denselben Grenzen wie im
+        // Merkmalsfeld: Seitenzahl, Kegelradien, Zahnrad, Gewinde, Feder,
+        // Beschriftung. Was die Art gar nicht kennt, faellt dabei weg.
+        const settings = mcpShapeCustomization(target.kind, params);
+        (Object.keys(settings) as (keyof ShapeCustomization)[]).forEach((key) => {
+          const value = settings[key];
+          if (value !== undefined) Object.assign(patch, { [key]: value });
+        });
+        if (target.kind === "thread") {
+          // Der Durchmesser zieht den Platzbedarf mit - sonst macht die
+          // Vereinheitlichung die Aenderung gleich wieder rueckgaengig. Und ein
+          // Kopf, der bisher auf seinem Normmass stand, wandert mit.
+          const before = threadSettings(target);
+          const headWasStandard = Math.abs(before.headHeight - defaultThreadHeadHeight(before)) < 1e-6;
+          const threaded = applyMcpThreadSettings({ ...target, ...patch }, params, headWasStandard);
+          Object.assign(patch, {
+            threadRole: threaded.threadRole,
+            threadHead: threaded.threadHead,
+            threadHand: threaded.threadHand,
+            threadDiameter: threaded.threadDiameter,
+            threadPitch: threaded.threadPitch,
+            threadClearance: threaded.threadClearance,
+            threadQuality: threaded.threadQuality,
+            threadHeadHeight: threaded.threadHeadHeight,
+            threadChamfer: threaded.threadChamfer,
+            width: threaded.width,
+            depth: threaded.depth,
+          });
+          // Ein Gewindeloch ist zum Abziehen da; wer die Art wechselt, meint das.
+          if (typeof params.hole !== "boolean" && threaded.threadRole !== target.threadRole) {
+            patch.hole = threaded.threadRole === "bore";
+          }
+        }
         const nextShapes = currentShapes().map((shape) => {
           if (shape.id !== target.id) return shape;
           const patched = { ...shape, ...cleanShapePatch(patch) };

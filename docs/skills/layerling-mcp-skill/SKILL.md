@@ -1,6 +1,6 @@
 ---
 name: layerling-mcp-skill
-description: Control a live local layerling editor through its MCP server. Use when Codex needs to list currently open layerling editor tabs, target a tab by editorNumber/projectName, read the current scene, list or select objects, create boxes/cubes/cylinders/raised text/sketch extrusions, update dimensions/position/rotation, align objects, group/ungroup/cut/separate parts, list exact CAD edge ids, apply chamfer/fillet to specific edges, inspect editor errors, or capture viewport images from view-cube angles.
+description: Control a live local layerling editor through its MCP server. Use when Codex needs to list currently open layerling editor tabs, target a tab by editorNumber/projectName, read the current scene, list or select objects, create any of the editor's shapes including threads, springs, gears and raised text, update dimensions/position/rotation, align objects, group/ungroup/cut/separate parts, list exact CAD edge ids, apply chamfer/fillet to specific edges, inspect editor errors, or capture viewport images from view-cube angles.
 ---
 
 # layerling MCP
@@ -57,9 +57,9 @@ Useful tools:
 
 - `layerling_select_objects`: select ids in the live editor.
 - `layerling_delete_objects`: delete ids in the live editor, or delete the current selection when ids are omitted.
-- `layerling_create_shape`: create `box`, `cube`, `cylinder`, `text`, or `sketch`. A cylinder without `sides` picks its own side count from the diameter, the way the editor does.
+- `layerling_create_shape`: create any shape the editor has a tile for - `box`, `cube`, `cylinder`, `polygon`, `sphere`, `cone`, `pyramid`, `wedge`, `roundRoof`, `halfSphere`, `torus`, `tube`, `text`, `thread`, `spring`, `gear` - or a `sketch` extrusion. Size and everything beyond it are optional and fall back to what the editor uses when the same shape is placed by hand. A `thread` is a rod, a screw, a nut or a tapped hole, set through `threadRole`; its width and depth follow `threadDiameter` and are not given separately. A cylinder without `sides` picks its own side count from the diameter, the way the editor does.
 - `layerling_import_mesh`: import STL-style mesh data into the editor.
-- `layerling_update_object`: set exact dimensions, position, color, name, hole state, `rotation`/`rotationX`/`rotationZ`, the lettering of a text object (`text`, `font`, `bevel`), and `locked`/`hidden`. A locked object refuses every change until the same call passes `locked: false`.
+- `layerling_update_object`: set exact dimensions, position, color, name, hole state, `rotation`/`rotationX`/`rotationZ`, `locked`/`hidden`, and the same shape settings `layerling_create_shape` takes - the side count of a cylinder, the diameter of a thread, the turns of a spring, the lettering of a text. A locked object refuses every change until the same call passes `locked: false`. Changing a thread's diameter moves its width and depth with it, and a head that sat at its standard height moves to the standard for the new size.
 - `layerling_align_objects`: align two or more ids using the same logic as the editor Alignment button.
 - `layerling_group_objects`: group selected ids using the normal layerling group/boolean path.
 - `layerling_boolean_cut`: pass `solidIds` and `holeIds`; the result replaces the operands.

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits } from "@/lib/measurementUnits";
-import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
+import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
+import { toolbarShapeAssets } from "@/lib/shapeCatalog";
 
 describe("workplane settings helpers", () => {
   it("accepts known snap grid values and falls back for unknown values", () => {
@@ -146,6 +147,36 @@ describe("workplane settings helpers", () => {
     expect(equivalentNewReference).toBe(base);
     expect(changedSnap).not.toBe(base);
     expect(changedWorkspace).not.toBe(base);
+  });
+
+  /*
+   * Eine Form, die hier fehlt, verliert ihre Vorgaben lautlos: Das Feld steht im
+   * Einstellungsfenster, man trägt etwas ein, und beim nächsten Laden ist es
+   * weg. Genau das war Gewinde und Feder passiert - aufgefallen ist es erst, als
+   * dieselbe Prüfung die Werte aus einem MCP-Befehl schluckte.
+   */
+  it("keeps the settings of every shape in the palette", () => {
+    const dropped = toolbarShapeAssets
+      .map((asset) => asset.kind)
+      .filter((kind) => normalizeShapeCustomizations({ [kind]: { width: 42 } })[kind] === undefined);
+
+    expect(dropped).toEqual([]);
+  });
+
+  it("keeps a thread's own values instead of dropping them", () => {
+    const kept = normalizeShapeCustomizations({ thread: { threadDiameter: 8, threadPitch: 1.25, threadRole: "screw" } }).thread;
+
+    expect(kept?.threadDiameter).toBe(8);
+    expect(kept?.threadPitch).toBe(1.25);
+    expect(kept?.threadRole).toBe("screw");
+  });
+
+  it("keeps a spring's own values and reins in what is out of range", () => {
+    const kept = normalizeShapeCustomizations({ spring: { springTurns: 9, springWire: 2, springQuality: 4000 } }).spring;
+
+    expect(kept?.springTurns).toBe(9);
+    expect(kept?.springWire).toBe(2);
+    expect(kept?.springQuality).toBe(96);
   });
 
   it("blocks the previous project's workspace while a new project hydrates", () => {
