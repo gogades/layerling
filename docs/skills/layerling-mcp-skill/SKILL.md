@@ -51,13 +51,15 @@ layerling_list_objects({ editorNumber })
 
 For object edits, use exact object `id` values from the scene. Do not invent object names; names are helpful labels only.
 
+Every object carries a `settings` block beside its dimensions, holding what the dimensions do not say: the side count of a round body, the size and pitch of a thread, the turns of a spring, the lettering of a text. A round body whose `settings.sidesFollowSize` is true has no fixed side count of its own - the number shown is what it is drawn with at its current size, and it changes as the object grows. `includeRawShapes` is only needed for the full shape record and can be large.
+
 Useful tools:
 
 - `layerling_select_objects`: select ids in the live editor.
 - `layerling_delete_objects`: delete ids in the live editor, or delete the current selection when ids are omitted.
 - `layerling_create_shape`: create `box`, `cube`, `cylinder`, `text`, or `sketch`. A cylinder without `sides` picks its own side count from the diameter, the way the editor does.
 - `layerling_import_mesh`: import STL-style mesh data into the editor.
-- `layerling_update_object`: set exact dimensions, position, color, name, hole state, and `rotation`/`rotationX`/`rotationZ`.
+- `layerling_update_object`: set exact dimensions, position, color, name, hole state, `rotation`/`rotationX`/`rotationZ`, the lettering of a text object (`text`, `font`, `bevel`), and `locked`/`hidden`. A locked object refuses every change until the same call passes `locked: false`.
 - `layerling_align_objects`: align two or more ids using the same logic as the editor Alignment button.
 - `layerling_group_objects`: group selected ids using the normal layerling group/boolean path.
 - `layerling_boolean_cut`: pass `solidIds` and `holeIds`; the result replaces the operands.

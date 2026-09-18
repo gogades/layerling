@@ -138,7 +138,7 @@ import {
 } from "@/lib/layerlingMcpProtocol";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
-import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
@@ -5241,6 +5241,46 @@ function compactShapeSummary(shape: WorkplaneShape, index: number) {
   ].join(",");
 }
 
+/**
+ * Die formeigenen Werte, die eine Zusammenfassung sonst verschweigt: Ohne sie
+ * liest ein Client zwar die Masse einer Schraube, sieht aber nicht, ob M4 oder
+ * M5 darauf steht - und die rohe Form dafuer zu holen, laedt das halbe Projekt
+ * mit. **Eine neue Form traegt ihre Felder hier nach**, sonst ist sie fuer eine
+ * KI eine namenlose Kiste. Die Liste ist bewusst eine Erlaubnisliste: `cadBrep`
+ * ist auch nur eine Zeichenkette, aber eine megabytegrosse.
+ */
+const MCP_SHAPE_SETTING_KEYS = [
+  "radius", "steps", "sides", "bevel", "segments",
+  "topRadius", "baseRadius", "topWidth", "topDepth",
+  "taperTopWidth", "taperTopDepth", "taperBottomWidth", "taperBottomDepth",
+  "teeth", "toothSize", "toothWidth", "centerHoleSize", "gearType", "helixAngle", "helixQuality",
+  "threadRole", "threadHead", "threadHand", "threadDiameter", "threadPitch",
+  "threadClearance", "threadQuality", "threadHeadHeight", "threadChamfer",
+  "springTurns", "springWire", "springQuality",
+  "text", "font",
+] as const satisfies readonly (keyof WorkplaneShape)[];
+
+/** Runde Koerper, deren Seitenzahl ohne eigene Angabe der Groesse folgt. */
+const MCP_FOLLOWING_SIDE_KINDS = new Set<ShapeKind>(["cylinder", "cone", "tube", "ring"]);
+
+function mcpShapeSettings(shape: WorkplaneShape): Record<string, string | number | boolean> | undefined {
+  const settings: Record<string, string | number | boolean> = {};
+  MCP_SHAPE_SETTING_KEYS.forEach((key) => {
+    const value = shape[key];
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      settings[key] = value;
+    }
+  });
+  // Steht keine Seitenzahl im Objekt, folgt sie der Groesse. Dann gehoert hier
+  // hin, wie viele Seiten gerade wirklich gezeichnet werden - und der Hinweis,
+  // dass die Zahl mitwandert, sobald das Objekt waechst.
+  if (MCP_FOLLOWING_SIDE_KINDS.has(shape.kind) && shape.sides === undefined) {
+    settings.sides = roundSideCount(undefined, shapeWidth(shape), shapeDepth(shape));
+    settings.sidesFollowSize = true;
+  }
+  return Object.keys(settings).length > 0 ? settings : undefined;
+}
+
 function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary {
   return {
     id: shape.id,
@@ -5272,6 +5312,7 @@ function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary {
       z: Boolean(shape.mirrorZ),
     },
     edgeTreatments: shape.edgeTreatments ?? [],
+    settings: mcpShapeSettings(shape),
     groupedCount: shape.groupedShapes?.length ?? 0,
     importedTriangles: shape.importedMesh?.triangleCount ?? 0,
     cadDisplayEdgeCount: shape.cadDisplayEdges?.length ?? null,
@@ -8134,7 +8175,12 @@ export function LayerlingEditor({
       if (command.action === "update_object") {
         const target = findShape(params.id);
         if (!target) throw new Error("Object not found");
-        if (target.locked) throw new Error("Unlock the object before updating it");
+        // Ein gesperrtes Objekt bleibt unantastbar - es sei denn, der Befehl
+        // hebt die Sperre gerade auf. Sonst fuehrt von aussen kein Weg zurueck:
+        // Sperren kann die Oberflaeche, entsperren konnte hier bisher niemand.
+        if (target.locked && params.locked !== false) {
+          throw new Error("Unlock the object before updating it, or pass locked: false");
+        }
         const patch: ShapeUpdatePatch = {};
         const rotationWasRequested = [params.rotation, params.rotationX, params.rotationZ].some(
           (value) => typeof value === "number" && Number.isFinite(value),
@@ -8147,6 +8193,8 @@ export function LayerlingEditor({
         if (typeof params.color === "string") patch.color = params.color;
         if (typeof params.name === "string") patch.name = params.name;
         if (typeof params.hole === "boolean") patch.hole = params.hole;
+        if (typeof params.locked === "boolean") patch.locked = params.locked;
+        if (typeof params.hidden === "boolean") patch.hidden = params.hidden;
         if (typeof params.text === "string") patch.text = params.text;
         if (typeof params.font === "string") patch.font = params.font;
         if (typeof params.bevel === "number" && Number.isFinite(params.bevel)) patch.bevel = Math.max(0, params.bevel);

@@ -111,7 +111,7 @@ const tools = [
   },
   {
     name: "layerling_update_object",
-    description: "Update one object's exact dimensions, position, color, name, hole state, or rotations.",
+    description: "Update one object's exact dimensions, position, color, name, hole state, rotations, lettering, or its locked and hidden state.",
     inputSchema: {
       ...editorTargetSchema,
       required: ["id"],
@@ -121,6 +121,8 @@ const tools = [
         name: { type: "string" },
         color: { type: "string" },
         hole: { type: "boolean" },
+        locked: { type: "boolean" },
+        hidden: { type: "boolean" },
         x: { type: "number" },
         z: { type: "number" },
         elevation: { type: "number" },
@@ -131,6 +133,9 @@ const tools = [
         rotation: { type: "number" },
         rotationX: { type: "number" },
         rotationZ: { type: "number" },
+        text: { type: "string", description: "Text objects only. The lettering itself." },
+        font: { type: "string", description: "Text objects only." },
+        bevel: { type: "number", description: "Text objects only. Rounds the edge of the lettering." },
       },
     },
   },

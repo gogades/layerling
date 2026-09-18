@@ -38,6 +38,11 @@ export type LayerlingMcpShapeSummary = {
     z: boolean;
   };
   edgeTreatments: unknown[];
+  /**
+   * Was diese Form ausmacht, ueber die Masse hinaus: Seitenzahl, Gewindegroesse,
+   * Windungen, Beschriftung. Fehlt bei einem Quader, weil es dort nichts gibt.
+   */
+  settings?: Record<string, string | number | boolean>;
   groupedCount: number;
   importedTriangles: number;
   cadDisplayEdgeCount: number | null;
