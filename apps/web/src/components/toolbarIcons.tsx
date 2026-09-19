@@ -269,3 +269,43 @@ export function ToolbarCenterOnWorkplaneIcon(props: IconProps) {
     </ToolbarVectorIcon>
   );
 }
+
+/*
+ * Zwei Formen fuer das Skizzenmenue, die es bei lucide nicht gibt. Sie sind
+ * bewusst in dessen Masszahlen gezeichnet - 24er Feld, Strichstaerke 2, runde
+ * Enden -, damit sie neben Rechteck, Kreis und Dreieck nicht auffallen.
+ */
+function SketchShapeIcon({ children, ...props }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      {children}
+    </svg>
+  );
+}
+
+export function SketchEllipseIcon(props: IconProps) {
+  return (
+    <SketchShapeIcon {...props}>
+      <ellipse cx="12" cy="12" rx="9" ry="5.5" />
+    </SketchShapeIcon>
+  );
+}
+
+export function SketchHalfCircleIcon(props: IconProps) {
+  return (
+    <SketchShapeIcon {...props}>
+      {/* Bogen von links nach rechts, die Sehne schliesst ihn - genau der
+          Umriss, den die Form in der Skizze bekommt. */}
+      <path d="M3 15a9 9 0 0 1 18 0Z" />
+    </SketchShapeIcon>
+  );
+}

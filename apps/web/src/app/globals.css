@@ -7722,6 +7722,17 @@ button {
     width: min(672px, calc(100vw - 20px));
   }
 
+  /* Dieselbe Rettung wie beim Formenmenue darueber: Die Leiste rollt hier
+     waagerecht, und damit schneidet sie senkrecht ab - `overflow-x: auto`
+     laesst der anderen Achse gar keine Wahl. Ein Menue, das unter der Leiste
+     haengt, liegt also ausserhalb und war schlicht weg. Es haengt sich deshalb
+     ans Fenster statt an seinen Ausloeser. */
+  .sketch-create-dropdown {
+    position: fixed;
+    top: var(--editor-toolbar-height);
+    left: 10px;
+  }
+
   .workspace-modal {
     padding-top: 18px;
   }

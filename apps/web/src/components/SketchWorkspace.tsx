@@ -10,12 +10,13 @@ import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { closestPointOnSketchSegment, type SketchSegmentPlacement } from "@/lib/sketchPointRefinement";
 import { isSketchPanGesture } from "@/lib/sketchPointerControls";
+import { isSketchPrimitive, type SketchPrimitive } from "@/lib/sketchPrimitives";
 import { mirrorSign, resizedImportedMeshPositions } from "@/lib/workplaneShapes";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
 import type { GridSize, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 
-export type SketchPrimitive = "rectangle" | "circle" | "triangle" | "hexagon";
+export type { SketchPrimitive } from "@/lib/sketchPrimitives";
 export type SketchTool = "line" | "bezier" | "smooth" | SketchPrimitive | "select" | "refine" | "erase" | "measure";
 export type SketchSelection =
   | { kind: "point"; id: string }
@@ -820,8 +821,8 @@ export function SketchWorkspace({
             event.dataTransfer.dropEffect = "copy";
           }}
           onDrop={(event) => {
-            const primitive = event.dataTransfer.getData("application/x-layerling-sketch-primitive") as SketchPrimitive;
-            if (!["rectangle", "circle", "triangle", "hexagon"].includes(primitive)) return;
+            const primitive = event.dataTransfer.getData("application/x-layerling-sketch-primitive");
+            if (!isSketchPrimitive(primitive)) return;
             event.preventDefault();
             const point = pointFromEvent(event);
             if (point) onAddPrimitive(primitive, point);

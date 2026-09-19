@@ -91,6 +91,8 @@ export function ToolbarAlignIcon(props: IconProps) {
 
 // The drawn PNG set gave way to vectors so tool icons can take their group colour.
 export {
+  SketchEllipseIcon,
+  SketchHalfCircleIcon,
   ToolbarCenterOnWorkplaneIcon,
   ToolbarChamferIcon,
   ToolbarCopyIcon,
