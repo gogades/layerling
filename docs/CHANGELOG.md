@@ -4,6 +4,14 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.2.2
+
+- The status line moved out of the camera rail's column: it floats at the top of the workspace now, beside the view cube, where a whole sentence fits. Down in the corner the two shared a column, and on a flat window - an iPad in landscape with all of Safari's bars - they met.
+- It also goes away again. A confirmation steps back after four seconds, a prompt or a failure after thirty, and while there is nothing to report there is no panel at all.
+- The camera rail begins sixteen pixels below the view cube instead of sixty-nine, and stands in two columns on a window too flat for one, plus and minus side by side. The rule hangs on the window's height now; the only one before it hung on the width and never matched a window that was wide but flat.
+- Pressing the house takes the preview picture and saves a design that lives on the server, there and then. The preview used to wait for a pause in the work and was then taken from a canvas that the hidden editor had already collapsed to nothing - so it never arrived at all.
+- A design that was merely opened no longer uploads itself moments later. What counts as a change is the content, not how often the editor's bookkeeping ran.
+
 ## 1.2.1
 
 - Fixed the workspace settings losing what they had been told about threads and springs. **Shape defaults** offered the fields and the value took effect at once, but the next time layerling started it stood at standard again: the list those settings are checked against had never learned the two shapes that arrived in 1.2.0, and whatever is not on that list is dropped without a word on the way into storage. Every other shape kept its defaults all along.
