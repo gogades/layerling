@@ -4025,22 +4025,28 @@ button {
    reicht. In einem Band, das ohnehin reserviert ist, kann sie nichts
    verdecken. */
 .editor-status {
-  /* Sie draengt sich an die linke Gruppe und nimmt nur, was ihr Text braucht;
-     wird es eng, kuerzt sie sich, statt die Verweise zu schieben. Der eigene
-     Grund hebt sie von den Verweisen ab - sonst liest sie sich wie ein
-     weiterer Link, der nur gerade nicht unterstrichen ist. */
-  flex: 0 1 auto;
-  min-width: 0;
-  margin: 0 auto 0 4px;
-  padding: 4px 11px;
+  /* Schwebt oben auf der Arbeitsflaeche, rechts neben dem Ansichtswuerfel:
+     dort ist Platz, dort schaut man ohnehin hin, und dort steht nichts anderes.
+     Im schmalen Band der Fusszeile war die Meldung kaum zu lesen. Sie erscheint
+     nur, wenn es etwas zu sagen gibt - im Ruhezustand ist sie gar nicht da. */
+  position: fixed;
+  top: calc(var(--editor-toolbar-height) + 48px);
+  left: 104px;
+  z-index: 50;
+  max-width: min(520px, calc(100vw - 400px));
+  margin: 0;
+  padding: 7px 14px;
   overflow: hidden;
-  color: #6b4f33;
-  font-weight: 700;
+  color: #5c442b;
+  font-size: 13px;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: rgba(176, 138, 92, 0.13);
-  border: 1px solid rgba(176, 138, 92, 0.22);
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #ded0c2;
   border-radius: 999px;
+  box-shadow: 0 2px 12px rgba(68, 49, 28, 0.16);
+  pointer-events: none;
 }
 
 .editor-body {
@@ -4893,17 +4899,6 @@ button {
 
 .workplane-control-group {
   position: relative;
-  margin-top: 6px;
-}
-
-.workplane-control-group::before {
-  position: absolute;
-  top: -5px;
-  right: 8px;
-  left: 8px;
-  height: 1px;
-  content: "";
-  background: rgba(128, 109, 88, 0.28);
 }
 
 .ruler-control-group {
@@ -7669,10 +7664,6 @@ button {
     inset: 0;
   }
 
-  .editor-status {
-    display: none;
-  }
-
   .shape-floating-controls {
     left: 58px;
     right: 18px;
@@ -7856,9 +7847,10 @@ html[data-theme="dark"] .dashboard-legal a {
 }
 
 html[data-theme="dark"] .editor-status {
-  color: #dccbb4;
-  background: rgba(243, 164, 82, 0.14);
-  border-color: rgba(243, 164, 82, 0.26);
+  color: #ede4d4;
+  background: rgba(40, 30, 20, 0.97);
+  border-color: #5b4b3a;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34);
 }
 
 html[data-theme="dark"] .dashboard-legal-version {
@@ -8986,6 +8978,13 @@ html[data-theme="dark"] .language-switch svg {
     transform-origin: top left;
   }
 
+  /* Der Wuerfel ist hier kleiner, also rueckt das Statusfenster mit - sonst
+     stuende es mit einer Handbreit Abstand daneben statt neben ihm. */
+  .editor-status {
+    top: calc(var(--editor-toolbar-height) + 40px);
+    left: 90px;
+  }
+
   .camera-controls {
     top: 96px;
     transform: scale(0.88);
@@ -9006,14 +9005,19 @@ html[data-theme="dark"] .language-switch svg {
   .camera-controls {
     display: grid;
     grid-template-columns: repeat(2, auto);
-    grid-template-rows: auto repeat(4, auto);
-    grid-auto-flow: column;
     transform: none;
   }
 
-  .camera-controls .camera-controls-toggle {
-    grid-row: 1;
-    grid-column: 1 / -1;
-    width: auto;
+  /* Gefuellt wird zeilenweise, und das Zoompaar rutscht hinter die
+     Ansichtsknoepfe: So beginnt es auf einer neuen Zeile und Plus und Minus
+     stehen nebeneinander statt ueber Eck. */
+  .camera-controls > button:nth-child(4),
+  .camera-controls > button:nth-child(5) {
+    order: 1;
+  }
+
+  .camera-controls > .workplane-control-group,
+  .camera-controls > .ruler-control-group {
+    order: 2;
   }
 }

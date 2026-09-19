@@ -64,16 +64,7 @@ function joinWithDots(items: ReactNode[]) {
  * liegt sie als schmales Band am unteren Rand, deshalb bekommt sie dort eine
  * zweite Klasse statt einer eigenen Kopie des Markups.
  */
-export function AppFooter({
-  variant = "dashboard",
-  version,
-  status,
-}: {
-  variant?: "dashboard" | "editor";
-  version: string;
-  /** Die Statuszeile des Editors. Auf der Startseite gibt es nichts zu melden. */
-  status?: string;
-}) {
+export function AppFooter({ variant = "dashboard", version }: { variant?: "dashboard" | "editor"; version: string }) {
   const language = useLanguage();
   return (
     <footer className={variant === "editor" ? "dashboard-legal editor-legal" : "dashboard-legal"}>
@@ -96,11 +87,6 @@ export function AppFooter({
           )),
         ])}
       </div>
-      {variant === "editor" && status ? (
-        // Nimmt den Platz, der zwischen den Verweisen uebrig bleibt, und kuerzt
-        // sich selbst - schieben darf sie nichts.
-        <p className="editor-status" role="status" aria-live="polite">{status}</p>
-      ) : null}
       <div className="dashboard-legal-group">
         {joinWithDots([
           <a href={readmeUrl(language)} target="_blank" rel="noreferrer" key="readme">

@@ -5575,7 +5575,9 @@ export function LayerlingEditor({
   const [mirrorPreviewAxis, setMirrorPreviewAxis] = useState<AlignAxis | null>(null);
   const [activeMode, setActiveMode] = useState("3D Design");
   const editorLanguage = useLanguage();
-  const [notice, setNoticeText] = useState(() => t("status.ready"));
+  // Leer heisst Ruhe: Dann steht kein Fenster auf der Arbeitsflaeche. Ein
+  // „Bereit" braucht niemand zu lesen - dass nichts los ist, sieht man.
+  const [notice, setNoticeText] = useState("");
   const noticeTimerRef = useRef<number | null>(null);
 
   /**
@@ -5591,7 +5593,7 @@ export function LayerlingEditor({
     noticeTimerRef.current = transient
       ? window.setTimeout(() => {
         noticeTimerRef.current = null;
-        setNoticeText(t("status.ready"));
+        setNoticeText("");
       }, NOTICE_LINGER_MS)
       : null;
   }, []);
@@ -5604,7 +5606,7 @@ export function LayerlingEditor({
   // Sprachwechsel waere die stehende Meldung ohnehin veraltet, also faellt
   // sie auf den Ruhezustand in der neuen Sprache zurueck.
   useEffect(() => {
-    setNotice(t("status.ready"));
+    setNotice("");
   }, [editorLanguage, setNotice]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const projectFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -8099,7 +8101,7 @@ export function LayerlingEditor({
     return {
       projectId: projectInfo.projectId,
       projectName: projectInfo.projectName,
-      notice: noticeRef.current,
+      notice: noticeRef.current || t("status.ready"),
       selectedIds: selectedIdsRef.current,
       shapeCount: currentShapes.length,
       workspace: workspaceSettingsRef.current,
@@ -8470,7 +8472,7 @@ export function LayerlingEditor({
 
       if (command.action === "inspect_errors") {
         return {
-          notice: noticeRef.current,
+          notice: noticeRef.current || t("status.ready"),
           edgeModifierError: edgeModifierRef.current?.error ?? null,
           lastMcpError: lastMcpErrorRef.current,
         };
@@ -8536,7 +8538,7 @@ export function LayerlingEditor({
             focused: document.visibilityState === "visible" && document.hasFocus(),
             shapeCount: currentShapes.length,
             selectedCount: selectedIdsRef.current.length,
-            notice: noticeRef.current,
+            notice: noticeRef.current || t("status.ready"),
             lastError: edgeModifierRef.current?.error ?? lastMcpErrorRef.current,
           },
         }),
@@ -9604,7 +9606,7 @@ export function LayerlingEditor({
           />
         )}
       </div>
-      <AppFooter variant="editor" version={LYL_CREATED_WITH_VERSION} status={notice} />
+      <AppFooter variant="editor" version={LYL_CREATED_WITH_VERSION} />
       {edgeModifier ? (
         <EdgeModifierPanel
           kind={edgeModifier.kind}
@@ -9712,6 +9714,11 @@ export function LayerlingEditor({
         <ShortcutsModal sketchMode={toolbarMode === "sketch"} onClose={() => setShortcutsOpen(false)} />
       ) : null}
       {guideOpen ? <GuideModal sharedStore={sharedProjectsEnabled} onClose={() => setGuideOpen(false)} /> : null}
+      {notice ? (
+        <p className="editor-status" role="status" aria-live="polite">
+          {notice}
+        </p>
+      ) : null}
       <pre data-codex-state hidden>
         {debugState}
       </pre>
