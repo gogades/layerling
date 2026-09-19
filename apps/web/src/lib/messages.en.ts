@@ -279,6 +279,7 @@ export const MESSAGES_EN = {
   "shortcuts.zoom": "Zoom in or out",
   "shortcuts.placeWorkplane": "Place a workplane",
   "shortcuts.placeWorkplaneOnSelection": "Place it on the selected face",
+  "shortcuts.reverseWorkplane": "Hold while placing to reverse the direction",
   "shortcuts.leaveMode": "Leave workplane or ruler mode",
   "shortcuts.sketchEscape": "End the chain, clear the selection",
   "shortcuts.sketchDelete": "Delete the selected element",

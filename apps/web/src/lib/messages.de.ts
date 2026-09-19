@@ -278,6 +278,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "shortcuts.zoom": "Hinein- oder herauszoomen",
   "shortcuts.placeWorkplane": "Arbeitsebene setzen",
   "shortcuts.placeWorkplaneOnSelection": "Auf die gewählte Fläche setzen",
+  "shortcuts.reverseWorkplane": "Beim Setzen gedrückt halten: Richtung umkehren",
   "shortcuts.leaveMode": "Arbeitsebenen- oder Lineal-Modus verlassen",
   "shortcuts.sketchEscape": "Linienzug beenden, Auswahl aufheben",
   "shortcuts.sketchDelete": "Gewähltes Element löschen",

@@ -90,6 +90,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { combos: ["+", "−"], label: "shortcuts.zoom" },
       { combos: ["W"], label: "shortcuts.placeWorkplane" },
       { combos: ["Shift+W"], label: "shortcuts.placeWorkplaneOnSelection" },
+      { combos: ["Shift"], label: "shortcuts.reverseWorkplane" },
       { combos: ["Esc"], label: "shortcuts.leaveMode" },
     ],
   },
