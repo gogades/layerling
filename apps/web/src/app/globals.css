@@ -3120,18 +3120,21 @@ button {
 .action-buttons .action-icon-button .toolbar-vector-art-icon {
   width: var(--toolbar-icon-size);
   height: var(--toolbar-icon-size);
-  color: #241f20;
+  color: var(--toolbar-icon);
   opacity: 0.96;
   transition: opacity 120ms ease, color 120ms ease;
 }
 
 .action-buttons .action-icon-button:hover .toolbar-vector-art-icon {
-  color: var(--group-color, #241f20);
+  color: var(--group-color, var(--toolbar-icon));
   opacity: 1;
 }
 
+/* The ink is the theme's, not a literal: these marks are drawn in
+   `currentColor`, and a fixed near-black left them invisible on the dark
+   ground - most of all the disabled ones, whose whole group looked empty. */
 .toolbar-icon .toolbar-vector-art-icon {
-  color: #241f20;
+  color: var(--toolbar-icon);
   opacity: 0.96;
   transition: filter 120ms ease, opacity 120ms ease, color 120ms ease;
 }
@@ -7926,6 +7929,14 @@ html[data-theme="dark"] .workplane-stage {
   background: var(--background);
 }
 
+/* The 3D canvas lies on this, and normally covers it - but it is sized from a
+   measurement, so any moment where the two disagree (a panel opening, a window
+   being dragged, the first frame after a resize) showed the light ground as a
+   white block. It has to be dark here for the same reason the stage is. */
+html[data-theme="dark"] .workplane-plane {
+  background: var(--background);
+}
+
 html[data-theme="dark"] .editor-loading-screen {
   background: #201810;
 }
@@ -8095,6 +8106,21 @@ html[data-theme="dark"] .dashboard-welcome {
 html[data-theme="dark"] .dashboard-welcome h2,
 html[data-theme="dark"] .dashboard-welcome li strong {
   color: #f3ede3;
+}
+
+/* The folded-shut state was left behind when the rest of this panel was given
+   dark colours: its heading kept the near-brown of the light theme and came
+   out dimmer than the line underneath it. */
+html[data-theme="dark"] .dashboard-welcome-summary-title {
+  color: #f3ede3;
+}
+
+html[data-theme="dark"] .dashboard-welcome-summary-hint {
+  color: #a79078;
+}
+
+html[data-theme="dark"] .dashboard-welcome-summary:hover .dashboard-welcome-summary-title {
+  color: #f3a452;
 }
 
 html[data-theme="dark"] .dashboard-welcome p,
@@ -8479,6 +8505,7 @@ html[data-theme="dark"] .workspace-modal-card {
 html[data-theme="dark"] .workspace-modal-content,
 html[data-theme="dark"] .workspace-modal-body,
 html[data-theme="dark"] .workspace-modal-footer {
+  color: #a79078;
   background: #2a2015;
 }
 
@@ -8756,7 +8783,9 @@ html[data-theme="dark"] .sketch-create-dropdown span {
   color: #a79078;
 }
 
-html[data-theme="dark"] .toolbar-icon:not(.disabled) .toolbar-vector-art-icon,
+/* Only the sprites need rescuing here: their colours are baked into an image
+   file and cannot follow the theme. The drawn marks do follow it, through
+   --toolbar-icon, so brightening them on top would only wash them out. */
 html[data-theme="dark"] .toolbar-icon:not(.disabled) .toolbar-sprite-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled) .vector-toolbar-sprite-icon,
 html[data-theme="dark"] .shape-menu-trigger .vector-toolbar-sprite-icon,
@@ -8765,14 +8794,18 @@ html[data-theme="dark"] .action-buttons button .vector-toolbar-sprite-icon {
   opacity: 0.96;
 }
 
-html[data-theme="dark"] .toolbar-icon.disabled .toolbar-vector-art-icon,
 html[data-theme="dark"] .toolbar-icon.disabled .toolbar-sprite-icon,
 html[data-theme="dark"] .toolbar-icon.disabled .vector-toolbar-sprite-icon {
   filter: grayscale(1) brightness(1.4);
   opacity: 0.24;
 }
 
-html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .toolbar-vector-art-icon,
+/* A drawn mark is light on this ground, so hovering has to lift it rather than
+   deepen it the way it does on white. */
+html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .toolbar-vector-art-icon {
+  filter: contrast(1.05) brightness(1.12) drop-shadow(0 0 5px rgba(214, 121, 22, 0.32));
+}
+
 html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .toolbar-sprite-icon,
 html[data-theme="dark"] .toolbar-icon:not(.disabled):hover .vector-toolbar-sprite-icon,
 html[data-theme="dark"] .shape-menu-trigger:hover .vector-toolbar-sprite-icon {
