@@ -39,18 +39,19 @@ if (!browser) {
   process.exit(1);
 }
 
-// Das Zeichen kommt aus dem echten SVG, damit die Marke eine einzige Quelle hat.
-const iconPath = resolve(repositoryRoot, "apps/web/public/assets/layerling/layerling-icon.svg");
+// Das Zeichen kommt aus dem echten SVG, damit die Marke eine einzige Quelle
+// hat - und zwar aus dem Logo, das die Seite selbst oben links traegt: ohne
+// eigene Grundflaeche und mit dem dunklen Balken darunter. Das Symbol mit dem
+// braunen Quadrat gehoert aufs Reiterblatt und auf den Home-Bildschirm, wo es
+// keinen hellen Grund unter sich hat.
+const iconPath = resolve(repositoryRoot, "apps/web/public/assets/layerling/layerling-logo.svg");
 const icon = readFileSync(iconPath, "utf8");
-const viewBox = /viewBox="([^"]*)"/.exec(icon);
-const rects = [...icon.matchAll(/<rect\b[^>]*\/>/g)].map((match) => match[0]);
-// Die Grundflaeche deckt das ganze Quadrat ab und traegt deshalb weder x noch
-// y. Auf der Karte ist der Grund die Karte selbst, also bleibt sie hier weg.
-const motif = rects.filter((rect) => /\bx="/.test(rect) && /\by="/.test(rect));
-if (!viewBox || motif.length === 0 || motif.length === rects.length) {
+const viewBox = /viewBox="0 0 (\d+) (\d+)"/.exec(icon);
+const motif = [...icon.matchAll(/<rect\b[^>]*\/>/g)].map((match) => match[0]);
+if (!viewBox || motif.length === 0) {
   console.error(
     `[social-card] ${iconPath} sieht anders aus als erwartet: ` +
-      `${rects.length} Rechtecke, davon ${motif.length} mit Ursprung, viewBox ${viewBox ? "da" : "fehlt"}.`,
+      `${motif.length} Rechtecke, viewBox ${viewBox ? "da" : "fehlt"}.`,
   );
   process.exit(1);
 }
@@ -60,9 +61,8 @@ if (!template.includes("<!--MARKE-->")) {
   console.error("[social-card] Die Vorlage hat keinen Platzhalter <!--MARKE--> mehr.");
   process.exit(1);
 }
-// Eng um das Zeichen herum zuschneiden. Im Symbol laesst es ringsum Luft, weil
-// dort noch die Grundflaeche liegt - auf der Karte waere das unsichtbarer
-// Rand, der die Zeile aus der Mitte schoebe.
+// Eng um das Zeichen herum zuschneiden. Im SVG laesst es ringsum Luft, und auf
+// der Karte waere das unsichtbarer Rand, der die Zeile aus der Mitte schoebe.
 const value = (rect, name) => Number(new RegExp(`\\b${name}="([^"]*)"`).exec(rect)[1]);
 const left = Math.min(...motif.map((rect) => value(rect, "x")));
 const top = Math.min(...motif.map((rect) => value(rect, "y")));
