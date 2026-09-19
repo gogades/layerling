@@ -25,10 +25,10 @@
 </div>
 
 <p align="center">
-  <img src="docs/media/screenshot.png" width="859" alt="layerling im Browser: das Logo als 3D-Modell auf der Bauplatte, darüber das Menüband des Editors">
+  <img src="docs/media/screenshot-de.png" width="778" alt="layerling im Browser">
 </p>
 
-<p align="center"><em>Das Logo selbst, von Claude in layerling gebaut: drei Quader, gestapelt, alle Kanten verrundet.</em></p>
+<p align="center"><em>layerling im Browser</em></p>
 
 ## Für wen das gedacht ist
 
