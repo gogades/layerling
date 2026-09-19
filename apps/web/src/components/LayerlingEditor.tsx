@@ -30,8 +30,10 @@ import { createThreadGeometry, defaultThreadHeadHeight, normalizeThreadHeadHeigh
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { sketchPrimitiveGeometry } from "@/lib/sketchPrimitives";
 import {
+  SketchBoltCircleIcon,
   SketchEllipseIcon,
   SketchHalfCircleIcon,
+  SketchPieSliceIcon,
   ToolbarAlignIcon,
   ToolbarCenterOnWorkplaneIcon,
   ToolbarChamferIcon,
@@ -6691,6 +6693,8 @@ export function LayerlingEditor({
       circle: t("status.sketchTool.circle"),
       ellipse: t("status.sketchTool.ellipse"),
       halfCircle: t("status.sketchTool.halfCircle"),
+      pieSlice: t("status.sketchTool.pieSlice"),
+      boltCircle: t("status.sketchTool.boltCircle"),
       triangle: t("status.sketchTool.triangle"),
       hexagon: t("status.sketchTool.hexagon"),
       select: t("status.sketchTool.select"),
@@ -9986,8 +9990,10 @@ const sketchShapeMenuItems = [
   { primitive: "circle", label: "sketch.circle", icon: CircleIcon },
   { primitive: "ellipse", label: "sketch.ellipse", icon: SketchEllipseIcon },
   { primitive: "halfCircle", label: "sketch.halfCircle", icon: SketchHalfCircleIcon },
+  { primitive: "pieSlice", label: "sketch.pieSlice", icon: SketchPieSliceIcon },
   { primitive: "triangle", label: "sketch.triangle", icon: TriangleIcon },
   { primitive: "hexagon", label: "sketch.hexagon", icon: HexagonIcon },
+  { primitive: "boltCircle", label: "sketch.boltCircle", icon: SketchBoltCircleIcon },
 ] satisfies Array<{ primitive: SketchPrimitive; label: MessageKey; icon: ComponentType<SVGProps<SVGSVGElement>> }>;
 
 function SecondaryToolbar({

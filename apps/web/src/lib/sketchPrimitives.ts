@@ -8,15 +8,25 @@ import type { SketchPoint, SketchSegment } from "@/types/layerling";
  * Punkt laesst sich anfassen, jede Kante teilen. Ein Kreis, den man nicht mehr
  * verformen kann, waere in einer Skizze wenig wert.
  */
-export type SketchPrimitive = "rectangle" | "circle" | "ellipse" | "halfCircle" | "triangle" | "hexagon";
+export type SketchPrimitive =
+  | "rectangle"
+  | "circle"
+  | "ellipse"
+  | "halfCircle"
+  | "pieSlice"
+  | "triangle"
+  | "hexagon"
+  | "boltCircle";
 
 export const SKETCH_PRIMITIVES: readonly SketchPrimitive[] = [
   "rectangle",
   "circle",
   "ellipse",
   "halfCircle",
+  "pieSlice",
   "triangle",
   "hexagon",
+  "boltCircle",
 ];
 
 export function isSketchPrimitive(value: unknown): value is SketchPrimitive {
@@ -115,6 +125,87 @@ function halfCircleGeometry(makeId: MakeId, cx: number, cz: number, radius: numb
 }
 
 /**
+ * Das Tortenstueck: ein Viertel des Kreises, den `circle` zeichnet, aus einem
+ * Bogen und zwei Halbmessern. Ein Viertel, weil ein einzelner Bezierbogen
+ * genau so weit traegt - alles darueber braeuchte einen zweiten und saehe
+ * trotzdem nur nach demselben aus. Wer ein schmaleres Stueck will, zieht den
+ * Bogen nach; dafuer ist er aus gewoehnlichen Punkten gebaut.
+ *
+ * Die Spitze liegt links unten, der Bogen spannt sich nach rechts oben, und
+ * das Ganze steht mittig auf dem Einfuegepunkt wie jede andere Form auch.
+ */
+function pieSliceGeometry(makeId: MakeId, cx: number, cz: number, radius: number): SketchPrimitiveGeometry {
+  const spitzeX = cx - radius / 2;
+  const spitzeZ = cz + radius / 2;
+  const reach = KAPPA * radius;
+  const rechts: SketchPoint = {
+    id: makeId("sketch-point"), x: spitzeX + radius, z: spitzeZ, mode: "corner",
+    handleIn: { x: spitzeX + radius, z: spitzeZ - reach },
+  };
+  const oben: SketchPoint = {
+    id: makeId("sketch-point"), x: spitzeX, z: spitzeZ - radius, mode: "corner",
+    handleOut: { x: spitzeX + reach, z: spitzeZ - radius },
+  };
+  const spitze: SketchPoint = { id: makeId("sketch-point"), x: spitzeX, z: spitzeZ, mode: "corner" };
+  return {
+    points: [rechts, oben, spitze],
+    segments: [
+      { id: makeId("sketch-segment"), startId: oben.id, endId: rechts.id, kind: "bezier" },
+      { id: makeId("sketch-segment"), startId: rechts.id, endId: spitze.id, kind: "line" },
+      { id: makeId("sketch-segment"), startId: spitze.id, endId: oben.id, kind: "line" },
+    ],
+  };
+}
+
+/** Wie viele Bohrungen ein Lochkreis mitbringt und wie gross sie sind. */
+export const BOLT_CIRCLE_HOLES = 6;
+const BOLT_CIRCLE_PITCH = 0.65;
+const BOLT_CIRCLE_HOLE = 0.15;
+
+/**
+ * Der Lochkreis: eine runde Scheibe und sechs Bohrungen darin, gleichmaessig
+ * auf einem Teilkreis verteilt.
+ *
+ * Dass daraus wirklich Loecher werden, entscheidet die Skizze selbst - sie
+ * zaehlt, wie tief ein geschlossener Umriss in anderen steckt, und was ungerade
+ * tief liegt, wird ausgespart (`lib/sketchCadProfile.ts`). Deshalb muss die
+ * Scheibe mitkommen: Sechs Kreise allein laegen nebeneinander und ergaeben beim
+ * Extrudieren sechs Saeulen statt eines gelochten Tellers. Wer die Bohrungen in
+ * einen eigenen Umriss setzen will, loescht den aeusseren Kreis - er ist ein
+ * gewoehnlicher Zug wie jeder andere.
+ *
+ * Die Masse bei der Vorgabegroesse: Scheibe 20 durchmessend, Teilkreis 13,
+ * Bohrungen 3 - also Platz fuer eine M3-Schraube.
+ */
+function boltCircleGeometry(makeId: MakeId, cx: number, cz: number, radius: number): SketchPrimitiveGeometry {
+  const points: SketchPoint[] = [];
+  const segments: SketchSegment[] = [];
+
+  const scheibe = ellipsePoints(makeId, cx, cz, radius, radius);
+  points.push(...scheibe);
+  segments.push(...closedLoop(makeId, scheibe, "bezier"));
+
+  const teilkreis = radius * BOLT_CIRCLE_PITCH;
+  const bohrung = radius * BOLT_CIRCLE_HOLE;
+  for (let index = 0; index < BOLT_CIRCLE_HOLES; index += 1) {
+    // Die erste Bohrung sitzt oben, damit der Kreis symmetrisch zur Mittellinie
+    // steht - so liegt er, wie man ihn auf einer Zeichnung bemasst.
+    const angle = -Math.PI / 2 + (index * 2 * Math.PI) / BOLT_CIRCLE_HOLES;
+    const loch = ellipsePoints(
+      makeId,
+      cx + Math.cos(angle) * teilkreis,
+      cz + Math.sin(angle) * teilkreis,
+      bohrung,
+      bohrung,
+    );
+    points.push(...loch);
+    segments.push(...closedLoop(makeId, loch, "bezier"));
+  }
+
+  return { points, segments };
+}
+
+/**
  * Baut eine Form um `center`. `makeId` kommt von aussen, damit sich das hier
  * ohne Browser pruefen laesst.
  */
@@ -136,6 +227,8 @@ export function sketchPrimitiveGeometry(
   }
 
   if (primitive === "halfCircle") return halfCircleGeometry(makeId, cx, cz, radius);
+  if (primitive === "pieSlice") return pieSliceGeometry(makeId, cx, cz, radius);
+  if (primitive === "boltCircle") return boltCircleGeometry(makeId, cx, cz, radius);
 
   const minX = cx - radius;
   const maxX = cx + radius;

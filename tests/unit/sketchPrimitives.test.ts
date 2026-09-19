@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SKETCH_PRIMITIVES, isSketchPrimitive, sketchPrimitiveGeometry } from "@/lib/sketchPrimitives";
+import { BOLT_CIRCLE_HOLES, SKETCH_PRIMITIVES, isSketchPrimitive, sketchPrimitiveGeometry } from "@/lib/sketchPrimitives";
 import type { SketchPoint, SketchSegment } from "@/types/layerling";
 
 /*
@@ -99,6 +99,73 @@ describe("fertige Skizzenformen", () => {
       for (const amount of [0.25, 0.5, 0.75]) {
         const auf = aufBogen(byId.get(segment.startId)!, byId.get(segment.endId)!, amount);
         expect(Math.hypot(auf.x, auf.z - von.z)).toBeCloseTo(10, 2);
+      }
+    }
+  });
+
+  it("gibt dem Tortenstueck zwei gleich lange Halbmesser und einen rechten Winkel", () => {
+    const { points, segments } = sketchPrimitiveGeometry("pieSlice", { x: 0, z: 0 }, makeId);
+    expect(points).toHaveLength(3);
+    expect(segments.filter((segment) => segment.kind === "line")).toHaveLength(2);
+    expect(segments.filter((segment) => segment.kind === "bezier")).toHaveLength(1);
+
+    const byId = punkte(points);
+    const geraden = segments.filter((segment) => segment.kind === "line");
+    // Die beiden Geraden treffen sich in der Spitze; von dort sind sie gleich
+    // lang, denn beide sind Halbmesser desselben Kreises.
+    const spitzeId = geraden[0]!.endId === geraden[1]!.startId ? geraden[0]!.endId : geraden[0]!.startId;
+    const spitze = byId.get(spitzeId)!;
+    const enden = points.filter((point) => point.id !== spitzeId);
+    for (const ende of enden) {
+      expect(Math.hypot(ende.x - spitze.x, ende.z - spitze.z)).toBeCloseTo(10, 6);
+    }
+    // Rechter Winkel an der Spitze: Das Skalarprodukt der beiden Schenkel ist 0.
+    const [a, b] = enden as [SketchPoint, SketchPoint];
+    const skalar = (a.x - spitze.x) * (b.x - spitze.x) + (a.z - spitze.z) * (b.z - spitze.z);
+    expect(skalar).toBeCloseTo(0, 6);
+
+    // Und der Bogen dazwischen bleibt auf dem Kreis um die Spitze.
+    const bogen = segments.find((segment) => segment.kind === "bezier")!;
+    for (const amount of [0.25, 0.5, 0.75]) {
+      const auf = aufBogen(byId.get(bogen.startId)!, byId.get(bogen.endId)!, amount);
+      expect(Math.hypot(auf.x - spitze.x, auf.z - spitze.z)).toBeCloseTo(10, 2);
+    }
+  });
+
+  it("legt die Bohrungen des Lochkreises in die Scheibe, ohne dass sie sich beruehren", () => {
+    const { points, segments } = sketchPrimitiveGeometry("boltCircle", { x: 0, z: 0 }, makeId);
+    // Sieben geschlossene Zuege: die Scheibe und sechs Bohrungen.
+    expect(points).toHaveLength((1 + BOLT_CIRCLE_HOLES) * 4);
+    expect(segments).toHaveLength(points.length);
+    expect(segments.every((segment) => segment.kind === "bezier")).toBe(true);
+
+    // Die Zuege stehen in der Reihenfolge, in der sie gebaut wurden: erst die
+    // Scheibe, dann je vier Punkte pro Bohrung.
+    const mitten: Array<{ x: number; z: number; r: number }> = [];
+    for (let index = 0; index < points.length; index += 4) {
+      const ring = points.slice(index, index + 4);
+      const x = (Math.min(...ring.map((p) => p.x)) + Math.max(...ring.map((p) => p.x))) / 2;
+      const z = (Math.min(...ring.map((p) => p.z)) + Math.max(...ring.map((p) => p.z))) / 2;
+      mitten.push({ x, z, r: (Math.max(...ring.map((p) => p.x)) - Math.min(...ring.map((p) => p.x))) / 2 });
+    }
+    const scheibe = mitten[0]!;
+    const loecher = mitten.slice(1);
+    expect(scheibe.r).toBeCloseTo(10, 6);
+    expect(loecher).toHaveLength(BOLT_CIRCLE_HOLES);
+
+    for (const loch of loecher) {
+      const abstand = Math.hypot(loch.x - scheibe.x, loch.z - scheibe.z);
+      // Ganz drin, mit Rand: aussen darf die Bohrung den Scheibenrand nicht
+      // erreichen, sonst entstuende beim Extrudieren ein offener Schlitz.
+      expect(abstand + loch.r).toBeLessThan(scheibe.r - 0.5);
+      expect(abstand - loch.r).toBeGreaterThan(0.5);
+    }
+
+    // Und untereinander beruehren sie sich auch nicht.
+    for (let i = 0; i < loecher.length; i += 1) {
+      for (let k = i + 1; k < loecher.length; k += 1) {
+        const abstand = Math.hypot(loecher[i]!.x - loecher[k]!.x, loecher[i]!.z - loecher[k]!.z);
+        expect(abstand).toBeGreaterThan(loecher[i]!.r + loecher[k]!.r + 0.5);
       }
     }
   });

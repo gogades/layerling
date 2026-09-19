@@ -309,3 +309,27 @@ export function SketchHalfCircleIcon(props: IconProps) {
     </SketchShapeIcon>
   );
 }
+
+export function SketchPieSliceIcon(props: IconProps) {
+  return (
+    <SketchShapeIcon {...props}>
+      {/* Die Spitze sitzt unten links, der Bogen spannt sich darueber - so
+          fuellt das Viertel das Feld, statt als Eckchen darin zu sitzen. */}
+      <path d="M5 5a14 14 0 0 1 14 14H5Z" />
+    </SketchShapeIcon>
+  );
+}
+
+export function SketchBoltCircleIcon(props: IconProps) {
+  return (
+    <SketchShapeIcon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      {/* Vier statt sechs Bohrungen: In einem 24er Feld waeren sechs nur noch
+          ein Kranz aus Punkten, der nichts mehr erkennen laesst. */}
+      <circle cx="12" cy="6.6" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="17.4" cy="12" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="17.4" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="6.6" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    </SketchShapeIcon>
+  );
+}
