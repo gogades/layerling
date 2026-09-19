@@ -235,6 +235,9 @@ const CUTTER_PADDING = 0.05;
 const POINT_TOLERANCE = 0.0001;
 const CUTTER_RESIDUAL_INSET = CUTTER_PADDING * 0.4;
 const MIN_SHAPE_DIMENSION = 0.01;
+/** So lange darf das Vorschaubild den Weg zur Uebersicht aufhalten. */
+const LEAVE_SNAPSHOT_DEADLINE_MS = 600;
+
 /** So lange bleibt eine gewoehnliche Meldung stehen. */
 const NOTICE_LINGER_MS = 4000;
 /**
@@ -8986,6 +8989,59 @@ export function LayerlingEditor({
     void saveToServerRef.current();
   }, []);
 
+  /**
+   * Das Vorschaubild jetzt aufnehmen statt in zweieinhalb Sekunden.
+   *
+   * Wer nach der letzten Aenderung gleich zur Uebersicht geht, sah dort bisher
+   * das Bild von vorhin: Die Aufnahme wartet normalerweise, bis Ruhe
+   * eingekehrt ist, und wurde mit dem Editor zusammen abgebrochen, wenn der
+   * schon weg war. Hier gibt es kein Abbruchsignal - der Upload gehoert der
+   * Seite darueber und ueberlebt dieses Bauteil.
+   */
+  const flushProjectSnapshot = useCallback(async () => {
+    if (!projectId || !onProjectSnapshot || typeof window === "undefined") return;
+    const currentShapes = shapesRef.current;
+    const sceneKey = { projectId, fingerprint: projectShapesFingerprint(currentShapes) };
+    if (!projectThumbnailSceneChanged(lastProjectSnapshotRef.current, sceneKey)) return;
+    const image = window.layerlingCaptureCanvasAsync
+      ? await window.layerlingCaptureCanvasAsync()
+      : window.layerlingCaptureCanvas?.() ?? "";
+    if (!image || image.length <= 100) return;
+    lastProjectSnapshotRef.current = sceneKey;
+    void Promise.resolve(onProjectSnapshot({ image, projectId, shapes: currentShapes.length })).catch(() => {});
+  }, [onProjectSnapshot, projectId]);
+
+  /**
+   * Das Haus fuehrt zur Uebersicht - erst ist das Bild an der Reihe, aber es
+   * darf den Weg nicht versperren.
+   *
+   * `canvas.toBlob` haengt in einem Fenster, das im Hintergrund liegt: Der
+   * Zeichentakt ruht dort, und die Aufnahme kommt nie zurueck. Ohne diese Frist
+   * bliebe der Knopf dann einfach wirkungslos - beim Messen genau so passiert.
+   * Kommt das Bild rechtzeitig, reist es mit; kommt es nicht, geht es eben
+   * ohne, und die Uebersicht zeigt wie bisher das Bild von vorhin.
+   */
+  const leaveToDashboard = useCallback(() => {
+    if (!onHome) return;
+    let left = false;
+    const leave = () => {
+      if (left) return;
+      left = true;
+      onHome();
+    };
+    window.setTimeout(leave, LEAVE_SNAPSHOT_DEADLINE_MS);
+    // Der Entwurf auf dem Server wartet sonst auf den Fuenf-Sekunden-Takt. Wer
+    // die Arbeitsflaeche verlaesst, ist fertig - dann soll er hochgeladen
+    // werden, nicht gleich. Der Editor bleibt dabei im Baum stehen, also
+    // greift das Aufraeumen beim Abbau hier gar nicht.
+    if (serverSaveTimerRef.current !== null) {
+      window.clearTimeout(serverSaveTimerRef.current);
+      serverSaveTimerRef.current = null;
+    }
+    void saveToServerRef.current();
+    void flushProjectSnapshot().finally(leave);
+  }, [flushProjectSnapshot, onHome]);
+
   const clearDesign = useCallback(() => {
     commitShapes([], [], t("status.newDesign"));
     setClipboard([]);
@@ -9489,7 +9545,7 @@ export function LayerlingEditor({
         onSketchRedo={sketchRedo}
         onSketchFinish={finishSketch}
         onSketchCancel={cancelSketch}
-        onHome={onHome}
+        onHome={onHome ? leaveToDashboard : undefined}
         onAlign={toggleAlignMode}
         onChamfer={() => edgeModifier?.kind === "chamfer" ? cancelEdgeModifier() : startEdgeModifier("chamfer")}
         onCopy={copySelected}
