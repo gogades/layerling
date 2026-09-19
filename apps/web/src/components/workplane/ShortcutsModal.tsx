@@ -66,6 +66,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { combos: ["S"], label: "shortcuts.solid" },
       { combos: ["M"], label: "shortcuts.mirror" },
       { combos: ["D"], label: "shortcuts.dropToWorkplane" },
+      { combos: ["N"], label: "shortcuts.note" },
     ],
   },
   {

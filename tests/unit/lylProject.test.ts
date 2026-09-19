@@ -612,6 +612,66 @@ describe("layerling .lyl project packages", () => {
     }
   });
 
+  /*
+   * Notizen sind kein Koerper: Sie stehen neben den Knoten eines Standes, nicht
+   * darin. Ein Leser, der sie nicht kennt, uebergeht das Feld und oeffnet die
+   * Datei trotzdem - das ist der Preis dafuer, dass die Formatnummer bleibt.
+   */
+  it("carries notes through a round trip, pinned and free", async () => {
+    const pinned = { id: "note-1", text: "Hier 4,2 aufreiben", x: 4, y: 6, z: 8, anchor: { shapeId: "box-1", normalized: [0.5, 0.5, 0.5] as [number, number, number] } };
+    const free = { id: "note-2", text: "Stützen nicht vergessen", x: -20, y: 0, z: 12, collapsed: true };
+    const shapes = [shape("box")];
+    const exported = await exportLylProject(input(shapes, {
+      notes: [pinned, free],
+      history: [editorHistoryEntry(shapes, [], [pinned, free])],
+    }));
+
+    const { document } = packageDocument(exported);
+    expect(document.states[0].notes).toEqual([pinned, free]);
+
+    const restored = await importLylProject(exported);
+    expect(restored.notes).toEqual([pinned, free]);
+    expect(restored.history[restored.historyIndex].notes).toEqual([pinned, free]);
+  });
+
+  it("writes no note field into a design that has none", async () => {
+    const { document } = packageDocument(await exportLylProject(input([shape("box")])));
+    expect(document.states[0]).not.toHaveProperty("notes");
+  });
+
+  it("keeps two states apart that differ only in a note", async () => {
+    const shapes = [shape("box")];
+    const first = editorHistoryEntry(shapes, []);
+    const second = editorHistoryEntry(shapes, [], [{ id: "note-1", text: "Zweiter Stand", x: 0, y: 0, z: 0 }]);
+    const exported = await exportLylProject(input(shapes, {
+      notes: second.notes,
+      history: [first, second],
+      historyIndex: 1,
+    }));
+
+    const { document } = packageDocument(exported);
+    // Gleiche Koerper, aber zwei Staende - sonst faende das Rueckgaengig zurueck
+    // in einen Stand, in dem die Notiz schon da ist.
+    expect(document.states).toHaveLength(2);
+    const restored = await importLylProject(exported);
+    expect(restored.history[0].notes).toBeUndefined();
+    expect(restored.history[1].notes).toHaveLength(1);
+  });
+
+  it("opens a design whose notes are damaged instead of refusing it", async () => {
+    const shapes = [shape("box")];
+    const exported = await exportLylProject(input(shapes, {
+      notes: [{ id: "note-1", text: "gut", x: 0, y: 0, z: 0 }],
+      history: [editorHistoryEntry(shapes, [], [{ id: "note-1", text: "gut", x: 0, y: 0, z: 0 }])],
+    }));
+    const broken = mutateProject(exported, (document) => {
+      (document.states[0] as { notes?: unknown }).notes = [{ id: "note-1", text: "gut", x: 0, y: 0, z: 0 }, 42, null];
+    });
+
+    const restored = await importLylProject(broken);
+    expect(restored.notes).toHaveLength(1);
+  });
+
   it("rejects a display edge reference that does not resolve to an edge asset", async () => {
     const exported = await exportLylProject(input([shape("box", "cad-box", { cadDisplayEdges: displayEdges(3), cadDisplayEdgesVersion: 2 })]));
     const broken = mutateProject(exported, (document) => {

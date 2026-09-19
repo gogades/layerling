@@ -97,6 +97,21 @@ export function ToolbarRedoIcon(props: IconProps) {
   );
 }
 
+/**
+ * Die Notiz: ein Zettel mit umgeschlagener Ecke und zwei Zeilen darauf. Die
+ * Ecke ist das, was ihn von jedem anderen Rechteck im Satz unterscheidet.
+ */
+export function ToolbarNoteIcon(props: IconProps) {
+  return (
+    <ToolbarVectorIcon {...props}>
+      <path d="M11 10h17l9 9v19a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3Z" {...SOLID} />
+      <path d="M11 10h17l9 9v19a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3Z" />
+      <path d="M28 10v9h9" />
+      <path d="M15 27h15M15 33h10" />
+    </ToolbarVectorIcon>
+  );
+}
+
 export function ToolbarImportIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>

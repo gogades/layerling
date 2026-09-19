@@ -8,7 +8,7 @@ import { sharedProjectSaveTarget } from "@/lib/sharedProjectTarget";
 import { storeFolderNameProblem, suggestStoreFolderName } from "@/lib/storeFolderName";
 import { LayerlingEditor, importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg } from "@/components/LayerlingEditor";
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
-import { hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
+import { hydrateEditorHistoryState, notesForHistoryIndex, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { detectLanguage, setLanguage, t, type Language } from "@/lib/i18n";
 import { migrateLegacyProjectShapes, migrateLegacyStorageKeys, PROJECT_SHAPES_DB_NAME } from "@/lib/storageMigration";
 import { useLanguage } from "@/lib/useLanguage";
@@ -169,7 +169,7 @@ function projectShapeCacheEntry(
   historyIndex?: number,
   assets: ProjectAsset[] = [],
 ): ProjectShapeCacheEntry {
-  const hydrated = hydrateEditorHistoryState(shapes, history, historyIndex);
+  const hydrated = hydrateEditorHistoryState(shapes, history, historyIndex, "unlimited", notesForHistoryIndex(history, historyIndex));
   return {
     revision,
     shapes: hydrated.entries[hydrated.index]?.shapes ?? shapes,
@@ -400,6 +400,7 @@ async function saveProjectShapes(projectId: string, entry: ProjectShapeCacheEntr
     createdAt: context.createdAt,
     modifiedAt: entry.revision,
     shapes: entry.shapes,
+    notes: notesForHistoryIndex(entry.history, entry.historyIndex),
     history: entry.history,
     historyIndex: entry.historyIndex,
     assets: entry.assets,

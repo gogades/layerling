@@ -4,10 +4,11 @@ import { normalizePlacementWorkplane, placementWorkplaneIsBase, type PlacementWo
 import { importedShapeFromObj } from "@/lib/objImport";
 import { normalizeProjectAsset, sha256Hex } from "@/lib/projectAssets";
 import { canonicalizeShape } from "@/lib/workplaneShapes";
+import { normalizeNotes } from "@/lib/workplaneNotes";
 import { importedShapeFromStl } from "@/lib/stlImport";
 import { importedShapeFromSvg } from "@/lib/svgImport";
 import { normalizeSnapGrid, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
-import type { CadDisplayEdge, GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation, SketchRevolveSettings, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { CadDisplayEdge, GridSize, ProjectAsset, ProjectAssetSourceFormat, SketchOperation, SketchRevolveSettings, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 export const LYL_SCHEMA_ID = "com.layerling.project";
 /** Written before the rename. Such a package is still opened - and saved back
@@ -96,6 +97,13 @@ export type LylStateV1 = {
   id: string;
   rootNodeIds: string[];
   nodes: LylShapeNodeV1[];
+  /**
+   * Die Notizen dieses Standes. Sie sind kein Koerper und stehen deshalb neben
+   * den Knoten, nicht darin. Ein aelterer Leser uebergeht das Feld - er oeffnet
+   * die Datei, zeigt aber keine Notizen und schreibt sie beim naechsten Sichern
+   * auch nicht zurueck.
+   */
+  notes?: WorkplaneNote[];
 };
 
 export type LylFeatureV1 = {
@@ -147,6 +155,7 @@ export type LylProjectExportInput = {
   createdAt: number;
   modifiedAt: number;
   shapes: WorkplaneShape[];
+  notes?: WorkplaneNote[];
   history: EditorHistoryEntry[];
   historyIndex: number;
   assets: ProjectAsset[];
@@ -164,6 +173,7 @@ export type LylRestoredProject = {
   createdAt: number;
   modifiedAt: number;
   shapes: WorkplaneShape[];
+  notes?: WorkplaneNote[];
   history: EditorHistoryEntry[];
   historyIndex: number;
   assets: ProjectAsset[];
@@ -657,6 +667,7 @@ async function serializeState(
   shapes: WorkplaneShape[],
   builder: LylArchiveBuilder,
   sourceAssetsByArchiveId: Map<string, LylAssetRecordV1>,
+  notes: WorkplaneNote[] = [],
 ): Promise<LylStateV1> {
   assertUniqueRuntimeObjectIds(shapes, id);
   const nodes: LylShapeNodeV1[] = [];
@@ -666,7 +677,9 @@ async function serializeState(
     rootNodeIds.push(await serializeShapeNode(shape, nodeId, nodes, builder, sourceAssetsByArchiveId));
   }
   nodes.sort((a, b) => a.nodeId.localeCompare(b.nodeId));
-  return { id, rootNodeIds, nodes };
+  const state: LylStateV1 = { id, rootNodeIds, nodes };
+  if (notes.length > 0) state.notes = notes;
+  return state;
 }
 
 function nodeGroupOperation(node: LylShapeNodeV1, nodeById: Map<string, LylShapeNodeV1>) {
@@ -803,14 +816,14 @@ function unzipAsync(bytes: Uint8Array) {
 }
 
 export async function exportLylProject(input: LylProjectExportInput) {
-  const hydrated = hydrateEditorHistoryState(input.shapes, input.history, input.historyIndex);
+  const hydrated = hydrateEditorHistoryState(input.shapes, input.history, input.historyIndex, "unlimited", normalizeNotes(input.notes));
   if (hydrated.entries.length > LYL_LIMITS.states) throw new Error("Project has too many undo states for the project format");
   const exportEntries = hydrated.entries.map((entry) => {
     const repaired = repairDuplicateGroupedObjectIds(entry.shapes);
     // `hydrated` entries are already canonical and fingerprinted; only a state that
     // needed an ID repair has to be measured again.
     const idsWereRepaired = repaired.some((shape, index) => shape !== entry.shapes[index]);
-    return idsWereRepaired ? editorHistoryEntry(repaired, entry.selectedIds) : entry;
+    return idsWereRepaired ? editorHistoryEntry(repaired, entry.selectedIds, normalizeNotes(entry.notes)) : entry;
   });
   const builder = new LylArchiveBuilder();
   const stateShapes = exportEntries.map((entry) => entry.shapes);
@@ -824,7 +837,7 @@ export async function exportLylProject(input: LylProjectExportInput) {
     let stateId = stateIdByFingerprint.get(entry.fingerprint);
     if (!stateId) {
       stateId = `state-${states.length + 1}`;
-      states.push(await serializeState(stateId, entry.shapes, builder, sourceAssetsByArchiveId));
+      states.push(await serializeState(stateId, entry.shapes, builder, sourceAssetsByArchiveId, normalizeNotes(entry.notes)));
       stateIdByFingerprint.set(entry.fingerprint, stateId);
     }
     historyEntries.push({ stateId, selectedObjectIds: [...entry.selectedIds] });
@@ -1381,6 +1394,7 @@ async function restoreV1(document: LylProjectDocumentV1, assetById: Map<string, 
   const displayEdgeCache = new Map<string, CadDisplayEdge[]>();
   const sourceImporter = options.sourceImporter ?? defaultSourceImporter;
   const restoredStates = new Map<string, WorkplaneShape[]>();
+  const restoredNotes = new Map<string, WorkplaneNote[]>();
   for (const state of document.states) {
     const nodeById = new Map(state.nodes.map((node) => [node.nodeId, node]));
     const shapes = await Promise.all(state.rootNodeIds.map((nodeId) => restoreShapeFromNode(
@@ -1395,10 +1409,16 @@ async function restoreV1(document: LylProjectDocumentV1, assetById: Map<string, 
       sourceImporter,
     )));
     restoredStates.set(state.id, shapes);
+    restoredNotes.set(state.id, normalizeNotes(state.notes));
   }
-  const history = document.history.entries.map((entry) => editorHistoryEntry(restoredStates.get(entry.stateId) ?? [], entry.selectedObjectIds));
+  const history = document.history.entries.map((entry) => editorHistoryEntry(
+    restoredStates.get(entry.stateId) ?? [],
+    entry.selectedObjectIds,
+    restoredNotes.get(entry.stateId) ?? [],
+  ));
   const shapes = restoredStates.get(document.sceneStateId) ?? [];
-  const hydrated = hydrateEditorHistoryState(shapes, history, document.history.index);
+  const notes = restoredNotes.get(document.sceneStateId) ?? [];
+  const hydrated = hydrateEditorHistoryState(shapes, history, document.history.index, "unlimited", notes);
   if (hydrated.entries.length !== history.length || hydrated.index !== document.history.index) throw new Error("Undo history could not be restored without data loss");
   return {
     sourceProjectId: document.metadata.projectId,
@@ -1406,6 +1426,7 @@ async function restoreV1(document: LylProjectDocumentV1, assetById: Map<string, 
     createdAt: parseIsoTimestamp(document.metadata.createdAt, "metadata.createdAt"),
     modifiedAt: parseIsoTimestamp(document.metadata.modifiedAt, "metadata.modifiedAt"),
     shapes: hydrated.entries[hydrated.index]?.shapes ?? shapes,
+    notes: hydrated.entries[hydrated.index]?.notes ?? notes,
     history: hydrated.entries,
     historyIndex: hydrated.index,
     assets: [...runtimeAssetByArchiveId.values()],

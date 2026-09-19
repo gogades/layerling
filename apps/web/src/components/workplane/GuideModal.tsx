@@ -30,7 +30,7 @@ function guideSections(sharedStore: boolean): GuideSection[] {
     },
     {
       title: "guide.group.select",
-      lines: ["guide.select.click", "guide.select.group", "guide.select.align"],
+      lines: ["guide.select.click", "guide.select.group", "guide.select.align", "guide.select.notes"],
     },
     {
       title: "guide.group.solid",

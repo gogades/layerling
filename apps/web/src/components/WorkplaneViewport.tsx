@@ -78,7 +78,8 @@ import {
   type TransformHandleKind,
   type TransformOverlayState,
 } from "@/components/workplane/TransformOverlay";
-import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, MeasurementAccuracy, ShapeAsset, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, MeasurementAccuracy, ShapeAsset, WorkplaneNote, WorkplaneNoteAnchor, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import { NOTE_TEXT_LIMIT } from "@/lib/workplaneNotes";
 import type { CadModifierEdge } from "@/lib/cadModifierTypes";
 
 const WORKPLANE_WIDTH = 200;
@@ -217,6 +218,13 @@ type WorkplaneViewportProps = {
   canSeparateParts?: boolean;
   onSeparateParts?: () => void;
   onUpdateShape: (id: string, patch: ShapeUpdatePatch) => void;
+  notes?: WorkplaneNote[];
+  notesVisible?: boolean;
+  noteMode?: boolean;
+  onNoteAdd?: (note: { x: number; y: number; z: number; anchor?: WorkplaneNoteAnchor }) => string | null;
+  onNoteUpdate?: (id: string, patch: Partial<WorkplaneNote>, transient?: boolean) => void;
+  onNoteRemove?: (id: string) => void;
+  onNoteModeChange?: (active: boolean) => void;
   onWorkspaceSettingsChange?: (settings: { workspace: WorkplaneWorkspaceSettings; snap: GridSize }) => void;
   projectName?: string;
   onWorkplaneModeChange: (active: boolean) => void;
@@ -363,6 +371,35 @@ type MarqueeState = {
   currentY: number;
   additive: boolean;
   hasMoved: boolean;
+};
+
+/** Eine gleichbleibende leere Liste, damit die Eigenschaft nicht jedes Bild neu wird. */
+const EMPTY_NOTES: WorkplaneNote[] = [];
+
+/** Breite einer offenen Notizkarte samt Nadel und Abstand, in Bildpunkten. */
+const NOTE_CARD_REACH = 260;
+
+type NoteOverlayItem = {
+  id: string;
+  index: number;
+  text: string;
+  collapsed: boolean;
+  attached: boolean;
+  screenX: number;
+  screenY: number;
+  behind: boolean;
+  /** Am rechten Rand oeffnet die Karte nach links, sonst stuende sie ausserhalb. */
+  flipped: boolean;
+};
+
+type NoteOverlayState = {
+  notes: NoteOverlayItem[];
+};
+
+type NoteDragState = {
+  noteId: string;
+  pointerId: number;
+  moved: boolean;
 };
 
 type RulerPoint = {
@@ -1505,6 +1542,162 @@ function syncRulerOverlay(
   }
 }
 
+/**
+ * Wo eine Notiz gerade steht. Eine angeheftete rechnet sich aus dem Koerper,
+ * an dem sie haengt - dieselbe Rechnung wie beim Lineal, damit sie beim
+ * Verschieben, Drehen und Groessenaendern mitfaehrt. Ist der Koerper nicht mehr
+ * da, gilt die zuletzt bekannte Stelle.
+ */
+function noteWorldPosition(state: ThreeState, note: WorkplaneNote) {
+  if (note.anchor) {
+    const world = rulerAttachmentWorld(state, { shapeId: note.anchor.shapeId, normalized: note.anchor.normalized });
+    if (world) return world;
+  }
+  return new THREE.Vector3(note.x, note.y, note.z);
+}
+
+/**
+ * Die Nadeln auf den Bildschirm rechnen. Was hinter der Kamera liegt, bekommt
+ * `behind` - dort ist die Projektion gespiegelt, und eine Nadel wuerde sonst auf
+ * der falschen Seite auftauchen.
+ */
+function syncNoteOverlay(
+  state: ThreeState,
+  notes: WorkplaneNote[],
+  visible: boolean,
+  overlayRef: MutableRefObject<NoteOverlayState | null>,
+  setOverlay: (overlay: NoteOverlayState | null) => void,
+) {
+  if (!visible || notes.length === 0) {
+    if (overlayRef.current !== null) {
+      overlayRef.current = null;
+      setOverlay(null);
+    }
+    return;
+  }
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  state.camera.updateMatrixWorld();
+  const next: NoteOverlayState = {
+    notes: notes.map((note, index) => {
+      const projected = noteWorldPosition(state, note).project(state.camera);
+      return {
+        id: note.id,
+        index: index + 1,
+        text: note.text,
+        collapsed: Boolean(note.collapsed),
+        attached: Boolean(note.anchor),
+        screenX: ((projected.x + 1) / 2) * rect.width,
+        screenY: ((1 - projected.y) / 2) * rect.height,
+        behind: projected.z > 1,
+        flipped: ((projected.x + 1) / 2) * rect.width + NOTE_CARD_REACH > rect.width,
+      };
+    }),
+  };
+  const previous = overlayRef.current;
+  const unchanged = previous
+    && previous.notes.length === next.notes.length
+    && previous.notes.every((note, index) => {
+      const candidate = next.notes[index];
+      return note.id === candidate.id
+        && note.index === candidate.index
+        && note.text === candidate.text
+        && note.collapsed === candidate.collapsed
+        && note.attached === candidate.attached
+        && note.behind === candidate.behind
+        && note.flipped === candidate.flipped
+        && Math.abs(note.screenX - candidate.screenX) < 0.2
+        && Math.abs(note.screenY - candidate.screenY) < 0.2;
+    });
+  if (!unchanged) {
+    overlayRef.current = next;
+    setOverlay(next);
+  }
+}
+
+/**
+ * Die Notizen ueber der Leinwand. Sie sind bewusst HTML und keine Textur in der
+ * Szene: So bleibt die Schrift bei jeder Zoomstufe scharf, laesst sich markieren
+ * und kopieren, und das Ausblenden kostet nichts.
+ */
+function NoteOverlay({
+  overlay,
+  editingId,
+  onPinPointerDown,
+  onPinPointerMove,
+  onPinPointerUp,
+  onToggle,
+  onTextChange,
+  onTextCommit,
+  onDetach,
+  onRemove,
+  onEditingIdChange,
+}: {
+  overlay: NoteOverlayState;
+  editingId: string | null;
+  onPinPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => void;
+  onPinPointerMove: (event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => void;
+  onPinPointerUp: (event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => void;
+  onToggle: (noteId: string) => void;
+  onTextChange: (noteId: string, text: string) => void;
+  onTextCommit: (noteId: string) => void;
+  onDetach: (noteId: string) => void;
+  onRemove: (noteId: string) => void;
+  onEditingIdChange: (noteId: string | null) => void;
+}) {
+  return (
+    <div className="note-overlay" aria-label={t("editor.tool.note")}>
+      {overlay.notes.map((note) => {
+        if (note.behind) return null;
+        const open = !note.collapsed;
+        return (
+          <div
+            key={note.id}
+            className={`note-pin-anchor ${open ? "open" : ""} ${note.flipped ? "flipped" : ""}`}
+            style={{ left: note.screenX, top: note.screenY }}
+          >
+            <button
+              type="button"
+              className={`note-pin ${note.attached ? "attached" : ""}`}
+              title={t("note.move")}
+              aria-label={`${t("editor.tool.note")} ${note.index}`}
+              onPointerDown={(event) => onPinPointerDown(event, note.id)}
+              onPointerMove={(event) => onPinPointerMove(event, note.id)}
+              onPointerUp={(event) => onPinPointerUp(event, note.id)}
+              onClick={() => onToggle(note.id)}
+            >
+              {note.index}
+            </button>
+            {open ? (
+              <div className="note-card" onPointerDown={(event) => event.stopPropagation()}>
+                <textarea
+                  className="note-text"
+                  value={note.text}
+                  maxLength={NOTE_TEXT_LIMIT}
+                  rows={3}
+                  placeholder={t("note.placeholder")}
+                  autoFocus={editingId === note.id}
+                  onFocus={() => onEditingIdChange(note.id)}
+                  onBlur={() => {
+                    onEditingIdChange(null);
+                    onTextCommit(note.id);
+                  }}
+                  onChange={(event) => onTextChange(note.id, event.target.value)}
+                />
+                <div className="note-card-actions">
+                  {note.attached ? (
+                    <button type="button" className="note-action" onClick={() => onDetach(note.id)}>{t("note.detach")}</button>
+                  ) : <span className="note-hint">{t("note.free")}</span>}
+                  <button type="button" className="note-action danger" onClick={() => onRemove(note.id)}>{t("common.delete")}</button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function RulerOverlay({
   overlay,
   startPointId,
@@ -2413,6 +2606,13 @@ export function WorkplaneViewport({
   canSeparateParts = false,
   onSeparateParts,
   onUpdateShape,
+  notes = EMPTY_NOTES,
+  notesVisible = true,
+  noteMode = false,
+  onNoteAdd,
+  onNoteUpdate,
+  onNoteRemove,
+  onNoteModeChange,
   onWorkspaceSettingsChange,
   projectName = "",
   onWorkplaneModeChange,
@@ -2452,6 +2652,8 @@ export function WorkplaneViewport({
   const [orthographicView, setOrthographicView] = useState(false);
   const [rulerModel, setRulerModel] = useState<RulerModel>({ points: [], segments: [], startPointId: null, hover: null });
   const [rulerOverlay, setRulerOverlay] = useState<RulerOverlayState | null>(null);
+  const [noteOverlay, setNoteOverlay] = useState<NoteOverlayState | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [moveDimensionOverlay, setMoveDimensionOverlay] = useState<MoveDimensionOverlayState | null>(null);
   const [moveDimensionsEnabled, setMoveDimensionsEnabled] = useState(true);
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -2482,6 +2684,12 @@ export function WorkplaneViewport({
   const rulerMoveModeRef = useRef(false);
   const rulerPointDragRef = useRef<RulerPointDragState | null>(null);
   const rulerModelRef = useRef(rulerModel);
+  const notesRef = useRef(notes);
+  const noteModeRef = useRef(noteMode);
+  const notesVisibleRef = useRef(notesVisible);
+  const noteOverlayRef = useRef<NoteOverlayState | null>(null);
+  const noteDragRef = useRef<NoteDragState | null>(null);
+  const noteClickSuppressedRef = useRef<string | null>(null);
   const rulerOverlayRef = useRef<RulerOverlayState | null>(null);
   const rulerIdRef = useRef(0);
   const alignModeRef = useRef(alignMode);
@@ -2875,6 +3083,19 @@ export function WorkplaneViewport({
     }
   }, [rulerModel]);
 
+  useEffect(() => {
+    notesRef.current = notes;
+    notesVisibleRef.current = notesVisible;
+    if (threeRef.current) {
+      syncNoteOverlay(threeRef.current, notes, notesVisible, noteOverlayRef, setNoteOverlay);
+      threeRef.current.needsRender = true;
+    }
+  }, [notes, notesVisible]);
+
+  useEffect(() => {
+    noteModeRef.current = noteMode;
+  }, [noteMode]);
+
   useLayoutEffect(() => {
     const state = threeRef.current;
     rebuildShapes(
@@ -2942,6 +3163,7 @@ export function WorkplaneViewport({
         resolvedThemeRef.current,
       );
       syncRulerOverlay(threeRef.current, rulerModelRef.current, rulerOverlayRef, setRulerOverlay, workspace.accuracy);
+      syncNoteOverlay(threeRef.current, notesRef.current, notesVisibleRef.current, noteOverlayRef, setNoteOverlay);
       syncMoveDimensionWorldLines(threeRef.current, moveDimensionSessionRef.current, resolvedTheme);
       threeRef.current.needsRender = true;
     }
@@ -3020,6 +3242,7 @@ export function WorkplaneViewport({
         syncAlignOverlay(state, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
         syncMirrorOverlay(state, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
         syncRulerOverlay(state, rulerModelRef.current, rulerOverlayRef, setRulerOverlay, workspaceRef.current.accuracy);
+        syncNoteOverlay(state, notesRef.current, notesVisibleRef.current, noteOverlayRef, setNoteOverlay);
         syncMoveDimensionOverlay(
           state,
           moveDimensionSessionRef.current,
@@ -4183,6 +4406,90 @@ export function WorkplaneViewport({
     };
   }, []);
 
+  /**
+   * Wohin eine Notiz gehoert, die hier gesetzt oder hingezogen wird: auf den
+   * Koerper unter dem Zeiger - dann haengt sie an ihm -, sonst auf die
+   * Arbeitsebene. Anders als das Lineal sucht sie keine Ecke und keine Kante;
+   * eine Notiz will dort stehen, wo hingezeigt wurde.
+   */
+  const resolveNoteAnchor = useCallback((clientX: number, clientY: number) => {
+    const state = threeRef.current;
+    if (!state) return null;
+    const rect = state.renderer.domElement.getBoundingClientRect();
+    state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    state.raycaster.setFromCamera(state.pointer, state.camera);
+    state.raycaster.layers.set(RENDER_LAYER_SHAPES);
+    const hit = state.raycaster.intersectObjects(state.shapeLayer.children, true).find((entry) => {
+      const shapeId = entry.object.userData.shapeId;
+      if (typeof shapeId !== "string") return false;
+      const shape = shapesRef.current.find((candidate) => candidate.id === shapeId);
+      return shape ? !shape.hidden : false;
+    });
+    if (hit) {
+      const shapeId = hit.object.userData.shapeId as string;
+      const attachment = rulerAttachmentFromWorld(state, shapeId, hit.point.clone());
+      if (attachment) {
+        return {
+          x: hit.point.x,
+          y: hit.point.y,
+          z: hit.point.z,
+          anchor: { shapeId, normalized: attachment.normalized } satisfies WorkplaneNoteAnchor,
+        };
+      }
+    }
+    const raw = toRawPlanePoint(clientX, clientY, state.dragPlane);
+    if (!raw) return null;
+    const bounds = workspaceRef.current;
+    return {
+      x: clamp(raw.x, -bounds.width / 2, bounds.width / 2),
+      y: 0,
+      z: clamp(raw.z, -bounds.depth / 2, bounds.depth / 2),
+      anchor: undefined,
+    };
+  }, [toRawPlanePoint]);
+
+  const handleNotePinPointerDown = useCallback((event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => {
+    event.stopPropagation();
+    noteDragRef.current = { noteId, pointerId: event.pointerId, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, []);
+
+  const handleNotePinPointerMove = useCallback((event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => {
+    const drag = noteDragRef.current;
+    if (!drag || drag.noteId !== noteId || drag.pointerId !== event.pointerId) return;
+    event.stopPropagation();
+    const anchor = resolveNoteAnchor(event.clientX, event.clientY);
+    if (!anchor) return;
+    drag.moved = true;
+    onNoteUpdate?.(noteId, { x: anchor.x, y: anchor.y, z: anchor.z, anchor: anchor.anchor }, true);
+  }, [onNoteUpdate, resolveNoteAnchor]);
+
+  const handleNotePinPointerUp = useCallback((event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => {
+    const drag = noteDragRef.current;
+    if (!drag || drag.noteId !== noteId) return;
+    noteDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (!drag.moved) return;
+    // Nach einem Zug darf der Klick die Notiz nicht auch noch auf- oder
+    // zuklappen - er kommt trotzdem, also wird er hier entwertet.
+    noteClickSuppressedRef.current = noteId;
+    const note = notesRef.current.find((candidate) => candidate.id === noteId);
+    if (note) onNoteUpdate?.(noteId, { x: note.x, y: note.y, z: note.z, anchor: note.anchor });
+  }, [onNoteUpdate]);
+
+  const toggleNoteCard = useCallback((noteId: string) => {
+    if (noteClickSuppressedRef.current === noteId) {
+      noteClickSuppressedRef.current = null;
+      return;
+    }
+    const note = notesRef.current.find((candidate) => candidate.id === noteId);
+    if (!note) return;
+    onNoteUpdate?.(noteId, { collapsed: !note.collapsed });
+  }, [onNoteUpdate]);
+
   const pickModifierEdge = useCallback((clientX: number, clientY: number) => {
     const state = threeRef.current;
     if (!state) return null;
@@ -4260,6 +4567,14 @@ export function WorkplaneViewport({
         if (candidate) {
           selectRulerCandidate(candidate);
         }
+        return;
+      }
+
+      if (noteModeRef.current) {
+        event.preventDefault();
+        const anchor = resolveNoteAnchor(event.clientX, event.clientY);
+        if (anchor) onNoteAdd?.(anchor);
+        onNoteModeChange?.(false);
         return;
       }
 
@@ -5232,7 +5547,7 @@ export function WorkplaneViewport({
         )}
       </div>
 
-      <section className={`workplane-wrap ${workplaneMode ? "placing-workplane" : ""} ${rulerMode ? "ruler-mode" : ""} ${rulerDeleteMode ? "ruler-delete-mode" : ""} ${rulerMoveMode ? "ruler-move-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label="Workplane">
+      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${rulerMode ? "ruler-mode" : ""} ${rulerDeleteMode ? "ruler-delete-mode" : ""} ${rulerMoveMode ? "ruler-move-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label="Workplane">
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
@@ -5284,6 +5599,23 @@ export function WorkplaneViewport({
               onEditingRotationChange={(value) => setEditingRotation((current) => (current ? { ...current, value } : current))}
               onCommitRotationEdit={commitRotationEdit}
               onCancelRotationEdit={cancelRotationEdit}
+            />
+          ) : null}
+          {noteOverlay && noteOverlay.notes.length > 0 ? (
+            <NoteOverlay
+              overlay={noteOverlay}
+              editingId={editingNoteId}
+              onPinPointerDown={handleNotePinPointerDown}
+              onPinPointerMove={handleNotePinPointerMove}
+              onPinPointerUp={handleNotePinPointerUp}
+              onToggle={toggleNoteCard}
+              onTextChange={(id, text) => onNoteUpdate?.(id, { text }, true)}
+              // Beim Verlassen des Feldes steht der Text im Verlauf, auch wenn
+              // die Hand zwischendurch nie lange genug stillstand.
+              onTextCommit={(id) => onNoteUpdate?.(id, {})}
+              onDetach={(id) => onNoteUpdate?.(id, { anchor: undefined })}
+              onRemove={(id) => onNoteRemove?.(id)}
+              onEditingIdChange={setEditingNoteId}
             />
           ) : null}
           {!workplaneMode && alignOverlay ? <AlignOverlay overlay={alignOverlay} onAlign={onAlignSelection} onPreview={onAlignPreview} onPreviewClear={onAlignPreviewClear} /> : null}
