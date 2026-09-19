@@ -9202,9 +9202,14 @@ html[data-theme="dark"] .language-switch svg {
 
   /* Gefuellt wird zeilenweise, und das Zoompaar rutscht hinter die
      Ansichtsknoepfe: So beginnt es auf einer neuen Zeile und Plus und Minus
-     stehen nebeneinander statt ueber Eck. */
-  .camera-controls > button:nth-child(4),
-  .camera-controls > button:nth-child(5) {
+     stehen nebeneinander statt ueber Eck.
+
+     Benannt statt gezaehlt: Ein nth-child sitzt nur so lange richtig, bis
+     zwischen den Knoepfen einer dazukommt - der Finger-Umschalter tat genau
+     das und trieb Plus und Minus ueber Eck. Er reiht sich hier hinter das
+     Paar ein, damit dessen Zeile gerade aufgeht. */
+  .camera-controls > .camera-zoom-button,
+  .camera-controls > .camera-touch-rotate {
     order: 1;
   }
 

@@ -5665,10 +5665,10 @@ export function WorkplaneViewport({
             >
               <Crosshair size={24} strokeWidth={2.25} />
             </button>
-            <button aria-label={t("camera.zoomIn")} onClick={() => zoomCamera(0.7)}>
+            <button className="camera-zoom-button" aria-label={t("camera.zoomIn")} onClick={() => zoomCamera(0.7)}>
               <Plus size={28} strokeWidth={2.15} />
             </button>
-            <button aria-label={t("camera.zoomOut")} onClick={() => zoomCamera(1.35)}>
+            <button className="camera-zoom-button" aria-label={t("camera.zoomOut")} onClick={() => zoomCamera(1.35)}>
               <Minus size={28} strokeWidth={2.15} />
             </button>
             {/* Zwei Finger zoomen und schieben von selbst. Zum Drehen fehlt die
@@ -5676,7 +5676,7 @@ export function WorkplaneViewport({
                 da, wo mit dem Finger gearbeitet wird. */}
             {touchDevice ? (
               <button
-                className={touchRotate ? "active" : ""}
+                className={`camera-touch-rotate${touchRotate ? " active" : ""}`}
                 aria-label={t("camera.touchRotate")}
                 title={t("camera.touchRotateHint")}
                 aria-pressed={touchRotate}
@@ -6022,7 +6022,22 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
   const preventContextMenu = (event: MouseEvent) => {
     event.preventDefault();
   };
+  /**
+   * Safaris eigene Zwei-Finger-Geste abwenden.
+   *
+   * Seit iOS 10 laesst Safari das Aufziehen der Seite zu, was auch immer im
+   * Viewport-Kopf steht - `user-scalable=no` wird dort absichtlich uebergangen.
+   * Bleibt nur, `gesturestart` und seine Geschwister abzulehnen; sonst nimmt
+   * der Browser das Spreizen fuer sich und bricht die Zeigerereignisse ab,
+   * bevor die Kamera sie sieht. Auf allem ausser Safari gibt es diese
+   * Ereignisse gar nicht.
+   */
+  const preventSafariGesture = (event: Event) => {
+    if (event.cancelable) event.preventDefault();
+  };
+  const SAFARI_GESTURES = ["gesturestart", "gesturechange", "gestureend"] as const;
   controls.addEventListener("change", requestRender);
+  SAFARI_GESTURES.forEach((name) => renderer.domElement.addEventListener(name, preventSafariGesture));
   renderer.domElement.addEventListener("pointerdown", configureLayerlingMouseButtons, { capture: true });
   renderer.domElement.addEventListener("pointerup", resetLayerlingMouseButtons);
   renderer.domElement.addEventListener("pointercancel", resetLayerlingMouseButtons);
@@ -6037,6 +6052,7 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
     renderer.domElement.removeEventListener("contextmenu", preventContextMenu);
     renderer.domElement.removeEventListener("wheel", requestRender);
     renderer.domElement.removeEventListener("pointerdown", requestRender);
+    SAFARI_GESTURES.forEach((name) => renderer.domElement.removeEventListener(name, preventSafariGesture));
   };
   rebuildWorkplane(state, DEFAULT_WORKSPACE);
   return state;
