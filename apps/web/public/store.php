@@ -18,6 +18,11 @@ declare(strict_types=1);
 
 const STORE_DIRECTORY     = 'store';
 const THUMBNAILS_DIRECTORY = '.thumbnails';
+
+/** Grenzen der Suche: so viele Treffer, so tief, so viele Ordner. */
+const SEARCH_RESULT_LIMIT = 200;
+const SEARCH_DEPTH_LIMIT = 12;
+const SEARCH_FOLDER_LIMIT = 2000;
 const MAX_PROJECT_BYTES   = 512 * 1024 * 1024;  // mirrors LYL_LIMITS.archiveBytes
 const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
 const LYL_MEDIA_TYPE      = 'application/vnd.layerling.project+zip';
@@ -404,6 +409,83 @@ function remove_folder_tree(string $path): bool
 }
 
 // ------------------------------------------------------------------ handlers
+
+/**
+ * Die Suche durch den ganzen Speicher, von oben.
+ *
+ * Eine Auflistung zeigt immer nur einen Ordner; wer etwas sucht, weiss aber
+ * gerade nicht, in welchem es liegt. Deshalb laeuft die Suche ueber den ganzen
+ * Baum und schreibt zu jedem Treffer den Ordner dazu, in dem er steht.
+ *
+ * Sie ist bewusst begrenzt - Treffer, Tiefe und Anzahl der Ordner -, damit ein
+ * verirrter Baum die Antwort nicht aufhaelt; `truncated` sagt, dass abgebrochen
+ * wurde. Verknuepfungen zaehlen nicht als Ordner, sonst liefe die Suche im
+ * Kreis.
+ */
+function search_store(string $root, string $term): void
+{
+    $needle = function_exists('mb_strtolower') ? mb_strtolower($term) : strtolower($term);
+    $projects = [];
+    $folders = [];
+    $truncated = false;
+    $visited = 0;
+
+    $contains = static function (string $haystack) use ($needle): bool {
+        $lower = function_exists('mb_strtolower') ? mb_strtolower($haystack) : strtolower($haystack);
+        return $needle === '' || strpos($lower, $needle) !== false;
+    };
+
+    $walk = static function (string $folder, int $depth) use (&$walk, $root, $contains, &$projects, &$folders, &$truncated, &$visited): void {
+        if ($depth > SEARCH_DEPTH_LIMIT || $visited >= SEARCH_FOLDER_LIMIT) {
+            $truncated = true;
+            return;
+        }
+        $visited++;
+        $folderKey = folder_key($root, $folder);
+        foreach (scandir($folder) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..' || $entry[0] === '.') {
+                continue;
+            }
+            if (count($projects) + count($folders) >= SEARCH_RESULT_LIMIT) {
+                $truncated = true;
+                return;
+            }
+            $full = $folder . DIRECTORY_SEPARATOR . $entry;
+            if (is_dir($full) && !is_link($full)) {
+                if ($contains($entry)) {
+                    $folders[] = ['name' => $entry, 'path' => $folderKey] + folder_contents_count($full);
+                }
+                $walk($full, $depth + 1);
+                continue;
+            }
+            if (!preg_match('/\.(lyl|skf)$/i', $entry)) {
+                continue;
+            }
+            $name = preg_replace('/\.(lyl|skf)$/i', '', $entry);
+            if (!$contains($name)) {
+                continue;
+            }
+            $stat = regular_file_stat($full);
+            if ($stat === null) {
+                continue;
+            }
+            $revision = revision_for($stat);
+            $hasThumbnail = regular_file_stat(thumbnail_path($folder, $entry, $revision)) !== null;
+            $projects[] = project_record($entry, $stat, $hasThumbnail, $folderKey);
+        }
+    };
+
+    $walk($root, 0);
+    usort($projects, static fn(array $a, array $b): int => $b['updatedAt'] <=> $a['updatedAt']);
+    usort($folders, static fn(array $a, array $b): int => strcasecmp($a['name'], $b['name']));
+    send_json([
+        'enabled'   => true,
+        'search'    => $term,
+        'truncated' => $truncated,
+        'folders'   => array_values($folders),
+        'projects'  => array_values($projects),
+    ]);
+}
 
 function handle_list(string $root, string $folder): void
 {
@@ -883,6 +965,12 @@ $folder = resolve_folder($root, (string) ($_GET['path'] ?? ''));
 
 switch ($method) {
     case 'GET':
+        // Eine Suche geht ueber den ganzen Speicher, nicht ueber einen Ordner -
+        // `path` spielt dabei keine Rolle.
+        $search = trim((string) ($_GET['search'] ?? ''));
+        if ($search !== '') {
+            search_store($root, $search);
+        }
         $requested = $_GET['fileName'] ?? null;
         if ($requested !== null && $requested !== '') {
             handle_download($root, $folder, (string) $requested);

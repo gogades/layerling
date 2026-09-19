@@ -146,6 +146,11 @@ diesem Ordner: **Neuer Entwurf** legt einen darin an, **Neuer Ordner** einen Unt
 diese Kachel oder auf einen Schritt der Pfadzeile - oder über **Verschieben nach …** in ihrem Menü. Ein Entwurf aus dem
 Browser kommt genauso auf den Server: seine Kachel auf den Serverordner ziehen.
 
+Das Suchfeld oben durchsucht den **ganzen** Serverordner, nicht nur den, in dem du gerade stehst. Jeder Treffer sagt,
+in welchem Ordner er liegt, und dieser Ordner ist ein Knopf: ein Klick, und du bist dort, die Suche ist beendet.
+Ordner werden ebenfalls über ihren Namen gefunden. Solange du suchst, sagt die Serverkachel auf der Startseite, wie
+viele Treffer dort drüben liegen.
+
 **Duplizieren** im Menü eines Entwurfs legt eine Kopie an. Auf dem Server wird die Datei selbst kopiert, neben dem
 Original und unter einem freien Namen, das Vorschaubild inbegriffen - es wird nichts neu gepackt, die Kopie trägt also
 genau die Geometrie des Originals. Im Browser entsteht ein eigener Entwurf mit denselben Formen, demselben Verlauf und

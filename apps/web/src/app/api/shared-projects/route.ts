@@ -13,6 +13,10 @@ const SHARED_THUMBNAILS_DIR = ".thumbnails";
 const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024;
 const MAX_MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
 const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+/** Grenzen der Suche: so viele Treffer, so tief, so viele Ordner. */
+const SEARCH_RESULT_LIMIT = 200;
+const SEARCH_DEPTH_LIMIT = 12;
+const SEARCH_FOLDER_LIMIT = 2000;
 
 type SharedProjectFile = {
   fileName: string;
@@ -232,6 +236,10 @@ export async function GET(request: Request) {
     const requestUrl = new URL(request.url);
     const folder = await resolveFolder(root, requestUrl.searchParams.get("path"));
     const folderPath = folderKey(root, folder);
+    // Eine Suche geht ueber den ganzen Speicher, nicht ueber einen Ordner -
+    // `path` spielt dabei keine Rolle.
+    const searchTerm = requestUrl.searchParams.get("search")?.trim();
+    if (searchTerm) return await searchStore(root, searchTerm);
     const requestedFile = requestUrl.searchParams.get("fileName");
     if (requestedFile) {
       const fileName = existingProjectFileName(requestedFile);
@@ -297,6 +305,72 @@ export async function GET(request: Request) {
     return NextResponse.json({ enabled: true, projects: [], error: error instanceof Error ? error.message : "Could not read shared projects" }, { status: 500 });
   }
 }
+
+/**
+ * Die Suche durch den ganzen Speicher, von oben.
+ *
+ * Eine Auflistung zeigt immer nur einen Ordner; wer etwas sucht, weiss aber
+ * gerade nicht, in welchem es liegt. Deshalb laeuft die Suche ueber den ganzen
+ * Baum und schreibt zu jedem Treffer den Ordner dazu, in dem er steht.
+ *
+ * Sie ist bewusst begrenzt - Treffer, Tiefe und Anzahl der Ordner -, damit ein
+ * verirrter Baum die Antwort nicht aufhaelt; `truncated` sagt, dass abgebrochen
+ * wurde. Verknuepfungen zaehlen nicht als Ordner, sonst liefe die Suche im
+ * Kreis.
+ */
+async function searchStore(root: string, term: string) {
+  const needle = term.trim().toLowerCase();
+  const projects: SharedProjectFile[] = [];
+  const folders: Array<{ name: string; path: string; projects: number; folders: number }> = [];
+  let truncated = false;
+  let visited = 0;
+
+  const walk = async (folder: string, depth: number): Promise<void> => {
+    if (depth > SEARCH_DEPTH_LIMIT || visited >= SEARCH_FOLDER_LIMIT) {
+      truncated = true;
+      return;
+    }
+    visited += 1;
+    const entries = await fs.readdir(folder, { withFileTypes: true }).catch(() => []);
+    const folderPath = folderKey(root, folder);
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      if (projects.length + folders.length >= SEARCH_RESULT_LIMIT) {
+        truncated = true;
+        return;
+      }
+      const full = path.join(folder, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name.toLowerCase().includes(needle)) {
+          folders.push({ name: entry.name, path: folderPath, ...(await folderContentsCount(full)) });
+        }
+        await walk(full, depth + 1);
+        continue;
+      }
+      if (!entry.isFile() || !/\.(lyl|skf)$/i.test(entry.name)) continue;
+      const name = entry.name.replace(/\.(lyl|skf)$/i, "");
+      if (!name.toLowerCase().includes(needle)) continue;
+      const stat = await regularFileStat(full);
+      if (!stat) continue;
+      const revision = revisionForStat(stat);
+      const thumbnail = await regularFileStat(sharedThumbnailPath(folder, entry.name, revision));
+      projects.push(projectRecord(entry.name, stat, Boolean(thumbnail), folderPath));
+    }
+  };
+
+  await walk(root, 0);
+  return NextResponse.json(
+    {
+      enabled: true,
+      search: term,
+      truncated,
+      folders: folders.sort((a, b) => a.name.localeCompare(b.name)),
+      projects: projects.sort((a, b) => b.updatedAt - a.updatedAt),
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 
 /** Creating a folder is the one write that touches no project at all. */
 async function createFolder(root: string, folder: string, name: string) {

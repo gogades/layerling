@@ -1911,6 +1911,49 @@ button {
   white-space: nowrap;
 }
 
+/* Der Ordner eines Suchtreffers: eine Zeile unter der Kachel, die sagt, wo
+   der Entwurf liegt - und die zugleich der Weg dorthin ist. Sie steht im
+   Fluss unter der Kachel, damit nichts springt, wenn sie erscheint. */
+.project-card-folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 3px 7px;
+  overflow: hidden;
+  color: #ad6206;
+  background: #fbf2e3;
+  border: 1px solid #f0e2cb;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.project-card-folder span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-card-folder:hover,
+.project-card-folder:focus-visible {
+  color: #8a4b02;
+  border-color: #d9b787;
+  background: #fbe8cc;
+}
+
+.project-list .project-card-folder {
+  margin-top: 6px;
+}
+
+/* Die Trefferzeile steht an der Stelle der Pfadzeile und wird wie sie
+   gelesen - nur ist sie ein Satz und kein Weg. */
+.store-search-line {
+  margin-top: 3px;
+}
+
 .toolbar-section.toolbar-home-section {
   min-width: auto;
 }
@@ -7995,6 +8038,19 @@ html[data-theme="dark"] .dashboard-legal-version {
 
 html[data-theme="dark"] .store-trail button {
   color: #f3a452;
+}
+
+html[data-theme="dark"] .project-card-folder {
+  color: #f3a452;
+  background: #332619;
+  border-color: #4a3821;
+}
+
+html[data-theme="dark"] .project-card-folder:hover,
+html[data-theme="dark"] .project-card-folder:focus-visible {
+  color: #ffc383;
+  background: #3a2c16;
+  border-color: #6b4f27;
 }
 
 html[data-theme="dark"] .store-trail button:hover:not(:disabled) {

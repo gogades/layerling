@@ -61,7 +61,20 @@ type SharedProject = {
 };
 
 /** Counts come with the listing, so a confirmation can say what is at stake. */
-type SharedFolder = { name: string; projects?: number; folders?: number };
+/** `path` traegt nur ein Suchtreffer: der Ordner, in dem dieser Ordner liegt. */
+type SharedFolder = { name: string; path?: string; projects?: number; folders?: number };
+
+/**
+ * Was die Suche ueber den ganzen Serverspeicher gefunden hat. `query` steht
+ * dabei, damit die Anzeige weiss, ob die Treffer noch zum Suchfeld passen -
+ * getippt wird schneller, als geantwortet wird.
+ */
+type SharedSearchResult = {
+  query: string;
+  projects: SharedProject[];
+  folders: SharedFolder[];
+  truncated: boolean;
+};
 
 /** The query both endpoints expect: the file, and the folder when there is one. */
 function storeQuery(path: string, fileName?: string) {
@@ -69,6 +82,15 @@ function storeQuery(path: string, fileName?: string) {
   if (fileName) query.set("fileName", fileName);
   if (path) query.set("path", path);
   return query.toString();
+}
+
+/**
+ * Ein Entwurf auf dem Server, eindeutig benannt. Der Dateiname allein reicht
+ * nicht: In einer Trefferliste stehen Entwuerfe aus mehreren Ordnern
+ * nebeneinander, und zwei davon duerfen durchaus gleich heissen.
+ */
+function sharedProjectKey(project: Pick<SharedProject, "fileName" | "path">) {
+  return `${project.path ?? ""}/${project.fileName}`;
 }
 
 /** Joins a folder path with a name, without leaving a stray slash at the front. */
@@ -651,6 +673,11 @@ export default function Home() {
   const [sharedPath, setSharedPath] = useState("");
   const [sharedProjectsEnabled, setSharedProjectsEnabled] = useState(false);
   const [sharedProjectsLoading, setSharedProjectsLoading] = useState(false);
+  const [sharedSearch, setSharedSearch] = useState<SharedSearchResult | null>(null);
+  const [sharedSearchLoading, setSharedSearchLoading] = useState(false);
+  // Hochgezaehlt, wenn sich am Server etwas geaendert hat: Eine Trefferliste
+  // muss dann neu gefragt werden, sie haengt an keinem Ordner.
+  const [sharedSearchNonce, setSharedSearchNonce] = useState(0);
   const [projectShapesById, setProjectShapesById] = useState<Record<string, ProjectShapeCacheEntry>>({});
   const projectsJsonRef = useRef("");
   const sharedPathRef = useRef("");
@@ -666,6 +693,7 @@ export default function Home() {
 
   const refreshSharedProjects = useCallback(async (path?: string) => {
     const wanted = path ?? sharedPathRef.current;
+    setSharedSearchNonce((current) => current + 1);
     setSharedProjectsLoading(true);
     try {
       const query = wanted ? `?path=${encodeURIComponent(wanted)}` : "";
@@ -687,6 +715,54 @@ export default function Home() {
       setSharedProjectsLoading(false);
     }
   }, []);
+
+  /**
+   * Was im Suchfeld steht, gilt fuer den **ganzen** Serverspeicher, nicht nur
+   * fuer den Ordner, in dem man gerade steht - sonst blieben Treffer in
+   * Unterordnern unsichtbar, und genau die sucht man ja.
+   *
+   * Gefragt wird erst nach einer kurzen Ruhe und immer nur einmal: Der Lauf
+   * davor wird abgebrochen, damit nicht die Antwort auf ein halbes Wort die auf
+   * das ganze ueberholt.
+   */
+  useEffect(() => {
+    const term = query.trim();
+    if (!sharedProjectsEnabled || !term) {
+      setSharedSearch(null);
+      setSharedSearchLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setSharedSearchLoading(true);
+      void (async () => {
+        try {
+          const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?search=${encodeURIComponent(term)}`, {
+            cache: "no-store",
+            signal: controller.signal,
+          });
+          const payload = await response.json() as { projects?: SharedProject[]; folders?: SharedFolder[]; truncated?: boolean };
+          if (controller.signal.aborted) return;
+          setSharedSearch({
+            query: term,
+            projects: Array.isArray(payload.projects) ? payload.projects : [],
+            folders: Array.isArray(payload.folders) ? payload.folders : [],
+            truncated: Boolean(payload.truncated),
+          });
+        } catch {
+          // Eine Suche, die nicht durchkommt, ist keine Meldung wert - die
+          // Liste bleibt leer und die Kurzmeldung dem Speichern vorbehalten.
+          if (!controller.signal.aborted) setSharedSearch({ query: term, projects: [], folders: [], truncated: false });
+        } finally {
+          if (!controller.signal.aborted) setSharedSearchLoading(false);
+        }
+      })();
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, sharedProjectsEnabled, sharedSearchNonce]);
 
   useEffect(() => {
     // Vor allem anderen: Einstellungen aus der Zeit vor der Umbenennung holen.
@@ -1705,6 +1781,8 @@ export default function Home() {
           onSendProjectToServer={(projectId) => void sendProjectToServer(projectId)}
           sharedProjectsEnabled={sharedProjectsEnabled}
           sharedProjectsLoading={sharedProjectsLoading}
+          sharedSearch={sharedSearch}
+          sharedSearchLoading={sharedSearchLoading}
           sortMode={sortMode}
           viewMode={viewMode}
           onCreate={() => createAndOpenProject()}
@@ -1855,6 +1933,8 @@ function Dashboard({
   onSendProjectToServer,
   sharedProjectsEnabled,
   sharedProjectsLoading,
+  sharedSearch,
+  sharedSearchLoading,
   sortMode,
   viewMode,
   onCreate,
@@ -1890,6 +1970,8 @@ function Dashboard({
   onSendProjectToServer: (projectId: string) => void;
   sharedProjectsEnabled: boolean;
   sharedProjectsLoading: boolean;
+  sharedSearch: SharedSearchResult | null;
+  sharedSearchLoading: boolean;
   sortMode: string;
   viewMode: ViewMode;
   onCreate: () => void;
@@ -1910,13 +1992,13 @@ function Dashboard({
 }) {
   const language = useLanguage();
   const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
-  const [openSharedProjectMenuFileName, setOpenSharedProjectMenuFileName] = useState<string | null>(null);
+  const [openSharedProjectMenuKey, setOpenSharedProjectMenuKey] = useState<string | null>(null);
   const [projectPendingDeleteId, setProjectPendingDeleteId] = useState<string | null>(null);
-  const [sharedProjectPendingDeleteFileName, setSharedProjectPendingDeleteFileName] = useState<string | null>(null);
+  const [sharedProjectPendingDeleteKey, setSharedProjectPendingDeleteKey] = useState<string | null>(null);
   // Which project is being dragged, and which drop target it is hovering over.
   // The target is a store path, and "" is the store's own root - so null, not
   // the empty string, means "nothing under the pointer".
-  const [draggedSharedFileName, setDraggedSharedFileName] = useState<string | null>(null);
+  const [draggedSharedKey, setDraggedSharedKey] = useState<string | null>(null);
   const [draggedProjectId, setDraggedProjectId] = useState<string | null>(null);
   const [dropFolderPath, setDropFolderPath] = useState<string | null>(null);
   const [projectPendingRenameId, setProjectPendingRenameId] = useState<string | null>(null);
@@ -1927,9 +2009,29 @@ function Dashboard({
   const [folderNameDraft, setFolderNameDraft] = useState("");
   const [openFolderMenuName, setOpenFolderMenuName] = useState<string | null>(null);
   const [folderPendingDeleteName, setFolderPendingDeleteName] = useState<string | null>(null);
-  const [projectPendingMoveFileName, setProjectPendingMoveFileName] = useState<string | null>(null);
+  const [projectPendingMoveKey, setProjectPendingMoveKey] = useState<string | null>(null);
+  // Solange etwas im Suchfeld steht, tritt die Trefferliste an die Stelle der
+  // Ordneransicht. Sie kommt vom Server und umfasst den ganzen Speicher, nicht
+  // nur den Ordner, der gerade offen steht.
+  const searchTerm = query.trim();
+  const searchResults = sharedProjectsEnabled && searchTerm ? sharedSearch : null;
+  const searchHits = searchResults ? searchResults.projects.length + searchResults.folders.length : 0;
+  const shownSharedProjects = searchResults ? searchResults.projects : sharedProjects;
+  const shownSharedFolders = searchResults ? searchResults.folders : sharedFolders;
+
+  /**
+   * Einem Treffer in seinen Ordner folgen.
+   *
+   * Dazu gehoert, das Suchfeld zu leeren: Sonst bliebe die Trefferliste
+   * stehen, waehrend der Ordner darunter still wechselt - der Klick saehe
+   * wirkungslos aus.
+   */
+  const openFolderFromSearch = (folderPath: string) => {
+    onQueryChange("");
+    onOpenStoreFolder(folderPath);
+  };
   const projectPendingDelete = projects.find((project) => project.id === projectPendingDeleteId) ?? null;
-  const sharedProjectPendingDelete = sharedProjects.find((project) => project.fileName === sharedProjectPendingDeleteFileName) ?? null;
+  const sharedProjectPendingDelete = shownSharedProjects.find((project) => sharedProjectKey(project) === sharedProjectPendingDeleteKey) ?? null;
   const projectPendingRename = projects.find((project) => project.id === projectPendingRenameId) ?? null;
 
   useEffect(() => {
@@ -1939,10 +2041,10 @@ function Dashboard({
   }, [projectPendingDeleteId, projects]);
 
   useEffect(() => {
-    if (!sharedProjectPendingDeleteFileName) return;
-    if (sharedProjects.some((project) => project.fileName === sharedProjectPendingDeleteFileName)) return;
-    setSharedProjectPendingDeleteFileName(null);
-  }, [sharedProjectPendingDeleteFileName, sharedProjects]);
+    if (!sharedProjectPendingDeleteKey) return;
+    if (shownSharedProjects.some((project) => sharedProjectKey(project) === sharedProjectPendingDeleteKey)) return;
+    setSharedProjectPendingDeleteKey(null);
+  }, [sharedProjectPendingDeleteKey, shownSharedProjects]);
 
   const confirmProjectDelete = () => {
     if (!projectPendingDelete) return;
@@ -1953,7 +2055,7 @@ function Dashboard({
   const confirmSharedProjectDelete = () => {
     if (!sharedProjectPendingDelete) return;
     onDeleteSharedProject(sharedProjectPendingDelete);
-    setSharedProjectPendingDeleteFileName(null);
+    setSharedProjectPendingDeleteKey(null);
   };
 
   const startProjectRename = (project: DashboardProject) => {
@@ -1966,7 +2068,7 @@ function Dashboard({
   // only stand for different folders, so they share one set of handlers.
   const storeDropTarget = (targetPath: string) => ({
     onDragOver: (event: DragEvent<HTMLElement>) => {
-      if (!draggedSharedFileName) return;
+      if (!draggedSharedKey) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       setDropFolderPath(targetPath);
@@ -1974,8 +2076,8 @@ function Dashboard({
     onDragLeave: () => setDropFolderPath((current) => (current === targetPath ? null : current)),
     onDrop: (event: DragEvent<HTMLElement>) => {
       event.preventDefault();
-      const dragged = sharedProjects.find((project) => project.fileName === draggedSharedFileName);
-      setDraggedSharedFileName(null);
+      const dragged = sharedProjects.find((project) => sharedProjectKey(project) === draggedSharedKey);
+      setDraggedSharedKey(null);
       setDropFolderPath(null);
       if (dragged) onMoveSharedProject(dragged, targetPath);
     },
@@ -1995,7 +2097,7 @@ function Dashboard({
         ? t("shared.folderNameTaken")
         : "";
 
-  const projectPendingMove = sharedProjects.find((project) => project.fileName === projectPendingMoveFileName) ?? null;
+  const projectPendingMove = sharedProjects.find((project) => sharedProjectKey(project) === projectPendingMoveKey) ?? null;
   const folderPendingDelete = sharedFolders.find((folder) => folder.name === folderPendingDeleteName) ?? null;
   const folderPendingDeleteProjects = folderPendingDelete?.projects ?? 0;
   const folderPendingDeleteFolders = folderPendingDelete?.folders ?? 0;
@@ -2052,8 +2154,18 @@ function Dashboard({
               <div className="dashboard-section-header shared-projects-header">
                 <div>
                   <h1>{t("shared.title")}</h1>
-                  {/* The trail is the address: every step back is a step you
-                      can take, and the last one names where you are. */}
+                  {/* Beim Suchen sagt diese Zeile, was gefunden wurde; sonst
+                      ist sie die Adresse: Jeder Schritt zurueck ist ein
+                      Schritt, den man gehen kann, und der letzte nennt den
+                      Ordner, in dem man steht. */}
+                  {searchResults && searchHits > 0 ? (
+                    <p className="dashboard-section-subtitle store-search-line" role="status">
+                      {searchHits === 1
+                        ? t("shared.searchCountOne", { query: searchResults.query })
+                        : t("shared.searchCountMany", { count: searchHits, query: searchResults.query })}
+                      {searchResults.truncated ? ` ${t("shared.searchTruncated")}` : ""}
+                    </p>
+                  ) : searchResults ? null : (
                   <nav className="store-trail" aria-label={t("shared.trailLabel")}>
                     <button
                       type="button"
@@ -2083,8 +2195,18 @@ function Dashboard({
                       );
                     })}
                   </nav>
+                  )}
                 </div>
                 <div className="shared-projects-actions">
+                  {/* Anlegen gehoert in einen Ordner. In einer Trefferliste
+                      steht stattdessen der Weg zurueck in den Ordner. */}
+                  {searchResults ? (
+                    <button className="shared-projects-refresh" type="button" onClick={() => onQueryChange("")}>
+                      <X size={16} />
+                      <span>{t("shared.searchClear")}</span>
+                    </button>
+                  ) : (
+                  <>
                   <button className="shared-projects-refresh" type="button" onClick={onCreateInStoreFolder}>
                     <Plus size={16} strokeWidth={2.6} />
                     <span>{t("shared.newDesign")}</span>
@@ -2100,6 +2222,8 @@ function Dashboard({
                     <FolderPlus size={16} />
                     <span>{t("shared.newFolder")}</span>
                   </button>
+                  </>
+                  )}
                   <button className="shared-projects-refresh" type="button" onClick={() => onRefreshSharedProjects()} disabled={sharedProjectsLoading}>
                     <RefreshCw size={16} className={sharedProjectsLoading ? "spinning" : undefined} />
                     <span>{t("shared.refresh")}</span>
@@ -2108,13 +2232,13 @@ function Dashboard({
               </div>
               {/* Inside a folder the grid is drawn even when there is nothing in
                   it, because the way back is one of its tiles. */}
-              {sharedProjects.length > 0 || sharedFolders.length > 0 || sharedPath ? (
+              {shownSharedProjects.length > 0 || shownSharedFolders.length > 0 || (sharedPath && !searchResults) ? (
                 <div className={viewMode === "grid" ? "project-grid" : "project-list"}>
                   {/* The way back, where the file managers have always put it:
                       first in the row, called after the two dots. It takes a
                       dropped project too, which is how one moves a project up
                       a level. */}
-                  {sharedPath ? (
+                  {sharedPath && !searchResults ? (
                     <article
                       className={`project-card server-folder-card store-parent-card${dropFolderPath === parentStorePath(sharedPath) ? " drop-target" : ""}`}
                       {...storeDropTarget(parentStorePath(sharedPath))}
@@ -2132,21 +2256,32 @@ function Dashboard({
                       </button>
                     </article>
                   ) : null}
-                  {sharedFolders.map((folder) => {
-                    const folderPath = joinStorePath(sharedPath, folder.name);
+                  {shownSharedFolders.map((folder) => {
+                    const folderPath = joinStorePath(folder.path ?? sharedPath, folder.name);
                     return (
                     <article
                       className={`project-card server-folder-card${dropFolderPath === folderPath ? " drop-target" : ""}`}
-                      key={`folder-${folder.name}`}
+                      key={`folder-${folderPath}`}
                       {...storeDropTarget(folderPath)}
                     >
-                      <button className="project-card-open" type="button" onClick={() => onOpenStoreFolder(folderPath)}>
+                      <button
+                        className="project-card-open"
+                        type="button"
+                        onClick={() => (searchResults ? openFolderFromSearch(folderPath) : onOpenStoreFolder(folderPath))}
+                      >
                         <span className="project-preview server-folder-preview">
                           <FolderKanban aria-hidden="true" />
                         </span>
                         <span className="project-card-title">{folder.name}</span>
-                        <span className="project-card-meta">{t("shared.folderMeta")}</span>
+                        <span className="project-card-meta">{searchResults
+                          ? (folder.path ? t("shared.searchFolderIn", { name: folder.path }) : t("shared.searchFolderRoot"))
+                          : t("shared.folderMeta")}</span>
                       </button>
+                      {/* Umbenennen und Loeschen eines Ordners gehoeren dorthin,
+                          wo er steht - in der Trefferliste fuehrt die Kachel
+                          erst einmal hin. */}
+                      {searchResults ? null : (
+                      <>
                       <button
                         className="project-menu-trigger"
                         type="button"
@@ -2155,7 +2290,7 @@ function Dashboard({
                         title={t("shared.folderOptions")}
                         onClick={() => {
                           setOpenProjectMenuId(null);
-                          setOpenSharedProjectMenuFileName(null);
+                          setOpenSharedProjectMenuKey(null);
                           setOpenFolderMenuName((current) => (current === folder.name ? null : folder.name));
                         }}
                       >
@@ -2189,22 +2324,27 @@ function Dashboard({
                           </button>
                         </div>
                       ) : null}
+                      </>
+                      )}
                     </article>
                     );
                   })}
-                  {sharedProjects.map((project, index) => (
+                  {shownSharedProjects.map((project, index) => {
+                    const key = sharedProjectKey(project);
+                    const where = project.path ?? "";
+                    return (
                     <article
-                      className={`project-card shared-project-card${draggedSharedFileName === project.fileName ? " dragging" : ""}`}
-                      key={project.fileName}
-                      draggable
-                      title={t("shared.dragHint")}
+                      className={`project-card shared-project-card${draggedSharedKey === key ? " dragging" : ""}`}
+                      key={key}
+                      draggable={!searchResults}
+                      title={searchResults ? undefined : t("shared.dragHint")}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "move";
                         event.dataTransfer.setData("text/plain", project.fileName);
-                        setDraggedSharedFileName(project.fileName);
+                        setDraggedSharedKey(key);
                       }}
                       onDragEnd={() => {
-                        setDraggedSharedFileName(null);
+                        setDraggedSharedKey(null);
                         setDropFolderPath(null);
                       }}
                     >
@@ -2213,38 +2353,57 @@ function Dashboard({
                         <span className="project-card-title">{project.name}</span>
                         <span className="project-card-meta">{formatUpdated(project.updatedAt, language)} - {formatFileSize(project.size)}</span>
                       </button>
+                      {/* Ein Treffer sagt, wo er liegt - und der Ordner ist ein
+                          Knopf, der genau dorthin fuehrt. Ohne das waere die
+                          Trefferliste eine Sackgasse. */}
+                      {searchResults ? (
+                        <button
+                          className="project-card-folder"
+                          type="button"
+                          aria-label={t("shared.openFolderOf", { name: where || t("shared.trailRoot") })}
+                          onClick={() => openFolderFromSearch(where)}
+                        >
+                          <FolderKanban size={14} />
+                          <span>{where || t("shared.trailRoot")}</span>
+                        </button>
+                      ) : null}
                       <button
                         className="project-menu-trigger"
                         type="button"
                         aria-label={t("shared.optionsFor", { name: project.name })}
-                        aria-expanded={openSharedProjectMenuFileName === project.fileName}
+                        aria-expanded={openSharedProjectMenuKey === key}
                         title={t("shared.options")}
                         onClick={() => {
                           setOpenProjectMenuId(null);
                           setOpenFolderMenuName(null);
-                          setOpenSharedProjectMenuFileName((current) => (current === project.fileName ? null : project.fileName));
+                          setOpenSharedProjectMenuKey((current) => (current === key ? null : key));
                         }}
                       >
                         <EllipsisVertical size={19} strokeWidth={2.5} />
                       </button>
-                      {openSharedProjectMenuFileName === project.fileName ? (
+                      {openSharedProjectMenuKey === key ? (
                         <div className="project-card-menu" role="menu" aria-label={t("shared.menuFor", { name: project.name })}>
+                          {/* Verschieben bietet die Ordner an, die hier offen
+                              stehen - in einer Trefferliste waeren das die
+                              falschen. Dorthin fuehrt der Ordnerknopf. */}
+                          {searchResults ? null : (
                           <button
                             type="button"
                             role="menuitem"
                             onClick={() => {
-                              setOpenSharedProjectMenuFileName(null);
-                              setProjectPendingMoveFileName(project.fileName);
+                              setOpenSharedProjectMenuKey(null);
+                              setProjectPendingMoveKey(key);
                             }}
                           >
                             <FolderInput size={16} />
                             <span>{t("shared.moveTo")}</span>
                           </button>
+                          )}
                           <button
                             type="button"
                             role="menuitem"
                             onClick={() => {
-                              setOpenSharedProjectMenuFileName(null);
+                              setOpenSharedProjectMenuKey(null);
                               onDuplicateSharedProject(project);
                             }}
                           >
@@ -2256,8 +2415,8 @@ function Dashboard({
                             type="button"
                             role="menuitem"
                             onClick={() => {
-                              setOpenSharedProjectMenuFileName(null);
-                              setSharedProjectPendingDeleteFileName(project.fileName);
+                              setOpenSharedProjectMenuKey(null);
+                              setSharedProjectPendingDeleteKey(key);
                             }}
                           >
                             <Trash2 size={16} />
@@ -2266,13 +2425,16 @@ function Dashboard({
                         </div>
                       ) : null}
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : null}
-              {sharedProjects.length === 0 && sharedFolders.length === 0 ? (
+              {shownSharedProjects.length === 0 && shownSharedFolders.length === 0 ? (
                 <div className="project-empty">
-                  <strong>{sharedProjectsLoading ? t("shared.loadingTitle") : t("shared.emptyTitle")}</strong>
-                  <span>{t("shared.emptyHint")}</span>
+                  <strong>{searchTerm
+                    ? (sharedSearchLoading || !searchResults ? t("shared.loadingTitle") : t("shared.searchEmptyTitle"))
+                    : (sharedProjectsLoading ? t("shared.loadingTitle") : t("shared.emptyTitle"))}</strong>
+                  <span>{searchTerm && searchResults ? t("shared.searchEmptyHint") : t("shared.emptyHint")}</span>
                 </div>
               ) : null}
             </>
@@ -2362,7 +2524,12 @@ function Dashboard({
                           <FolderKanban size={46} strokeWidth={1.5} aria-hidden="true" />
                         </span>
                         <span className="project-card-title">{t("dashboard.sharedProjects")}</span>
-                        <span className="project-card-meta">{sharedProjects.length === 1
+                        {/* Beim Suchen sagt die Kachel, wieviel auf dem Server
+                            gefunden wurde - sonst wuesste niemand, dass es dort
+                            ueberhaupt etwas zu holen gibt. */}
+                        <span className="project-card-meta">{searchResults
+                          ? (searchHits === 1 ? t("shared.searchHitsOne") : t("shared.searchHitsMany", { count: searchHits }))
+                          : sharedProjects.length === 1
                             ? t("dashboard.serverFolderCountOne")
                             : t("dashboard.serverFolderCountMany", { count: sharedProjects.length })}</span>
                       </button>
@@ -2398,7 +2565,7 @@ function Dashboard({
                         aria-expanded={openProjectMenuId === project.id}
                         title={t("dashboard.projectOptions")}
                         onClick={() => {
-                          setOpenSharedProjectMenuFileName(null);
+                          setOpenSharedProjectMenuKey(null);
                           setOpenFolderMenuName(null);
                           setOpenProjectMenuId((current) => (current === project.id ? null : project.id));
                         }}
@@ -2514,13 +2681,13 @@ function Dashboard({
           <div className="dashboard-confirm-dialog">
             <header>
               <strong id="delete-shared-project-title">{t("confirm.deleteSharedTitle")}</strong>
-              <button type="button" aria-label={t("confirm.deleteSharedCancel")} onClick={() => setSharedProjectPendingDeleteFileName(null)}>
+              <button type="button" aria-label={t("confirm.deleteSharedCancel")} onClick={() => setSharedProjectPendingDeleteKey(null)}>
                 <X size={18} />
               </button>
             </header>
             <p>{t("confirm.deleteSharedBody", { name: sharedProjectPendingDelete.name })}</p>
             <div className="dashboard-confirm-actions">
-              <button className="dashboard-confirm-cancel" type="button" onClick={() => setSharedProjectPendingDeleteFileName(null)}>
+              <button className="dashboard-confirm-cancel" type="button" onClick={() => setSharedProjectPendingDeleteKey(null)}>
                 {t("confirm.cancel")}
               </button>
               <button className="dashboard-confirm-delete" type="button" onClick={confirmSharedProjectDelete}>
@@ -2576,7 +2743,7 @@ function Dashboard({
           <div className="dashboard-confirm-dialog">
             <header>
               <strong id="move-project-title">{t("shared.moveToTitle", { name: projectPendingMove.name })}</strong>
-              <button type="button" aria-label={t("shared.moveToCancel")} onClick={() => setProjectPendingMoveFileName(null)}>
+              <button type="button" aria-label={t("shared.moveToCancel")} onClick={() => setProjectPendingMoveKey(null)}>
                 <X size={18} />
               </button>
             </header>
@@ -2587,7 +2754,7 @@ function Dashboard({
                     type="button"
                     onClick={() => {
                       onMoveSharedProject(projectPendingMove, parentStorePath(sharedPath));
-                      setProjectPendingMoveFileName(null);
+                      setProjectPendingMoveKey(null);
                     }}
                   >
                     <FolderUp size={18} />
@@ -2602,7 +2769,7 @@ function Dashboard({
                     type="button"
                     onClick={() => {
                       onMoveSharedProject(projectPendingMove, joinStorePath(sharedPath, folder.name));
-                      setProjectPendingMoveFileName(null);
+                      setProjectPendingMoveKey(null);
                     }}
                   >
                     <FolderKanban size={18} />
@@ -2614,7 +2781,7 @@ function Dashboard({
               <p>{t("shared.moveNoTargets")}</p>
             )}
             <div className="dashboard-confirm-actions">
-              <button className="dashboard-confirm-cancel" type="button" onClick={() => setProjectPendingMoveFileName(null)}>
+              <button className="dashboard-confirm-cancel" type="button" onClick={() => setProjectPendingMoveKey(null)}>
                 {t("confirm.cancel")}
               </button>
             </div>

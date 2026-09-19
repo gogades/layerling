@@ -142,6 +142,11 @@ you are. A `..` tile leads back out. Designs move by dragging them onto a folder
 trail - or through **Move to ...** in their menu. A design from your browser goes onto the server the same way: drag its
 card onto the server folder.
 
+The search box at the top searches the whole server folder, not just the one you are standing in. Every hit says
+which folder holds it, and that folder is a button: one click and you are there, with the search cleared. Folders are
+found by name too. While you are searching, the server tile on the start page says how many matches are waiting over
+there.
+
 **Duplicate** in a design's menu makes a copy of it. On the server the file itself is copied, next to the original and
 under a free name, picture and all - nothing is repacked, so the copy carries exactly the geometry of the original. In
 your browser the copy becomes a design of its own, with the same shapes, the same history and its own preview picture,
