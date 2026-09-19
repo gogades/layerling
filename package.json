@@ -22,7 +22,9 @@
     "test:watch": "vitest --config tests/vitest.config.ts",
     "test:e2e": "vitest run --config tests/vitest.e2e.config.ts",
     "perf": "vitest run --config tests/vitest.perf.config.ts --reporter verbose",
-    "icons:shapes": "vitest run --config tests/vitest.tools.config.ts",
+    "icons:shapes": "vitest run --config tests/vitest.tools.config.ts tests/tools/renderShapeIcons.tool.ts",
+    "icons:brand": "vitest run --config tests/vitest.tools.config.ts tests/tools/renderBrandIcons.tool.ts",
+    "icons:social": "node scripts/render-social-card.mjs",
     "ci": "npm run typecheck && npm run test",
     "mcp:layerling": "node scripts/layerling-mcp-server.mjs"
   },

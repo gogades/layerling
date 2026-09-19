@@ -4,6 +4,12 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- layerling has icons of its own in the sizes a browser cannot make from an SVG. iOS takes nothing but PNG for the home screen, so **Add to Home Screen** used to put a snapshot of the page there instead of the mark, and anything that asks for `/favicon.ico` out of habit got a 404. The mark itself is unchanged: the PNGs are drawn from the same `layerling-icon.svg` the browser tab already shows, so it stays the one place the brand is described.
+- A web manifest makes the site something a browser can install - its own window without an address bar, under the right name and icon, and on Android an icon that survives being masked into whatever shape the launcher uses. There is no service worker, so an installed layerling still needs the network; installing only takes the browser's own frame away.
+- A link to layerling.com brings a picture with it now: the mark, the name and the line about what this is. The page carried no `og:image` at all until now, so a forum or a messenger had nothing to show but the bare address.
+
 ## 1.3.0
 
 - Added notes on the workplane. A note stays where you put it, or pins itself to a body and travels along as that body moves, turns and grows. The pin carries a number, a click folds the card open, a switch in **Visibility** hides all of them at once, and nothing of them reaches an exported STL. A note rides inside the design's own history, so undo and redo take it with them, and it travels in the `.lyl` and to the server without anything extra being asked for.
@@ -13,6 +19,7 @@ code still carries it - so a lower number further down is older, not newer.
 - Number fields hand over their whole value when you jump into them, ready to be overwritten. A decimal keypad has no arrow keys to place the caret with, and a field five characters wide is not hit digit by digit with a finger: turning "20.00" into "35" meant deleting one character at a time, and a slip left "23.000".
 - The MCP bridge can set the taper it had been reporting all along. The values arrived and were then dropped without a word, because everything a command carries is measured against the workspace shape defaults while a taper belongs to the single body - the same shape of bug as the thread and spring settings in 1.2.1. Which shapes ignore a taper is one function now, so the panel and the bridge cannot drift apart. `radius`, the rounding of a box, was dropped from what the bridge reports: the format carries it, but no control and no command sets it.
 - Note for older versions: notes travel inside the design's history, which 1.2.2 and older know nothing about. They open such a file and pass the notes over - **and throw them away on the next save**. The format version itself is unchanged.
+
 ## 1.2.2
 
 - The status line moved out of the camera rail's column: it floats at the top of the workspace now, beside the view cube, where a whole sentence fits. Down in the corner the two shared a column, and on a flat window - an iPad in landscape with all of Safari's bars - they met.
