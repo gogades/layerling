@@ -187,12 +187,29 @@ sie meldet nur, was der Browser an Zeigerereignissen liefert.</p>
     show();
   });
 
+  /**
+   * Ein selbst gebautes Zeigerereignis traegt clientX - ob daraus auch pageX
+   * wird, entscheidet der Browser. Chrome rechnet es aus, WebKit nicht. Genau
+   * daran haengt die Zwei-Finger-Geste, weil three.js im Beruehrungszweig nur
+   * mit pageX rechnet.
+   */
+  function probePageX() {
+    try {
+      var test = new PointerEvent('pointerdown', { clientX: 123, clientY: 45, pointerId: 99, pointerType: 'touch' });
+      var ok = test.pageX === 123 + window.scrollX;
+      return '<span class="' + (ok ? 'good' : 'bad') + '">' + test.pageX + ' / ' + test.pageY + (ok ? ' (abgeleitet)' : ' (NICHT abgeleitet)') + '</span>';
+    } catch (error) {
+      return '<span class="bad">Fehler</span>';
+    }
+  }
+
   var facts = [
     ['Gerät', /iPad|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1 ? 'iPad / iOS' : (navigator.userAgent.match(/(Android|iPhone|Windows|Macintosh|Linux)/) || ['unbekannt'])[0]],
     ['maxTouchPoints', String(navigator.maxTouchPoints)],
     ['pointer: coarse', window.matchMedia('(pointer: coarse)').matches ? 'ja' : 'nein'],
     ['PointerEvent', 'PointerEvent' in window ? 'ja' : 'NEIN'],
     ['touch-action', getComputedStyle(pad).touchAction],
+    ['Kunstereignis pageX', probePageX()],
     ['Fenster', '<span id="size">' + window.innerWidth + ' x ' + window.innerHeight + '</span>'],
   ];
   document.getElementById('facts').innerHTML = facts.map(function (entry) {

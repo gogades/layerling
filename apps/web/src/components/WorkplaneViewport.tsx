@@ -5109,20 +5109,27 @@ export function WorkplaneViewport({
     if (!state || !canvas || !PointerEventConstructor) return;
     state.controls.enabled = true;
     touchPointersRef.current.forEach((position, pointerId) => {
-      canvas.dispatchEvent(
-        new PointerEventConstructor("pointerdown", {
-          bubbles: true,
-          cancelable: true,
-          composed: true,
-          pointerId,
-          pointerType: "touch",
-          isPrimary: false,
-          button: 0,
-          buttons: 1,
-          clientX: position.x,
-          clientY: position.y,
-        }),
-      );
+      const handover = new PointerEventConstructor("pointerdown", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        pointerId,
+        pointerType: "touch",
+        isPrimary: false,
+        button: 0,
+        buttons: 1,
+        clientX: position.x,
+        clientY: position.y,
+      });
+      // Der Beruehrungszweig von OrbitControls rechnet **nur** mit
+      // pageX/pageY - der Mauszweig mit clientX/clientY. Mitgeben lassen die
+      // sich nicht, sie werden vom Browser abgeleitet: Chrome rechnet sie aus
+      // clientX aus, WebKit nicht. Auf einem iPad stuende dort 0, beide Finger
+      // laegen fuer die Kamera im Nullpunkt, und das Spreizen ergaebe nichts.
+      // Deshalb hier von Hand darueber gelegt.
+      Object.defineProperty(handover, "pageX", { value: position.x + window.scrollX, configurable: true });
+      Object.defineProperty(handover, "pageY", { value: position.y + window.scrollY, configurable: true });
+      canvas.dispatchEvent(handover);
     });
   }, []);
 
