@@ -20,6 +20,7 @@ import {
   shapeHasTaper,
   shapeOverallFootprintDimensions,
   shapeTransformShouldRemainEditable,
+  shapeWithParametricSource,
   shapeTaperDimensions,
   shapeTaperScaleAt,
   shapeWidth,
@@ -297,5 +298,49 @@ describe("workplane shape helpers", () => {
 
     expect(preservesEdgeTreatmentSize(grouped)).toBe(true);
     expect(resizedImportedMeshPositions(grouped)).toEqual([-20, 0, 0, -18, 2, 0, 18, 38, 0, 20, 40, 0]);
+  });
+
+  /*
+   * Eine Drehung backt den Koerper in ein Netz - anders liesse sich sein
+   * Rahmen nicht ehrlich neu aufsetzen. Damit seine Bauwerte danach nicht
+   * unerreichbar sind, haelt `parametricSource` fest, was er war.
+   */
+  it("setzt den Koerper von vor der Drehung wieder zusammen", () => {
+    const gebacken = shape({
+      kind: "mesh",
+      width: 20.8,
+      depth: 20.8,
+      height: 18,
+      size: 20.8,
+      threadDiameter: 12,
+      threadRole: "nut",
+      parametricSource: {
+        kind: "thread",
+        width: 20.8,
+        depth: 18,
+        height: 10,
+        size: 20.8,
+        rotation: 30,
+        rotationX: 90,
+        rotationZ: 0,
+      },
+    });
+    const urform = shapeWithParametricSource(gebacken);
+    expect(urform.kind).toBe("thread");
+    expect(urform.height).toBe(10);
+    expect(urform.depth).toBe(18);
+    // Die Bauwerte selbst haben das Backen ohnehin ueberlebt.
+    expect(urform.threadDiameter).toBe(12);
+    // Was kein Gedaechtnis hat, bleibt unveraendert.
+    const schlicht = shape({ kind: "cylinder" });
+    expect(shapeWithParametricSource(schlicht)).toBe(schlicht);
+  });
+
+  it("merkt, wenn sich die aufgelaufene Drehung geaendert hat", () => {
+    const quelle = { kind: "thread" as const, width: 20, depth: 20, height: 10, size: 20, rotation: 30, rotationX: 0, rotationZ: 0 };
+    const a = shape({ kind: "mesh", parametricSource: quelle });
+    const b = shape({ kind: "mesh", parametricSource: { ...quelle, rotation: 60 } });
+    expect(workplaneShapesEqual(a, a)).toBe(true);
+    expect(workplaneShapesEqual(a, b)).toBe(false);
   });
 });

@@ -1003,6 +1003,20 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
   if (definition.importedMesh || definition.groupedShapes || definition.edgeTreatmentHistory || definition.cadBrep) {
     throw new Error(`${label} contains inline package-only geometry fields`);
   }
+  if (definition.parametricSource !== undefined) {
+    // Was der Koerper vor dem Drehen war. Fehlt oder stimmt hier etwas nicht,
+    // ist der Koerper immer noch da - nur seine Bauwerte waeren nicht mehr zu
+    // erreichen. Ein Paket deswegen abzulehnen waere der groessere Schaden.
+    const source = objectRecord(definition.parametricSource, `${label}.parametricSource`);
+    const sourceKind = stringValue(source.kind, `${label}.parametricSource.kind`);
+    if (!SHAPE_KINDS.has(sourceKind)) throw new Error(`${label}.parametricSource has unknown shape type '${sourceKind}'`);
+    ["width", "depth", "height", "size", "rotation", "rotationX", "rotationZ"].forEach((field) => {
+      finiteNumber(source[field], `${label}.parametricSource.${field}`);
+    });
+    if ([source.width, source.depth, source.height].some((value) => (value as number) <= 0 || Math.abs(value as number) > 1e9)) {
+      throw new Error(`${label}.parametricSource dimensions are outside the supported range`);
+    }
+  }
   if (definition.sketchProfile) validateSketchProfile(definition.sketchProfile, `${label}.sketchProfile`);
   if (definition.sketchOperation !== undefined && definition.sketchOperation !== "extrude" && definition.sketchOperation !== "revolve") {
     throw new Error(`${label}.sketchOperation is invalid`);
@@ -1049,6 +1063,10 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
     if (definition.threadChamfer !== undefined) {
       const threadChamfer = finiteNumber(definition.threadChamfer, `${label}.threadChamfer`);
       if (threadChamfer < 0 || threadChamfer > 480) throw new Error(`${label}.threadChamfer is outside the supported range`);
+    }
+    if (definition.threadHeadChamfer !== undefined) {
+      const threadHeadChamfer = finiteNumber(definition.threadHeadChamfer, `${label}.threadHeadChamfer`);
+      if (threadHeadChamfer < 0 || threadHeadChamfer > 480) throw new Error(`${label}.threadHeadChamfer is outside the supported range`);
     }
   }
   if (kind === "pyramid") {

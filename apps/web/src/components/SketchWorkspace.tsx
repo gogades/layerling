@@ -720,7 +720,7 @@ export function SketchWorkspace({
     } else if (action.kind === "move-selection") {
       onTransformPoints(
         translateSketchPoints(action.startPoints, action.current.x - action.origin.x, action.current.z - action.origin.z),
-        "Sketch shape moved",
+        t("sketch.shapeMoved"),
       );
     } else if (action.kind === "resize-selection") {
       onTransformPoints(resizeSketchPoints(action.startPoints, action.bounds, action.handle, action.current), t("sketch.shapeResized"));

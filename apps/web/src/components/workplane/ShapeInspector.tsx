@@ -35,6 +35,7 @@ import {
   normalizeThreadDiameter,
   normalizeThreadHand,
   normalizeThreadHead,
+  normalizeThreadHeadChamfer,
   normalizeThreadHeadHeight,
   normalizeThreadPitch,
   normalizeThreadQuality,
@@ -42,6 +43,7 @@ import {
   threadNaturalFootprint,
   pitchToThreadsPerInch,
   threadChamferLimits,
+  threadHeadChamferLimits,
   threadHeadHeightLimits,
   threadNaturalHeight,
   threadPitchLimits,
@@ -184,7 +186,7 @@ function formatPropertyNumber(value: number, accuracy: MeasurementAccuracy, step
 }
 
 function propertyUsesLengthUnit(key: string) {
-  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "threadLength", "headHeight", "chamfer", "wire"].includes(key);
+  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire"].includes(key);
 }
 
 /**
@@ -481,6 +483,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     const pitchLimits = threadPitchLimits(settings.diameter);
     const headLimits = threadHeadHeightLimits(settings);
     const chamferLimits = threadChamferLimits(settings);
+    const headChamferLimits = threadHeadChamferLimits(settings);
     // Zollgewinde werden in Gaengen je Zoll gedacht, nicht in Millimetern.
     const inchPitch = threadUsesInchPitch(settings.diameter);
     const sizeOptions = [
@@ -514,6 +517,9 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         keepHeadHeight ? next.headHeight : defaultThreadHeadHeight(headBase),
         headBase,
       );
+      // Die Kopffase haengt am Kopf: wer den Kopf flacher zieht oder auf
+      // Senkkopf umschaltet, darf keine Fase behalten, die es dort nicht gibt.
+      next.headChamfer = normalizeThreadHeadChamfer(next.headChamfer, { ...headBase, headHeight: next.headHeight });
       const footprint = threadNaturalFootprint(next);
       const update: Partial<WorkplaneShape> = {
         threadRole: next.role,
@@ -525,6 +531,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         threadQuality: next.quality,
         threadHeadHeight: next.headHeight,
         threadChamfer: next.chamfer,
+        threadHeadChamfer: next.headChamfer,
         width: footprint.width,
         depth: footprint.depth,
         size: resizedShapeSize(footprint.width, footprint.depth),
@@ -597,6 +604,24 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         max: headLimits.max,
         step: 0.1,
         onChange: (headHeight) => applyThread({ headHeight }),
+      });
+    }
+    /*
+     * Die Aussenfase gibt es am Schraubenkopf und an der Mutter: beide haben
+     * eine scharfe Aussenkante an beiden Stirnflaechen, und beide sind in
+     * Wirklichkeit dort gefast. Der Senkkopf ist schon ein Kegel - dort gibt
+     * es nichts zu brechen, und die Grenze sagt das mit einem Hoechstwert von
+     * null.
+     */
+    if (headChamferLimits.max > 0) {
+      properties.push({
+        id: "headChamfer",
+        label: t(settings.role === "nut" ? "prop.rimChamfer" : "prop.headChamfer"),
+        value: settings.headChamfer,
+        min: headChamferLimits.min,
+        max: headChamferLimits.max,
+        step: 0.05,
+        onChange: (headChamfer) => applyThread({ headChamfer }),
       });
     }
     properties.push(
@@ -833,7 +858,7 @@ export function ShapeInspector({
   const primaryProperties = shape.kind === "gear"
     ? properties.filter((property) => ["centerHole", "length", "width", "height"].includes(property.id))
     : isThread
-      ? properties.filter((property) => ["threadSize", "diameter", "threadLength", "headHeight"].includes(property.id))
+      ? properties.filter((property) => ["threadSize", "diameter", "threadLength", "headHeight", "headChamfer"].includes(property.id))
       : properties;
   const threadProperties = isThread
     ? properties.filter((property) => ["pitch", "threadHand", "clearance", "chamfer", "quality"].includes(property.id))

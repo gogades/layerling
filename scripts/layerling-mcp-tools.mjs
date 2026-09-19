@@ -58,6 +58,7 @@ export const shapeSettingSchema = {
   threadQuality: { type: "number", description: "Thread only: columns around the circumference." },
   threadChamfer: { type: "number", description: "Thread only: the break at the ends that leads the first turn in." },
   threadHeadHeight: { type: "number", description: "Thread only, and only for a screw: height of the head. Left out it follows the standard for the size." },
+  threadHeadChamfer: { type: "number", description: "Thread only, and only for a screw with a cylinder or hex head: the chamfer that breaks the sharp rim of the head. 0 leaves it sharp." },
   springTurns: { type: "number", description: "Spring only." },
   springWire: { type: "number", description: "Spring only: thickness of the wire." },
   springQuality: { type: "number", description: "Spring only." },

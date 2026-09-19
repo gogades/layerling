@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   detectLanguage,
@@ -126,5 +128,32 @@ describe("language detection", () => {
     expect(getLanguage()).toBe("de");
     setLanguage("en", false);
     expect(getLanguage()).toBe("en");
+  });
+
+  /*
+   * Ein englischer Satz mitten im Code faellt nur dem auf, der die Oberflaeche
+   * auf Deutsch benutzt - Stefan sah „Deleted 2 selected shapes" in der
+   * deutschen Anzeige, lange nach dem Einbau. `setNotice` und die Meldung von
+   * `commitShapes` landen beide in derselben Statusanzeige, also darf dort
+   * nichts stehen, was nicht durch `t()` gegangen ist.
+   *
+   * Geprueft wird der Quelltext, weil diese Aufrufe in Bauteilen stecken, die
+   * sich hier nicht ausfuehren lassen.
+   */
+  it("laesst keinen englischen Satz in die Statusanzeige", () => {
+    const wurzel = fileURLToPath(new URL("../../apps/web/src/components/", import.meta.url));
+    const dateien = ["LayerlingEditor.tsx", "WorkplaneViewport.tsx", "SketchWorkspace.tsx"];
+    const verdaechtig: string[] = [];
+    for (const datei of dateien) {
+      const zeilen = readFileSync(wurzel + datei, "utf8").split(String.fromCharCode(10));
+      zeilen.forEach((zeile, index) => {
+        const ohneKommentar = zeile.replace(/\/\/.*$/, "");
+        // Ein Anzeigetext ist ein Literal, das mit einem Grossbuchstaben
+        // anfaengt und mehr als ein Wort traegt - ein Feldname nicht.
+        const literal = ohneKommentar.match(/^\s*[`"]([A-Z][a-z]+ [a-z][^"`]*)[`"],?\s*$/);
+        if (literal) verdaechtig.push(`${datei}:${index + 1}  ${literal[1].slice(0, 60)}`);
+      });
+    }
+    expect(verdaechtig).toEqual([]);
   });
 });

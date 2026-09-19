@@ -17,7 +17,7 @@ import helvetikerBoldFontJson from "three/examples/fonts/helvetiker_bold.typefac
 import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json";
 import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
 import type { ComponentType, SVGProps } from "react";
-import { t, type MessageKey } from "@/lib/i18n";
+import { getLanguage, t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { manifoldModuleSource } from "@/generated/manifoldModuleSource";
 import { manifoldWasmBase64 } from "@/generated/manifoldWasmBase64";
@@ -84,6 +84,7 @@ import {
   shapeTransformShouldRemainEditable,
   shapeTaperScaleAt,
   shapeWidth,
+  shapeWithParametricSource,
   withHoleMode,
   workplaneShapesEqual,
 } from "@/lib/workplaneShapes";
@@ -93,6 +94,7 @@ import { hasOneToOneCadComponentMapping } from "@/lib/cadModifierGroups";
 import {
   CAD_MODIFIER_MAX_SHARP_ANGLE,
   CAD_MODIFIER_REQUEST_TIMEOUT_MS,
+  CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT,
   cadModifierPrepareTimeoutMs,
   cadModifierTimeoutMessage,
   cadModifierWorkerFailureMessage,
@@ -105,7 +107,7 @@ import { createCadPreviewQueue } from "@/lib/cadPreviewQueue";
 import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatmentAppliedFrame, restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
 import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, projectShapesFingerprint, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
-import { geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
+import { composedShapeRotation, geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
 import { createLocalId } from "@/lib/localIds";
 import { projectExportFileName } from "@/lib/exportNames";
 import { exportMeshesToObj } from "@/lib/objExport";
@@ -151,7 +153,7 @@ import {
 } from "@/lib/layerlingMcpProtocol";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
-import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSource, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
@@ -2246,6 +2248,7 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         threadQuality: shape.threadQuality,
         threadHeadHeight: shape.threadHeadHeight,
         threadChamfer: shape.threadChamfer,
+        threadHeadChamfer: shape.threadHeadChamfer,
       });
       break;
     case "spring":
@@ -2410,6 +2413,11 @@ function shapeHasTransformToBake(shape: WorkplaneShape) {
   );
 }
 
+/** Tausender trennen, in der gerade eingestellten Sprache. */
+function formatTriangleCount(count: number) {
+  return count.toLocaleString(getLanguage() === "de" ? "de-DE" : "en-US");
+}
+
 function cadModifierPrimitiveForShape(shape: WorkplaneShape): CadModifierPrimitivePart | null {
   // Taper is a non-affine deformation, so an analytic primitive or stored BREP
   // cannot represent the final visible surface. Send the baked mesh to the CAD
@@ -2417,6 +2425,89 @@ function cadModifierPrimitiveForShape(shape: WorkplaneShape): CadModifierPrimiti
   if (shapeHasTaper(shape)) return null;
   return cadModifierPrimitiveForBakedShape(shape)
     ?? (shapeHasTransformToBake(shape) ? cadModifierPrimitiveForAnalyticBox(shape) : null);
+}
+
+/**
+ * Beim Backen festhalten, was der Koerper war - sonst waere eine gedrehte
+ * Mutter fuer immer ein Netz. Wer schon einmal gedreht wurde, behaelt seine
+ * Urform; die neue Drehung kommt oben drauf, und verkettet wird ueber
+ * Quaternionen, weil Eulerwinkel sich nicht addieren lassen.
+ *
+ * Eine Spiegelung wird **nicht** festgehalten: sie liesse sich nicht ehrlich
+ * wieder auftragen - ein gespiegeltes Rechtsgewinde ist ein Linksgewinde, und
+ * das waere ein anderer Koerper.
+ */
+function parametricSourceForBake(shape: WorkplaneShape): ParametricSource | undefined {
+  if (shape.mirrorX || shape.mirrorY || shape.mirrorZ) return undefined;
+  const bekannt = shape.parametricSource;
+  if (bekannt) return { ...bekannt, ...composedShapeRotation(shape, bekannt) };
+  if (shape.kind === "mesh" || shape.importedMesh || shape.groupedShapes?.length || shape.imagePlate) {
+    return undefined;
+  }
+  return {
+    kind: shape.kind,
+    width: shapeWidth(shape),
+    depth: shapeDepth(shape),
+    height: shape.height,
+    size: shape.size,
+    rotation: shape.rotation,
+    rotationX: shape.rotationX ?? 0,
+    rotationZ: shape.rotationZ ?? 0,
+    taperTopWidth: shape.taperTopWidth,
+    taperTopDepth: shape.taperTopDepth,
+    taperBottomWidth: shape.taperBottomWidth,
+    taperBottomDepth: shape.taperBottomDepth,
+  };
+}
+
+/**
+ * Der Rueckweg: Urform herstellen, die Aenderung einsetzen, wieder drehen,
+ * wieder backen. Die Lage bleibt, wo der Anwender den Koerper zuletzt
+ * hingestellt hat - das Backen rechnet sie aus dem Netz, aber verschoben
+ * haben kann er ihn seither trotzdem.
+ */
+function rebuiltParametricShape(shape: WorkplaneShape, patch: Partial<WorkplaneShape>) {
+  const source = shape.parametricSource;
+  if (!source) return null;
+  /*
+   * Eine Drehung im selben Zug ist eine Drehung **auf** das gebackene Netz,
+   * also kommt sie oben auf die schon aufgelaufene. Wer sie stattdessen
+   * einsetzt, verliert alles Vorherige - dann liegt die Mutter wieder flach.
+   */
+  const { rotation, rotationX, rotationZ, ...bauwerte } = patch;
+  const drehtMit = [rotation, rotationX, rotationZ].some((wert) => typeof wert === "number");
+  const gesamt = drehtMit
+    ? composedShapeRotation({ rotation: rotation ?? 0, rotationX: rotationX ?? 0, rotationZ: rotationZ ?? 0 }, source)
+    : { rotation: source.rotation, rotationX: source.rotationX, rotationZ: source.rotationZ };
+  const urform = canonicalizeShape({
+    ...shape,
+    kind: source.kind,
+    width: source.width,
+    depth: source.depth,
+    height: source.height,
+    size: source.size,
+    taperTopWidth: source.taperTopWidth,
+    taperTopDepth: source.taperTopDepth,
+    taperBottomWidth: source.taperBottomWidth,
+    taperBottomDepth: source.taperBottomDepth,
+    importedMesh: undefined,
+    parametricSource: undefined,
+    rotation: 0,
+    rotationX: 0,
+    rotationZ: 0,
+    ...bauwerte,
+  });
+  const gebacken = canonicalizeShape(bakeShapeTransformIntoMesh(canonicalizeShape({ ...urform, ...gesamt })));
+  // Wer nur einen Bauwert aendert, will den Koerper nicht verrueckt sehen.
+  // Wer dagegen dreht, bewegt ihn - dann gilt, was das Backen ausrechnet.
+  return drehtMit
+    ? gebacken
+    : canonicalizeShape({ ...gebacken, x: shape.x, z: shape.z, elevation: shape.elevation ?? 0 });
+}
+
+/** Aendert dieser Patch einen Bauwert des Koerpers - oder nur seinen Rahmen? */
+function patchTouchesBodyParameters(patch: Partial<WorkplaneShape>) {
+  return MCP_SHAPE_SETTING_KEYS.some((key) => key in patch);
 }
 
 function bakeShapeTransformIntoMesh(shape: WorkplaneShape): WorkplaneShape {
@@ -2499,6 +2590,7 @@ function bakeShapeTransformIntoMesh(shape: WorkplaneShape): WorkplaneShape {
       sourceFormat: "json",
     },
     ...bakedCadMetadata,
+    parametricSource: parametricSourceForBake(shape),
     imagePlate: undefined,
     groupedShapes: undefined,
     groupedBaseWidth: undefined,
@@ -5497,6 +5589,7 @@ function applyMcpThreadSettings(
     threadQuality: settings.quality,
     threadHeadHeight: settings.headHeight,
     threadChamfer: settings.chamfer,
+    threadHeadChamfer: settings.headChamfer,
     ...(keepFootprint ? {} : {
       width: footprint.width,
       depth: footprint.depth,
@@ -6636,7 +6729,6 @@ export function LayerlingEditor({
     commitShapes(
       shapesRef.current.map((shape) => shape.id === selectedShape.id ? restored.shape : shape),
       restored.shape.id,
-      `Removed ${restored.label}`,
     );
     setNotice(t("status.removedFeature", { label: restored.label }));
   }, [commitShapes, invalidateCadModifierSession, selectedEdgeFeatureCount, selectedEdgeHistoryOptions, selectedShape]);
@@ -7344,7 +7436,11 @@ export function LayerlingEditor({
             return shape;
           }
 
-          const patched = { ...shape, ...cleanedPatch };
+          // Ein Bauwert an einem gedrehten Koerper heisst: neu bauen, nicht
+          // das Netz verbiegen. Ein Zug am Anfasser trifft dagegen nur den
+          // Rahmen und laesst das gebackene Netz in Ruhe.
+          const neugebaut = patchTouchesBodyParameters(cleanedPatch) ? rebuiltParametricShape(shape, cleanedPatch) : null;
+          const patched = neugebaut ?? { ...shape, ...cleanedPatch };
           const canonicalBase = canonicalizeShape("hole" in cleanedPatch ? withHoleMode(patched, Boolean(cleanedPatch.hole), cleanedPatch.color) : patched);
           const canonical = bakeTransform ? canonicalizeShape(bakeShapeTransformIntoMesh(canonicalBase)) : canonicalBase;
           if (workplaneShapesEqual(shape, canonical)) {
@@ -7386,7 +7482,7 @@ export function LayerlingEditor({
     commitShapes(
       shapes.filter((shape) => !selected.has(shape.id)),
       [],
-      `Deleted ${selected.size} selected shape${selected.size === 1 ? "" : "s"}`,
+      selected.size === 1 ? t("status.deletedOne") : t("status.deletedMany", { count: selected.size }),
     );
   }, [commitShapes, hasSelection, selectedIds, shapes]);
 
@@ -7694,8 +7790,15 @@ export function LayerlingEditor({
       setNotice(t("status.noPrintableSurface"));
       return;
     }
-    if (triangleCount > 180_000) {
-      setNotice(t("status.meshTooDense"), true);
+    if (triangleCount > CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT) {
+      // Ein Gewinde kommt hier fast immer an: die Wendel besteht aus tausenden
+      // Dreiecken. Die Absage nennt deshalb gleich den Weg, der wirklich zum
+      // gebrochenen Schraubenkopf fuehrt.
+      const istGewinde = sourceParts.some((part) => part.kind === "thread");
+      setNotice(t(istGewinde ? "status.threadTooDense" : "status.meshTooDense", {
+        triangles: formatTriangleCount(triangleCount),
+        limit: formatTriangleCount(CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT),
+      }), true);
       return;
     }
     const amount = Math.max(MIN_EDGE_MODIFIER_AMOUNT, Math.min(1, shapeWidth(selectedShape) / 6, shapeDepth(selectedShape) / 6, selectedShape.height / 6));
@@ -7769,8 +7872,8 @@ export function LayerlingEditor({
     if (triangleCount === 0 && partInputs.every((part) => !part.brep && !part.primitive)) {
       throw new Error("The selected object has no printable surface");
     }
-    if (triangleCount > 180_000) {
-      throw new Error("This mesh is too dense for interactive edge treatment. Simplify it below 180,000 triangles first.");
+    if (triangleCount > CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT) {
+      throw new Error(`This mesh has ${triangleCount} triangles; interactive edge treatment stops at ${CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT}. Simplify it first, or use the shape's own parameters.`);
     }
     const parts: CadModifierMeshPart[] = partInputs.map((part) => {
       if (part.brep) return { brep: part.brep, brepTransform: part.brepTransform, hole: Boolean(part.shape.hole) };
@@ -8029,7 +8132,9 @@ export function LayerlingEditor({
           : shape,
       ),
       selectedIds,
-      `Snapped ${selectedShapes.length} shape${selectedShapes.length === 1 ? "" : "s"} to ${grid} mm visible grid`,
+      selectedShapes.length === 1
+        ? t("status.snappedOne", { grid })
+        : t("status.snappedMany", { count: selectedShapes.length, grid }),
     );
   }, [commitShapes, hasSelection, selectedIds, selectedShapes.length, shapes, workspaceSettings]);
 
@@ -8056,7 +8161,7 @@ export function LayerlingEditor({
     commitShapes(
       shapes.map((shape) => ({ ...shape, hidden: false })),
       selectedIds,
-      `Showed ${hiddenCount} hidden shape${hiddenCount === 1 ? "" : "s"}`,
+      hiddenCount === 1 ? t("status.shownHiddenOne") : t("status.shownHiddenMany", { count: hiddenCount }),
     );
   }, [commitShapes, selectedIds, shapes]);
 
@@ -8105,7 +8210,7 @@ export function LayerlingEditor({
     commitShapes(
       shapes.filter((shape) => !selected.has(shape.id)),
       [],
-      `Cut ${selectedShapes.length} shape${selectedShapes.length === 1 ? "" : "s"}`,
+      selectedShapes.length === 1 ? t("status.cutOne") : t("status.cutMany", { count: selectedShapes.length }),
     );
   }, [commitShapes, hasSelection, selectedIds, selectedShapes, shapes]);
 
@@ -8155,7 +8260,7 @@ export function LayerlingEditor({
         };
       }),
       selectedIds,
-      "Dropped selection to the workplane",
+      t("status.droppedToWorkplane"),
     );
   }, [commitShapes, hasSelection, placementWorkplane, selectedIds, shapes]);
 
@@ -8321,7 +8426,7 @@ export function LayerlingEditor({
     commitShapes(
       [...shapes.filter((shape) => shape.id !== selectedShape.id), ...parts],
       parts.map((shape) => shape.id),
-      `Separated ${parts.length} parts`,
+      t("status.separatedParts", { count: parts.length }),
     );
   }, [commitShapes, selectedShape, selectedShapes.length, shapes]);
 
@@ -8506,8 +8611,12 @@ export function LayerlingEditor({
       }
 
       if (command.action === "update_object") {
-        const target = findShape(params.id);
-        if (!target) throw new Error("Object not found");
+        const gefunden = findShape(params.id);
+        if (!gefunden) throw new Error("Object not found");
+        // Ein gedrehter Koerper ist ein Netz mit Gedaechtnis. Gedeutet werden
+        // die Werte an seiner Urform - sonst kennt das Netz weder Durchmesser
+        // noch Seitenzahl, und der Befehl faellt still unter den Tisch.
+        const target = shapeWithParametricSource(gefunden);
         // Ein gesperrtes Objekt bleibt unantastbar - es sei denn, der Befehl
         // hebt die Sperre gerade auf. Sonst fuehrt von aussen kein Weg zurueck:
         // Sperren kann die Oberflaeche, entsperren konnte hier bisher niemand.
@@ -8557,6 +8666,7 @@ export function LayerlingEditor({
             threadQuality: threaded.threadQuality,
             threadHeadHeight: threaded.threadHeadHeight,
             threadChamfer: threaded.threadChamfer,
+            threadHeadChamfer: threaded.threadHeadChamfer,
             width: threaded.width,
             depth: threaded.depth,
           });
@@ -8567,7 +8677,10 @@ export function LayerlingEditor({
         }
         const nextShapes = currentShapes().map((shape) => {
           if (shape.id !== target.id) return shape;
-          const patched = { ...shape, ...cleanShapePatch(patch) };
+          const sauber = cleanShapePatch(patch);
+          const neugebaut = patchTouchesBodyParameters(sauber) ? rebuiltParametricShape(shape, sauber) : null;
+          if (neugebaut) return neugebaut;
+          const patched = { ...shape, ...sauber };
           const width = shapeWidth(patched);
           const depth = shapeDepth(patched);
           const canonical = canonicalizeShape({ ...patched, size: Math.max(width, depth) });
@@ -9527,7 +9640,7 @@ export function LayerlingEditor({
             : shape,
         ),
         selectedIds,
-        `Moved ${selectedShapes.length} shape${selectedShapes.length === 1 ? "" : "s"}`,
+        selectedShapes.length === 1 ? t("status.movedOne") : t("status.movedMany", { count: selectedShapes.length }),
       );
     },
     [commitShapes, hasSelection, placementWorkplane, selectedIds, selectedShapes.length, shapes],
@@ -9565,7 +9678,9 @@ export function LayerlingEditor({
     commitShapes(
       nextShapes,
       selectedIds,
-      `Rotated ${rotatableShapes.length} shape${rotatableShapes.length === 1 ? "" : "s"} by ${angleLabel}°`,
+      rotatableShapes.length === 1
+        ? t("status.rotatedOne", { angle: angleLabel })
+        : t("status.rotatedMany", { count: rotatableShapes.length, angle: angleLabel }),
     );
   }, [commitShapes, hasSelection, placementWorkplane, selectedIds, selectedShapes, shapes]);
 

@@ -140,6 +140,7 @@ export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAss
       threadClearance: DEFAULT_THREAD_CLEARANCE,
       threadQuality: DEFAULT_THREAD_QUALITY,
       threadChamfer: defaultThreadChamfer(DEFAULT_THREAD_PITCH),
+      threadHeadChamfer: 0,
     };
   }
   if (kind === "gear") {
@@ -209,6 +210,7 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
     threadQuality: shape.threadQuality,
     threadHeadHeight: shape.threadHeadHeight,
     threadChamfer: shape.threadChamfer,
+    threadHeadChamfer: shape.threadHeadChamfer,
     springTurns: shape.springTurns,
     springWire: shape.springWire,
     springQuality: shape.springQuality,
@@ -247,6 +249,11 @@ export function makeShapeFromAsset(
     threadPitch: customization.threadPitch,
     threadClearance: customization.threadClearance,
     threadQuality: customization.threadQuality,
+    // Diese drei fehlten hier: die Bruecke und die Formvorgaben boten sie an,
+    // angekommen ist beim Anlegen aber immer nur das Normmass.
+    threadHeadHeight: customization.threadHeadHeight,
+    threadChamfer: customization.threadChamfer,
+    threadHeadChamfer: customization.threadHeadChamfer,
   }) : null;
   const threadFootprint = threadDefaults ? threadNaturalFootprint(threadDefaults) : null;
   const width = threadFootprint?.width ?? customization.width ?? defaults.width;
@@ -302,6 +309,7 @@ export function makeShapeFromAsset(
     threadQuality: asset.kind === "thread" ? normalizeThreadQuality(customization.threadQuality ?? DEFAULT_THREAD_QUALITY) : undefined,
     threadHeadHeight: threadDefaults ? threadDefaults.headHeight : undefined,
     threadChamfer: threadDefaults ? threadDefaults.chamfer : undefined,
+    threadHeadChamfer: threadDefaults ? threadDefaults.headChamfer : undefined,
     springTurns: asset.kind === "spring" ? normalizeSpringTurns(customization.springTurns ?? DEFAULT_SPRING_TURNS, Math.max(width, depth), height, customization.springWire) : undefined,
     springWire: asset.kind === "spring" ? normalizeSpringWire(customization.springWire ?? DEFAULT_SPRING_WIRE, Math.max(width, depth), height) : undefined,
     springQuality: asset.kind === "spring" ? normalizeSpringQuality(customization.springQuality ?? DEFAULT_SPRING_QUALITY) : undefined,

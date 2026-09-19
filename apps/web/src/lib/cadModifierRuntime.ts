@@ -104,12 +104,55 @@ export function edgeModifierSelectionStatus(prepared: boolean, selectedCount: nu
     : t("edge.preparing");
 }
 
+/**
+ * Was das Vorbereiten eines Netzes wirklich kostet, gemessen am 19.09.2026 auf
+ * HENMEDIA:
+ *
+ * | Dreiecke | naehen und heilen | Kanten einsammeln | gesamt |
+ * |---------:|------------------:|------------------:|-------:|
+ * |      400 |             0,5 s |             0,1 s |  0,6 s |
+ * |    2 208 |             3,6 s |             3,0 s |  6,6 s |
+ * |    3 806 |             5,7 s |             5,0 s | 11,1 s |
+ * |   13 304 |            20,0 s |           107,5 s |  128 s |
+ *
+ * Das Naehen waechst linear mit der Dreieckszahl, das Einsammeln der Kanten
+ * quadratisch: jede Kante wird gegen die Flaechen ihrer Nachbarschaft
+ * gehalten. Die alte Schaetzung war linear - deshalb lief die Wache bei
+ * jedem groesseren Netz ab, lange bevor die Arbeit fertig war.
+ */
+export function cadModifierPrepareCostMs(meshTriangleCount: number) {
+  const triangles = Math.max(0, meshTriangleCount);
+  return 1.5 * triangles + 6.1e-4 * triangles * triangles;
+}
+// Die Schaetzung ist eine Untergrenze: sie stammt aus Einzelmessungen an einem
+// frischen Kern. Wer den Faktor unten anfasst, sollte das wissen.
+
+/**
+ * Oberhalb dieser Dreieckszahl wird gar nicht erst angefangen.
+ *
+ * Die Zahl steht dort, wo die Messung umschlaegt: 3 806 Dreiecke waren nach
+ * 11 s fertig, 7 612 nach vier Minuten immer noch nicht - und das als vierter
+ * Aufruf derselben Seitensitzung, also genau so, wie ein Mensch arbeitet. Der
+ * Kern wird im Lauf einer Sitzung langsamer (siehe die Kernel-Grenze), deshalb
+ * ist der isoliert gemessene Einzelwert die freundlichste Lesart, nicht die
+ * wahrscheinlichste.
+ *
+ * Das ist keine Verschaerfung: mit der alten, linearen Schaetzung lief die
+ * Wache bei dieser Groesse laengst ab. Neu ist nur, dass die Absage sofort
+ * kommt und ihren Grund nennt, statt nach zwei Minuten als Zeitueberschreitung.
+ * Eine tessellierte Wendel hat obendrein so viele Dreieckskanten, dass unter
+ * ihnen keine Kopfkante mehr zu finden waere - 14 845 Stueck bei Fraterculas
+ * Schraube.
+ */
+export const CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT = 4_000;
+
 export function cadModifierPrepareTimeoutMs(meshTriangleCount: number) {
   if (!Number.isFinite(meshTriangleCount) || meshTriangleCount <= 0) {
     return CAD_MODIFIER_REQUEST_TIMEOUT_MS;
   }
-  const normalizedTriangleCount = Math.max(0, Math.floor(meshTriangleCount));
-  const meshPreparationBudget = 45_000 + normalizedTriangleCount * 0.75;
+  // Der Faktor ist fuer langsamere Rechner da: die Messung stammt von einem
+  // schnellen, Fraterculas Laptop braucht ein Mehrfaches.
+  const meshPreparationBudget = cadModifierPrepareCostMs(Math.floor(meshTriangleCount)) * 2.5;
   return Math.min(
     CAD_MODIFIER_MAX_PREPARE_TIMEOUT_MS,
     Math.max(60_000, Math.ceil(meshPreparationBudget)),

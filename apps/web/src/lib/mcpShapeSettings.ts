@@ -26,6 +26,7 @@ export const MCP_SHAPE_SETTING_KEYS = [
   "teeth", "toothSize", "toothWidth", "centerHoleSize", "gearType", "helixAngle", "helixQuality",
   "threadRole", "threadHead", "threadHand", "threadDiameter", "threadPitch",
   "threadClearance", "threadQuality", "threadHeadHeight", "threadChamfer",
+  "threadHeadChamfer",
   "springTurns", "springWire", "springQuality",
   "text", "font",
 ] as const satisfies readonly (keyof WorkplaneShape)[];

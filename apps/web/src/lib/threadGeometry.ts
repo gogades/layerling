@@ -279,6 +279,7 @@ export type ThreadShapeFields = {
   threadQuality?: number;
   threadHeadHeight?: number;
   threadChamfer?: number;
+  threadHeadChamfer?: number;
 };
 
 export type ThreadSettings = {
@@ -291,6 +292,7 @@ export type ThreadSettings = {
   quality: number;
   headHeight: number;
   chamfer: number;
+  headChamfer: number;
 };
 
 export function threadSettings(shape: ThreadShapeFields): ThreadSettings {
@@ -301,13 +303,18 @@ export function threadSettings(shape: ThreadShapeFields): ThreadSettings {
     diameter,
     pitch: normalizeThreadPitch(shape.threadPitch, diameter),
   };
+  const headHeight = normalizeThreadHeadHeight(shape.threadHeadHeight, head);
+  const chamfer = normalizeThreadChamfer(shape.threadChamfer, head);
   return {
     ...head,
     hand: normalizeThreadHand(shape.threadHand),
     clearance: normalizeThreadClearance(shape.threadClearance),
     quality: normalizeThreadQuality(shape.threadQuality),
-    headHeight: normalizeThreadHeadHeight(shape.threadHeadHeight, head),
-    chamfer: normalizeThreadChamfer(shape.threadChamfer, head),
+    headHeight,
+    chamfer,
+    // Die Aussenfase kennt ihre Grenze erst, wenn Kopfhoehe und Ansenkung
+    // feststehen - bei der Mutter frisst die Ansenkung von innen mit.
+    headChamfer: normalizeThreadHeadChamfer(shape.threadHeadChamfer, { ...head, headHeight, chamfer }),
   };
 }
 
@@ -346,6 +353,71 @@ export function threadHeadDiameter(settings: Pick<ThreadSettings, "role" | "head
   const spec = threadSizeSpec(settings.diameter, settings.pitch);
   if (settings.head === "countersunk") return settings.diameter + settings.headHeight * 2;
   return spec.headDiameter;
+}
+
+type HeadChamferShape = Pick<ThreadSettings, "role" | "head" | "diameter" | "pitch" | "headHeight"> & { chamfer?: number };
+
+/**
+ * Der Kopf steht auf seinem freien Ende. `inscribed` ist der kleinste Radius
+ * seines Querschnitts - beim Sechskant die Schluesselflaeche -, `circumscribed`
+ * der groesste. Beide Masse brauchen die Fase und ihre Grenze.
+ */
+function headRingRadii(settings: Pick<ThreadSettings, "role" | "head" | "diameter" | "pitch">) {
+  const spec = threadSizeSpec(settings.diameter, settings.pitch);
+  // Eine Mutter ist immer sechskantig - ihre Kopfform steht auf gar nichts.
+  if (settings.role === "nut" || settings.head === "hex") {
+    return { inscribed: spec.acrossFlats / 2, circumscribed: spec.acrossFlats / Math.sqrt(3) };
+  }
+  return { inscribed: spec.headDiameter / 2, circumscribed: spec.headDiameter / 2 };
+}
+
+/**
+ * Die Hoehe, in der die beiden Fasenkegel Platz finden muessen. Beim
+ * Schraubenkopf ist das seine eigene Hoehe, bei der Mutter die ganze - sie
+ * *ist* ihr Kopf. Genommen wird das Normmass, nicht die eingestellte Hoehe:
+ * `threadSettings` kennt die Hoehe des Koerpers nicht, und ein Regler, dessen
+ * Hoechstwert die Pruefung danach doch wieder einfaengt, springt zurueck.
+ */
+function chamferRimHeight(settings: HeadChamferShape) {
+  if (settings.role === "nut") return threadSizeSpec(settings.diameter, settings.pitch).nutHeight;
+  return settings.headHeight;
+}
+
+/**
+ * Die Fase am Schraubenkopf ist ein Kegel um die Achse: er beginnt an der
+ * Kopfflaeche als Kreis und trifft die Flanke erst weiter innen. Beim
+ * Sechskant faellt dieser Schnitt an den Ecken tiefer aus als an den
+ * Schluesselflaechen - genau so sieht eine gedrehte Kopffase aus.
+ *
+ * **Gebrochen werden beide Kopfkanten**, die freie Flaeche und der Uebergang
+ * zum Schaft. Nur die untere zu brechen hatte einen offensichtlichen Haken:
+ * der Koerper steht auf seinem Kopf, also sieht man von der Fase nichts, und
+ * ein Regler, der nichts sichtbar tut, gilt zu Recht als kaputt.
+ *
+ * Der Senkkopf bekommt keine: sein Kegel ist die Fase.
+ */
+export function threadHeadChamferLimits(settings: HeadChamferShape) {
+  const gilt = settings.role === "nut" || (settings.role === "screw" && settings.head !== "countersunk");
+  if (!gilt) return { min: 0, max: 0 };
+  const spec = threadSizeSpec(settings.diameter, settings.pitch);
+  const { inscribed, circumscribed } = headRingRadii(settings);
+  // Was stehen bleiben muss: das Loch in der Mitte - beim Kopf der
+  // Innensechskant und der Kragen um den Schaft, bei der Mutter ihre
+  // Bohrung samt Ansenkung - und ein Rest Flanke zwischen den beiden Kegeln.
+  const socketCorner = spec.socket / Math.sqrt(3);
+  const innen = settings.role === "nut"
+    ? settings.diameter / 2 + normalizeThreadChamfer(settings.chamfer, settings)
+    : Math.max(socketCorner, settings.diameter / 2);
+  const roomToBore = Math.max(0, inscribed - innen - 0.2);
+  const roomToHeight = Math.max(0, chamferRimHeight(settings) * 0.35 - (circumscribed - inscribed));
+  return { min: 0, max: Math.max(0, Math.min(inscribed * 0.4, roomToBore, roomToHeight)) };
+}
+
+export function normalizeThreadHeadChamfer(value: number | undefined, settings: HeadChamferShape) {
+  const limits = threadHeadChamferLimits(settings);
+  // Ohne Angabe bleibt der Kopf scharfkantig - ein gespeichertes Projekt darf
+  // sich beim Oeffnen nicht von selbst veraendern.
+  return clamp(finite(value, 0), limits.min, limits.max);
 }
 
 /** Die Hoehe, mit der ein frisch gewaehlter Gewindetyp auf die Ebene kommt. */
@@ -582,12 +654,15 @@ export function threadFootprintPatch(shape: ThreadShapeFields & { width?: number
     const diameter = normalizeThreadDiameter(settings.diameter * factor);
     const pitch = normalizeThreadPitch(settings.pitch * factor, diameter);
     const head: HeadShape = { role: settings.role, head: settings.head, diameter, pitch };
+    const headHeight = normalizeThreadHeadHeight(settings.headHeight * factor, head);
+    const chamfer = normalizeThreadChamfer(settings.chamfer * factor, head);
     return {
       ...settings,
       diameter,
       pitch,
-      headHeight: normalizeThreadHeadHeight(settings.headHeight * factor, head),
-      chamfer: normalizeThreadChamfer(settings.chamfer * factor, head),
+      headHeight,
+      chamfer,
+      headChamfer: normalizeThreadHeadChamfer(settings.headChamfer * factor, { ...head, headHeight, chamfer }),
     };
   })();
   const footprint = drift < 1e-6 ? natural : threadNaturalFootprint(scaled);
@@ -603,6 +678,7 @@ export function threadFootprintPatch(shape: ThreadShapeFields & { width?: number
     threadQuality: scaled.quality,
     threadHeadHeight: scaled.headHeight,
     threadChamfer: scaled.chamfer,
+    threadHeadChamfer: scaled.headChamfer,
   };
 }
 
@@ -653,10 +729,37 @@ export function createThreadGeometry(options: ThreadGeometryOptions) {
 
   const builder: Builder = { positions: [], indices: [] };
 
+  /*
+   * Die Aussenfase: zwei Kegel um die Achse, einer an jedem Ende. Jeder
+   * beginnt an der Stirnflaeche als Kreis vom Radius `faceRadius` und geht mit
+   * 45 Grad auf, bis er die Flanke trifft - beim Sechskant an den Ecken tiefer
+   * als an den Schluesselflaechen, genau wie eine gedrehte Fase. Die Grenze
+   * rechnet mit dem Normmass; hier steht die wirkliche Hoehe, also wird noch
+   * einmal nachgeschnitten, falls jemand den Koerper flacher gezogen hat.
+   */
+  const rimRadii = headRingRadii(settings);
+  const rimRoom = Math.max(0, height * 0.35 - (rimRadii.circumscribed - rimRadii.inscribed));
+  const rimChamfer = Math.min(settings.headChamfer, rimRoom);
+  const rimBroken = rimChamfer > 0.001;
+  const rimFaceRadius = rimRadii.inscribed - rimChamfer;
+
   if (settings.role === "nut") {
-    const outerBottom = ring(builder, angles, (angle) => hexRadius(angle, spec.acrossFlats), 0);
-    const outerTop = ring(builder, angles, (angle) => hexRadius(angle, spec.acrossFlats), height);
-    wall(builder, outerBottom, outerTop);
+    const outerRadiusAt = (angle: number) => hexRadius(angle, spec.acrossFlats);
+    const outerBottom = rimBroken
+      ? ring(builder, angles, () => rimFaceRadius, 0)
+      : ring(builder, angles, outerRadiusAt, 0);
+    const outerTop = rimBroken
+      ? ring(builder, angles, () => rimFaceRadius, height)
+      : ring(builder, angles, outerRadiusAt, height);
+    if (rimBroken) {
+      const flankeUnten = angles.map((angle) => pushVertex(builder, angle, outerRadiusAt(angle), outerRadiusAt(angle) - rimFaceRadius));
+      const flankeOben = angles.map((angle) => pushVertex(builder, angle, outerRadiusAt(angle), height - (outerRadiusAt(angle) - rimFaceRadius)));
+      wall(builder, outerBottom, flankeUnten);
+      wall(builder, flankeUnten, flankeOben);
+      wall(builder, flankeOben, outerTop);
+    } else {
+      wall(builder, outerBottom, outerTop);
+    }
     const bore = threadWall(builder, angles, 0, height, major, minor, settings.pitch, handSign, true, limitRadius, subdivisions, bandHeight);
     capRing(builder, bore.bottomEdge, outerBottom, false);
     capRing(builder, bore.topEdge, outerTop, true);
@@ -673,9 +776,32 @@ export function createThreadGeometry(options: ThreadGeometryOptions) {
       }
       return spec.headDiameter / 2;
     };
-    const headBottom = ring(builder, angles, (angle) => headRadiusAt(angle, 0), 0);
-    const headTop = ring(builder, angles, (angle) => headRadiusAt(angle, headHeight), headHeight);
-    wall(builder, headBottom, headTop);
+    // Dieselbe Fase wie an der Mutter, nur in der Hoehe des Kopfes.
+    const headRoom = Math.max(0, headHeight * 0.35 - (rimRadii.circumscribed - rimRadii.inscribed));
+    const headChamfer = Math.min(settings.headChamfer, headRoom);
+    const gebrochen = headChamfer > 0.001;
+    const faceRadius = rimRadii.inscribed - headChamfer;
+    const headBottom = gebrochen
+      ? ring(builder, angles, () => faceRadius, 0)
+      : ring(builder, angles, (angle) => headRadiusAt(angle, 0), 0);
+    const headTop = gebrochen
+      ? ring(builder, angles, () => faceRadius, headHeight)
+      : ring(builder, angles, (angle) => headRadiusAt(angle, headHeight), headHeight);
+    if (gebrochen) {
+      const flankeUnten = angles.map((angle) => {
+        const flankRadius = headRadiusAt(angle, 0);
+        return pushVertex(builder, angle, flankRadius, flankRadius - faceRadius);
+      });
+      const flankeOben = angles.map((angle) => {
+        const flankRadius = headRadiusAt(angle, headHeight);
+        return pushVertex(builder, angle, flankRadius, headHeight - (flankRadius - faceRadius));
+      });
+      wall(builder, headBottom, flankeUnten);
+      wall(builder, flankeUnten, flankeOben);
+      wall(builder, flankeOben, headTop);
+    } else {
+      wall(builder, headBottom, headTop);
+    }
     capRing(builder, shaft.bottomEdge, headTop, true);
 
     // Der Innensechskant sitzt in der freien Kopfflaeche. Der Sechskantkopf

@@ -49,7 +49,7 @@ import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
 import { interiorWorkplaneGridCoordinates, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
-import { cleanNearZero, cleanRotationDegrees, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth } from "@/lib/workplaneShapes";
+import { cleanNearZero, cleanRotationDegrees, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { LayerlingMcpViewFace } from "@/lib/layerlingMcpProtocol";
 import {
@@ -963,6 +963,7 @@ function rulerShapeTopologyKey(shape: WorkplaneShape): string {
     threadQuality: shape.threadQuality,
     threadHeadHeight: shape.threadHeadHeight,
     threadChamfer: shape.threadChamfer,
+    threadHeadChamfer: shape.threadHeadChamfer,
     springTurns: shape.springTurns,
     springWire: shape.springWire,
     springQuality: shape.springQuality,
@@ -1108,6 +1109,7 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     threadQuality: shape.threadQuality,
     threadHeadHeight: shape.threadHeadHeight,
     threadChamfer: shape.threadChamfer,
+    threadHeadChamfer: shape.threadHeadChamfer,
     springTurns: shape.springTurns,
     springWire: shape.springWire,
     springQuality: shape.springQuality,
@@ -5836,13 +5838,16 @@ export function WorkplaneViewport({
 
       {selectedShape && !modifierActive && !rulerMode && !rulerDeleteMode && !rulerMoveMode ? (
         <ShapeInspector
-          shape={selectedShape}
+          shape={shapeWithParametricSource(selectedShape)}
           snap={snap}
           snapOpen={snapOpen}
           workspace={workspace}
           onUpdate={(patch, options) => {
             clearMoveDimensions();
-            onUpdateShape(selectedShape.id, patchWithResizeAnchor(selectedShape, patch, options?.resizeAxis, lastResizeAnchorRef.current));
+            // Der Inspektor rechnet in der Urform; ein gedrehter Koerper wird
+            // daraus neu gebaut, also muss auch der Anker daher kommen.
+            const inspected = shapeWithParametricSource(selectedShape);
+            onUpdateShape(selectedShape.id, patchWithResizeAnchor(inspected, patch, options?.resizeAxis, lastResizeAnchorRef.current));
           }}
           onSnapChange={chooseSnapGrid}
           onSnapOpenChange={setSnapOpen}
@@ -8237,6 +8242,7 @@ function createShapeObject(
         threadQuality: shape.threadQuality,
         threadHeadHeight: shape.threadHeadHeight,
         threadChamfer: shape.threadChamfer,
+        threadHeadChamfer: shape.threadHeadChamfer,
       })), material, shape);
       break;
     case "spring":

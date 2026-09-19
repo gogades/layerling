@@ -18,6 +18,8 @@ import {
   threadUsesInchPitch,
   threadsPerInchToPitch,
   threadHeadDiameter,
+  threadHeadChamferLimits,
+  normalizeThreadHeadChamfer,
 } from "@/lib/threadGeometry";
 import type { ThreadRole } from "@/types/layerling";
 
@@ -204,6 +206,61 @@ describe("thread geometry", () => {
     expect(loaded.threadClearance).toBe(0.35);
     expect(loaded.threadQuality).toBe(60);
   });
+  /*
+   * Eine gedrehte Mutter ist im Datensatz ein Netz. Ohne `parametricSource`
+   * waere nach dem Laden nicht mehr zu erkennen, dass sie eine Mutter war -
+   * und ihre Bauwerte blieben fuer immer unerreichbar.
+   */
+  it("nimmt die Urform einer gedrehten Form mit ins gespeicherte Paket", async () => {
+    const asset = toolbarShapeAssets.find((entry) => entry.kind === "thread");
+    const mutter = makeShapeFromAsset(asset!, { x: 4, z: 6 }, { threadRole: "nut", threadDiameter: 12, threadPitch: 1.75 });
+    const gedreht: typeof mutter = {
+      ...mutter,
+      kind: "mesh",
+      importedMesh: {
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        baseWidth: mutter.width,
+        baseDepth: mutter.depth,
+        baseHeight: mutter.height,
+        triangleCount: 1,
+        sourceFormat: "json",
+      },
+      parametricSource: {
+        kind: "thread",
+        width: mutter.width,
+        depth: mutter.depth,
+        height: mutter.height,
+        size: mutter.size,
+        rotation: 30,
+        rotationX: 90,
+        rotationZ: 0,
+      },
+    };
+    const shapes = [gedreht];
+    const bytes = await exportLylProject({
+      projectId: "project-gedreht",
+      projectName: "Gedrehte Mutter",
+      createdAt: 1_700_000_000_000,
+      modifiedAt: 1_700_000_100_000,
+      shapes,
+      history: [editorHistoryEntry(shapes, [])],
+      historyIndex: 0,
+      assets: [],
+      workspace: DEFAULT_WORKPLANE_WORKSPACE,
+      snapGrid: DEFAULT_SNAP_GRID,
+      placementElevation: 0,
+    });
+    const loaded = (await importLylProject(bytes)).shapes[0];
+
+    expect(loaded.parametricSource?.kind).toBe("thread");
+    expect(loaded.parametricSource?.rotation).toBe(30);
+    expect(loaded.parametricSource?.rotationX).toBe(90);
+    expect(loaded.parametricSource?.height).toBeCloseTo(mutter.height, 6);
+    // Und die Bauwerte stehen weiter am Koerper selbst.
+    expect(loaded.threadRole).toBe("nut");
+    expect(loaded.threadDiameter).toBe(12);
+  });
+
   it("turns a pull on the handles into a diameter, never into an oval", () => {
     const asset = toolbarShapeAssets.find((entry) => entry.kind === "thread");
     const shape = makeShapeFromAsset(asset!, { x: 0, z: 0 });
@@ -284,6 +341,146 @@ describe("thread geometry", () => {
       middle = Math.max(middle, Math.hypot(position.getX(index), position.getZ(index)));
     }
     expect(middle).toBeCloseTo(3, 3);
+  });
+
+  /*
+   * Fraterculas Meldung aus dem Forum: am Schraubenkopf sind alle Kanten
+   * scharf, und die Kantenbearbeitung laeuft an der tessellierten Wendel in
+   * die Zeitueberschreitung. Die Kopffase bricht die Kante dort, wo sie
+   * hingehoert - im Erzeuger.
+   */
+  it("bricht die Kante des Schraubenkopfs und bleibt dabei dicht", () => {
+    for (const threadHead of ["cylinder", "hex"]) {
+      const scharf = geometryFor("screw", 24, { threadHead });
+      // Der Hoechstwert haengt vom Kopf ab - beim Sechskant frisst der Kegel
+      // an den Ecken mehr Hoehe. Also von der Grenze her messen, nicht raten.
+      const grenze = threadHeadChamferLimits(scharf.settings).max;
+      expect(grenze).toBeGreaterThan(0.3);
+      const fase = grenze * 0.8;
+      const gebrochen = geometryFor("screw", 24, { threadHead, threadHeadChamfer: fase });
+      const kante = gebrochen.geometry.getAttribute("position") as unknown as Position;
+
+      expect(gebrochen.settings.headChamfer).toBeCloseTo(fase, 6);
+      expect([...edgeUseCounts(kante).values()].every((uses) => uses === 2)).toBe(true);
+      // Eine Fase nimmt Material weg, sie fuegt keines hinzu.
+      const scharfesVolumen = signedVolume(scharf.geometry.getAttribute("position") as unknown as Position);
+      const gebrochenesVolumen = signedVolume(kante);
+      expect(gebrochenesVolumen).toBeGreaterThan(0);
+      expect(gebrochenesVolumen).toBeLessThan(scharfesVolumen);
+      // Der Koerper behaelt seinen Platzbedarf: die Fase sitzt innen.
+      expect(gebrochen.geometry.boundingBox?.min.y).toBeCloseTo(0, 5);
+      expect(gebrochen.geometry.boundingBox?.max.y).toBeCloseTo(24, 5);
+      expect(gebrochen.footprint.width).toBeCloseTo(scharf.footprint.width, 6);
+    }
+  });
+
+  /*
+   * Beide Kanten, nicht nur die untere. Der Koerper steht auf seinem Kopf -
+   * die freie Flaeche liegt also auf der Ebene, und wer nur dort brechen
+   * wuerde, haette einen Regler gebaut, dem man nichts ansieht.
+   */
+  it("zieht beide Enden des Kopfes genau um die Fase ein", () => {
+    const fase = 0.8;
+    const { geometry, settings } = geometryFor("screw", 24, { threadHead: "cylinder", threadHeadChamfer: fase });
+    const position = geometry.getAttribute("position") as unknown as Position;
+    const kopfhoehe = settings.headHeight;
+    let amFreienEnde = 0;
+    let amSchaftende = 0;
+    for (let index = 0; index < position.count; index += 1) {
+      const y = position.getY(index);
+      const radius = Math.hypot(position.getX(index), position.getZ(index));
+      if (Math.abs(y) < 1e-6) amFreienEnde = Math.max(amFreienEnde, radius);
+      // Am Kopfende zaehlt nur der Kopf selbst, nicht der Schaft darueber.
+      if (Math.abs(y - kopfhoehe) < 1e-6) amSchaftende = Math.max(amSchaftende, radius);
+    }
+    const eingezogen = threadHeadDiameter(settings) / 2 - fase;
+    expect(amFreienEnde).toBeCloseTo(eingezogen, 4);
+    expect(amSchaftende).toBeCloseTo(eingezogen, 4);
+  });
+
+  /*
+   * Dasselbe an der Mutter: sie *ist* ihr Kopf, also ist die ganze Hoehe der
+   * Platz fuer die beiden Kegel, und von innen frisst die Ansenkung der
+   * Bohrung mit. Eine echte Mutter ist an beiden Seiten gefast.
+   */
+  it("bricht beide Aussenkanten der Mutter und bleibt dabei dicht", () => {
+    const scharf = geometryFor("nut", 5);
+    const grenze = threadHeadChamferLimits(scharf.settings).max;
+    expect(grenze).toBeGreaterThan(0.3);
+    const fase = grenze * 0.8;
+    const gebrochen = geometryFor("nut", 5, { threadHeadChamfer: fase });
+    const position = gebrochen.geometry.getAttribute("position") as unknown as Position;
+
+    expect(gebrochen.settings.headChamfer).toBeCloseTo(fase, 6);
+    expect([...edgeUseCounts(position).values()].every((uses) => uses === 2)).toBe(true);
+    const scharfesVolumen = signedVolume(scharf.geometry.getAttribute("position") as unknown as Position);
+    const gebrochenesVolumen = signedVolume(position);
+    expect(gebrochenesVolumen).toBeGreaterThan(0);
+    expect(gebrochenesVolumen).toBeLessThan(scharfesVolumen);
+    // Der Platzbedarf bleibt: die Schluesselweite ist die Schluesselweite.
+    expect(gebrochen.footprint.width).toBeCloseTo(scharf.footprint.width, 6);
+    expect(gebrochen.geometry.boundingBox?.min.y).toBeCloseTo(0, 5);
+    expect(gebrochen.geometry.boundingBox?.max.y).toBeCloseTo(5, 5);
+  });
+
+  it("zieht beide Stirnflaechen der Mutter ein und laesst die Bohrung frei", () => {
+    const scharf = geometryFor("nut", 5);
+    const fase = threadHeadChamferLimits(scharf.settings).max * 0.8;
+    const { geometry, settings } = geometryFor("nut", 5, { threadHeadChamfer: fase });
+    const position = geometry.getAttribute("position") as unknown as Position;
+    const spec = threadSizeFor(settings.diameter, settings.pitch);
+    const eingezogen = (spec?.acrossFlats ?? 0) / 2 - fase;
+    let unten = 0;
+    let oben = 0;
+    let engste = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < position.count; index += 1) {
+      const y = position.getY(index);
+      const radius = Math.hypot(position.getX(index), position.getZ(index));
+      if (Math.abs(y) < 1e-6) { unten = Math.max(unten, radius); engste = Math.min(engste, radius); }
+      if (Math.abs(y - 5) < 1e-6) oben = Math.max(oben, radius);
+    }
+    expect(unten).toBeCloseTo(eingezogen, 4);
+    expect(oben).toBeCloseTo(eingezogen, 4);
+    /*
+     * Die Fase kommt von aussen, die Bohrung bleibt unberuehrt: der engste
+     * Punkt der Stirnflaeche ist nach wie vor das angesenkte Mundloch -
+     * Flankendurchmesser plus halbes Spiel plus die Ansenkung.
+     */
+    expect(engste).toBeCloseTo(settings.diameter / 2 + settings.clearance / 2 + settings.chamfer, 4);
+    // Und zwischen Mundloch und Fase bleibt eine ebene Stirnflaeche stehen.
+    expect(unten).toBeGreaterThan(engste + 0.2);
+  });
+
+  it("schneidet die Fase nach, wenn die Mutter flacher gezogen wurde", () => {
+    /*
+     * Die Grenze rechnet mit dem Normmass, weil `threadSettings` die Hoehe des
+     * Koerpers nicht kennt. Wer die Mutter halb so hoch zieht, haette sonst
+     * zwei Kegel, die sich in der Mitte treffen - der Erzeuger schneidet den
+     * Wert deshalb noch einmal nach.
+     */
+    const voll = threadHeadChamferLimits(geometryFor("nut", 5).settings).max;
+    const flach = geometryFor("nut", 2, { threadHeadChamfer: voll });
+    const position = flach.geometry.getAttribute("position") as unknown as Position;
+    expect([...edgeUseCounts(position).values()].every((uses) => uses === 2)).toBe(true);
+    expect(signedVolume(position)).toBeGreaterThan(0);
+    expect(flach.geometry.boundingBox?.max.y).toBeCloseTo(2, 5);
+  });
+
+  it("gibt dem Senkkopf keine Fase - sein Kegel ist schon eine", () => {
+    const senkkopf = { role: "screw", head: "countersunk", diameter: 6, pitch: 1, headHeight: 2 } as const;
+    expect(threadHeadChamferLimits(senkkopf).max).toBe(0);
+    expect(normalizeThreadHeadChamfer(2, senkkopf)).toBe(0);
+    // Die Gewindestange hat gar keine Aussenkante, das Gewindeloch erst recht.
+    expect(threadHeadChamferLimits({ role: "rod", head: "cylinder", diameter: 6, pitch: 1, headHeight: 0 }).max).toBe(0);
+    expect(threadHeadChamferLimits({ role: "bore", head: "cylinder", diameter: 6, pitch: 1, headHeight: 0 }).max).toBe(0);
+    // Die Mutter dagegen schon, und ihre Kopfform steht auf gar nichts.
+    expect(threadHeadChamferLimits({ role: "nut", head: "cylinder", diameter: 6, pitch: 1, headHeight: 0 }).max).toBeGreaterThan(0.3);
+  });
+
+  it("laesst ein gespeichertes Projekt unveraendert, wenn es die Kopffase noch nicht kennt", () => {
+    // Eine fehlende Angabe heisst scharfkantig - sonst saehe jede alte
+    // Schraube nach dem Oeffnen anders aus.
+    expect(threadSettings({ threadRole: "screw", threadDiameter: 6, threadPitch: 1 }).headChamfer).toBe(0);
   });
 
   it("carries the inch sizes with the same profile", () => {

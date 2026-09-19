@@ -92,7 +92,7 @@ const THREAD_HAND_OPTIONS: Array<{ value: ThreadHand; label: MessageKey }> = [
   { value: "left", label: "thread.left" },
 ];
 
-type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadQuality" | "threadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth";
+type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth";
 type ShapeSpecialField =
   | { type: "number"; key: ShapeSpecialNumberKey; label: string; defaultValue: number; min: number; max: number; step?: number; unit?: string }
   | { type: "select"; key: "font" | "gearType" | "threadRole" | "threadHead" | "threadHand"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
@@ -181,6 +181,11 @@ function specialFieldsForShape(
     ];
     if ((customization.threadRole ?? defaults.threadRole) === "screw") {
       fields.push({ type: "select", key: "threadHead", label: t("inspector.threadHead"), defaultValue: defaults.threadHead ?? DEFAULT_THREAD_HEAD, options: THREAD_HEAD_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })) });
+    }
+    // Die Aussenfase kennen Schraubenkopf und Mutter gleichermassen.
+    if (["screw", "nut"].includes(customization.threadRole ?? defaults.threadRole ?? DEFAULT_THREAD_ROLE)) {
+      const istMutter = (customization.threadRole ?? defaults.threadRole) === "nut";
+      fields.push({ type: "number", key: "threadHeadChamfer", label: t(istMutter ? "prop.rimChamfer" : "prop.headChamfer"), defaultValue: defaults.threadHeadChamfer ?? 0, min: 0, max: 40, unit: "mm" });
     }
     fields.push(
       { type: "number", key: "threadDiameter", label: t("prop.diameter"), defaultValue: defaults.threadDiameter ?? DEFAULT_THREAD_DIAMETER, min: MIN_THREAD_DIAMETER, max: MAX_THREAD_DIAMETER, unit: "mm" },
