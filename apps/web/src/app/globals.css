@@ -4019,24 +4019,20 @@ button {
   display: none;
 }
 
-.editor-toast {
-  position: fixed;
-  left: 20px;
-  bottom: calc(var(--editor-footer-height) + 14px);
-  z-index: 50;
-  max-width: min(420px, calc(100vw - 380px));
-  padding: 8px 12px;
+/* Die Statuszeile sitzt in der Fusszeile, zwischen den Verweisen. Frueher war
+   sie eine Einblendung ueber der Arbeitsflaeche - und stand dort in derselben
+   Spalte wie die Kameraleiste, die auf einem flachen Fenster bis nach unten
+   reicht. In einem Band, das ohnehin reserviert ist, kann sie nichts
+   verdecken. */
+.editor-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
   overflow: hidden;
-  color: #5c442b;
-  font-size: 13px;
-  font-weight: 800;
+  color: #7a6047;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #ded0c2;
-  border-radius: 3px;
-  box-shadow: 0 2px 10px rgba(68, 49, 28, 0.14);
-  pointer-events: none;
 }
 
 .editor-body {
@@ -4831,7 +4827,10 @@ button {
 
 .camera-controls {
   position: absolute;
-  top: 173px;
+  /* Der Ansichtswuerfel endet bei 104 Pixeln; darunter reichen 16 Pixel Luft.
+     Die 69 Pixel Abstand von frueher fehlten unten, wo die Leiste auf einem
+     flachen Fenster in die Fusszeile lief. */
+  top: 120px;
   left: 10px;
   z-index: 8;
   display: flex;
@@ -7662,6 +7661,10 @@ button {
     inset: 0;
   }
 
+  .editor-status {
+    display: none;
+  }
+
   .shape-floating-controls {
     left: 58px;
     right: 18px;
@@ -7842,6 +7845,10 @@ html[data-theme="dark"] .dashboard-legal {
 
 html[data-theme="dark"] .dashboard-legal a {
   color: #a89179;
+}
+
+html[data-theme="dark"] .editor-status {
+  color: #b3a08a;
 }
 
 html[data-theme="dark"] .dashboard-legal-version {
@@ -8091,7 +8098,6 @@ html[data-theme="dark"] .top-action-panel,
 html[data-theme="dark"] .edge-modifier-panel,
 html[data-theme="dark"] .camera-controls,
 html[data-theme="dark"] .ruler-tool-popover,
-html[data-theme="dark"] .editor-toast,
 html[data-theme="dark"] .snap-menu {
   color: #ede4d4;
   background: rgba(40, 30, 20, 0.97);
@@ -8956,4 +8962,35 @@ html[data-theme="dark"] .language-switch button.active {
 
 html[data-theme="dark"] .language-switch svg {
   border-color: rgba(243, 237, 227, 0.3);
+}
+
+/* Ein flaches Fenster - ein iPad quer, in Safari mit Adress-, Lesezeichen- und
+   Tableiste - laesst der Arbeitsflaeche kaum vierhundert Pixel. Die
+   Kameraleiste braucht aufgerecht rund 380 davon und lief deshalb unten aus dem
+   Bild. Hier rueckt sie hoeher und wird etwas kleiner; die Hoehe ist gemeint,
+   nicht die Breite, und genau daran hing es: Die einzige Regel dafuer war an
+   die Breite geknuepft und griff auf einem breiten, flachen Fenster nie. */
+@media (max-height: 780px) {
+  .view-cube {
+    transform: scale(0.8);
+    transform-origin: top left;
+  }
+
+  .camera-controls {
+    top: 96px;
+    transform: scale(0.88);
+    transform-origin: top left;
+  }
+}
+
+/* Noch flacher, und Verkleinern hilft nicht mehr: Bei achtzig Prozent waeren
+   die Schaltflaechen 34 Pixel gross - auf einem Geraet, das mit dem Finger
+   bedient wird, zu klein. Stattdessen stellt sich die Leiste zweispaltig, dann
+   ist sie halb so hoch und die Flaechen bleiben, wie sie sind. */
+@media (max-height: 700px) {
+  .camera-controls {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    transform: none;
+  }
 }

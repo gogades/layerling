@@ -407,7 +407,7 @@ export const MESSAGES_EN = {
   "status.alignAnchorNamed": "Align anchor: {name}",
   "status.mirrorStart": "Mirror: choose an axis arrow",
   "status.mirrorCancelled": "Mirror cancelled",
-  "status.workplaneToolStart": "Workplane tool: click a face or empty grid; hold Shift to reverse",
+  "status.workplaneToolStart": "New workplane",
   "status.workplaneToolCancelled": "Workplane tool cancelled",
   "status.workplaneFromFace": "Workplane set to selected face",
   "status.workplaneReset": "Workplane reset to base",

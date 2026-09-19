@@ -235,6 +235,8 @@ const CUTTER_PADDING = 0.05;
 const POINT_TOLERANCE = 0.0001;
 const CUTTER_RESIDUAL_INSET = CUTTER_PADDING * 0.4;
 const MIN_SHAPE_DIMENSION = 0.01;
+/** So lange bleibt eine Bestaetigung in der Statuszeile stehen. */
+const NOTICE_LINGER_MS = 4000;
 const MAX_SKETCH_HISTORY_ENTRIES = 100;
 const MODEL_DIMENSION_PRECISION = 3;
 const IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT = 150000;
@@ -5573,14 +5575,37 @@ export function LayerlingEditor({
   const [mirrorPreviewAxis, setMirrorPreviewAxis] = useState<AlignAxis | null>(null);
   const [activeMode, setActiveMode] = useState("3D Design");
   const editorLanguage = useLanguage();
-  const [notice, setNotice] = useState(() => t("status.ready"));
+  const [notice, setNoticeText] = useState(() => t("status.ready"));
+  const noticeTimerRef = useRef<number | null>(null);
+
+  /**
+   * Die Statuszeile in der Fusszeile. Eine Bestaetigung - „Gewinde
+   * hinzugefuegt" - hat nach ein paar Sekunden ihren Zweck erfuellt und macht
+   * wieder Platz. Alles, was etwas von einem will oder schiefgegangen ist,
+   * bleibt stehen, bis es abgeloest wird: Eine Aufforderung, die sich von
+   * selbst zurueckzieht, ist keine.
+   */
+  const setNotice = useCallback((message: string, transient = false) => {
+    setNoticeText(message);
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = transient
+      ? window.setTimeout(() => {
+        noticeTimerRef.current = null;
+        setNoticeText(t("status.ready"));
+      }, NOTICE_LINGER_MS)
+      : null;
+  }, []);
+
+  useEffect(() => () => {
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
+  }, []);
 
   // Die Statuszeile traegt fertigen Text, keinen Schluessel. Nach einem
   // Sprachwechsel waere die stehende Meldung ohnehin veraltet, also faellt
   // sie auf den Ruhezustand in der neuen Sprache zurueck.
   useEffect(() => {
     setNotice(t("status.ready"));
-  }, [editorLanguage]);
+  }, [editorLanguage, setNotice]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const projectFileInputRef = useRef<HTMLInputElement | null>(null);
   const sketchImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -6325,7 +6350,9 @@ export function LayerlingEditor({
       setSelectedIds(validSelection);
       const changed = appendHistorySnapshot(canonicalNext, validSelection);
       if (message) {
-        setNotice(message);
+        // Alles, was hierher kommt, ist eine Bestaetigung: Etwas ist entstanden,
+        // hat sich geaendert oder ist verschwunden - und das sieht man ohnehin.
+        setNotice(message, true);
       }
       if (changed) {
         syncProjectShapes(canonicalNext);
@@ -9577,7 +9604,7 @@ export function LayerlingEditor({
           />
         )}
       </div>
-      <AppFooter variant="editor" version={LYL_CREATED_WITH_VERSION} />
+      <AppFooter variant="editor" version={LYL_CREATED_WITH_VERSION} status={notice} />
       {edgeModifier ? (
         <EdgeModifierPanel
           kind={edgeModifier.kind}
@@ -9685,9 +9712,6 @@ export function LayerlingEditor({
         <ShortcutsModal sketchMode={toolbarMode === "sketch"} onClose={() => setShortcutsOpen(false)} />
       ) : null}
       {guideOpen ? <GuideModal sharedStore={sharedProjectsEnabled} onClose={() => setGuideOpen(false)} /> : null}
-      <div className="editor-toast" role="status">
-        {notice}
-      </div>
       <pre data-codex-state hidden>
         {debugState}
       </pre>

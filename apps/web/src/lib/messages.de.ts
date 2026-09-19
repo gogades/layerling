@@ -406,7 +406,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "status.alignAnchorNamed": "Ausrichtungsanker: {name}",
   "status.mirrorStart": "Spiegeln: einen Achsenpfeil wählen",
   "status.mirrorCancelled": "Spiegeln abgebrochen",
-  "status.workplaneToolStart": "Arbeitsebenen-Werkzeug: eine Fläche oder freies Raster anklicken; Umschalt kehrt die Richtung um",
+  "status.workplaneToolStart": "Neue Arbeitsebene",
   "status.workplaneToolCancelled": "Arbeitsebenen-Werkzeug abgebrochen",
   "status.workplaneFromFace": "Arbeitsebene auf die gewählte Fläche gelegt",
   "status.workplaneReset": "Arbeitsebene auf die Grundebene zurückgesetzt",
