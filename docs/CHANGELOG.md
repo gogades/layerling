@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.4.0
 
 - layerling has icons of its own in the sizes a browser cannot make from an SVG. iOS takes nothing but PNG for the home screen, so **Add to Home Screen** used to put a snapshot of the page there instead of the mark, and anything that asks for `/favicon.ico` out of habit got a 404. The mark itself is unchanged: the PNGs are drawn from the same `layerling-icon.svg` the browser tab already shows, so it stays the one place the brand is described.
 - A web manifest makes the site something a browser can install - its own window without an address bar, under the right name and icon, and on Android an icon that survives being masked into whatever shape the launcher uses. There is no service worker, so an installed layerling still needs the network; installing only takes the browser's own frame away.
