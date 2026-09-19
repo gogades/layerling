@@ -146,6 +146,11 @@ diesem Ordner: **Neuer Entwurf** legt einen darin an, **Neuer Ordner** einen Unt
 diese Kachel oder auf einen Schritt der Pfadzeile - oder über **Verschieben nach …** in ihrem Menü. Ein Entwurf aus dem
 Browser kommt genauso auf den Server: seine Kachel auf den Serverordner ziehen.
 
+**Duplizieren** im Menü eines Entwurfs legt eine Kopie an. Auf dem Server wird die Datei selbst kopiert, neben dem
+Original und unter einem freien Namen, das Vorschaubild inbegriffen - es wird nichts neu gepackt, die Kopie trägt also
+genau die Geometrie des Originals. Im Browser entsteht ein eigener Entwurf mit denselben Formen, demselben Verlauf und
+einem eigenen Vorschaubild, und er gehört niemandem auf dem Server.
+
 Ein Entwurf, der auf dem Server liegt, sichert sich von selbst dorthin zurück - fünf Sekunden nach der letzten Änderung
 und beim Verlassen des Editors. Vorschaubilder landen daneben in `.thumbnails`. Was nur im Browser liegt, bleibt dort und
 bleibt unberührt.

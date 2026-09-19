@@ -142,6 +142,11 @@ you are. A `..` tile leads back out. Designs move by dragging them onto a folder
 trail - or through **Move to ...** in their menu. A design from your browser goes onto the server the same way: drag its
 card onto the server folder.
 
+**Duplicate** in a design's menu makes a copy of it. On the server the file itself is copied, next to the original and
+under a free name, picture and all - nothing is repacked, so the copy carries exactly the geometry of the original. In
+your browser the copy becomes a design of its own, with the same shapes, the same history and its own preview picture,
+and it belongs to nobody on the server.
+
 A design that lives on the server saves itself back there, five seconds after the last change and when you leave the
 editor. Thumbnails land beside the files in `.thumbnails`. Designs that are only in your browser stay there, untouched.
 

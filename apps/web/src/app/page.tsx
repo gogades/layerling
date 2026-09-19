@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock3, EllipsisVertical, FileUp, FolderInput, FolderKanban, FolderPlus, FolderUp, Grid3X3, List, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Clock3, Copy, EllipsisVertical, FileUp, FolderInput, FolderKanban, FolderPlus, FolderUp, Grid3X3, List, Pencil, Plus, RefreshCw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { AppFooter } from "@/components/AppFooter";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
@@ -10,6 +10,7 @@ import { LayerlingEditor, importedShapeFromObj, importedShapeFromStl, importedSh
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, notesForHistoryIndex, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { detectLanguage, setLanguage, t, type Language } from "@/lib/i18n";
+import { duplicateName, type DuplicateNamePatterns } from "@/lib/duplicateName";
 import { migrateLegacyProjectShapes, migrateLegacyStorageKeys, PROJECT_SHAPES_DB_NAME } from "@/lib/storageMigration";
 import { useLanguage } from "@/lib/useLanguage";
 import { createLocalId } from "@/lib/localIds";
@@ -135,6 +136,10 @@ type ProjectShapeResourceRecord =
     };
 
 const PROJECTS_STORAGE_KEY = "layerling.projects";
+/** So lang darf ein Entwurfsname werden - so lang kuerzt auch das Umbenennen. */
+const PROJECT_NAME_LIMIT = 80;
+/** Und so lang der Dateiname auf dem Server, ohne Endung: beide Speicher kuerzen dort. */
+const SHARED_PROJECT_NAME_LIMIT = 115;
 const PROJECT_SHAPES_STORE_NAME = "projectShapes";
 const PROJECT_SHAPE_RESOURCES_STORE_NAME = "projectShapeResources";
 const PROJECT_NAME_TOOLBAR_STORAGE_KEY = "layerling.showProjectNameInToolbar";
@@ -362,6 +367,11 @@ async function projectPackageBytes(project: DashboardProject) {
   });
 }
 
+/** Die beiden Muster, aus denen der Name einer Kopie entsteht. */
+function duplicateNamePatterns(): DuplicateNamePatterns {
+  return { copy: t("dashboard.copyOf"), numbered: t("dashboard.copyOfNumbered") };
+}
+
 /** The card picture as a PNG the server will take, or nothing. */
 async function projectThumbnailBlob(thumbnailUrl: string | null | undefined): Promise<Blob | null> {
   if (!thumbnailUrl) return null;
@@ -372,6 +382,25 @@ async function projectThumbnailBlob(thumbnailUrl: string | null | undefined): Pr
   } catch {
     return null;
   }
+}
+
+/**
+ * Das Kartenbild als Datenadresse, egal wie es abgelegt ist: im statischen
+ * Export steht es schon so da, sonst liegt es hinter einer Adresse und wird
+ * dafuer einmal geholt. So bekommt eine Kopie ihr eigenes Bild, statt auf das
+ * des Originals zu zeigen - das mit dem Original verschwaende.
+ */
+async function projectThumbnailDataUrl(thumbnailUrl: string | null | undefined): Promise<string | null> {
+  if (!thumbnailUrl) return null;
+  if (thumbnailUrl.startsWith("data:")) return thumbnailUrl;
+  const blob = await projectThumbnailBlob(thumbnailUrl);
+  if (!blob) return null;
+  return new Promise<string | null>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
 }
 
 /**
@@ -1073,7 +1102,10 @@ export default function Home() {
           && (project.sharedProject?.path ?? "") === (sharedProject.path ?? ""))
         : undefined;
       const project: DashboardProject = {
-        ...(existing ?? newProject(restored.projectName, projects.length, restored.shapes.length)),
+        // Der Dateiname sticht den Namen im Paket: Auf der Karte steht der
+        // Dateiname, und eine Kopie traegt den des Originals im Paket, bis der
+        // erste Speicherlauf ihn nachzieht.
+        ...(existing ?? newProject(sharedProject?.name ?? restored.projectName, projects.length, restored.shapes.length)),
         createdAt: restored.createdAt,
         updatedAt: now,
         revision: now,
@@ -1186,6 +1218,45 @@ export default function Home() {
       await refreshSharedProjects();
     }
   }, [refreshSharedProjects]);
+
+  /**
+   * Eine Kopie eines Serverentwurfs, im selben Ordner.
+   *
+   * Der Server kopiert die Datei, es wird nichts neu gepackt - die Kopie traegt
+   * also genau die Geometrie des Originals. Den freien Namen sucht der Browser
+   * aus der Liste, die er ohnehin vor sich hat; ist er in der Zwischenzeit
+   * vergeben, weist der Server ihn ab, statt etwas zu ueberschreiben.
+   */
+  const duplicateSharedProject = useCallback(async (sharedProject: SharedProject) => {
+    const name = duplicateName(
+      sharedProject.name,
+      sharedProjects.map((project) => project.name),
+      duplicateNamePatterns(),
+      SHARED_PROJECT_NAME_LIMIT,
+    );
+    setDashboardNotice(t("notice.duplicating", { name: sharedProject.name }));
+    try {
+      const query = new URLSearchParams({ fileName: sharedProject.fileName, copyTo: name });
+      if (sharedProject.path) query.set("path", sharedProject.path);
+      const response = await fetch(`${SHARED_PROJECTS_ENDPOINT}?${query.toString()}`, {
+        method: "POST",
+        headers: { "If-Match": `"${sharedProject.revision}"` },
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string; project?: SharedProject; currentRevision?: string };
+      if (!response.ok || !payload.project) {
+        // Wie beim Verschieben: nur die Abweisung wegen eines geaenderten
+        // Standes nennt eine Revision, daran sind die beiden 409 zu trennen.
+        const nameTaken = response.status === 409 && payload.currentRevision === undefined;
+        throw new Error(nameTaken ? t("notice.moveNameTaken", { name }) : payload.error ?? t("notice.duplicateFailed"));
+      }
+      const copy = payload.project;
+      await refreshSharedProjects();
+      setDashboardNotice(t("notice.duplicated", { name: copy.name }));
+    } catch (error) {
+      setDashboardNotice(error instanceof Error ? error.message : t("notice.duplicateFailed"));
+      await refreshSharedProjects();
+    }
+  }, [refreshSharedProjects, sharedProjects]);
 
   const saveActiveProjectToShared = useCallback(async ({ exportName, bytes, thumbnailDataUrl, targetFileName }: { exportName: string; bytes: Uint8Array; thumbnailDataUrl: string; targetFileName?: string }) => {
     const activeProject = projects.find((project) => project.id === activeProjectId);
@@ -1527,8 +1598,52 @@ export default function Home() {
     });
   };
 
+  /**
+   * Eine Kopie eines Entwurfs in diesem Browser.
+   *
+   * Kopiert wird der ganze Stand samt Verlauf, Notizen und eingelesener
+   * Geometrie - also das, was `loadProjectShapes` hergibt, unter einer neuen
+   * Kennung neu gepackt. Zwei Dinge erbt die Kopie ausdruecklich **nicht**: die
+   * Bindung an eine Serverdatei, denn die gehoert dem Original, und das
+   * Kartenbild als blosse Adresse - das bekommt sie als eigenes Bild.
+   */
+  const duplicateProject = async (projectId: string) => {
+    const source = projects.find((project) => project.id === projectId);
+    if (!source) return;
+    setDashboardNotice(t("notice.duplicating", { name: source.name }));
+    try {
+      const stored = projectShapesById[projectId] ?? await loadProjectShapes(projectId);
+      if (!stored) throw new Error(t("notice.projectShapesLoadFailed"));
+      const now = Date.now();
+      const { sharedProject: _bound, ...carried } = source;
+      const copy: DashboardProject = {
+        ...carried,
+        id: createLocalId("project"),
+        name: duplicateName(source.name, projects.map((project) => project.name), duplicateNamePatterns(), PROJECT_NAME_LIMIT),
+        createdAt: now,
+        updatedAt: now,
+        revision: now,
+        thumbnailUrl: null,
+        thumbnailVersion: undefined,
+      };
+      const entry = projectShapeCacheEntry(now, stored.shapes ?? [], stored.history, stored.historyIndex, stored.assets ?? []);
+      await saveProjectShapes(copy.id, entry, projectShapeSaveContext(copy));
+      setProjectShapesById((current) => ({ ...current, [copy.id]: entry }));
+      setProjects((current) => [copy, ...current]);
+      const picture = await projectThumbnailDataUrl(source.thumbnailUrl);
+      // Das Bild ist Beiwerk: Bleibt es aus, steht die Kopie eben mit der
+      // Ersatzflaeche da, statt dass das Duplizieren als gescheitert gilt.
+      if (picture) {
+        await updateProjectSnapshot({ image: picture, projectId: copy.id, shapes: copy.shapes }).catch(() => undefined);
+      }
+      setDashboardNotice(t("notice.duplicated", { name: copy.name }));
+    } catch (error) {
+      setDashboardNotice(error instanceof Error ? error.message : t("notice.duplicateFailed"));
+    }
+  };
+
   const renameProject = (projectId: string, name: string) => {
-    const nextName = name.trim().slice(0, 80);
+    const nextName = name.trim().slice(0, PROJECT_NAME_LIMIT);
     if (!nextName) return;
     setProjects((current) =>
       current.map((project) => (project.id === projectId ? { ...project, name: nextName, updatedAt: Date.now() } : project)),
@@ -1595,6 +1710,8 @@ export default function Home() {
           onCreate={() => createAndOpenProject()}
           onDeleteProject={deleteProject}
           onDeleteSharedProject={(project) => void deleteSharedProject(project)}
+          onDuplicateProject={(projectId) => void duplicateProject(projectId)}
+          onDuplicateSharedProject={(project) => void duplicateSharedProject(project)}
           onImportFile={() => dashboardImportInputRef.current?.click()}
           onOpenSharedProject={(project) => void openSharedProject(project)}
           onOpenProject={openEditor}
@@ -1743,6 +1860,8 @@ function Dashboard({
   onCreate,
   onDeleteProject,
   onDeleteSharedProject,
+  onDuplicateProject,
+  onDuplicateSharedProject,
   onImportFile,
   onOpenSharedProject,
   onOpenProject,
@@ -1776,6 +1895,8 @@ function Dashboard({
   onCreate: () => void;
   onDeleteProject: (projectId: string) => void;
   onDeleteSharedProject: (project: SharedProject) => void;
+  onDuplicateProject: (projectId: string) => void;
+  onDuplicateSharedProject: (project: SharedProject) => void;
   onImportFile: () => void;
   onOpenSharedProject: (project: SharedProject) => void;
   onOpenProject: (projectId: string) => void;
@@ -2120,6 +2241,17 @@ function Dashboard({
                             <span>{t("shared.moveTo")}</span>
                           </button>
                           <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setOpenSharedProjectMenuFileName(null);
+                              onDuplicateSharedProject(project);
+                            }}
+                          >
+                            <Copy size={16} />
+                            <span>{t("common.duplicate")}</span>
+                          </button>
+                          <button
                             className="delete"
                             type="button"
                             role="menuitem"
@@ -2278,6 +2410,17 @@ function Dashboard({
                           <button type="button" role="menuitem" onClick={() => startProjectRename(project)}>
                             <Pencil size={16} />
                             <span>{t("common.rename")}</span>
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setOpenProjectMenuId(null);
+                              onDuplicateProject(project.id);
+                            }}
+                          >
+                            <Copy size={16} />
+                            <span>{t("common.duplicate")}</span>
                           </button>
                           <button
                             className="delete"

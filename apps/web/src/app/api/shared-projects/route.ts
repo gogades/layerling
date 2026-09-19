@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { promises as fs } from "fs";
+import { constants as fsConstants, promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
 import { inspectLylProjectPackage, LYL_LIMITS, LYL_MEDIA_TYPE } from "@/lib/lylProject";
@@ -391,6 +391,73 @@ async function moveProject(root: string, folder: string, requestedTarget: string
 }
 
 /**
+ * Duplicating a project inside its own folder.
+ *
+ * The file is copied, not repacked: the duplicate carries exactly the geometry
+ * of the original, down to the byte, and its picture travels with it under the
+ * new file's revision. The name inside the package still says the original - it
+ * is put right by the first save, and until then the file name is what the
+ * dashboard shows.
+ */
+async function copyProject(root: string, folder: string, requestedName: string, request: Request) {
+  const requestUrl = new URL(request.url);
+  const requested = requestUrl.searchParams.get("fileName") ?? "";
+  if (!requested) throw new RequestFailure("Shared project name is required", 400);
+  const fileName = existingProjectFileName(requested);
+  if (fileName !== requested) throw new RequestFailure("Invalid shared project name", 400);
+
+  const copyFileName = safeProjectFileName(requestedName);
+  if (copyFileName === fileName) throw new RequestFailure("The copy needs a name of its own", 409);
+
+  const filePath = path.join(folder, fileName);
+  const sourceLock = await acquireLock(filePath);
+  let copyLock: Awaited<ReturnType<typeof acquireLock>> | null = null;
+  try {
+    const currentStat = await regularFileStat(filePath);
+    if (!currentStat) throw new RequestFailure("Shared project was not found", 404);
+    const currentRevision = revisionForStat(currentStat);
+    const expectedRevision = unquoteEtag(request.headers.get("if-match"));
+    if (!expectedRevision) {
+      throw new RequestFailure("Reload shared projects before duplicating so the current revision can be verified", 428, { currentRevision });
+    }
+    if (expectedRevision !== currentRevision) {
+      throw new RequestFailure("The shared project changed after you loaded it. Refresh the shared projects list and try again.", 409, { currentRevision });
+    }
+
+    const copyPath = path.join(folder, copyFileName);
+    copyLock = await acquireLock(copyPath);
+    // COPYFILE_EXCL rather than asking first: between a question and a write
+    // somebody else could take the name.
+    await fs.copyFile(filePath, copyPath, fsConstants.COPYFILE_EXCL).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+        throw new RequestFailure("A project of that name is already in that folder", 409);
+      }
+      throw error;
+    });
+
+    const copyStat = await fs.stat(copyPath);
+    const copyRevision = revisionForStat(copyStat);
+    const thumbnail = sharedThumbnailPath(folder, fileName, currentRevision);
+    let hasThumbnail = false;
+    if (await regularFileStat(thumbnail)) {
+      await fs.mkdir(path.join(folder, SHARED_THUMBNAILS_DIR), { recursive: true });
+      hasThumbnail = await fs.copyFile(thumbnail, sharedThumbnailPath(folder, copyFileName, copyRevision)).then(() => true, () => false);
+    }
+    const record = projectRecord(copyFileName, copyStat, hasThumbnail, folderKey(root, folder));
+    return NextResponse.json(
+      { project: record, copiedFrom: fileName },
+      { status: 201, headers: { "Cache-Control": "no-store", ETag: `"${record.revision}"` } },
+    );
+  } finally {
+    for (const lock of [sourceLock, copyLock]) {
+      if (!lock) continue;
+      await lock.handle.close().catch(() => undefined);
+      await fs.unlink(lock.lockPath).catch(() => undefined);
+    }
+  }
+}
+
+/**
  * Removing a folder. An empty one goes without further ado; one that still
  * holds something needs `recursive=1`, so a request that lost its way cannot
  * take a tree of projects with it.
@@ -480,7 +547,7 @@ export async function POST(request: Request) {
     const folder = await resolveFolder(root, requestUrl.searchParams.get("path"));
     const folderPath = folderKey(root, folder);
 
-    // The three writes that are not a project upload, in the order store.php
+    // The four writes that are not a project upload, in the order store.php
     // answers them. An empty moveTo is the store's own root, so that one is
     // asked for by presence rather than by value.
     const newFolder = requestUrl.searchParams.get("folder");
@@ -489,6 +556,8 @@ export async function POST(request: Request) {
     if (renameTo) return await renameFolder(root, folder, renameTo);
     const moveTo = requestUrl.searchParams.get("moveTo");
     if (moveTo !== null) return await moveProject(root, folder, moveTo, request);
+    const copyTo = requestUrl.searchParams.get("copyTo");
+    if (copyTo) return await copyProject(root, folder, copyTo, request);
 
     const declaredLength = Number(request.headers.get("content-length") ?? 0);
     const multipartRequest = request.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data") ?? false;

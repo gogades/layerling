@@ -770,6 +770,83 @@ function handle_move(string $root, string $folder, string $requestedTarget): voi
     ], 200, ['ETag' => '"' . $record['revision'] . '"']);
 }
 
+/**
+ * Duplicating a project inside its own folder.
+ *
+ * The file is copied, not repacked: the duplicate carries exactly the geometry
+ * of the original, down to the byte, and its picture travels with it under the
+ * new file's revision. The name inside the package still says the original - it
+ * is put right by the first save, and until then the file name is what the
+ * dashboard shows.
+ */
+function handle_copy(string $root, string $folder, string $requestedName): void
+{
+    if (!same_origin()) {
+        fail('Shared projects only accept same-origin changes', 403);
+    }
+    $requested = (string) ($_GET['fileName'] ?? '');
+    if ($requested === '') {
+        fail('Shared project name is required', 400);
+    }
+    $fileName = existing_project_file_name($requested);
+    if ($fileName !== $requested) {
+        fail('Invalid shared project name', 400);
+    }
+
+    $copyFileName = safe_project_file_name($requestedName);
+    if ($copyFileName === $fileName) {
+        fail('The copy needs a name of its own', 409);
+    }
+
+    $filePath = $folder . DIRECTORY_SEPARATOR . $fileName;
+    acquire_lock($filePath);
+
+    $currentStat = regular_file_stat($filePath);
+    if ($currentStat === null) {
+        fail('Shared project was not found', 404);
+    }
+    $currentRevision = revision_for($currentStat);
+    $expectedRevision = unquote_etag($_SERVER['HTTP_IF_MATCH'] ?? null);
+    if ($expectedRevision === null) {
+        fail('Reload shared projects before duplicating so the current revision can be verified', 428, ['currentRevision' => $currentRevision]);
+    }
+    if ($expectedRevision !== $currentRevision) {
+        fail('The shared project changed after you loaded it. Refresh the shared projects list and try again.', 409, ['currentRevision' => $currentRevision]);
+    }
+
+    $copyPath = $folder . DIRECTORY_SEPARATOR . $copyFileName;
+    if (regular_file_stat($copyPath) !== null || is_dir($copyPath)) {
+        fail('A project of that name is already in that folder', 409);
+    }
+    // The lock is taken before the copy, so a save under the same name cannot
+    // slip in between the question above and the write below.
+    acquire_lock($copyPath);
+    if (!@copy($filePath, $copyPath)) {
+        fail('The project could not be duplicated', 500);
+    }
+
+    $copyStat = regular_file_stat($copyPath);
+    if ($copyStat === null) {
+        fail('The copy vanished right after it was written', 500);
+    }
+    $copyRevision = revision_for($copyStat);
+    $thumbnail = thumbnail_path($folder, $fileName, $currentRevision);
+    $hasThumbnail = false;
+    if (regular_file_stat($thumbnail) !== null) {
+        $thumbnailsRoot = $folder . DIRECTORY_SEPARATOR . THUMBNAILS_DIRECTORY;
+        if (!is_dir($thumbnailsRoot)) {
+            @mkdir($thumbnailsRoot, 0775, true);
+        }
+        $hasThumbnail = @copy($thumbnail, thumbnail_path($folder, $copyFileName, $copyRevision));
+    }
+
+    $record = project_record($copyFileName, $copyStat, $hasThumbnail, folder_key($root, $folder));
+    send_json([
+        'project'    => $record,
+        'copiedFrom' => $fileName,
+    ], 201, ['ETag' => '"' . $record['revision'] . '"']);
+}
+
 // --------------------------------------------------------------------- entry
 
 $root = store_root();
@@ -825,6 +902,10 @@ switch ($method) {
         // for by presence, not by value.
         if (isset($_GET['moveTo'])) {
             handle_move($root, $folder, (string) $_GET['moveTo']);
+        }
+        $copyTo = $_GET['copyTo'] ?? null;
+        if ($copyTo !== null && $copyTo !== '') {
+            handle_copy($root, $folder, (string) $copyTo);
         }
         handle_save($root, $folder);
         break;
