@@ -39,6 +39,7 @@ import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, 
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { DEFAULT_WORKPLANE_WORKSPACE, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MIN_CUSTOM_SHAPE_DIMENSION } from "@/lib/workplaneSettings";
 import type { GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import { selectWholeValue } from "@/lib/numberField";
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
 type WorkspaceSettingsSection = "appearance" | "measurement" | "workplane" | "shapes" | "history";
@@ -538,6 +539,7 @@ export function WorkspaceSettingsModal({
                       <input
                         type="text"
                         inputMode="decimal"
+                        onFocus={(event) => selectWholeValue(event.currentTarget)}
                         value={dimensionDrafts.width}
                         onChange={(event) => {
                           const value = event.currentTarget.value;
@@ -554,6 +556,7 @@ export function WorkspaceSettingsModal({
                       <input
                         type="text"
                         inputMode="decimal"
+                        onFocus={(event) => selectWholeValue(event.currentTarget)}
                         value={dimensionDrafts.depth}
                         onChange={(event) => {
                           const value = event.currentTarget.value;
@@ -576,6 +579,7 @@ export function WorkspaceSettingsModal({
                         <input
                           type="text"
                           inputMode="decimal"
+                          onFocus={(event) => selectWholeValue(event.currentTarget)}
                           value={gridBlockSizeDraft}
                           onChange={(event) => setGridBlockSizeDraft(event.currentTarget.value)}
                           onBlur={(event) => setGridBlockSize(event.currentTarget.value)}
@@ -627,6 +631,7 @@ export function WorkspaceSettingsModal({
                             key={`${selectedShapeKind}-${key}-${selectedShapeCustomization[key] ?? "app"}`}
                             type="text"
                             inputMode="decimal"
+                            onFocus={(event) => selectWholeValue(event.currentTarget)}
                             defaultValue={(selectedShapeCustomization[key] ?? selectedShapeAppDefaults[key]).toFixed(workspace.accuracy)}
                             onBlur={(event) => setShapeDefaultDimension(key, event.currentTarget.value)}
                             onKeyDown={(event) => {
@@ -689,6 +694,7 @@ export function WorkspaceSettingsModal({
                                   key={`${selectedShapeKind}-${field.key}-${String(customizedValue ?? "app")}-${field.defaultValue}`}
                                   type="text"
                                   inputMode="decimal"
+                                  onFocus={(event) => selectWholeValue(event.currentTarget)}
                                   defaultValue={field.step === 1 ? String(Math.round(numericValue)) : numericValue.toFixed(workspace.accuracy)}
                                   onBlur={(event) => setShapeSpecialNumber(field, event.currentTarget.value)}
                                   onKeyDown={(event) => {
@@ -713,6 +719,7 @@ export function WorkspaceSettingsModal({
                         key={`${selectedShapeKind}-limit-${selectedShapeCustomization.maxDimension ?? "app"}`}
                         type="text"
                         inputMode="decimal"
+                        onFocus={(event) => selectWholeValue(event.currentTarget)}
                         defaultValue={selectedShapeCustomization.maxDimension?.toFixed(workspace.accuracy) ?? ""}
                         placeholder={t("workspace.appLimits")}
                         onBlur={(event) => setShapeLimit(event.currentTarget.value)}

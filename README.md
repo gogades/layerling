@@ -65,6 +65,17 @@ And the parts you already have keep working: import an STL and build around it.
 - **Export what your slicer wants** - STL or OBJ, for the selection or the whole scene, plus STEP if the design should travel on into a full CAD program.
 - **Perspective or straight-on** - switch between the normal view and a flat, orthographic one with the cube button beside the zoom controls, or by pressing **O**. Your viewing direction and framing are kept.
 
+### On a tablet
+
+One finger works the design, exactly as the left mouse button does: tap to select, drag to move, drag on empty space
+for a selection box. **Two fingers belong to the view** - spread or pinch them to zoom, move them together to shift the
+workplane. Putting a second finger down takes back whatever the first one had started, so a pinch never nudges a part.
+Turning the view has no gesture of its own; the camera rail carries a switch for it, and while it is on one finger
+orbits instead of selecting. The switch only appears on a touch screen.
+
+Number fields hand you their whole value when you tap them, ready to be overwritten - a decimal keypad has no arrow
+keys to move the caret with.
+
 ## Where this comes from
 
 layerling is a fork of [SketchForge-3D](https://github.com/Formsmith746/SketchForge-3D) by Formsmith746 and the SketchForge

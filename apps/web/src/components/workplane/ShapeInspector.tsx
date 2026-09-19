@@ -71,6 +71,7 @@ import {
 import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
 import { DEFAULT_TAPER_DIMENSION_MAX, MAX_HIGH_RESOLUTION_SIDES, shapeDimensionLimit } from "@/lib/workplaneSettings";
 import type { GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import { selectWholeValue } from "@/lib/numberField";
 
 const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
 const MIN_SHAPE_SIZE = 0.01;
@@ -1263,10 +1264,11 @@ function RangeProperty({
             value={editing ? draft : formatPropertyNumber(controlValue, accuracy, controlStep)}
             disabled={disabled}
             inputMode="decimal"
-            onFocus={() => {
+            onFocus={(event) => {
               onInteractionActiveChange?.(true);
               setDraft(formatPropertyNumber(controlValue, accuracy, controlStep));
               setEditing(true);
+              selectWholeValue(event.currentTarget);
             }}
             onChange={(event) => setDraft(event.currentTarget.value)}
             onBlur={commitDraft}

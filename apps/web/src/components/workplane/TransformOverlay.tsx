@@ -33,6 +33,7 @@ export {
   type TransformHandleKind,
   type TransformOverlayState,
 } from "@/components/workplane/transformOverlayTypes";
+import { selectWholeValue } from "@/lib/numberField";
 
 export function TransformOverlay({
   box,
@@ -180,6 +181,7 @@ export function TransformOverlay({
           autoFocus
           inputMode="decimal"
           onPointerDown={(event) => event.stopPropagation()}
+          onFocus={(event) => selectWholeValue(event.currentTarget)}
           onChange={(event) => onEditingDimensionChange(event.target.value)}
           onBlur={onCommitDimensionEdit}
           onKeyDown={(event) => {
@@ -199,6 +201,7 @@ export function TransformOverlay({
             autoFocus
             inputMode="decimal"
             onPointerDown={(event) => event.stopPropagation()}
+            onFocus={(event) => selectWholeValue(event.currentTarget)}
             onChange={(event) => onEditingRotationChange(event.target.value)}
             onBlur={onCommitRotationEdit}
             onKeyDown={(event) => {

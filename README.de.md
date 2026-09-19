@@ -65,6 +65,18 @@ Und was du schon hast, funktioniert weiter: STL importieren und darum herum baue
 - **Exportieren, was dein Slicer will** – STL oder OBJ, für die Auswahl oder die ganze Szene, dazu STEP, wenn der Entwurf in ein vollwertiges CAD weiterreisen soll.
 - **Perspektivisch oder gerade von vorn** – zwischen normaler und orthografischer Ansicht wechseln, über den Würfelknopf neben den Zoomtasten oder mit **O**. Blickrichtung und Ausschnitt bleiben erhalten.
 
+### Auf einem Tablet
+
+Ein Finger arbeitet am Entwurf, genau wie die linke Maustaste: antippen wählt aus, ziehen verschiebt, ziehen auf
+leerer Fläche spannt den Auswahlrahmen. **Zwei Finger gehören der Ansicht** - spreizen und zusammenziehen zoomt,
+gemeinsam schieben verschiebt die Arbeitsfläche. Setzt der zweite Finger auf, wird zurückgenommen, was der erste
+angefangen hatte; ein Zoom verschiebt also nie versehentlich ein Teil. Fürs Drehen gibt es keine eigene Geste, dafür
+einen Umschalter in der Kameraleiste: Solange er an ist, dreht ein Finger die Ansicht, statt auszuwählen. Er steht nur
+auf einem Berührungsbildschirm da.
+
+Zahlenfelder geben beim Antippen ihren ganzen Wert zum Überschreiben frei - eine Dezimaltastatur hat keine
+Pfeiltasten, mit denen sich der Schreibzeiger setzen ließe.
+
 ## Woher das kommt
 
 layerling ist ein Fork von [SketchForge-3D](https://github.com/Formsmith746/SketchForge-3D) von Formsmith746 und den

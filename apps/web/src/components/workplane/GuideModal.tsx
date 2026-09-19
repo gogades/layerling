@@ -22,7 +22,7 @@ function guideSections(sharedStore: boolean): GuideSection[] {
   return [
     {
       title: "guide.group.view",
-      lines: ["guide.view.orbit", "guide.view.cube", "guide.view.projection"],
+      lines: ["guide.view.orbit", "guide.view.touch", "guide.view.cube", "guide.view.projection"],
     },
     {
       title: "guide.group.shapes",

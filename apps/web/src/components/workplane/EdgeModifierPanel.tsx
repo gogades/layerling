@@ -8,6 +8,7 @@ import { CAD_MODIFIER_MAX_SHARP_ANGLE, edgeModifierSelectionStatus } from "@/lib
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import type { WorkplaneWorkspaceSettings } from "@/types/layerling";
+import { selectWholeValue } from "@/lib/numberField";
 
 const MIN_EDGE_MODIFIER_AMOUNT = 0.001;
 const EDGE_MODIFIER_AMOUNT_STEP = 0.001;
@@ -95,9 +96,10 @@ function EdgeModifierSlider({
             value={editing ? draft : formatSliderValue(controlValue, workspace.accuracy, controlStep)}
             inputMode="decimal"
             disabled={disabled}
-            onFocus={() => {
+            onFocus={(event) => {
               setDraft(formatSliderValue(controlValue, workspace.accuracy, controlStep));
               setEditing(true);
+              selectWholeValue(event.currentTarget);
             }}
             onChange={(event) => setDraft(event.currentTarget.value)}
             onBlur={commitDraft}

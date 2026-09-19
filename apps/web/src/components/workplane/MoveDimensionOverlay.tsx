@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import type { MoveDimensionAxis, MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
+import { selectWholeValue } from "@/lib/numberField";
 
 export function MoveDimensionOverlay({
   overlay,
@@ -63,6 +64,7 @@ export function MoveDimensionOverlay({
               inputMode="decimal"
               spellCheck={false}
               style={styleForLine(line)}
+              onFocus={(event) => selectWholeValue(event.currentTarget)}
               onChange={(event) => setEditing({ axis: line.axis, value: event.target.value })}
               onBlur={() => {
                 const nextAxis = nextEditingAxisRef.current;
