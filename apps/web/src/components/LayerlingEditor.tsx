@@ -7049,7 +7049,10 @@ export function LayerlingEditor({
     setSelectedIds([]);
     setHistory(hydratedHistory.entries);
     setHistoryIndex(hydratedHistory.index);
-    setNotice(t("status.ready"));
+    // Was aus der Datei kam, ist der Stand, der auch auf dem Server liegt.
+    serverSavedFingerprintRef.current = { projectId: projectId ?? null, fingerprint: projectShapesFingerprint(incoming) };
+    // Ein geoeffneter Entwurf ist keine Meldung wert: Dass er da ist, sieht man.
+    setNotice("");
   }, [initialAssets, initialHistory, initialHistoryIndex, initialPlacementElevation, initialPlacementWorkplane, initialShapes, projectId, projectRevision]);
 
   useEffect(() => {
@@ -8908,16 +8911,44 @@ export function LayerlingEditor({
    * workspace limit has already trimmed the in-memory history to.
    */
   const SERVER_SAVE_IDLE_MS = 5000;
+  /** So bald wird es wieder versucht, wenn der Weg gerade belegt war. */
+  const SERVER_SAVE_BUSY_MS = 900;
   const serverSaveTimerRef = useRef<number | null>(null);
   const serverSavePendingRef = useRef(false);
   const serverSaveRunningRef = useRef(false);
   const serverSaveStoppedRef = useRef(false);
   const serverSaveProjectRef = useRef<string | null>(null);
+  /**
+   * Der Stand, der auf dem Server liegt - daran haengt, ob es etwas zu tun gibt.
+   * Er wird beim Laden des Entwurfs gesetzt, nicht erst, wenn die Bindung an die
+   * Serverdatei eintrifft: Die kommt bei einem frisch angelegten Entwurf spaeter,
+   * und was bis dahin gebaut wurde, galt sonst als der gespeicherte Stand.
+   */
+  const serverSavedFingerprintRef = useRef<{ projectId: string | null; fingerprint: string } | null>(null);
+
+  /**
+   * Noch einmal ansetzen. Wer hier vorbeikommt, hat etwas zu speichern, konnte
+   * aber gerade nicht - ein Upload lief noch, oder es wurde gezogen. Ohne
+   * diesen zweiten Anlauf bliebe die Aenderung liegen, bis zufaellig die
+   * naechste kommt: Genau so verschwand der erste Koerper in einem frisch
+   * angelegten Serverentwurf, weil der Klick aufs Haus in den Upload der
+   * leeren Datei fiel.
+   */
+  const scheduleServerSaveRetry = useCallback((delay: number) => {
+    if (serverSaveTimerRef.current !== null) window.clearTimeout(serverSaveTimerRef.current);
+    serverSaveTimerRef.current = window.setTimeout(() => {
+      serverSaveTimerRef.current = null;
+      void saveToServerRef.current();
+    }, delay);
+  }, []);
 
   const saveToServerNow = useCallback(async () => {
     if (!serverFileName || !onSaveSharedProject) return;
-    if (serverSaveStoppedRef.current || serverSaveRunningRef.current || !serverSavePendingRef.current) return;
-    if (projectInteractionActiveRef.current) return;
+    if (serverSaveStoppedRef.current || !serverSavePendingRef.current) return;
+    if (serverSaveRunningRef.current || projectInteractionActiveRef.current) {
+      scheduleServerSaveRetry(SERVER_SAVE_BUSY_MS);
+      return;
+    }
     serverSaveRunningRef.current = true;
     serverSavePendingRef.current = false;
     try {
@@ -8925,6 +8956,7 @@ export function LayerlingEditor({
       if (!thumbnailDataUrl.startsWith("data:image/png;base64,") || thumbnailDataUrl.length <= 100) {
         // No preview to be had yet - keep the change pending for the next round.
         serverSavePendingRef.current = true;
+        scheduleServerSaveRetry(SERVER_SAVE_BUSY_MS);
         return;
       }
       const exportedHistory = editorHistoryForExport(historyRef.current, historyIndexRef.current, "unlimited");
@@ -8955,25 +8987,36 @@ export function LayerlingEditor({
         // A hiccup on the way, not a decision: keep the change pending and say
         // plainly what the server answered instead of falling silent.
         serverSavePendingRef.current = true;
+        scheduleServerSaveRetry(SERVER_SAVE_IDLE_MS);
         setNotice(error instanceof Error ? error.message : t("status.serverSaveRetry"));
       }
     } finally {
       serverSaveRunningRef.current = false;
     }
-  }, [onSaveSharedProject, placementElevation, placementWorkplane, projectCreatedAt, projectName, serverFileName, snapGrid]);
+  }, [onSaveSharedProject, placementElevation, placementWorkplane, projectCreatedAt, projectName, scheduleServerSaveRetry, serverFileName, snapGrid]);
 
   const saveToServerRef = useRef(saveToServerNow);
   saveToServerRef.current = saveToServerNow;
 
   useEffect(() => {
     if (!serverFileName) return;
+    // Verglichen wird der Inhalt, nicht die Anzahl der Durchlaeufe. Ein Entwurf
+    // laedt seine Formen nach, und dieser Effekt lief danach ein zweites Mal -
+    // mit demselben Inhalt. Das galt frueher als Aenderung und liess einen
+    // Entwurf, den niemand angefasst hatte, kurz darauf hochladen.
+    const fingerprint = projectShapesFingerprint(shapes);
     if (serverSaveProjectRef.current !== (projectId ?? null)) {
-      // First pass for this project: it was just loaded, nothing to save yet.
       serverSaveProjectRef.current = projectId ?? null;
       serverSaveStoppedRef.current = false;
       serverSavePendingRef.current = false;
+      // Nur ersatzweise: Hat das Laden schon einen Stand hinterlassen, gilt der.
+      if (serverSavedFingerprintRef.current?.projectId !== (projectId ?? null)) {
+        serverSavedFingerprintRef.current = { projectId: projectId ?? null, fingerprint };
+      }
       return;
     }
+    if (fingerprint === serverSavedFingerprintRef.current?.fingerprint) return;
+    serverSavedFingerprintRef.current = { projectId: projectId ?? null, fingerprint };
     serverSavePendingRef.current = true;
     if (serverSaveTimerRef.current !== null) window.clearTimeout(serverSaveTimerRef.current);
     serverSaveTimerRef.current = window.setTimeout(() => {
