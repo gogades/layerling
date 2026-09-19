@@ -73,6 +73,7 @@ import {
   serializeShapesForSync,
   shapeDepth,
   shapeHasTaper,
+  shapeTaperPatch,
   shapeTransformShouldRemainEditable,
   shapeTaperScaleAt,
   shapeWidth,
@@ -115,7 +116,8 @@ import { importedShapeFromStl } from "@/lib/stlImport";
 import { exportMeshesToStl } from "@/lib/stlExport";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
-import { keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
+import { DEFAULT_TAPER_DIMENSION_MAX, keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
+import { MCP_SHAPE_SETTING_KEYS } from "@/lib/mcpShapeSettings";
 import {
   normalizePlacementWorkplane,
   placementPatchForNewShape,
@@ -5252,25 +5254,6 @@ function compactShapeSummary(shape: WorkplaneShape, index: number) {
   ].join(",");
 }
 
-/**
- * Die formeigenen Werte, die eine Zusammenfassung sonst verschweigt: Ohne sie
- * liest ein Client zwar die Masse einer Schraube, sieht aber nicht, ob M4 oder
- * M5 darauf steht - und die rohe Form dafuer zu holen, laedt das halbe Projekt
- * mit. **Eine neue Form traegt ihre Felder hier nach**, sonst ist sie fuer eine
- * KI eine namenlose Kiste. Die Liste ist bewusst eine Erlaubnisliste: `cadBrep`
- * ist auch nur eine Zeichenkette, aber eine megabytegrosse.
- */
-const MCP_SHAPE_SETTING_KEYS = [
-  "radius", "steps", "sides", "bevel", "segments",
-  "topRadius", "baseRadius", "topWidth", "topDepth",
-  "taperTopWidth", "taperTopDepth", "taperBottomWidth", "taperBottomDepth",
-  "teeth", "toothSize", "toothWidth", "centerHoleSize", "gearType", "helixAngle", "helixQuality",
-  "threadRole", "threadHead", "threadHand", "threadDiameter", "threadPitch",
-  "threadClearance", "threadQuality", "threadHeadHeight", "threadChamfer",
-  "springTurns", "springWire", "springQuality",
-  "text", "font",
-] as const satisfies readonly (keyof WorkplaneShape)[];
-
 /** Runde Koerper, deren Seitenzahl ohne eigene Angabe der Groesse folgt. */
 const MCP_FOLLOWING_SIDE_KINDS = new Set<ShapeKind>(["cylinder", "cone", "tube", "ring"]);
 
@@ -5378,6 +5361,23 @@ function mcpShapeCustomization(kind: ShapeKind, params: Record<string, unknown>)
   // und das Paketformat begrenzt sie nicht.
   if (kind === "text" && typeof params.text === "string" && params.text.trim()) settings.text = params.text;
   return settings;
+}
+
+/**
+ * Die Verjuengung steht in keiner Formvorgabe - sie gehoert dem einzelnen
+ * Koerper, kommt also nicht durch `normalizeShapeCustomizations` und braucht
+ * hier ihren eigenen Weg. Ohne ihn liest ein Client die vier Werte aus, setzt
+ * sie zurueck und nichts geschieht. Die Grenzen sind dieselben wie im
+ * Merkmalsfeld, damit ueber die Bruecke nichts entsteht, was sich dort nicht
+ * mehr einstellen laesst.
+ */
+function mcpTaperPatch(shape: WorkplaneShape, params: Record<string, unknown>, maxDimension: number): Partial<WorkplaneShape> {
+  return shapeTaperPatch(shape, {
+    topWidth: mcpOptionalNumber(params.taperTopWidth),
+    topDepth: mcpOptionalNumber(params.taperTopDepth),
+    bottomWidth: mcpOptionalNumber(params.taperBottomWidth),
+    bottomDepth: mcpOptionalNumber(params.taperBottomDepth),
+  }, maxDimension);
 }
 
 /**
@@ -8221,6 +8221,7 @@ export function LayerlingEditor({
           if (shape.kind === "thread") {
             shape = applyMcpThreadSettings(shape, params, true);
           }
+          shape = { ...shape, ...mcpTaperPatch(shape, params, shapeDimensionLimit(workspaceSettingsRef.current, shape.kind, DEFAULT_TAPER_DIMENSION_MAX)) };
         } else {
           throw new Error(`MCP create_shape does not know a shape called "${rawKind}"`);
         }
@@ -8318,6 +8319,9 @@ export function LayerlingEditor({
           const value = settings[key];
           if (value !== undefined) Object.assign(patch, { [key]: value });
         });
+        // Die Verjuengung liest sich aus demselben Objekt, das der Befehl gerade
+        // umbaut - erst Breite und Tiefe anwenden, dann die Kanten darauf.
+        Object.assign(patch, mcpTaperPatch({ ...target, ...patch }, params, shapeDimensionLimit(workspaceSettingsRef.current, target.kind, DEFAULT_TAPER_DIMENSION_MAX)));
         if (target.kind === "thread") {
           // Der Durchmesser zieht den Platzbedarf mit - sonst macht die
           // Vereinheitlichung die Aenderung gleich wieder rueckgaengig. Und ein

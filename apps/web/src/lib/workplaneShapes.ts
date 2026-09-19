@@ -48,9 +48,12 @@ export function normalizeTaperScale(value?: number) {
   return Math.min(3, Math.max(0.05, value as number));
 }
 
+/** Kleinstes Mass, das eine verjuengte Kante annehmen darf. */
+const MIN_TAPER_DIMENSION = 0.01;
+
 function positiveTaperDimension(value: number | undefined, fallback: number) {
   if (!Number.isFinite(value)) return fallback;
-  return Math.max(0.01, value as number);
+  return Math.max(MIN_TAPER_DIMENSION, value as number);
 }
 
 export function shapeTaperDimensions(shape: WorkplaneShape) {
@@ -62,6 +65,44 @@ export function shapeTaperDimensions(shape: WorkplaneShape) {
     bottomWidth: positiveTaperDimension(shape.taperBottomWidth, width * normalizeTaperScale(shape.taperBottomScale)),
     bottomDepth: positiveTaperDimension(shape.taperBottomDepth, depth * normalizeTaperScale(shape.taperBottomScale)),
   };
+}
+
+/**
+ * Arten, die eine Verjuengung ueberhaupt annehmen. Zahnrad, Gewinde und Feder
+ * kennen sie gar nicht, und die Pyramide hat mit Laenge und Breite oben ihre
+ * eigene, die wirklich greift. Die Liste steht hier, damit das Merkmalsfeld und
+ * die MCP-Bruecke nicht je ihre eigene fuehren.
+ */
+export function shapeSupportsTaper(kind: WorkplaneShape["kind"]) {
+  return kind !== "gear" && kind !== "thread" && kind !== "spring" && kind !== "pyramid";
+}
+
+/**
+ * Eine Verjuengung setzen, wie es das Merkmalsfeld tut: Wer einen der beiden
+ * Werte einer Kante angibt, schreibt auch den anderen fest und loescht den
+ * Massstab. Ohne das liefe die Schwester weiter dem Massstab nach statt dem,
+ * was gerade gesetzt wurde. Was die Art nicht annimmt, faellt weg.
+ */
+export function shapeTaperPatch(
+  shape: WorkplaneShape,
+  requested: { topWidth?: number; topDepth?: number; bottomWidth?: number; bottomDepth?: number },
+  maxDimension: number,
+): Partial<WorkplaneShape> {
+  if (!shapeSupportsTaper(shape.kind)) return {};
+  const current = shapeTaperDimensions(shape);
+  const fit = (value: number) => Math.min(maxDimension, Math.max(MIN_TAPER_DIMENSION, value));
+  const patch: Partial<WorkplaneShape> = {};
+  if (requested.topWidth !== undefined || requested.topDepth !== undefined) {
+    patch.taperTopWidth = fit(requested.topWidth ?? current.topWidth);
+    patch.taperTopDepth = fit(requested.topDepth ?? current.topDepth);
+    patch.taperTopScale = undefined;
+  }
+  if (requested.bottomWidth !== undefined || requested.bottomDepth !== undefined) {
+    patch.taperBottomWidth = fit(requested.bottomWidth ?? current.bottomWidth);
+    patch.taperBottomDepth = fit(requested.bottomDepth ?? current.bottomDepth);
+    patch.taperBottomScale = undefined;
+  }
+  return patch;
 }
 
 export function shapeHasTaper(shape: WorkplaneShape) {

@@ -54,7 +54,7 @@ import {
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, measurementOptionLabel, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
-import { resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeWidth } from "@/lib/workplaneShapes";
+import { resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeWidth } from "@/lib/workplaneShapes";
 import { normalizeSketchRevolveSettings } from "@/lib/sketchRevolve";
 import { roundSideCount } from "@/lib/roundSideCount";
 import { normalizePyramidTop } from "@/lib/pyramidGeometry";
@@ -69,7 +69,7 @@ import {
   springWireLimits,
 } from "@/lib/springGeometry";
 import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
-import { MAX_HIGH_RESOLUTION_SIDES } from "@/lib/workplaneSettings";
+import { DEFAULT_TAPER_DIMENSION_MAX, MAX_HIGH_RESOLUTION_SIDES, shapeDimensionLimit } from "@/lib/workplaneSettings";
 import type { GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
@@ -822,11 +822,11 @@ export function ShapeInspector({
   const gearType = shape.kind === "gear" ? normalizeGearType(shape.gearType) : null;
   const isThread = shape.kind === "thread";
   /*
-   * Wo die Verjuengung nichts ausrichtet, steht auch keine Karte dafuer: das
-   * Zahnrad, das Gewinde und die Feder nehmen sie gar nicht an, und die
-   * Pyramide hat mit Laenge und Breite oben ihre eigene, die wirklich greift.
+   * Wo die Verjuengung nichts ausrichtet, steht auch keine Karte dafuer. Welche
+   * Arten das sind, steht in `shapeSupportsTaper` - dieselbe Antwort bekommt
+   * die MCP-Bruecke, damit nicht eine Stelle anbietet, was die andere wegwirft.
    */
-  const shapeIgnoresTaper = shape.kind === "gear" || shape.kind === "spring" || shape.kind === "pyramid" || isThread;
+  const shapeIgnoresTaper = !shapeSupportsTaper(shape.kind);
   const threadRoleProperty = isThread ? findSelectProperty(properties, "threadRole") : null;
   const threadHeadProperty = isThread ? findSelectProperty(properties, "threadHead") : null;
   const primaryProperties = shape.kind === "gear"
@@ -844,7 +844,7 @@ export function ShapeInspector({
     ? properties.filter((property) => ["helixAngle", "quality"].includes(property.id))
     : [];
   const taper = shapeTaperDimensions(shape);
-  const taperDimensionMax = workspace.shapeCustomizations[shape.kind]?.maxDimension ?? 480;
+  const taperDimensionMax = shapeDimensionLimit(workspace, shape.kind, DEFAULT_TAPER_DIMENSION_MAX);
   const taperProperties: ShapePropertyConfig[] = shapeIgnoresTaper ? [] : [
     {
       id: "topLength",

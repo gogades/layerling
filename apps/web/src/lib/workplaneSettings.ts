@@ -173,6 +173,14 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
   return normalized;
 }
 
+/**
+ * Groesstes Mass, das eine Kante annehmen darf, solange der Arbeitsbereich fuer
+ * die Art keins vorgibt. Das Merkmalsfeld und die MCP-Bruecke rechnen mit
+ * derselben Zahl - haetten sie je eine eigene, liesse sich ueber die Bruecke
+ * etwas bauen, das der Regler daneben nicht mehr einstellen kann.
+ */
+export const DEFAULT_TAPER_DIMENSION_MAX = 480;
+
 export function shapeDimensionLimit(workspace: WorkplaneWorkspaceSettings, kind: ShapeKind, appDefault: number) {
   return workspace.shapeCustomizations[kind]?.maxDimension ?? appDefault;
 }

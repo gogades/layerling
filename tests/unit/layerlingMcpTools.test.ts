@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error - die Brücke ist einfaches JavaScript und trägt keine Typen.
 import { creatableShapeKinds, shapeSettingSchema, tools } from "../../scripts/layerling-mcp-tools.mjs";
 import { toolbarShapeAssets } from "@/lib/shapeCatalog";
+import { MCP_SHAPE_SETTING_KEYS } from "@/lib/mcpShapeSettings";
 
 /*
  * Die Formenliste steht an zwei Stellen: im Katalog, aus dem das Formenmenü und
@@ -56,6 +57,16 @@ describe("the settings both shape tools accept", () => {
     const createMissing = settingKeys.filter((key) => !(key in create));
     const updateMissing = settingKeys.filter((key) => !(key in update));
     expect({ createMissing, updateMissing }).toEqual({ createMissing: [], updateMissing: [] });
+  });
+
+  it("accepts every setting it hands out", () => {
+    // Was `layerling_read_scene` in `settings` meldet, muss `create_shape` und
+    // `update_object` auch annehmen. Sonst liest ein Client einen Wert aus,
+    // schickt ihn zurueck und nichts geschieht - so lag die Verjuengung eine
+    // Weile da, und die Rundung eines Quaders stand in der Auskunft, obwohl sie
+    // niemand setzen kann.
+    const reported = [...MCP_SHAPE_SETTING_KEYS].sort();
+    expect([...settingKeys].sort()).toEqual(reported);
   });
 
   it("describes every setting, because the description is all a client has to go on", () => {
