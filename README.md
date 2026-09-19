@@ -25,10 +25,10 @@
 </div>
 
 <p align="center">
-  <img src="docs/media/screenshot.png" width="859" alt="layerling in the browser: the logo as a 3D model on the build plate, with the editor ribbon above it">
+  <img src="docs/media/screenshot-en.png" width="735" alt="layerling in the browser">
 </p>
 
-<p align="center"><em>The logo itself, built in layerling by Claude: three boxes, stacked, every edge filleted.</em></p>
+<p align="center"><em>layerling in the browser</em></p>
 
 ## Who It Is For
 
