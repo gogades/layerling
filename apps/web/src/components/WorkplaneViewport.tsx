@@ -379,6 +379,9 @@ const EMPTY_NOTES: WorkplaneNote[] = [];
 /** Breite einer offenen Notizkarte samt Nadel und Abstand, in Bildpunkten. */
 const NOTE_CARD_REACH = 260;
 
+/** Weiter waechst das Textfeld nicht mit; darueber hinaus wird darin gerollt. */
+const NOTE_TEXT_MAX_HEIGHT = 168;
+
 type NoteOverlayItem = {
   id: string;
   index: number;
@@ -1615,6 +1618,60 @@ function syncNoteOverlay(
 }
 
 /**
+ * Eine Notiz ist so hoch wie das, was darin steht - eine Zeile bleibt eine
+ * Zeile. Ohne das stuende unter jedem kurzen Satz ein leeres Feld, und der
+ * Anfasser zum Kleinerziehen half nicht: Die Mindesthoehe war hoeher als eine
+ * Zeile.
+ */
+function fitNoteHeight(area: HTMLTextAreaElement | null) {
+  if (!area) return;
+  area.style.height = "auto";
+  // `scrollHeight` zaehlt den Innenabstand mit, den Rahmen nicht - und die
+  // Hoehe hier ist ein Aussenmass. Ohne den Rahmen fehlen zwei Pixel, das Feld
+  // laeuft ueber, und neben dem Text stuende ein Rollbalken, der ihn noch enger
+  // umbricht.
+  const frame = area.offsetHeight - area.clientHeight;
+  area.style.height = `${Math.min(NOTE_TEXT_MAX_HEIGHT, area.scrollHeight + frame)}px`;
+}
+
+/**
+ * Das Schreibfeld einer Notiz. Es misst sich nach jedem Wechsel des Textes neu -
+ * auch wenn der von aussen kommt, etwa aus einem Rueckgaengig.
+ */
+function NoteText({
+  value,
+  focused,
+  onChange,
+  onFocus,
+  onBlur,
+}: {
+  value: string;
+  focused: boolean;
+  onChange: (text: string) => void;
+  onFocus: () => void;
+  onBlur: () => void;
+}) {
+  const areaRef = useRef<HTMLTextAreaElement | null>(null);
+  useLayoutEffect(() => {
+    fitNoteHeight(areaRef.current);
+  }, [value]);
+  return (
+    <textarea
+      className="note-text"
+      ref={areaRef}
+      value={value}
+      maxLength={NOTE_TEXT_LIMIT}
+      rows={1}
+      placeholder={t("note.placeholder")}
+      autoFocus={focused}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
+}
+
+/**
  * Die Notizen ueber der Leinwand. Sie sind bewusst HTML und keine Textur in der
  * Szene: So bleibt die Schrift bei jeder Zoomstufe scharf, laesst sich markieren
  * und kopieren, und das Ausblenden kostet nichts.
@@ -1669,19 +1726,15 @@ function NoteOverlay({
             </button>
             {open ? (
               <div className="note-card" onPointerDown={(event) => event.stopPropagation()}>
-                <textarea
-                  className="note-text"
+                <NoteText
                   value={note.text}
-                  maxLength={NOTE_TEXT_LIMIT}
-                  rows={3}
-                  placeholder={t("note.placeholder")}
-                  autoFocus={editingId === note.id}
+                  focused={editingId === note.id}
                   onFocus={() => onEditingIdChange(note.id)}
                   onBlur={() => {
                     onEditingIdChange(null);
                     onTextCommit(note.id);
                   }}
-                  onChange={(event) => onTextChange(note.id, event.target.value)}
+                  onChange={(text) => onTextChange(note.id, text)}
                 />
                 <div className="note-card-actions">
                   {note.attached ? (
@@ -4533,6 +4586,14 @@ export function WorkplaneViewport({
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
+      // Wer auf die Arbeitsflaeche klickt, ist mit dem Schreiben fertig. Von
+      // allein passiert das hier nicht: Mehrere Werkzeuge fangen den
+      // Zeigerdruck ab, und damit nimmt der Browser auch den Fokuswechsel
+      // zurueck - der Schreibzeiger blinkte in der Notiz weiter.
+      const typing = document.activeElement;
+      if (typing instanceof HTMLElement && typing.classList.contains("note-text")) {
+        typing.blur();
+      }
       const state = threeRef.current;
       if (!state) {
         return;

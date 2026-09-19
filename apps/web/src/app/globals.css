@@ -5128,10 +5128,14 @@ button {
   gap: 6px;
 }
 
+/* Eine Zeile ist das Mindestmass - was darueber hinausgeht, waechst mit dem
+   Text mit. Der Anfasser bleibt, wer mehr Platz zum Schreiben will, zieht sich
+   das Feld groesser. */
 .note-text {
   width: 100%;
-  min-height: 58px;
+  min-height: 32px;
   resize: vertical;
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--tile);
