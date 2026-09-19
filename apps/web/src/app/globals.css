@@ -2372,6 +2372,18 @@ button {
   overflow: auto;
 }
 
+.edge-modifier-history-hint {
+  margin: 0 2px 2px;
+  color: #7a6851;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.edge-modifier-history-warning {
+  color: #a3521a;
+  font-weight: 700;
+}
+
 .edge-modifier-history-item {
   justify-content: flex-start;
   min-height: 42px;
@@ -8376,6 +8388,37 @@ html[data-theme="dark"] .edge-modifier-field select {
   color: #ddccb9;
   background: #35281b;
   border-color: #5e4c3a;
+}
+
+html[data-theme="dark"] .edge-modifier-history-actions {
+  background: #2a2015;
+  border-color: #53412f;
+}
+
+html[data-theme="dark"] .edge-modifier-history-actions button {
+  color: #e7c896;
+  background: #35281b;
+  border-color: #5e4c3a;
+}
+
+html[data-theme="dark"] .edge-modifier-history-actions button:disabled {
+  color: #8a7967;
+  background: #2f2418;
+  border-color: #4a3b2b;
+}
+
+html[data-theme="dark"] .edge-modifier-history-actions span,
+html[data-theme="dark"] .edge-modifier-history-hint,
+html[data-theme="dark"] .edge-modifier-history-item small {
+  color: #a79078;
+}
+
+html[data-theme="dark"] .edge-modifier-history-item strong {
+  color: #f0d3a6;
+}
+
+html[data-theme="dark"] .edge-modifier-history-warning {
+  color: #f3a452;
 }
 
 html[data-theme="dark"] .shape-menu-item:hover,

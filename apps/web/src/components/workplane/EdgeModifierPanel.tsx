@@ -25,9 +25,21 @@ function formatSliderValue(value: number, accuracy: WorkplaneWorkspaceSettings["
 type EdgeHistoryOption = {
   id: string;
   label: string;
+  kind: CadModifierKind;
+  amount: number;
+  edgeCount: number;
   targetName: string;
   removesNewerCount: number;
 };
+
+/** Der gespeicherte Text ist englisch - fuer die Tafel wird er neu gesetzt. */
+function edgeHistoryLabel(option: EdgeHistoryOption) {
+  const size = String(Number(option.amount.toFixed(2)));
+  if (option.edgeCount === 1) {
+    return t(option.kind === "fillet" ? "edge.revertFilletOne" : "edge.revertChamferOne", { size });
+  }
+  return t(option.kind === "fillet" ? "edge.revertFilletMany" : "edge.revertChamferMany", { size, count: option.edgeCount });
+}
 
 function EdgeModifierSlider({
   label,
@@ -225,12 +237,12 @@ export function EdgeModifierPanel({
       </div>
 
       <div className="edge-modifier-selection-help">
-        {prepared ? t("edge.selectionHelp") : t("edge.loading")}
+        {!prepared ? t("edge.loading") : busy ? t("edge.previewBusy") : t("edge.selectionHelp")}
       </div>
 
       <div className="edge-modifier-quick-actions">
-        <button type="button" disabled={!prepared || busy} onClick={onSelectAll}>{t("edge.allSharpEdges")}</button>
-        <button type="button" disabled={!prepared || busy} onClick={onClear}>{t("edge.clear")}</button>
+        <button type="button" disabled={!prepared} onClick={onSelectAll}>{t("edge.allSharpEdges")}</button>
+        <button type="button" disabled={!prepared} onClick={onClear}>{t("edge.clear")}</button>
       </div>
 
       {appliedFeatureCount > 0 ? (
@@ -248,15 +260,16 @@ export function EdgeModifierPanel({
           {reversibleFeatureCount === 0 ? <span>{t("edge.noStoredHistory")}</span> : null}
           {historyOpen && historyOptions.length > 0 ? (
             <div className="edge-modifier-history-list">
+              <p className="edge-modifier-history-hint">{t("edge.revertHint")}</p>
               {historyOptions.map((option) => (
                 <button className="edge-modifier-history-item" type="button" key={option.id} onClick={() => onRemoveFeature(option.id)}>
                   <RotateCcw size={14} />
                   <span>
-                    <strong>{option.label}</strong>
-                    <small>
-                      {option.targetName}
-                      {option.removesNewerCount > 0 ? t("edge.alsoRemovesNewer", { count: option.removesNewerCount }) : ""}
-                    </small>
+                    <strong>{`${t("edge.revertAction")}: ${edgeHistoryLabel(option)}`}</strong>
+                    <small>{option.targetName}</small>
+                    {option.removesNewerCount > 0 ? (
+                      <small className="edge-modifier-history-warning">{t("edge.alsoRemovesNewer", { count: option.removesNewerCount })}</small>
+                    ) : null}
                   </span>
                 </button>
               ))}
@@ -273,27 +286,27 @@ export function EdgeModifierPanel({
         step={EDGE_MODIFIER_AMOUNT_STEP}
         workspace={workspace}
         length
-        disabled={!prepared || busy}
+        disabled={!prepared}
         onChange={onAmountChange}
       />
 
-      {kind === "chamfer" ? <EdgeModifierSlider label={t("edge.angle")} value={chamferAngle} min={5} max={85} step={1} unit="°" workspace={workspace} disabled={!prepared || busy} onChange={onChamferAngleChange} /> : null}
+      {kind === "chamfer" ? <EdgeModifierSlider label={t("edge.angle")} value={chamferAngle} min={5} max={85} step={1} unit="°" workspace={workspace} disabled={!prepared} onChange={onChamferAngleChange} /> : null}
 
-      <EdgeModifierSlider label={t("edge.sharpThreshold")} value={sharpAngle} min={1} max={CAD_MODIFIER_MAX_SHARP_ANGLE} step={1} unit="°" workspace={workspace} disabled={!prepared || busy} onChange={onSharpAngleChange} />
+      <EdgeModifierSlider label={t("edge.sharpThreshold")} value={sharpAngle} min={1} max={CAD_MODIFIER_MAX_SHARP_ANGLE} step={1} unit="°" workspace={workspace} disabled={!prepared} onChange={onSharpAngleChange} />
 
       <label className="edge-modifier-check">
-        <input type="checkbox" checked={tangentChain} disabled={!prepared || busy} onChange={(event) => onTangentChainChange(event.currentTarget.checked)} />
+        <input type="checkbox" checked={tangentChain} disabled={!prepared} onChange={(event) => onTangentChainChange(event.currentTarget.checked)} />
         <span>{t("edge.tangentChains")}</span>
       </label>
 
       <label className="edge-modifier-check">
-        <input type="checkbox" checked={preserveEdgeSize} disabled={!prepared || busy} onChange={(event) => onPreserveEdgeSizeChange(event.currentTarget.checked)} />
+        <input type="checkbox" checked={preserveEdgeSize} disabled={!prepared} onChange={(event) => onPreserveEdgeSizeChange(event.currentTarget.checked)} />
         <span>{t("edge.keepSize")}</span>
       </label>
 
       <label className="edge-modifier-field">
         <span>{t("edge.previewQuality")}</span>
-        <select value={quality} disabled={!prepared || busy} onChange={(event) => onQualityChange(event.currentTarget.value as CadModifierQuality)}>
+        <select value={quality} disabled={!prepared} onChange={(event) => onQualityChange(event.currentTarget.value as CadModifierQuality)}>
           <option value="draft">{t("edge.draft")}</option>
           <option value="standard">{t("edge.standard")}</option>
           <option value="fine">{t("edge.fine")}</option>

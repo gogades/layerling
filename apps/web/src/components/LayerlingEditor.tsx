@@ -97,9 +97,11 @@ import {
   cadModifierTimeoutMessage,
   cadModifierWorkerFailureMessage,
   defaultCadModifierTangentChain,
+  rescueSharpAngleForEdges,
   selectableCadModifierEdge,
   type CadModifierRequestPhase,
 } from "@/lib/cadModifierRuntime";
+import { createCadPreviewQueue } from "@/lib/cadPreviewQueue";
 import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatmentAppliedFrame, restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
 import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, projectShapesFingerprint, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
@@ -107,6 +109,7 @@ import { geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeome
 import { createLocalId } from "@/lib/localIds";
 import { projectExportFileName } from "@/lib/exportNames";
 import { exportMeshesToObj } from "@/lib/objExport";
+import { meshBounds, overlappingExportClusters } from "@/lib/exportUnion";
 import { rotateSketchPoints, selectedClosedSketchPoints } from "@/lib/sketchRotation";
 import { PROJECT_THUMBNAIL_IDLE_MS, projectThumbnailSceneChanged, type ProjectThumbnailSceneKey } from "@/lib/projectThumbnail";
 import { importedShapeFromObj } from "@/lib/objImport";
@@ -164,6 +167,7 @@ type Cuboid = { minX: number; maxX: number; minY: number; maxY: number; minZ: nu
 type ShapeUpdatePatch = Partial<WorkplaneShape> & { bakeTransform?: boolean };
 type WithoutRequestId<T> = T extends unknown ? Omit<T, "requestId"> : never;
 type CadModifierWorkerPayload = WithoutRequestId<CadModifierWorkerRequest>;
+type CadPreviewPayload = Extract<CadModifierWorkerPayload, { type: "preview" }>;
 type EdgeModifierSession = {
   kind: CadModifierKind;
   edges: CadModifierEdge[];
@@ -190,6 +194,9 @@ type EdgeFeatureRevertOption = {
   entryId: string;
   path: number[];
   label: string;
+  kind: CadModifierKind;
+  amount: number;
+  edgeCount: number;
   targetName: string;
   createdAt: number;
   removesNewerCount: number;
@@ -1754,6 +1761,9 @@ function edgeTreatmentHistoryOptions(shape: WorkplaneShape, path: number[] = [],
     entryId: entry.id,
     path,
     label: edgeTreatmentLabel(entry.feature),
+    kind: entry.feature.kind,
+    amount: entry.feature.amount,
+    edgeCount: entry.feature.edgeCount,
     targetName,
     createdAt: entry.createdAt,
     removesNewerCount: Math.max(0, ownHistory.length - index - 1),
@@ -4332,6 +4342,63 @@ function meshPositionsToGroupShape(selection: WorkplaneShape[], solids: Workplan
   };
 }
 
+function manifoldMeshToMeshData(mesh: InstanceType<ManifoldToplevel["Mesh"]>, name: string): MeshData {
+  const numProp = mesh.numProp;
+  const vertices: Vec3[] = [];
+  for (let offset = 0; offset + 2 < mesh.vertProperties.length; offset += numProp) {
+    vertices.push([mesh.vertProperties[offset], mesh.vertProperties[offset + 1], mesh.vertProperties[offset + 2]]);
+  }
+  const faces: [number, number, number][] = [];
+  for (let offset = 0; offset + 2 < mesh.triVerts.length; offset += 3) {
+    faces.push([mesh.triVerts[offset], mesh.triVerts[offset + 1], mesh.triVerts[offset + 2]]);
+  }
+  return { name, vertices, faces };
+}
+
+/**
+ * Was sich durchdringt, wird fuer die Ausfuhr zu einem Koerper. Sonst stehen
+ * zwei ineinander steckende Huellen in der Datei: der Schneider raeumt das
+ * meist still auf, CGAL bricht daran ab. Getrennte Teile bleiben getrennt, und
+ * wenn die Vereinigung nicht gelingt, geht die Ausfuhr trotzdem durch - nur
+ * eben mit den einzelnen Koerpern und einem Hinweis.
+ */
+async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: MeshData[]) {
+  const gruppen = overlappingExportClusters(meshes.map((mesh) => meshBounds(mesh.vertices)));
+  if (!gruppen.some((gruppe) => gruppe.length > 1)) {
+    return { meshes, verschmolzen: 0, gescheitert: 0 };
+  }
+  const runtime = await getManifoldRuntime().catch(() => null);
+  const ergebnis: MeshData[] = [];
+  let verschmolzen = 0;
+  let gescheitert = 0;
+  for (const gruppe of gruppen) {
+    if (gruppe.length === 1) {
+      ergebnis.push(meshes[gruppe[0]]);
+      continue;
+    }
+    const created: ManifoldSolid[] = [];
+    let vereinigt: MeshData | null = null;
+    try {
+      const union = runtime ? shapesToManifoldUnion(runtime, gruppe.map((index) => shapes[index]), created, true) : null;
+      if (union && union.status() === "NoError" && union.numTri() > 0) {
+        vereinigt = manifoldMeshToMeshData(union.getMesh(), meshes[gruppe[0]].name);
+      }
+    } catch {
+      vereinigt = null;
+    } finally {
+      Array.from(new Set(created)).forEach(disposeManifold);
+    }
+    if (vereinigt && vereinigt.faces.length > 0) {
+      ergebnis.push(vereinigt);
+      verschmolzen += gruppe.length;
+    } else {
+      gruppe.forEach((index) => ergebnis.push(meshes[index]));
+      gescheitert += 1;
+    }
+  }
+  return { meshes: ergebnis, verschmolzen, gescheitert };
+}
+
 function disposeManifold(value: unknown) {
   (value as { delete?: () => void } | null)?.delete?.();
 }
@@ -5704,6 +5771,8 @@ export function LayerlingEditor({
   const cadModifierBaseFingerprintRef = useRef("");
   const cadModifierSourcePartsRef = useRef<WorkplaneShape[]>([]);
   const cadModifierWatchdogRef = useRef<{ requestId: number; phase: CadModifierRequestPhase; timer: number } | null>(null);
+  const cadPreviewSendRef = useRef<(payload: CadPreviewPayload) => number | null>(() => null);
+  const cadPreviewQueueRef = useRef(createCadPreviewQueue<CadPreviewPayload>((payload) => cadPreviewSendRef.current(payload)));
   const cadModifierWorkerRestartRef = useRef<() => Worker | null>(() => null);
   const lastMcpErrorRef = useRef<string | null>(null);
   const executeMcpCommandRef = useRef<((command: LayerlingMcpCommand) => Promise<unknown>) | null>(null);
@@ -5723,6 +5792,7 @@ export function LayerlingEditor({
       cadModifierWatchdogRef.current = null;
       cadModifierWorkerRef.current?.terminate();
       cadModifierWorkerRef.current = null;
+      cadPreviewQueueRef.current.reset();
       cadModifierWorkerRestartRef.current();
       const message = cadModifierTimeoutMessage(phase);
       setEdgeModifier((current) => current ? {
@@ -5751,6 +5821,7 @@ export function LayerlingEditor({
       clearCadModifierWatchdog();
       worker?.terminate();
       cadModifierWorkerRef.current = null;
+      cadPreviewQueueRef.current.reset();
       rejectPendingRequests("The CAD worker could not start");
       const requestId = cadModifierRequestRef.current + 1;
       cadModifierRequestRef.current = requestId;
@@ -5796,21 +5867,33 @@ export function LayerlingEditor({
       }
       if (message.type === "ready") {
         if (message.requestId !== cadModifierPrepareRef.current) return;
+        // Die Kanten bringen ihren Winkel mit; gefiltert wird erst hier. Wenn bei
+        // der voreingestellten Schwelle nichts uebrig bleibt, waere die Tafel
+        // stumm - dabei weiss sie, wie scharf die schaerfste Kante ist. Also
+        // Schwelle dorthin senken und es sagen.
+        const gesenkteSchwelle = message.selectableEdgeIds.length === 0
+          ? rescueSharpAngleForEdges(message.edges, edgeModifierRef.current?.sharpAngle ?? 25)
+          : null;
         setEdgeModifier((current) => current ? {
           ...current,
           edges: message.edges,
+          sharpAngle: gesenkteSchwelle ?? current.sharpAngle,
           selectedEdgeIds: [],
           busy: false,
           prepared: true,
           preview: null,
           componentPreviews: [],
-          error: message.selectableEdgeIds.length ? null : "No sharp manifold edges were found at this threshold",
+          error: message.selectableEdgeIds.length || gesenkteSchwelle ? null : t("edge.noManifoldEdges"),
         } : current);
         if (message.selectableEdgeIds.length) setNotice(t("status.selectHighlightedEdges"), true);
+        else if (gesenkteSchwelle) setNotice(t("status.sharpAngleLowered", { angle: gesenkteSchwelle }), true);
         return;
       }
       if (message.type === "preview") {
-        if (message.requestId !== cadModifierLatestPreviewRef.current) return;
+        if (message.requestId !== cadModifierLatestPreviewRef.current) {
+          cadPreviewQueueRef.current.settle(message.requestId);
+          return;
+        }
         const base = cadModifierBaseShapeRef.current;
         const sourceParts = cadModifierSourcePartsRef.current.length ? cadModifierSourcePartsRef.current : (base ? [base] : []);
         const rawPreview = base ? shapeFromCadMesh(base, message.positions, message.normals, message.indices, message.brep) : null;
@@ -5825,14 +5908,20 @@ export function LayerlingEditor({
           preview,
           componentPreviews,
           busy: false,
-          error: preview ? null : "The CAD kernel returned an empty edge treatment",
+          error: preview ? null : t("edge.emptyResult"),
         } : current);
-        if (preview) setNotice(t("status.edgePreviewReady"));
+        // Ein neuerer Wert kann waehrend der Rechnung eingetroffen sein - der geht jetzt raus.
+        const nachgeschoben = cadPreviewQueueRef.current.settle(message.requestId);
+        if (preview && nachgeschoben.status !== "sent") setNotice(t("status.edgePreviewReady"));
         return;
       }
       if (message.type === "error") {
-        if (message.requestId < cadModifierLatestPreviewRef.current) return;
+        if (message.requestId < cadModifierLatestPreviewRef.current) {
+          cadPreviewQueueRef.current.settle(message.requestId);
+          return;
+        }
         if (message.resetSession) {
+          cadPreviewQueueRef.current.reset();
           const requestId = cadModifierRequestRef.current + 1;
           cadModifierRequestRef.current = requestId;
           cadModifierLatestPreviewRef.current = requestId;
@@ -5845,7 +5934,10 @@ export function LayerlingEditor({
           return;
         }
         setEdgeModifier((current) => current ? { ...current, busy: false, preview: null, error: message.message } : current);
-        setNotice(t("status.edgeNeedsAdjustment"), true);
+        // Ein zu grosser Radius scheitert - der inzwischen gewaehlte kleinere darf es trotzdem versuchen.
+        if (cadPreviewQueueRef.current.settle(message.requestId).status !== "sent") {
+          setNotice(t("status.edgeNeedsAdjustment"), true);
+        }
       }
     }
     cadModifierWorkerRestartRef.current = createWorker;
@@ -5865,6 +5957,7 @@ export function LayerlingEditor({
     if (!wasActive) return false;
     const hadInFlightRequest = cadModifierWatchdogRef.current !== null;
     clearCadModifierWatchdog();
+    cadPreviewQueueRef.current.reset();
     const requestId = cadModifierRequestRef.current + 1;
     cadModifierRequestRef.current = requestId;
     cadModifierLatestPreviewRef.current = requestId;
@@ -6062,7 +6155,7 @@ export function LayerlingEditor({
       const next = new Set(current.selectedEdgeIds);
       const remove = ids.every((edgeId) => next.has(edgeId));
       ids.forEach((edgeId) => remove ? next.delete(edgeId) : next.add(edgeId));
-      return { ...current, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : "Select at least one highlighted edge" };
+      return { ...current, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : t("edge.selectAtLeastOne") };
     });
   }, []);
   const exportableShapeCount = useMemo(() => (hasSelection ? selectedShapes : shapes).filter((shape) => !shape.hole).length, [hasSelection, selectedShapes, shapes]);
@@ -7543,6 +7636,7 @@ export function LayerlingEditor({
         pendingRequests.forEach((pending) => window.clearTimeout(pending.timer));
         cadModifierWorkerRef.current?.terminate();
         cadModifierWorkerRef.current = null;
+        cadPreviewQueueRef.current.reset();
         const invalidationId = cadModifierRequestRef.current + 1;
         cadModifierRequestRef.current = invalidationId;
         cadModifierLatestPreviewRef.current = invalidationId;
@@ -7866,10 +7960,50 @@ export function LayerlingEditor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [applyEdgeModifier, cancelEdgeModifier, edgeModifier]);
 
+  /*
+   * Die einzige Stelle, die eine Vorschau losschickt. Sie geht ueber die
+   * Warteschlange, damit nie mehr als eine Rechnung unterwegs ist: der Arbeiter
+   * arbeitet alles ab, was er bekommt, und auf einem langsamen Rechner wird aus
+   * einem Zug am Schieberegler sonst eine Warteschlange von Minuten.
+   */
+  const sendCadPreview = useCallback((payload: CadPreviewPayload) => {
+    const requestId = postCadModifierRequest(payload);
+    if (requestId === null) {
+      const message = cadModifierWorkerFailureMessage();
+      setEdgeModifier((current) => current ? { ...current, busy: false, prepared: false, preview: null, error: message } : current);
+      setNotice(message);
+      return null;
+    }
+    cadModifierLatestPreviewRef.current = requestId;
+    armCadModifierWatchdog(requestId, "preview");
+    setEdgeModifier((current) => current ? { ...current, busy: true, error: null } : current);
+    return requestId;
+  }, [armCadModifierWatchdog, postCadModifierRequest]);
+
   useEffect(() => {
-    if (!edgeModifier?.prepared || edgeModifier.selectedEdgeIds.length === 0) return;
+    cadPreviewSendRef.current = sendCadPreview;
+  }, [sendCadPreview]);
+
+  /** Wer die Auswahl leert, will, dass Schluss ist - auch mit dem, was schon laeuft. */
+  const discardPendingCadPreviews = useCallback(() => {
+    const queue = cadPreviewQueueRef.current;
+    if (queue.inFlightId === null && queue.queuedPayload === null) return;
+    queue.reset();
+    clearCadModifierWatchdog();
+    const requestId = cadModifierRequestRef.current + 1;
+    cadModifierRequestRef.current = requestId;
+    cadModifierLatestPreviewRef.current = requestId;
+    setEdgeModifier((current) => current?.busy ? { ...current, busy: false } : current);
+  }, [clearCadModifierWatchdog]);
+
+  useEffect(() => {
+    if (!edgeModifier?.prepared) return;
+    if (edgeModifier.selectedEdgeIds.length === 0) {
+      discardPendingCadPreviews();
+      return;
+    }
     const timer = window.setTimeout(() => {
-      const requestId = postCadModifierRequest({
+      cadPreviewQueueRef.current.request({
         type: "preview",
         kind: edgeModifier.kind,
         edgeIds: edgeModifier.selectedEdgeIds,
@@ -7877,18 +8011,9 @@ export function LayerlingEditor({
         quality: edgeModifier.quality,
         chamferAngle: edgeModifier.chamferAngle,
       });
-      if (requestId === null) {
-        const message = cadModifierWorkerFailureMessage();
-        setEdgeModifier((current) => current ? { ...current, busy: false, prepared: false, preview: null, error: message } : current);
-        setNotice(message);
-        return;
-      }
-      cadModifierLatestPreviewRef.current = requestId;
-      armCadModifierWatchdog(requestId, "preview");
-      setEdgeModifier((current) => current ? { ...current, busy: true, error: null } : current);
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [armCadModifierWatchdog, edgeModifier?.amount, edgeModifier?.chamferAngle, edgeModifier?.kind, edgeModifier?.prepared, edgeModifier?.quality, edgeModifier?.selectedEdgeIds, postCadModifierRequest]);
+  }, [discardPendingCadPreviews, edgeModifier?.amount, edgeModifier?.chamferAngle, edgeModifier?.kind, edgeModifier?.prepared, edgeModifier?.quality, edgeModifier?.selectedEdgeIds]);
 
   const snapSelected = useCallback(() => {
     if (!hasSelection) {
@@ -8908,17 +9033,20 @@ export function LayerlingEditor({
         .catch((error: unknown) => failNotice("SVG", error));
       return;
     }
+    const label = format === "stl" ? "STL" : "OBJ";
     const meshes = exportable.map(meshForShape);
-    if (format === "stl") {
-      const blob = new Blob([exportMeshesToStl(meshes)], { type: "model/stl" });
-      void downloadBlobFile(projectExportFileName(exportName, "stl"), blob)
-        .then(() => finishNotice("STL"))
-        .catch((error: unknown) => failNotice("STL", error));
-      return;
-    }
-    void downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(meshes), "text/plain")
-      .then(() => finishNotice("OBJ"))
-      .catch((error: unknown) => failNotice("OBJ", error));
+    void unionOverlappingExportMeshes(exportable, meshes)
+      .then(async ({ meshes: fertig, verschmolzen, gescheitert }) => {
+        if (format === "stl") {
+          await downloadBlobFile(projectExportFileName(exportName, "stl"), new Blob([exportMeshesToStl(fertig)], { type: "model/stl" }));
+        } else {
+          await downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(fertig), "text/plain");
+        }
+        if (gescheitert > 0) setNotice(t("status.exportUnionFailed"), true);
+        else if (verschmolzen > 0) setNotice(t("status.exportUnioned", { count: verschmolzen, label }));
+        else finishNotice(label);
+      })
+      .catch((error: unknown) => failNotice(label, error));
   }, [hasSelection, projectName, selectedShapes, shapes]);
 
   const exportStepDesign = useCallback(async (exportName: string) => {
@@ -9882,13 +10010,13 @@ export function LayerlingEditor({
               selectedEdgeIds,
               preview: null,
               busy: selectedEdgeIds.length > 0,
-              error: availableIds.size === 0 ? "No sharp edges match this threshold" : selectedEdgeIds.length ? null : "Select at least one highlighted edge",
+              error: availableIds.size === 0 ? t("edge.noEdgeAtThreshold") : selectedEdgeIds.length ? null : t("edge.selectAtLeastOne"),
             };
           })}
           onTangentChainChange={(tangentChain) => setEdgeModifier((current) => current?.prepared ? { ...current, tangentChain } : current)}
           onPreserveEdgeSizeChange={(preserveEdgeSize) => setEdgeModifier((current) => current?.prepared ? { ...current, preserveEdgeSize } : current)}
           onSelectAll={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: modifierAvailableEdgeIds, preview: null, busy: modifierAvailableEdgeIds.length > 0, error: modifierAvailableEdgeIds.length ? null : current.error } : current)}
-          onClear={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: [], preview: null, busy: false, error: "Select at least one highlighted edge" } : current)}
+          onClear={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: [], preview: null, busy: false, error: t("edge.selectAtLeastOne") } : current)}
           onRemoveFeature={removeEdgeTreatment}
           onApply={applyEdgeModifier}
           onCancel={cancelEdgeModifier}

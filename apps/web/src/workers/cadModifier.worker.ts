@@ -2,7 +2,7 @@
 
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
 import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
-import { CAD_MODIFIER_RUNTIME_BASE, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, isCadModifierWasmMemoryFault } from "@/lib/cadModifierRuntime";
+import { CAD_MODIFIER_KERNEL_RESTART_MESSAGE, CAD_MODIFIER_RUNTIME_BASE, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, isCadModifierKernelExhausted, isCadModifierWasmMemoryFault } from "@/lib/cadModifierRuntime";
 
 const HASH_UPPER_BOUND = 2_147_483_647;
 const CAD_EDGE_WIREFRAME_DEFLECTION = 0.035;
@@ -189,7 +189,10 @@ function reconstructSolid(cad: OcctKernel, part: CadModifierMeshPart) {
   }
   if (part.brep) {
     let exact = cad.fromBREP(part.brep);
-    if (part.brepTransform?.length === 12) exact = cad.generalTransform(exact, part.brepTransform);
+    // Eine Verschiebung oder Drehung ist eine starre Bewegung; die gehoert in
+    // transform. generalTransform baut analytische Flaechen in Splines um - das
+    // ist teuer, ungenauer, und der Kernel nimmt es uebel.
+    exact = applyCadTransform(cad, exact, part.brepTransform);
     const restoredSolids = cad.getSubShapes(exact, "solid");
     if (cadShapeIsValid(cad, exact) && (cad.isSolid(exact) || restoredSolids.length > 0)) {
       return restoredSolids.length === 1 ? restoredSolids[0] : exact;
@@ -388,128 +391,170 @@ function isMissingValidatorFault(message: string) {
   return /isValid/i.test(message) && /null|not a function|undefined/i.test(message);
 }
 
-self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
-  const request = event.data;
-  let cad: OcctKernel | null = null;
+function verwirfKernel(cad: OcctKernel | null) {
+  // Nur die Verweise fallenzulassen reicht nicht: der alte Kernel haelt seinen
+  // eigenen WebAssembly-Speicher fest, und daneben ist fuer einen zweiten kein
+  // Platz. occt-wasm bietet dafuer Symbol.dispose an.
   try {
-    cad = await kernel();
-    const activeCad = cad;
-    if (request.type === "dispose") {
-      releaseSession(activeCad);
-      post({ type: "disposed", requestId: request.requestId });
-      return;
-    }
-    if (request.type === "prepare") {
-      releaseSession(activeCad);
-      baseShape = reconstructParts(activeCad, request.parts);
-      const collected = collectEdges(activeCad, baseShape, request.sharpAngle, Boolean(request.suppressTreatmentDetailEdges), true);
-      edgeHandles = collected.handles;
-      baseSolids = activeCad.isSolid(baseShape) ? [baseShape] : activeCad.getSubShapes(baseShape, "solid");
-      if (baseSolids.length === 0) throw new Error("The selected group contains no closed solid components");
-      const ownerEdgeHandles = baseSolids.map((solid) => activeCad.getSubShapes(solid, "edge"));
-      try {
-        const ownerCandidates = new Map<number, Array<{ owner: number; edge: ShapeHandle }>>();
-        ownerEdgeHandles.forEach((componentEdges, owner) => {
-          componentEdges.forEach((edge) => {
-            const hash = activeCad.hashCode(edge, HASH_UPPER_BOUND);
-            const candidates = ownerCandidates.get(hash) ?? [];
-            candidates.push({ owner, edge });
-            ownerCandidates.set(hash, candidates);
-          });
-        });
-        edgeOwners = edgeHandles.map((edge) => {
+    (cad as unknown as { [key: symbol]: (() => void) | undefined })?.[Symbol.dispose]?.();
+  } catch {
+    // Ein Kernel, der schon nicht mehr antwortet, laesst sich auch nicht mehr abbauen.
+  }
+  kernelPromise = null;
+  baseShape = null;
+  baseSolids = [];
+  edgeHandles = [];
+  edgeOwners = [];
+}
+
+async function bearbeiteAnfrage(request: CadModifierWorkerRequest, halter: { cad: OcctKernel | null }) {
+  const cad = await kernel();
+  halter.cad = cad;
+  const activeCad = cad;
+  if (request.type === "dispose") {
+    releaseSession(activeCad);
+    post({ type: "disposed", requestId: request.requestId });
+    return;
+  }
+  if (request.type === "prepare") {
+    releaseSession(activeCad);
+    baseShape = reconstructParts(activeCad, request.parts);
+    const collected = collectEdges(activeCad, baseShape, request.sharpAngle, Boolean(request.suppressTreatmentDetailEdges), true);
+    edgeHandles = collected.handles;
+    baseSolids = activeCad.isSolid(baseShape) ? [baseShape] : activeCad.getSubShapes(baseShape, "solid");
+    if (baseSolids.length === 0) throw new Error("The selected group contains no closed solid components");
+    const ownerEdgeHandles = baseSolids.map((solid) => activeCad.getSubShapes(solid, "edge"));
+    try {
+      const ownerCandidates = new Map<number, Array<{ owner: number; edge: ShapeHandle }>>();
+      ownerEdgeHandles.forEach((componentEdges, owner) => {
+        componentEdges.forEach((edge) => {
           const hash = activeCad.hashCode(edge, HASH_UPPER_BOUND);
           const candidates = ownerCandidates.get(hash) ?? [];
-          const exact = candidates.find((candidate) => activeCad.isSame(edge, candidate.edge));
-          if (!exact) throw new Error("A CAD edge could not be mapped to its solid component; restart the edge tool");
-          return exact.owner;
+          candidates.push({ owner, edge });
+          ownerCandidates.set(hash, candidates);
         });
-      } finally {
-        ownerEdgeHandles.forEach((componentEdges) => releaseHandles(activeCad, componentEdges));
-      }
-      post({
-        type: "ready",
-        requestId: request.requestId,
-        edges: collected.edges.map((edge) => ({ ...edge, owner: edgeOwners[edge.id] ?? 0 })),
-        selectableEdgeIds: collected.selectableEdgeIds,
-        sourceType: activeCad.getShapeType(baseShape),
       });
-      return;
-    }
-    if (baseShape === null) throw new Error("Prepare an object before previewing the modifier");
-    const selected = request.edgeIds.map((id) => ({ edge: edgeHandles[id], owner: edgeOwners[id] })).filter((entry): entry is { edge: ShapeHandle; owner: number } => entry.edge !== undefined);
-    if (selected.length === 0) throw new Error("Select at least one highlighted edge");
-    const componentResults: ShapeHandle[] = [];
-    let result: ShapeHandle | null = null;
-    try {
-      for (let owner = 0; owner < baseSolids.length; owner += 1) {
-        const solid = baseSolids[owner];
-        const componentEdges = selected.filter((entry) => entry.owner === owner).map((entry) => entry.edge);
-        const component = componentEdges.length === 0
-          ? activeCad.copy(solid)
-          : request.kind === "fillet"
-            ? activeCad.fillet(solid, componentEdges, request.amount)
-            : Math.abs(request.chamferAngle - 45) < 0.001
-              ? activeCad.chamfer(solid, componentEdges, request.amount)
-              : activeCad.chamferDistAngle(solid, componentEdges, request.amount, request.chamferAngle);
-        componentResults.push(component);
-      }
-      result = componentResults.length === 1 ? componentResults[0] : activeCad.makeCompound(componentResults);
-      if (!cadShapeIsValid(activeCad, result)) throw new Error("The chosen size creates invalid or overlapping edge geometry");
-      const options = tessellationOptions(request.quality, request.amount);
-      const mesh = copyCadMesh(activeCad.tessellate(result, options));
-      const displayEdges = collectEdges(activeCad, result, 0).displayEdges;
-      const brep = activeCad.toBREP(result);
-      const components: CadModifierComponentMesh[] = componentResults.map((component, owner) => {
-        const componentMesh = copyCadMesh(activeCad.tessellate(component, options));
-        return {
-          owner,
-          positions: componentMesh.positions,
-          normals: componentMesh.normals,
-          indices: componentMesh.indices,
-          triangleCount: componentMesh.triangleCount,
-          brep: activeCad.toBREP(component),
-          displayEdges: collectEdges(activeCad, component, 0).displayEdges,
-        };
+      edgeOwners = edgeHandles.map((edge) => {
+        const hash = activeCad.hashCode(edge, HASH_UPPER_BOUND);
+        const candidates = ownerCandidates.get(hash) ?? [];
+        const exact = candidates.find((candidate) => activeCad.isSame(edge, candidate.edge));
+        if (!exact) throw new Error("A CAD edge could not be mapped to its solid component; restart the edge tool");
+        return exact.owner;
       });
-      post(
-        { type: "preview", requestId: request.requestId, positions: mesh.positions, normals: mesh.normals, indices: mesh.indices, triangleCount: mesh.triangleCount, brep, displayEdges, components },
-        [
-          mesh.positions.buffer,
-          mesh.normals.buffer,
-          mesh.indices.buffer,
-          ...components.flatMap((component) => [component.positions.buffer, component.normals.buffer, component.indices.buffer]),
-        ],
-      );
     } finally {
-      componentResults.forEach((component) => activeCad.release(component));
-      if (result !== null && componentResults.length > 1) activeCad.release(result);
+      ownerEdgeHandles.forEach((componentEdges) => releaseHandles(activeCad, componentEdges));
     }
-  } catch (error) {
-    const rawMessage = error instanceof Error ? error.message : String(error ?? "");
-    const errorName = error instanceof Error ? error.name : "";
-    if (isCadModifierWasmMemoryFault(rawMessage, errorName) || isImportStlWasmFault(rawMessage) || isMissingValidatorFault(rawMessage)) {
-      if (cad) releaseSession(cad);
-      kernelPromise = null;
-      const message = isImportStlWasmFault(rawMessage)
-        ? "The selected mesh could not be converted into a closed CAD solid. The CAD kernel reset; try Separate Parts, ungrouping, or simplifying the object before adding edge features."
-        : isMissingValidatorFault(rawMessage)
-          ? "The CAD kernel exposed an incomplete validation function and reset. Start the edge tool again; no page refresh is needed."
-        : "The CAD kernel hit a memory fault and reset. Start the edge tool again; no page refresh is needed.";
-      post({
-        type: "error",
-        requestId: request.requestId,
-        message,
-        resetSession: true,
-      });
-      return;
-    }
-    const message = request.type === "preview" && (rawMessage.includes("WebAssembly.Exception") || rawMessage.includes("fillet:") || rawMessage.includes("chamfer:"))
-      ? `The selected edges cannot be ${request.kind === "fillet" ? "filleted" : "chamfered"} together at this size. Reduce the size or select fewer connected edges.`
-      : rawMessage || "The CAD kernel could not complete this edge treatment";
-    if (request.type === "prepare" && cad) releaseSession(cad);
-    post({ type: "error", requestId: request.requestId, message });
+    post({
+      type: "ready",
+      requestId: request.requestId,
+      edges: collected.edges.map((edge) => ({ ...edge, owner: edgeOwners[edge.id] ?? 0 })),
+      selectableEdgeIds: collected.selectableEdgeIds,
+      sourceType: activeCad.getShapeType(baseShape),
+    });
+    return;
   }
+  if (baseShape === null) throw new Error("Prepare an object before previewing the modifier");
+  const selected = request.edgeIds.map((id) => ({ edge: edgeHandles[id], owner: edgeOwners[id] })).filter((entry): entry is { edge: ShapeHandle; owner: number } => entry.edge !== undefined);
+  if (selected.length === 0) throw new Error("Select at least one highlighted edge");
+  const componentResults: ShapeHandle[] = [];
+  let result: ShapeHandle | null = null;
+  try {
+    for (let owner = 0; owner < baseSolids.length; owner += 1) {
+      const solid = baseSolids[owner];
+      const componentEdges = selected.filter((entry) => entry.owner === owner).map((entry) => entry.edge);
+      const component = componentEdges.length === 0
+        ? activeCad.copy(solid)
+        : request.kind === "fillet"
+          ? activeCad.fillet(solid, componentEdges, request.amount)
+          : Math.abs(request.chamferAngle - 45) < 0.001
+            ? activeCad.chamfer(solid, componentEdges, request.amount)
+            : activeCad.chamferDistAngle(solid, componentEdges, request.amount, request.chamferAngle);
+      componentResults.push(component);
+    }
+    result = componentResults.length === 1 ? componentResults[0] : activeCad.makeCompound(componentResults);
+    if (!cadShapeIsValid(activeCad, result)) throw new Error("The chosen size creates invalid or overlapping edge geometry");
+    const options = tessellationOptions(request.quality, request.amount);
+    const mesh = copyCadMesh(activeCad.tessellate(result, options));
+    const displayEdges = collectEdges(activeCad, result, 0).displayEdges;
+    const brep = activeCad.toBREP(result);
+    const components: CadModifierComponentMesh[] = componentResults.map((component, owner) => {
+      const componentMesh = copyCadMesh(activeCad.tessellate(component, options));
+      return {
+        owner,
+        positions: componentMesh.positions,
+        normals: componentMesh.normals,
+        indices: componentMesh.indices,
+        triangleCount: componentMesh.triangleCount,
+        brep: activeCad.toBREP(component),
+        displayEdges: collectEdges(activeCad, component, 0).displayEdges,
+      };
+    });
+    post(
+      { type: "preview", requestId: request.requestId, positions: mesh.positions, normals: mesh.normals, indices: mesh.indices, triangleCount: mesh.triangleCount, brep, displayEdges, components },
+      [
+        mesh.positions.buffer,
+        mesh.normals.buffer,
+        mesh.indices.buffer,
+        ...components.flatMap((component) => [component.positions.buffer, component.normals.buffer, component.indices.buffer]),
+      ],
+    );
+  } finally {
+    componentResults.forEach((component) => activeCad.release(component));
+    if (result !== null && componentResults.length > 1) activeCad.release(result);
+  }
+}
+
+self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
+  const request = event.data;
+  const halter: { cad: OcctKernel | null } = { cad: null };
+  let error: unknown = null;
+  try {
+    await bearbeiteAnfrage(request, halter);
+    return;
+  } catch (ersterFehler) {
+    error = ersterFehler;
+  }
+
+  if (request.type === "prepare" && isCadModifierKernelExhausted(
+    error instanceof Error ? error.message : String(error ?? ""),
+    error instanceof Error ? error.name : "",
+  )) {
+    // Ein neuer Kernel in derselben Aufgabe scheitert genauso - der alte haelt
+    // seinen Speicher noch. Deshalb nur abbauen und melden: der naechste Anlauf
+    // bekommt einen frischen und kommt durch.
+    verwirfKernel(halter.cad);
+    post({
+      type: "error",
+      requestId: request.requestId,
+      message: CAD_MODIFIER_KERNEL_RESTART_MESSAGE,
+      resetSession: true,
+    });
+    return;
+  }
+
+  const rawMessage = error instanceof Error ? error.message : String(error ?? "");
+  const errorName = error instanceof Error ? error.name : "";
+  if (isCadModifierWasmMemoryFault(rawMessage, errorName) || isImportStlWasmFault(rawMessage) || isMissingValidatorFault(rawMessage)) {
+    if (halter.cad) releaseSession(halter.cad);
+    kernelPromise = null;
+    const message = isImportStlWasmFault(rawMessage)
+      ? "The selected mesh could not be converted into a closed CAD solid. The CAD kernel reset; try Separate Parts, ungrouping, or simplifying the object before adding edge features."
+      : isMissingValidatorFault(rawMessage)
+        ? "The CAD kernel exposed an incomplete validation function and reset. Start the edge tool again; no page refresh is needed."
+      : "The CAD kernel hit a memory fault and reset. Start the edge tool again; no page refresh is needed.";
+    post({
+      type: "error",
+      requestId: request.requestId,
+      message,
+      resetSession: true,
+    });
+    return;
+  }
+  const message = request.type === "preview" && (rawMessage.includes("WebAssembly.Exception") || rawMessage.includes("fillet:") || rawMessage.includes("chamfer:"))
+    ? `The selected edges cannot be ${request.kind === "fillet" ? "filleted" : "chamfered"} together at this size. Reduce the size or select fewer connected edges.`
+    : rawMessage || "The CAD kernel could not complete this edge treatment";
+  if (request.type === "prepare" && halter.cad) releaseSession(halter.cad);
+  post({ type: "error", requestId: request.requestId, message });
 };
 
 export {};
