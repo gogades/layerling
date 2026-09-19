@@ -4030,7 +4030,7 @@ button {
      Im schmalen Band der Fusszeile war die Meldung kaum zu lesen. Sie erscheint
      nur, wenn es etwas zu sagen gibt - im Ruhezustand ist sie gar nicht da. */
   position: fixed;
-  top: calc(var(--editor-toolbar-height) + 48px);
+  top: calc(var(--editor-toolbar-height) + 22px);
   left: 104px;
   z-index: 50;
   max-width: min(520px, calc(100vw - 400px));
@@ -8981,7 +8981,7 @@ html[data-theme="dark"] .language-switch svg {
   /* Der Wuerfel ist hier kleiner, also rueckt das Statusfenster mit - sonst
      stuende es mit einer Handbreit Abstand daneben statt neben ihm. */
   .editor-status {
-    top: calc(var(--editor-toolbar-height) + 40px);
+    top: calc(var(--editor-toolbar-height) + 18px);
     left: 90px;
   }
 

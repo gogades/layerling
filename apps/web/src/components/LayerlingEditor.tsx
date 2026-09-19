@@ -235,8 +235,14 @@ const CUTTER_PADDING = 0.05;
 const POINT_TOLERANCE = 0.0001;
 const CUTTER_RESIDUAL_INSET = CUTTER_PADDING * 0.4;
 const MIN_SHAPE_DIMENSION = 0.01;
-/** So lange bleibt eine Bestaetigung in der Statuszeile stehen. */
+/** So lange bleibt eine gewoehnliche Meldung stehen. */
 const NOTICE_LINGER_MS = 4000;
+/**
+ * So lange bleibt eine Meldung stehen, die etwas will oder auf Arbeit wartet.
+ * Auch sie geht irgendwann: Ein Fenster, das nie verschwindet, ist ein Fleck
+ * auf der Arbeitsflaeche.
+ */
+const NOTICE_PATIENT_MS = 30000;
 const MAX_SKETCH_HISTORY_ENTRIES = 100;
 const MODEL_DIMENSION_PRECISION = 3;
 const IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT = 150000;
@@ -5587,15 +5593,13 @@ export function LayerlingEditor({
    * bleibt stehen, bis es abgeloest wird: Eine Aufforderung, die sich von
    * selbst zurueckzieht, ist keine.
    */
-  const setNotice = useCallback((message: string, transient = false) => {
+  const setNotice = useCallback((message: string, patient = false) => {
     setNoticeText(message);
     if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
-    noticeTimerRef.current = transient
-      ? window.setTimeout(() => {
-        noticeTimerRef.current = null;
-        setNoticeText("");
-      }, NOTICE_LINGER_MS)
-      : null;
+    noticeTimerRef.current = window.setTimeout(() => {
+      noticeTimerRef.current = null;
+      setNoticeText("");
+    }, patient ? NOTICE_PATIENT_MS : NOTICE_LINGER_MS);
   }, []);
 
   useEffect(() => () => {
@@ -5776,7 +5780,7 @@ export function LayerlingEditor({
           componentPreviews: [],
           error: message.selectableEdgeIds.length ? null : "No sharp manifold edges were found at this threshold",
         } : current);
-        if (message.selectableEdgeIds.length) setNotice(t("status.selectHighlightedEdges"));
+        if (message.selectableEdgeIds.length) setNotice(t("status.selectHighlightedEdges"), true);
         return;
       }
       if (message.type === "preview") {
@@ -5815,7 +5819,7 @@ export function LayerlingEditor({
           return;
         }
         setEdgeModifier((current) => current ? { ...current, busy: false, preview: null, error: message.message } : current);
-        setNotice(t("status.edgeNeedsAdjustment"));
+        setNotice(t("status.edgeNeedsAdjustment"), true);
       }
     }
     cadModifierWorkerRestartRef.current = createWorker;
@@ -6352,9 +6356,9 @@ export function LayerlingEditor({
       setSelectedIds(validSelection);
       const changed = appendHistorySnapshot(canonicalNext, validSelection);
       if (message) {
-        // Alles, was hierher kommt, ist eine Bestaetigung: Etwas ist entstanden,
-        // hat sich geaendert oder ist verschwunden - und das sieht man ohnehin.
-        setNotice(message, true);
+        // Eine Bestaetigung: Etwas ist entstanden, hat sich geaendert oder ist
+        // verschwunden - und das sieht man ohnehin. Sie geht nach Sekunden.
+        setNotice(message);
       }
       if (changed) {
         syncProjectShapes(canonicalNext);
@@ -6374,7 +6378,7 @@ export function LayerlingEditor({
     }
     const option = selectedEdgeHistoryOptions.find((candidate) => candidate.id === optionId);
     if (!option) {
-      setNotice(t("status.chooseEdgeFeature"));
+      setNotice(t("status.chooseEdgeFeature"), true);
       return;
     }
     const sourceFingerprint = projectShapesFingerprint([selectedShape]);
@@ -6556,7 +6560,7 @@ export function LayerlingEditor({
       if (!sketchMeasureStart) {
         setSketchMeasureStart({ ...point });
         setSketchMeasurement(null);
-        setNotice(t("status.chooseSecondPoint"));
+        setNotice(t("status.chooseSecondPoint"), true);
         return;
       }
       const measurement = { start: { ...sketchMeasureStart }, end: { ...point } };
@@ -6969,7 +6973,7 @@ export function LayerlingEditor({
       if (sketchOperation === "revolve") {
         resolved = await shapeFromRevolvedSketchProfile(sketchProfile, sketchRevolveSettings, existing);
       } else {
-        setNotice(t("status.buildingSketch"));
+        setNotice(t("status.buildingSketch"), true);
         const extrusion = await cadShapeFromSketchProfile(sketchProfile, height, existing);
         resolved = placeSketchExtrusion(extrusion, activeSketchWorkplane, existing);
       }
@@ -6978,7 +6982,7 @@ export function LayerlingEditor({
       return;
     }
     if (!resolved) {
-      setNotice(t("status.closeProfile"));
+      setNotice(t("status.closeProfile"), true);
       return;
     }
     const nextShapes = existing ? shapes.map((shape) => (shape.id === existing.id ? resolved : shape)) : [...shapes, resolved];
@@ -7090,7 +7094,7 @@ export function LayerlingEditor({
       sketchRevolveUpdateTimerRef.current.delete(id);
       const source = shapesRef.current.find((shape) => shape.id === id);
       if (!source?.sketchProfile || source.sketchOperation !== "revolve") return;
-      setNotice(t("status.updatingRevolve"));
+      setNotice(t("status.updatingRevolve"), true);
       void shapeFromRevolvedSketchProfile(source.sketchProfile, settings, source)
         .then((generated) => {
           if (sketchRevolveUpdateRequestRef.current.get(id) !== requestId) return;
@@ -7498,7 +7502,7 @@ export function LayerlingEditor({
       return;
     }
     if (triangleCount > 180_000) {
-      setNotice(t("status.meshTooDense"));
+      setNotice(t("status.meshTooDense"), true);
       return;
     }
     const amount = Math.max(MIN_EDGE_MODIFIER_AMOUNT, Math.min(1, shapeWidth(selectedShape) / 6, shapeDepth(selectedShape) / 6, selectedShape.height / 6));
@@ -7523,7 +7527,7 @@ export function LayerlingEditor({
       preview: null,
       componentPreviews: [],
     });
-    setNotice(t("status.preparingEdges", { kind }));
+    setNotice(t("status.preparingEdges", { kind }), true);
     const parts: CadModifierMeshPart[] = partInputs.map((part) => {
       if (part.brep) return { brep: part.brep, brepTransform: part.brepTransform, hole: Boolean(part.shape.hole) };
       if (part.primitive) return { primitive: part.primitive, hole: Boolean(part.shape.hole) };
@@ -7702,7 +7706,7 @@ export function LayerlingEditor({
   const applyEdgeModifier = useCallback(() => {
     const base = cadModifierBaseShapeRef.current;
     if (!edgeModifier?.preview || !base) {
-      setNotice(t("status.waitForPreview"));
+      setNotice(t("status.waitForPreview"), true);
       return;
     }
     const feature = {
@@ -7968,7 +7972,9 @@ export function LayerlingEditor({
   const activateWorkplaneTool = useCallback(() => {
     setWorkplaneMode((active) => {
       const next = !active;
-      setNotice(next ? t("status.workplaneToolStart") : t("status.workplaneToolCancelled"));
+      // Der Hinweis gilt, solange das Werkzeug scharf ist - das Abbrechen ist
+      // eine gewoehnliche Meldung und darf gleich wieder gehen.
+      setNotice(next ? t("status.workplaneToolStart") : t("status.workplaneToolCancelled"), next);
       return next;
     });
   }, []);
@@ -8777,7 +8783,7 @@ export function LayerlingEditor({
     }
     const invalidSvg = exportable.map(invalidSvgMeshReason).find((reason): reason is string => Boolean(reason));
     if (invalidSvg) {
-      setNotice(t("status.svgInvalid", { reason: invalidSvg }));
+      setNotice(t("status.svgInvalid", { reason: invalidSvg }), true);
       return;
     }
     const selectedNotice = exportable.length === 1
@@ -8792,7 +8798,7 @@ export function LayerlingEditor({
       setNotice(error instanceof Error ? error.message : t("status.exportFailed", { label }));
     };
     if (format === "svg") {
-      setNotice(t("status.buildingSvg"));
+      setNotice(t("status.buildingSvg"), true);
       void toSvg(exportable, exportName.trim() || projectName)
         .then((content) => downloadTextFile(projectExportFileName(exportName, "svg"), content, "image/svg+xml;charset=utf-8"))
         .then(() => finishNotice("SVG"))
@@ -8822,7 +8828,7 @@ export function LayerlingEditor({
       return;
     }
     setStepExporting(true);
-    setNotice(t("status.buildingBrep"));
+    setNotice(t("status.buildingBrep"), true);
     try {
       const { exportShapesToStep } = await import("@/lib/stepExport");
       const { blob, exportedCount, skipped } = await exportShapesToStep(sourceShapes);
@@ -8842,7 +8848,7 @@ export function LayerlingEditor({
   const exportLylDesign = useCallback(async (exportName: string, historyLimit: LylHistoryLimit, target: LylExportTarget = "download") => {
     if (lylExporting) return;
     if (target === "shared" && !onSaveSharedProject) {
-      setNotice(t("status.sharedUnavailable"));
+      setNotice(t("status.sharedUnavailable"), true);
       return;
     }
     if (projectInteractionActiveRef.current) {
@@ -8941,7 +8947,7 @@ export function LayerlingEditor({
       if (conflict) {
         // Somebody else changed the file. Carrying on would overwrite their work.
         serverSaveStoppedRef.current = true;
-        setNotice(t("status.serverSaveStopped"));
+        setNotice(t("status.serverSaveStopped"), true);
       } else {
         // A hiccup on the way, not a decision: keep the change pending and say
         // plainly what the server answered instead of falling silent.
@@ -9038,14 +9044,14 @@ export function LayerlingEditor({
     const projectFiles = files.filter((file) => /\.(lyl|skf)$/i.test(file.name));
     if (projectFiles.length) {
       if (files.length !== 1) {
-        setNotice(t("status.oneLylAtATime"));
+        setNotice(t("status.oneLylAtATime"), true);
         return;
       }
       if (!onOpenLylProjectFile) {
-        setNotice(t("status.lylUnavailable"));
+        setNotice(t("status.lylUnavailable"), true);
         return;
       }
-      setNotice(t("status.validatingFile", { name: projectFiles[0].name }));
+      setNotice(t("status.validatingFile", { name: projectFiles[0].name }), true);
       const result = await onOpenLylProjectFile(projectFiles[0]);
       if (result?.message) setNotice(result.message);
       if (result?.ok !== false) setTopPanel(null);
@@ -9077,7 +9083,7 @@ export function LayerlingEditor({
         total: files.length,
         name: file.name,
         stepNote: isStep ? t("status.stepKernelNote") : "",
-      }));
+      }), true);
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
         const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
