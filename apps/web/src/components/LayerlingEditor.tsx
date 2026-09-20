@@ -811,6 +811,10 @@ function getManifoldRuntime() {
   const runtimeModule = isFileBuild
     ? importBundledManifoldModule().then((module) => module.default)
     : import(/* webpackIgnore: true */ manifoldScriptUrl).then((module) => (module as { default: typeof manifoldModule }).default);
+  // Drop a rejected attempt so a transient failure (e.g. a network blip
+  // fetching the manifold wasm) can be retried on the next call instead of
+  // poisoning every boolean operation for the rest of the session - same fix
+  // as brepKernel.ts's loadBrepWithOcct.
   manifoldRuntimePromise ??= runtimeModule
     .then((module) => {
       if (isFileBuild) {
@@ -825,6 +829,10 @@ function getManifoldRuntime() {
     .then((runtime) => {
       runtime.setup();
       return runtime;
+    })
+    .catch((error) => {
+      manifoldRuntimePromise = null;
+      throw error;
     });
   return manifoldRuntimePromise;
 }
@@ -1630,6 +1638,82 @@ function bakedEdgeTreatmentPreview(shape: WorkplaneShape, base: WorkplaneShape) 
     groupedBaseDepth: undefined,
     groupedBaseHeight: undefined,
   });
+}
+
+type ShapeTransformSnapshot = {
+  x: number;
+  z: number;
+  elevation: number;
+  rotationQuaternion: THREE.Quaternion;
+};
+
+/**
+ * Die Drehung backt bei fast jeder Form sofort ins Netz - danach steht
+ * `shape.rotation` wieder auf 0, obwohl sich der Koerper sichtbar gedreht
+ * hat. Die tatsaechlich seit der Entstehung aufgelaufene Drehung steckt dann
+ * in `parametricSource` (`quaternionForShape`/`rotationFromQuaternion`, siehe
+ * [[layerling-drehen-backt]]) - nur Text und Gruppen fuehren sie weiter im
+ * eigenen Feld. Diese Quelle liefert in beiden Faellen dieselbe, vergleichbare
+ * Drehung.
+ */
+function shapeTransformSnapshot(shape: WorkplaneShape): ShapeTransformSnapshot {
+  return {
+    x: shape.x,
+    z: shape.z,
+    elevation: shape.elevation ?? 0,
+    rotationQuaternion: quaternionForShape(shape.parametricSource ?? shape),
+  };
+}
+
+type ShapeMoveDelta = {
+  dx: number;
+  dz: number;
+  delevation: number;
+  rotationDelta: THREE.Quaternion;
+};
+
+const ZERO_MOVE_DELTA: ShapeMoveDelta = { dx: 0, dz: 0, delevation: 0, rotationDelta: new THREE.Quaternion() };
+
+function shapeMoveDeltaBetween(from: ShapeTransformSnapshot, to: ShapeTransformSnapshot): ShapeMoveDelta {
+  return {
+    dx: to.x - from.x,
+    dz: to.z - from.z,
+    delevation: to.elevation - from.elevation,
+    rotationDelta: to.rotationQuaternion.clone().multiply(from.rotationQuaternion.clone().invert()),
+  };
+}
+
+function isZeroMoveDelta(delta: ShapeMoveDelta) {
+  const epsilon = 1e-6;
+  return Math.abs(delta.dx) < epsilon && Math.abs(delta.dz) < epsilon && Math.abs(delta.delevation) < epsilon
+    && 1 - Math.abs(delta.rotationDelta.w) < epsilon;
+}
+
+/**
+ * Verschiebt und dreht eine Kopie um denselben Betrag, den ihre Vorlage seit
+ * ihrer eigenen Entstehung erfahren hat. Die Verschiebung ist ein einfaches
+ * Feld-Update; die Drehung nicht, weil sie bei den meisten Formen sofort
+ * backt (siehe `shapeTransformSnapshot` oben). Bei Text und Gruppen bleibt
+ * die Drehung ein Feld und wird direkt weitergeschrieben. Bei allem anderen
+ * wird der Zuwachs als neue Drehung eingetragen und derselbe Weg benutzt, der
+ * auch einen echten Zieh-Griff backt (`bakeShapeTransformIntoMesh`) - so trifft
+ * die Drehung wirklich die Netz-Eckpunkte der Kopie, nicht nur ein Feld, das
+ * ohnehin gleich wieder auf 0 zurueckfiele.
+ */
+function applyShapeMoveDelta(shape: WorkplaneShape, delta: ShapeMoveDelta): WorkplaneShape {
+  const moved: WorkplaneShape = {
+    ...shape,
+    x: shape.x + delta.dx,
+    z: shape.z + delta.dz,
+    elevation: (shape.elevation ?? 0) + delta.delevation,
+  };
+  if (isZeroMoveDelta({ ...ZERO_MOVE_DELTA, rotationDelta: delta.rotationDelta })) {
+    return moved;
+  }
+  if (shapeTransformShouldRemainEditable(moved)) {
+    return { ...moved, ...rotationFromQuaternion(delta.rotationDelta.clone().multiply(quaternionForShape(moved))) };
+  }
+  return bakeShapeTransformIntoMesh({ ...moved, ...rotationFromQuaternion(delta.rotationDelta) });
 }
 
 function shapeCenterDistance(a: WorkplaneShape, b: WorkplaneShape) {
@@ -5232,7 +5316,7 @@ function localGroupBounds(children: WorkplaneShape[]): Cuboid {
   return boundsForShapes(children);
 }
 
-function quaternionForShape(shape: WorkplaneShape) {
+function quaternionForShape(shape: { rotation: number; rotationX?: number; rotationZ?: number }) {
   return new THREE.Quaternion().setFromEuler(
     new THREE.Euler(
       THREE.MathUtils.degToRad(shape.rotationX ?? 0),
@@ -7489,13 +7573,40 @@ export function LayerlingEditor({
     );
   }, [commitShapes, hasSelection, selectedIds, shapes]);
 
+  /*
+   * darkwingbreydins Forenwunsch: wie in Tinkercad soll ein Duplizieren nach
+   * dem Verschieben eines vorigen Duplikats denselben Versatz wiederholen, so
+   * dass wiederholtes Duplizieren allein eine Lochreihe ergibt. Das Ziel ist
+   * eine reine Sitzungserinnerung, kein Projektfeld: sie haengt an der
+   * zuletzt erzeugten Kopie (`chainId`) und ihrem Stand bei der Entstehung
+   * (`baseline`), damit sich der tatsaechlich seither zurueckgelegte Versatz
+   * im Moment des naechsten Duplizierens berechnen laesst - ohne jeden
+   * Zug-/Dreh-Commit einzeln mitschneiden zu muessen. Bewegt sich die
+   * ausgewaehlte Kopie seit ihrer Entstehung nicht, wird der zuletzt
+   * angewandte Versatz erneut benutzt, statt auf Null zurueckzufallen -
+   * genau das erlaubt das blosse wiederholte Druecken.
+   */
+  const smartDuplicateRef = useRef<{ chainId: string; baseline: ShapeTransformSnapshot; delta: ShapeMoveDelta } | null>(null);
+
   const duplicateSelected = useCallback(() => {
     if (!hasSelection) {
       setNotice(t("status.selectShapeFirst"));
       return;
     }
+    if (selectedShapes.length === 1) {
+      const shape = selectedShapes[0];
+      const chain = smartDuplicateRef.current;
+      const continuing = chain?.chainId === shape.id;
+      const movedSinceCreation = continuing ? shapeMoveDeltaBetween(chain.baseline, shapeTransformSnapshot(shape)) : ZERO_MOVE_DELTA;
+      const delta = continuing && isZeroMoveDelta(movedSinceCreation) ? chain.delta : movedSinceCreation;
+      const duplicate = applyShapeMoveDelta(cloneWorkplaneShapeTreeWithFreshIds(shape, "copy"), delta);
+      commitShapes([...shapes, duplicate], [duplicate.id], t("status.duplicatedOne"));
+      smartDuplicateRef.current = { chainId: duplicate.id, baseline: shapeTransformSnapshot(duplicate), delta };
+      return;
+    }
+    smartDuplicateRef.current = null;
     const duplicates = selectedShapes.map((shape) => cloneWorkplaneShapeTreeWithFreshIds(shape, "copy"));
-    commitShapes([...shapes, ...duplicates], duplicates.map((shape) => shape.id), duplicates.length === 1 ? t("status.duplicatedOne") : t("status.duplicatedMany", { count: duplicates.length }));
+    commitShapes([...shapes, ...duplicates], duplicates.map((shape) => shape.id), t("status.duplicatedMany", { count: duplicates.length }));
   }, [commitShapes, hasSelection, selectedShapes, shapes]);
 
   const duplicateShapeAt = useCallback((id: string, position: { x: number; z: number }) => {

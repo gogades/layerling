@@ -239,14 +239,18 @@ export function normalizeThreadClearance(value?: number) {
 }
 
 /**
- * Die Fase an den Enden. Vorgabe ist genau die Gewindetiefe: dann laeuft der
- * Kegel unter 45 Grad bis auf den Kern hinunter und nimmt der Stange die
- * scharfe Schneide, die ein frisch abgelaengtes Gewinde sonst hat. Bei
- * Innengewinden zeigt dieselbe Zahl nach aussen und wird zur Ansenkung am
- * Mundloch.
+ * Die Fase an den Enden. Bei einem Innengewinde (Mutter, Gewindeloch) reicht
+ * genau die Gewindetiefe: der Kegel laeuft unter 45 Grad bis auf den Kern
+ * hinunter und entgratet die Muendung, ohne mehr vom Gewinde zu opfern als
+ * noetig. Ein freies Gewindeende (Stange, Schraubenspitze) braucht mehr, um
+ * beim Einfaedeln in ein Gegengewinde wirklich zu fuehren statt nur die
+ * Kante zu brechen - eine volle Steigung, angelehnt an genormte
+ * Schraubenspitzen (z. B. ISO 4753), reicht spuerbar unter den Kern und
+ * druckt sich damit auch als richtiger Kegel statt als Messerkante.
  */
-export function defaultThreadChamfer(pitch: number, profile: ThreadProfile = DEFAULT_THREAD_PROFILE) {
-  return pitch * threadProfileSpec(profile).depthPerPitch;
+export function defaultThreadChamfer(pitch: number, profile: ThreadProfile = DEFAULT_THREAD_PROFILE, role: ThreadRole = DEFAULT_THREAD_ROLE) {
+  if (role === "nut" || role === "bore") return pitch * threadProfileSpec(profile).depthPerPitch;
+  return pitch;
 }
 
 export function threadChamferLimits(settings: Pick<ThreadSettings, "role" | "diameter" | "pitch">) {
@@ -261,7 +265,7 @@ export function threadChamferLimits(settings: Pick<ThreadSettings, "role" | "dia
 
 export function normalizeThreadChamfer(value: number | undefined, settings: Pick<ThreadSettings, "role" | "diameter" | "pitch" | "profile">) {
   const limits = threadChamferLimits(settings);
-  return clamp(finite(value, defaultThreadChamfer(settings.pitch, settings.profile)), limits.min, limits.max);
+  return clamp(finite(value, defaultThreadChamfer(settings.pitch, settings.profile, settings.role)), limits.min, limits.max);
 }
 
 /**

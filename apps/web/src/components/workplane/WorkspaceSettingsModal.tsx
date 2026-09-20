@@ -199,7 +199,7 @@ function specialFieldsForShape(
       { type: "select", key: "threadHand", label: t("prop.threadHand"), defaultValue: defaults.threadHand ?? DEFAULT_THREAD_HAND, options: THREAD_HAND_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })) },
       { type: "select", key: "threadProfile", label: t("prop.threadProfile"), defaultValue: defaults.threadProfile ?? DEFAULT_THREAD_PROFILE, options: THREAD_PROFILE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })) },
       { type: "number", key: "threadClearance", label: t("prop.clearance"), defaultValue: defaults.threadClearance ?? DEFAULT_THREAD_CLEARANCE, min: MIN_THREAD_CLEARANCE, max: MAX_THREAD_CLEARANCE, unit: "mm" },
-      { type: "number", key: "threadChamfer", label: t("prop.chamfer"), defaultValue: defaults.threadChamfer ?? defaultThreadChamfer(defaults.threadPitch ?? DEFAULT_THREAD_PITCH, defaults.threadProfile ?? DEFAULT_THREAD_PROFILE), min: 0, max: 40, unit: "mm" },
+      { type: "number", key: "threadChamfer", label: t("prop.chamfer"), defaultValue: defaults.threadChamfer ?? defaultThreadChamfer(defaults.threadPitch ?? DEFAULT_THREAD_PITCH, defaults.threadProfile ?? DEFAULT_THREAD_PROFILE, defaults.threadRole ?? DEFAULT_THREAD_ROLE), min: 0, max: 40, unit: "mm" },
       { type: "number", key: "threadQuality", label: t("prop.quality"), defaultValue: defaults.threadQuality ?? DEFAULT_THREAD_QUALITY, min: MIN_THREAD_QUALITY, max: MAX_THREAD_QUALITY, step: 6 },
     );
     return fields;

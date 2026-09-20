@@ -158,7 +158,7 @@ export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAss
       threadPitch: DEFAULT_THREAD_PITCH,
       threadClearance: DEFAULT_THREAD_CLEARANCE,
       threadQuality: DEFAULT_THREAD_QUALITY,
-      threadChamfer: defaultThreadChamfer(DEFAULT_THREAD_PITCH, DEFAULT_THREAD_PROFILE),
+      threadChamfer: defaultThreadChamfer(DEFAULT_THREAD_PITCH, DEFAULT_THREAD_PROFILE, DEFAULT_THREAD_ROLE),
       threadHeadChamfer: 0,
     };
   }

@@ -324,8 +324,10 @@ describe("thread geometry", () => {
     expect(signedVolume(position)).toBeGreaterThan(0);
     expect(signedVolume(position)).toBeLessThan(signedVolume(plainPosition));
 
-    // Die Vorgabe ist genau die Gewindetiefe: die Stirnflaeche endet damit auf
-    // dem Kerndurchmesser, die Kuppe laeuft unter 45 Grad darauf zu.
+    // Bei einem freien Ende (hier: Stange) ist die Vorgabe eine volle
+    // Steigung, damit die Kuppe spuerbar unter den Kerndurchmesser hinauslaeuft
+    // statt nur die Kante zu brechen - die Stirnflaeche endet entsprechend bei
+    // Aussenradius minus dieser Fase, nicht erst beim Kern.
     let widest = 0;
     for (let index = 0; index < position.count; index += 1) {
       if (position.getY(index) > 0.001) continue;
@@ -341,6 +343,39 @@ describe("thread geometry", () => {
       middle = Math.max(middle, Math.hypot(position.getX(index), position.getZ(index)));
     }
     expect(middle).toBeCloseTo(3, 3);
+  });
+
+  /*
+   * Fraterculas Meldung aus dem Forum: das freie Gewindeende einer Schraube
+   * lief bis dahin als scharfe Messerkante aus - schlecht zum Einfaedeln ins
+   * Gegengewinde und schlecht druckbar. Ursache war nicht die Mechanik (die
+   * Fase hat immer schon einen sauberen 45-Grad-Kegel gezogen), sondern die
+   * Vorgabe: eine halbe Steigung ist auf einem M8-Gewinde weniger als ein
+   * Millimeter und damit kaum wahrnehmbar. Ein Innengewinde (Mutter,
+   * Gewindeloch) entgratet dagegen nur eine Muendung und soll dabei nicht
+   * unnoetig vom Gewinde selbst opfern - dort bleibt die alte, flachere
+   * Vorgabe richtig.
+   */
+  it("gives a free thread end a full pitch of lead-in instead of a knife edge", () => {
+    expect(defaultThreadChamfer(1.25, "v", "screw")).toBeCloseTo(1.25, 6);
+    expect(defaultThreadChamfer(1.25, "v", "rod")).toBeCloseTo(1.25, 6);
+    // Innengewinde: unveraendert an die Gewindetiefe gekoppelt.
+    expect(defaultThreadChamfer(1.25, "v", "nut")).toBeCloseTo(1.25 * 0.5413, 3);
+    expect(defaultThreadChamfer(1.25, "v", "bore")).toBeCloseTo(1.25 * 0.5413, 3);
+
+    // Ohne eigene Angabe zieht eine frisch angelegte Schraube diese Vorgabe:
+    // die Spitze muss spuerbar unter den Kerndurchmesser hinauslaufen, nicht
+    // nur bis auf ihn.
+    const tip = geometryFor("screw", 30, { threadHead: "hex", threadDiameter: 8, threadPitch: 1.25 });
+    const major = tip.settings.diameter / 2;
+    const minor = major - tip.settings.pitch * 0.5413;
+    const position = tip.geometry.getAttribute("position") as unknown as Position;
+    let tipRadius = Infinity;
+    for (let index = 0; index < position.count; index += 1) {
+      if (position.getY(index) < 29.999) continue;
+      tipRadius = Math.min(tipRadius, Math.hypot(position.getX(index), position.getZ(index)));
+    }
+    expect(tipRadius).toBeLessThan(minor - 0.1);
   });
 
   /*

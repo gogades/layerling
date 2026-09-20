@@ -27,11 +27,18 @@ function post(message: CadModifierWorkerResponse, transfer: Transferable[] = [])
 
 function kernel() {
   const moduleUrl = `${CAD_MODIFIER_RUNTIME_BASE}/occt-wasm.js`;
+  // Drop a rejected attempt so a transient failure (e.g. a network blip
+  // fetching the 22 MB wasm) can be retried on the next call instead of
+  // poisoning edge treatment for the rest of the session - same fix as
+  // brepKernel.ts's loadBrepWithOcct.
   kernelPromise ??= import(/* webpackIgnore: true */ moduleUrl).then((imported: { default: (options?: { locateFile?: (path: string) => string }) => Promise<unknown> }) => imported.default({
     locateFile: (path) => path.endsWith(".wasm") ? `${CAD_MODIFIER_RUNTIME_BASE}/occt-wasm.wasm` : path,
   })).then((module) => {
     const KernelConstructor = OcctKernel as unknown as new (rawModule: unknown) => OcctKernel;
     return new KernelConstructor(module);
+  }).catch((error) => {
+    kernelPromise = null;
+    throw error;
   });
   return kernelPromise;
 }
