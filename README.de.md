@@ -97,6 +97,24 @@ Werkstatt, den alle im Browser öffnen. Der Weg dorthin steht unter [An layerlin
 Woher die App auch ausgeliefert wird: Die Entwürfe verlassen den Browser nicht, in dem sie entstanden sind. Exporte laden
 direkt auf den Rechner der jeweiligen Person.
 
+### Schnellstart unter Windows
+
+Noch nie ein Terminal benutzt? Auf einem Windows-11-Rechner (oder aktuellem Windows 10) ohne Vorinstallationen
+**PowerShell** öffnen (im Startmenü danach suchen, keine Administratorrechte nötig) und diese eine Zeile einfügen:
+
+```powershell
+irm https://raw.githubusercontent.com/henmedia/layerling/main/scripts/windows-quickstart.ps1 | iex
+```
+
+Das installiert Git und Node.js, falls sie fehlen, lädt layerling nach `%USERPROFILE%\layerling` herunter und öffnet es
+im Browser unter `http://127.0.0.1:3000/`. Lass das PowerShell-Fenster offen, solange du layerling benutzt; `Strg+C` in
+diesem Fenster beendet es wieder.
+
+Dieselbe Zeile später noch einmal ausführen **aktualisiert** layerling - das Skript erkennt den vorhandenen Ordner und
+holt die neueste Fassung, statt sie erneut komplett herunterzuladen. Das Skript selbst liegt unter
+[`scripts/windows-quickstart.ps1`](scripts/windows-quickstart.ps1); du kannst also genau nachlesen, was es tut, bevor
+du es ausführst, oder es herunterladen und lokal starten statt es in PowerShell hineinzuleiten.
+
 ### Dateien holen
 
 ```bash

@@ -94,6 +94,24 @@ The rest of this page is about running your own copy: on your computer, or on a 
 
 Wherever the app is served from, the designs never leave the browser they were made in. Exports download straight to the person's own computer.
 
+### Windows Quickstart
+
+Never used a terminal before? On a Windows 11 (or current Windows 10) machine with nothing installed yet, open
+**PowerShell** (search for it in the Start menu, no administrator rights needed) and paste this one line:
+
+```powershell
+irm https://raw.githubusercontent.com/henmedia/layerling/main/scripts/windows-quickstart.ps1 | iex
+```
+
+It installs Git and Node.js if they are missing, downloads layerling into `%USERPROFILE%\layerling`, and opens it in
+your browser at `http://127.0.0.1:3000/`. Leave the PowerShell window open while you use layerling; `Ctrl+C` in that
+window stops it.
+
+Run the very same line again whenever you want to **update** layerling - it notices the existing folder and pulls the
+latest version instead of downloading it a second time. The script itself lives at
+[`scripts/windows-quickstart.ps1`](scripts/windows-quickstart.ps1), so you can read exactly what it does before
+running it, or download it and run it locally instead of piping it into PowerShell.
+
 ### Get the Files
 
 ```bash
