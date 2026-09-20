@@ -112,6 +112,21 @@ latest version instead of downloading it a second time. The script itself lives 
 [`scripts/windows-quickstart.ps1`](scripts/windows-quickstart.ps1), so you can read exactly what it does before
 running it, or download it and run it locally instead of piping it into PowerShell.
 
+#### Opening it again later
+
+The one-liner above also leaves a shortcut named **"Start layerling"** on your desktop. Double-click it whenever you
+want to open layerling again - no PowerShell, no re-installing, no re-downloading, just the dev server starting and
+your browser opening on its own.
+
+Prefer doing it by hand instead? Open PowerShell and run:
+
+```powershell
+cd $env:USERPROFILE\layerling
+npm run dev
+```
+
+then open `http://127.0.0.1:3000/` yourself. `Ctrl+C` in that window stops it either way.
+
 ### Get the Files
 
 ```bash

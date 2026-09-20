@@ -123,8 +123,20 @@ try {
     npm install
     if ($LASTEXITCODE -ne 0) { throw "npm install failed (exit code $LASTEXITCODE)." }
 
+    Write-Step "Creating a desktop shortcut to start layerling next time..."
+    $desktopLauncher = Join-Path ([Environment]::GetFolderPath("Desktop")) "Start layerling.cmd"
+    $launcherContent = @"
+@echo off
+cd /d "$InstallPath"
+start "" "http://127.0.0.1:3000/"
+call npm run dev
+"@
+    Set-Content -Path $desktopLauncher -Value $launcherContent -Encoding ASCII
+    Write-Host "Double-click '$desktopLauncher' any time you want to open layerling again -" -ForegroundColor Green
+    Write-Host "no PowerShell needed for that." -ForegroundColor Green
+
     if ($NoStart) {
-        Write-Step "Setup complete. Start layerling yourself later with: npm run dev"
+        Write-Step "Setup complete. Start layerling with the desktop shortcut, or: npm run dev"
     } else {
         Write-Step "Starting layerling..."
         Write-Host "Opening http://127.0.0.1:3000/ in your browser in a few seconds." -ForegroundColor Green
