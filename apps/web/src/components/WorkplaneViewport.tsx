@@ -109,6 +109,7 @@ const BVH_PICKING_TRIANGLE_THRESHOLD = 512;
 const SHAPE_KINDS = new Set<ShapeAsset["kind"]>([
   "box",
   "cylinder",
+  "ellipse",
   "sphere",
   "sketch",
   "scribble",
@@ -1066,8 +1067,8 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
   if (shape.kind === "box" && !(shape.radius && shape.radius > 0)) {
     return JSON.stringify({ kind: "box", taper });
   }
-  if (shape.kind === "cylinder") {
-    return JSON.stringify({ kind: "cylinder", sides: polygonSidesForShape(shape), segments: shape.segments, taper });
+  if (shape.kind === "cylinder" || shape.kind === "ellipse") {
+    return JSON.stringify({ kind: shape.kind, sides: polygonSidesForShape(shape), segments: shape.segments, taper });
   }
   if (shape.kind === "polygon") {
     return JSON.stringify({ kind: "polygon", sides: shape.sides, segments: shape.segments, taper });
@@ -2066,25 +2067,30 @@ function selectionFrameForShapes(
   }
 
   const singleShape = selected.length === 1 ? selected[0] : null;
-  const quaternion = workplane
-    ? placementWorkplaneQuaternion(workplane)
+  // A workplane only wins over the shape's own rotation when it's a real,
+  // user-picked plane - the always-present default (no plane ever chosen)
+  // must not force a single rotated shape's resize/rotate handles onto world
+  // axes, or a tilted cylinder distorts when dragged.
+  const useWorkplane = Boolean(workplane) && !placementWorkplaneIsBase(workplane!);
+  const quaternion = useWorkplane
+    ? placementWorkplaneQuaternion(workplane!)
     : singleShape ? quaternionForShape(singleShape) : new THREE.Quaternion();
-  const xAxis = workplane
-    ? new THREE.Vector3(workplane.xAxis.x, workplane.xAxis.y, workplane.xAxis.z).normalize()
+  const xAxis = useWorkplane
+    ? new THREE.Vector3(workplane!.xAxis.x, workplane!.xAxis.y, workplane!.xAxis.z).normalize()
     : new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion).normalize();
-  const yAxis = workplane
-    ? new THREE.Vector3(workplane.normal.x, workplane.normal.y, workplane.normal.z).normalize()
+  const yAxis = useWorkplane
+    ? new THREE.Vector3(workplane!.normal.x, workplane!.normal.y, workplane!.normal.z).normalize()
     : new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion).normalize();
-  const zAxis = workplane
-    ? new THREE.Vector3(workplane.zAxis.x, workplane.zAxis.y, workplane.zAxis.z).normalize()
+  const zAxis = useWorkplane
+    ? new THREE.Vector3(workplane!.zAxis.x, workplane!.zAxis.y, workplane!.zAxis.z).normalize()
     : new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion).normalize();
   const localMin = new THREE.Vector3(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
   const localMax = new THREE.Vector3(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
-  const origin = workplane
-    ? new THREE.Vector3(workplane.origin.x, workplane.origin.y, workplane.origin.z)
+  const origin = useWorkplane
+    ? new THREE.Vector3(workplane!.origin.x, workplane!.origin.y, workplane!.origin.z)
     : singleShape ? shapeCenter(singleShape) : new THREE.Vector3();
 
-  if (!workplane && !singleShape) {
+  if (!useWorkplane && !singleShape) {
     selected.forEach((shape) => origin.add(shapeCenter(shape)));
     origin.multiplyScalar(1 / selected.length);
   }
@@ -2500,6 +2506,15 @@ function resizeShapeFromFrameHandle(
 
   let nextWidth = axisResize(width, localDelta.x, signs.x);
   let nextDepth = axisResize(depth, localDelta.z, signs.z);
+
+  // A cylinder is always circular - every horizontal handle (side or corner)
+  // drives the one shared diameter instead of stretching width and depth
+  // independently into an ellipse.
+  if (shape.kind === "cylinder" && (signs.x || signs.z)) {
+    const diameter = signs.x && signs.z ? (nextWidth + nextDepth) / 2 : signs.x ? nextWidth : nextDepth;
+    nextWidth = diameter;
+    nextDepth = diameter;
+  }
 
   if (shiftKey && signs.x && signs.z) {
     const scale = proportionalResizeScale(width, depth, nextWidth, nextDepth);
@@ -4452,7 +4467,11 @@ export function WorkplaneViewport({
             elevation: cleanNearZero(nextCenter.y - shape.height / 2, 0.0005),
           });
         } else {
-          const patch: Partial<WorkplaneShape> = { width: nextValue, size: resizedShapeSize(nextValue, shapeDepth(shape)) };
+          // A cylinder is always circular - the diameter mark writes both
+          // fields, the same as the inspector's diameter field does.
+          const patch: Partial<WorkplaneShape> = shape.kind === "cylinder"
+            ? { width: nextValue, depth: nextValue, size: nextValue }
+            : { width: nextValue, size: resizedShapeSize(nextValue, shapeDepth(shape)) };
           if (shape.kind === "cone") {
             patch.baseRadius = nextValue / 2;
           }
@@ -4474,7 +4493,13 @@ export function WorkplaneViewport({
             elevation: cleanNearZero(nextCenter.y - shape.height / 2, 0.0005),
           });
         } else {
-          onUpdateShape(id, patchWithResizeAnchor(shape, { depth: nextValue, size: resizedShapeSize(shapeWidth(shape), nextValue) }, edit.axis, lastResizeAnchorRef.current));
+          // Defense in depth: the cylinder's dimension mark never offers this
+          // axis (see makeFootprintDimensionMark above), but keep it circular
+          // regardless of how the patch got here.
+          const patch: Partial<WorkplaneShape> = shape.kind === "cylinder"
+            ? { width: nextValue, depth: nextValue, size: nextValue }
+            : { depth: nextValue, size: resizedShapeSize(shapeWidth(shape), nextValue) };
+          onUpdateShape(id, patchWithResizeAnchor(shape, patch, edit.axis, lastResizeAnchorRef.current));
         }
       } else {
         onUpdateShape(id, patchWithResizeAnchor(shape, { height: nextValue }, edit.axis, lastResizeAnchorRef.current));
@@ -7116,7 +7141,7 @@ function syncShapeObjectDimensions(object: THREE.Group, shape: WorkplaneShape) {
     );
   } else if (shape.kind === "box" && !(shape.radius && shape.radius > 0)) {
     scale = new THREE.Vector3(width, shape.height, depth);
-  } else if (shape.kind === "cylinder" || shape.kind === "polygon") {
+  } else if (shape.kind === "cylinder" || shape.kind === "ellipse" || shape.kind === "polygon") {
     const fit = regularPolygonFootprintScale(width, depth, polygonSidesForShape(shape));
     scale = new THREE.Vector3(fit.x, shape.height, fit.z);
     offsetX = fit.offsetX;
@@ -7636,8 +7661,16 @@ function syncTransformOverlay(
     );
   };
   const footprintHandleKeys = ["near-left", "near-right", "far-right", "far-left", "near-mid", "right-mid", "far-mid", "left-mid"];
+  // A cylinder only has one horizontal measurement - its diameter - so every
+  // handle shows that single mark instead of a separate width and depth line
+  // (which used to appear together at a corner handle, and independently
+  // editable at all, letting the two drift apart).
+  const isCircularFootprint = frame.singleShape?.kind === "cylinder";
   const footprintDimensionMarks = Object.fromEntries(
     footprintHandleKeys.map((handleKey) => {
+      if (isCircularFootprint) {
+        return [handleKey, [makeFootprintDimensionMark(handleKey, "width")]];
+      }
       const axes = new Set<"width" | "depth">();
       if (handleKey.includes("left") || handleKey.includes("right")) {
         axes.add("width");
@@ -8505,11 +8538,12 @@ function createShapeObject(
       );
       break;
     case "cylinder":
+    case "ellipse":
     case "polygon": {
-      // Zylinder und Mehrkant sind derselbe Koerper, nur mit anderer
-      // Seitenzahl. Die Geometrie bleibt ein Einheitskoerper und wird ueber
-      // die Maschenskalierung in den Rahmen gesetzt - so baut ein Zug am
-      // Anfasser nicht jedes Mal ein neues Vieleck.
+      // Zylinder, Ellipse und Mehrkant sind derselbe Koerper, nur mit anderer
+      // Seitenzahl bzw. Fussabdruck. Die Geometrie bleibt ein Einheitskoerper
+      // und wird ueber die Maschenskalierung in den Rahmen gesetzt - so baut
+      // ein Zug am Anfasser nicht jedes Mal ein neues Vieleck.
       const sides = polygonSidesForShape(shape);
       const fit = regularPolygonFootprintScale(width, depth, sides);
       addMesh(

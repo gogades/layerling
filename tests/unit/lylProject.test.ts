@@ -81,7 +81,7 @@ describe("layerling .lyl project packages", () => {
 
   it("round-trips every supported native shape kind and editable properties", async () => {
     const nativeKinds: ShapeKind[] = [
-      "box", "cylinder", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
+      "box", "cylinder", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
       "halfSphere", "torus", "tube", "gear", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler",
     ];
     const shapes = nativeKinds.map((kind, index) => shape(kind, `${kind}-${index}`, {
@@ -131,6 +131,15 @@ describe("layerling .lyl project packages", () => {
       formatVersion: LYL_FORMAT_VERSION,
     });
     expect(document.assets.filter((entry) => entry.kind === "derived-mesh")).toHaveLength(0);
+  });
+
+  it("loads an old cylinder with mismatched width and depth as circular instead of refusing it", async () => {
+    const legacyCylinder = shape("cylinder", "legacy-cylinder", { width: 24, depth: 15 });
+    const exported = await exportLylProject(input([legacyCylinder]));
+    const restored = await importLylProject(exported);
+
+    expect(restored.shapes[0].width).toBe(24);
+    expect(restored.shapes[0].depth).toBe(24);
   });
 
   it("preserves an oriented placement workplane", async () => {
@@ -187,7 +196,10 @@ describe("layerling .lyl project packages", () => {
 
   it("preserves nested groups, holes, intersection metadata, edge history, B-Rep, and undo/redo", async () => {
     const solid = shape("box", "solid", { x: 0 });
-    const hole = shape("cylinder", "hole", { hole: true, color: "#b8c2cc", x: 4 });
+    // Ein Zylinder bleibt beim Laden immer kreisrund (canonicalizeShape) - die
+    // sonst hier ueblichen ungleichen Breiten-/Tiefen-Vorgaben wuerden sonst
+    // beim Rundreise-Vergleich stillschweigend angeglichen.
+    const hole = shape("cylinder", "hole", { hole: true, color: "#b8c2cc", x: 4, depth: 20 });
     const group = shape("mesh", "group", {
       name: "Intersection",
       groupOperation: "intersection",

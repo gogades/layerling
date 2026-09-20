@@ -85,6 +85,7 @@ describe("workplane settings helpers", () => {
     const customized = normalizeWorkspaceSettings({
       shapeCustomizations: {
         cylinder: { sides: 500 },
+        ellipse: { sides: 500 },
         roundRoof: { sides: 900 },
         sphere: { steps: 2 },
         cone: { topRadius: -4, baseRadius: 9000, sides: 40 },
@@ -94,6 +95,7 @@ describe("workplane settings helpers", () => {
     });
 
     expect(customized.shapeCustomizations.cylinder).toEqual({ sides: 500 });
+    expect(customized.shapeCustomizations.ellipse).toEqual({ sides: 500 });
     expect(customized.shapeCustomizations.roundRoof).toEqual({ sides: 512 });
     expect(customized.shapeCustomizations.sphere).toEqual({ steps: 6 });
     expect(customized.shapeCustomizations.cone).toEqual({ topRadius: 0, baseRadius: 1000, sides: 40 });

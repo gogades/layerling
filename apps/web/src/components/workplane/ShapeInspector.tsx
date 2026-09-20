@@ -269,6 +269,11 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     patch.baseRadius = Math.max(MIN_SHAPE_SIZE, (patch.width ?? baseWidth) / 2);
     onUpdate(patch, { resizeAxis: "width" });
   };
+  const setCylinderDiameter = (value: number) => {
+    const patch = widthPatch(value);
+    patch.depth = patch.width ?? value;
+    onUpdate(patch, { resizeAxis: "width" });
+  };
   const setBaseRadius = (value: number) => {
     const diameter = value * 2;
     onUpdate({ baseRadius: value, width: diameter, size: resizedShapeSize(diameter, baseDepth) }, { resizeAxis: "width" });
@@ -297,6 +302,14 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
   }
 
   if (shape.kind === "cylinder") {
+    return [
+      ...roundSideProperties(shape, width, depth, onUpdate),
+      { id: "diameter", label: t("prop.diameter"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setCylinderDiameter },
+      { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+    ];
+  }
+
+  if (shape.kind === "ellipse") {
     return [
       ...roundSideProperties(shape, width, depth, onUpdate),
       { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },

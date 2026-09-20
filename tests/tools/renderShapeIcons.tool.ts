@@ -267,6 +267,18 @@ describe("palette icons", () => {
       build: () => new BoxGeometry(150, 3, 25),
     });
     render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/ellipse.png",
+      height: 20,
+      lay: false,
+      azimuth: 40,
+      elevation: 26,
+      // Bewusst ungleiche Breite/Tiefe und eine hohe Seitenzahl, damit das
+      // Symbol als Ellipse zu erkennen ist statt als Zylinder. render() geht
+      // Dreiecke unindiziert durch - wie beim Vieleck muss die Geometrie das
+      // vorher sein, sonst bleibt das Bild fast leer.
+      build: () => createPrismGeometry(26, 20, 16, 72).toNonIndexed(),
+    });
+    render({
       name: "apps/web/public/assets/editor/shape-icons-gray/polygon.png",
       height: 20,
       lay: false,

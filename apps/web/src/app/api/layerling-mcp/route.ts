@@ -8,32 +8,9 @@ import {
   waitForLayerlingMcpCommand,
 } from "@/lib/layerlingMcpStore";
 import { LAYERLING_MCP_LONG_POLL_TIMEOUT_MS } from "@/lib/layerlingMcpProtocol";
+import { isLocalRequest } from "@/lib/layerlingMcpLocalRequest";
 
 export const revalidate = false;
-
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
-
-function isLocalRequest(request: Request) {
-  const requestUrl = new URL(request.url);
-  if (!LOCAL_HOSTS.has(requestUrl.hostname)) {
-    return false;
-  }
-
-  const origin = request.headers.get("origin");
-  if (origin) {
-    try {
-      const originUrl = new URL(origin);
-      if (originUrl.origin !== requestUrl.origin || !LOCAL_HOSTS.has(originUrl.hostname)) {
-        return false;
-      }
-    } catch {
-      return false;
-    }
-  }
-
-  const fetchSite = request.headers.get("sec-fetch-site");
-  return !fetchSite || fetchSite === "same-origin" || fetchSite === "none";
-}
 
 function localOnly(request: Request) {
   if (process.env.NODE_ENV === "production") {

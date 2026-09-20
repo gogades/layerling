@@ -131,6 +131,21 @@ describe("workplane shape helpers", () => {
     expect(canonical.groupedShapes?.[0].mirrorZ).toBeUndefined();
   });
 
+  it("forces a cylinder to stay circular but leaves an ellipse independent", () => {
+    const stretched = canonicalizeShape(shape({ kind: "cylinder", width: 12, depth: 8 }));
+    expect(stretched.width).toBe(12);
+    expect(stretched.depth).toBe(12);
+    expect(stretched.size).toBe(12);
+
+    const alreadyCircular = canonicalizeShape(shape({ kind: "cylinder", width: 10, depth: 10 }));
+    expect(alreadyCircular.width).toBe(10);
+    expect(alreadyCircular.depth).toBe(10);
+
+    const ellipse = canonicalizeShape(shape({ kind: "ellipse", width: 12, depth: 8 }));
+    expect(ellipse.width).toBe(12);
+    expect(ellipse.depth).toBe(8);
+  });
+
   it("keeps rotated groups editable so they can still be ungrouped", () => {
     const child = shape({ id: "child" });
     const group = shape({

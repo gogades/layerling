@@ -20,16 +20,41 @@ function releaseNotesUrl() {
   return `${SOURCE_CODE_URL.replace(/\/+$/, "")}/releases`;
 }
 
+// German readers are already gathered in the drucktipps3d forum thread this
+// project grew out of; everyone else is pointed at GitHub Discussions instead,
+// since a German forum thread means nothing to them.
+const FORUM_THREAD_URL =
+  "https://forum.drucktipps3d.de/forum/thread/49957-vorstellung-tinkercad-alternative-layerling/";
+
+function communityUrl(language: Language) {
+  return language === "de" ? FORUM_THREAD_URL : `${SOURCE_CODE_URL.replace(/\/+$/, "")}/discussions`;
+}
+
 // Whoever operates a layerling installation may be required to publish a legal
 // notice - in Germany every business site needs an Impressum. The pages differ
 // per operator and are not part of this project, so they are linked through
-// build-time variables and the links disappear when nothing is configured.
-export const LEGAL_LINKS = ([
-  { url: process.env.NEXT_PUBLIC_IMPRINT_URL, label: process.env.NEXT_PUBLIC_IMPRINT_LABEL, fallbackLabel: "Impressum" },
-  { url: process.env.NEXT_PUBLIC_PRIVACY_URL, label: process.env.NEXT_PUBLIC_PRIVACY_LABEL, fallbackLabel: "Datenschutz" },
-] as const)
-  .map((link) => ({ href: link.url?.trim() ?? "", label: link.label?.trim() || link.fallbackLabel }))
-  .filter((link) => link.href.length > 0);
+// build-time variables and the links disappear when nothing is configured. An
+// operator-supplied label wins outright, in whichever language they wrote it;
+// only the built-in fallback follows the reader's own language.
+const LEGAL_LINK_SOURCES = [
+  {
+    url: process.env.NEXT_PUBLIC_IMPRINT_URL,
+    label: process.env.NEXT_PUBLIC_IMPRINT_LABEL,
+    fallbackLabel: { de: "Impressum", en: "Imprint" },
+  },
+  {
+    url: process.env.NEXT_PUBLIC_PRIVACY_URL,
+    label: process.env.NEXT_PUBLIC_PRIVACY_LABEL,
+    fallbackLabel: { de: "Datenschutz", en: "Privacy Policy" },
+  },
+] as const;
+
+function legalLinks(language: Language) {
+  return LEGAL_LINK_SOURCES.map((link) => ({
+    href: link.url?.trim() ?? "",
+    label: link.label?.trim() || link.fallbackLabel[language],
+  })).filter((link) => link.href.length > 0);
+}
 
 // Whoever runs an installation may want to ask for support. The address is
 // theirs, not the project's, so it comes from a build-time variable just like
@@ -82,7 +107,10 @@ export function AppFooter({ variant = "dashboard", version }: { variant?: "dashb
               {SPONSOR_LINK.label || t("dashboard.sponsor")}
             </a>
           ) : null,
-          ...LEGAL_LINKS.map((link) => (
+          <a href={communityUrl(language)} target="_blank" rel="noreferrer" key="community">
+            {t("dashboard.forum")}
+          </a>,
+          ...legalLinks(language).map((link) => (
             <a key={link.href} href={link.href}>{link.label}</a>
           )),
         ])}

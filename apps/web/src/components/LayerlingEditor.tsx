@@ -2189,6 +2189,7 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         : new THREE.BoxGeometry(width, height, depth);
       break;
     case "cylinder":
+    case "ellipse":
       geometry = createPrismGeometry(width, height, depth, roundSideCount(shape.sides, width, depth), shape.segments ?? 1);
       break;
     case "sphere":
@@ -2305,7 +2306,7 @@ function meshForShape(shape: WorkplaneShape): MeshData {
 
   const raw =
     geometryMeshForShape(shape) ??
-    (shape.kind === "cylinder" || shape.kind === "tube" || shape.kind === "ring" || shape.kind === "torus"
+    (shape.kind === "cylinder" || shape.kind === "ellipse" || shape.kind === "tube" || shape.kind === "ring" || shape.kind === "torus"
       ? cylinderMesh(shape, shape.sides ?? 96)
       : shape.kind === "cone"
         ? cylinderMesh(shape, shape.sides ?? 96, shape.baseRadius ? (shape.topRadius ?? 0) / shape.baseRadius : 0)
@@ -3497,7 +3498,7 @@ function pointInsideHoleShape(point: Vec3, shape: WorkplaneShape, strictInterior
       return false;
     }
 
-    if (shape.kind === "cylinder" || shape.kind === "sphere" || shape.kind === "halfSphere" || shape.kind === "cone" || shape.kind === "torus" || shape.kind === "tube" || shape.kind === "ring") {
+    if (shape.kind === "cylinder" || shape.kind === "ellipse" || shape.kind === "sphere" || shape.kind === "halfSphere" || shape.kind === "cone" || shape.kind === "torus" || shape.kind === "tube" || shape.kind === "ring") {
       const nx = local.x / Math.max(POINT_TOLERANCE, innerHalfWidth);
       const nz = local.z / Math.max(POINT_TOLERANCE, innerHalfDepth);
       return nx * nx + nz * nz < 1;
@@ -3511,7 +3512,7 @@ function pointInsideHoleShape(point: Vec3, shape: WorkplaneShape, strictInterior
     return false;
   }
 
-  if (shape.kind === "cylinder" || shape.kind === "sphere" || shape.kind === "halfSphere" || shape.kind === "cone" || shape.kind === "torus" || shape.kind === "tube" || shape.kind === "ring") {
+  if (shape.kind === "cylinder" || shape.kind === "ellipse" || shape.kind === "sphere" || shape.kind === "halfSphere" || shape.kind === "cone" || shape.kind === "torus" || shape.kind === "tube" || shape.kind === "ring") {
     const nx = local.x / Math.max(POINT_TOLERANCE, halfWidth);
     const nz = local.z / Math.max(POINT_TOLERANCE, halfDepth);
     return nx * nx + nz * nz <= 1.0001;
@@ -4275,7 +4276,7 @@ function primitiveManifoldForShape(runtime: ManifoldToplevel, shape: WorkplaneSh
     );
   }
 
-  if (shape.kind === "cylinder" || shape.kind === "cone") {
+  if (shape.kind === "cylinder" || shape.kind === "ellipse" || shape.kind === "cone") {
     const sides = shape.sides ?? 96;
     const topRadiusScale =
       shape.kind === "cone"
@@ -5430,7 +5431,7 @@ function compactShapeSummary(shape: WorkplaneShape, index: number) {
 }
 
 /** Runde Koerper, deren Seitenzahl ohne eigene Angabe der Groesse folgt. */
-const MCP_FOLLOWING_SIDE_KINDS = new Set<ShapeKind>(["cylinder", "cone", "tube", "ring"]);
+const MCP_FOLLOWING_SIDE_KINDS = new Set<ShapeKind>(["cylinder", "ellipse", "cone", "tube", "ring"]);
 
 function mcpShapeSettings(shape: WorkplaneShape): Record<string, string | number | boolean> | undefined {
   const settings: Record<string, string | number | boolean> = {};

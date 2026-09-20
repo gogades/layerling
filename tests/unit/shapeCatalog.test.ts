@@ -63,6 +63,20 @@ describe("shape catalog", () => {
     expect(customized).toMatchObject({ width: 320, depth: 240, height: 180, size: 320, baseRadius: 160 });
   });
 
+  it("keeps a cylinder circular even with mismatched customization, but lets an ellipse differ", () => {
+    const cylinder = makeShapeFromAsset(
+      { id: "cylinder", name: "Cylinder", src: "cylinder.png", kind: "cylinder", color: "#d97813" },
+      undefined,
+      { width: 30, depth: 20 },
+    );
+    const ellipse = makeShapeFromAsset(
+      { id: "ellipse", name: "Ellipse", src: "ellipse.png", kind: "ellipse", color: "#e0a324" },
+    );
+
+    expect(cylinder).toMatchObject({ width: 30, depth: 30, size: 30 });
+    expect(ellipse).toMatchObject({ width: 26, depth: 16 });
+  });
+
   it("applies shape-specific creation defaults only when customized", () => {
     const cone = makeShapeFromAsset(
       { id: "cone", name: "Cone", src: "cone.png", kind: "cone", color: "#6e2786" },

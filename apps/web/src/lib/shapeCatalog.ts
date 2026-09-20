@@ -53,6 +53,7 @@ import type { ShapeAsset, ShapeCustomization, ShapeKind, WorkplaneShape } from "
 const SHAPE_LABEL_KEYS: Record<string, MessageKey> = {
   box: "shape.box",
   cylinder: "shape.cylinder",
+  ellipse: "shape.ellipse",
   sphere: "shape.sphere",
   cone: "shape.cone",
   pyramid: "shape.pyramid",
@@ -74,6 +75,7 @@ export type ToolbarShapeAsset = ShapeAsset & { menuIcon: string };
 export const toolbarShapeAssets: ToolbarShapeAsset[] = [
   { id: "box", name: "Box", src: "assets/editor/shape-icons-gray/box.png", menuIcon: "assets/editor/shape-icons-gray/box.png", kind: "box", color: "#d41721" },
   { id: "cylinder", name: "Cylinder", src: "assets/editor/shape-icons-gray/cylinder.png", menuIcon: "assets/editor/shape-icons-gray/cylinder.png", kind: "cylinder", color: "#d97813" },
+  { id: "ellipse", name: "Ellipse", src: "assets/editor/shape-icons-gray/ellipse.png", menuIcon: "assets/editor/shape-icons-gray/ellipse.png", kind: "ellipse", color: "#e0a324" },
   { id: "polygon", name: "Polygon", src: "assets/editor/shape-icons-gray/polygon.png", menuIcon: "assets/editor/shape-icons-gray/polygon.png", kind: "polygon", color: "#5b5ce2" },
   { id: "sphere", name: "Sphere", src: "assets/editor/shape-icons-gray/sphere.png", menuIcon: "assets/editor/shape-icons-gray/sphere.png", kind: "sphere", color: "#0098c7" },
   { id: "cone", name: "Cone", src: "assets/editor/shape-icons-gray/cone.png", menuIcon: "assets/editor/shape-icons-gray/cone.png", kind: "cone", color: "#6e2786" },
@@ -113,6 +115,11 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
   if (kind === "ruler") {
     return { width: 150, depth: RULER_DEPTH, height: RULER_HEIGHT };
   }
+  if (kind === "ellipse") {
+    // Bewusst ungleiche Vorgabe, damit sich die Ellipse beim Einfuegen sofort
+    // vom kreisrunden Zylinder unterscheidet.
+    return { width: 26, depth: 16, height: 20 };
+  }
   const roundProfile = kind === "sphere" || kind === "torus" || kind === "ring" || kind === "halfSphere";
   const flatProfile = kind === "torus" || kind === "ring" || kind === "text" || kind === "gear";
   const size = kind === "gear" ? 30 : roundProfile ? 22 : 20;
@@ -125,7 +132,7 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
 
 export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAssetDefaultDimensions(kind)): ShapeCustomization {
   // Ohne Seitenzahl folgt sie der Groesse; eine eingetragene haelt sie fest.
-  if (kind === "cylinder") return {};
+  if (kind === "cylinder" || kind === "ellipse") return {};
   if (kind === "sphere") return { steps: 24 };
   if (kind === "halfSphere") return { steps: 32 };
   if (kind === "cone") return { topRadius: 0, baseRadius: dimensions.width / 2 };
@@ -271,7 +278,10 @@ export function makeShapeFromAsset(
   }) : null;
   const threadFootprint = threadDefaults ? threadNaturalFootprint(threadDefaults) : null;
   const width = threadFootprint?.width ?? customization.width ?? defaults.width;
-  const depth = threadFootprint?.depth ?? customization.depth ?? defaults.depth;
+  // A cylinder is always circular - depth follows width here too, so it never
+  // snaps between insert and first render (canonicalizeShape enforces this
+  // again afterwards as the actual safety net).
+  const depth = asset.kind === "cylinder" ? width : threadFootprint?.depth ?? customization.depth ?? defaults.depth;
   const height = customization.height ?? (threadDefaults ? threadNaturalHeight(threadDefaults) : defaults.height);
   const size = Math.max(width, depth);
   const gearTeeth = asset.kind === "gear" ? normalizeGearTeeth(customization.teeth ?? DEFAULT_GEAR_TEETH) : undefined;
@@ -298,9 +308,9 @@ export function makeShapeFromAsset(
     text: asset.kind === "text" ? customization.text ?? "TEXT" : undefined,
     font: asset.kind === "text" ? customization.font ?? "Multilanguage" : undefined,
     steps: asset.kind === "box" ? 10 : asset.kind === "sphere" ? customization.steps ?? 24 : asset.kind === "halfSphere" ? customization.steps ?? 32 : undefined,
-    sides: asset.kind === "cylinder" || asset.kind === "cone" || asset.kind === "tube" || asset.kind === "ring" ? customization.sides : asset.kind === "roundRoof" ? customization.sides ?? 64 : asset.kind === "pyramid" ? customization.sides ?? 4 : asset.kind === "polygon" ? customization.sides ?? 6 : undefined,
-    bevel: asset.kind === "cylinder" ? 0 : asset.kind === "tube" || asset.kind === "ring" ? customization.bevel ?? 4 : asset.kind === "text" ? customization.bevel : undefined,
-    segments: asset.kind === "cylinder" ? 1 : asset.kind === "text" ? customization.segments : undefined,
+    sides: asset.kind === "cylinder" || asset.kind === "ellipse" || asset.kind === "cone" || asset.kind === "tube" || asset.kind === "ring" ? customization.sides : asset.kind === "roundRoof" ? customization.sides ?? 64 : asset.kind === "pyramid" ? customization.sides ?? 4 : asset.kind === "polygon" ? customization.sides ?? 6 : undefined,
+    bevel: asset.kind === "cylinder" || asset.kind === "ellipse" ? 0 : asset.kind === "tube" || asset.kind === "ring" ? customization.bevel ?? 4 : asset.kind === "text" ? customization.bevel : undefined,
+    segments: asset.kind === "cylinder" || asset.kind === "ellipse" ? 1 : asset.kind === "text" ? customization.segments : undefined,
     topRadius: asset.kind === "cone" ? customization.topRadius ?? 0 : undefined,
     baseRadius: asset.kind === "cone" ? customization.baseRadius ?? width / 2 : undefined,
     topWidth: asset.kind === "pyramid" ? normalizePyramidTop(customization.topWidth, width) : undefined,

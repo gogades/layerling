@@ -127,7 +127,7 @@ function specialFieldsForShape(
   const defaults = shapeAssetSpecialDefaults(kind, dimensions);
   // Ohne eigene Angabe folgt die Seitenzahl der Groesse; hier steht, was das
   // bei den Vorgabemassen ergibt. Eine eingetragene Zahl haelt sie fest.
-  if (kind === "cylinder") {
+  if (kind === "cylinder" || kind === "ellipse") {
     return [{
       type: "number",
       key: "sides",
@@ -288,10 +288,13 @@ export function WorkspaceSettingsModal({
   };
   const selectedShapeSpecialFields = specialFieldsForShape(selectedShapeKind, selectedShapeEffectiveDimensions, selectedShapeCustomization);
   // Breite und Tiefe eines Gewindes folgen dem Durchmesser; nur die Hoehe
-  // laesst sich sinnvoll vorgeben.
+  // laesst sich sinnvoll vorgeben. Ein Zylinder ist immer kreisrund, daher
+  // nur ein Durchmesser- (= Breiten-)Feld statt Breite und Tiefe getrennt.
   const selectedShapeDimensionKeys: Array<"width" | "depth" | "height"> = selectedShapeKind === "thread"
     ? ["height"]
-    : ["width", "depth", "height"];
+    : selectedShapeKind === "cylinder"
+      ? ["width", "height"]
+      : ["width", "depth", "height"];
   const selectedShapeCustomized = Object.keys(selectedShapeCustomization).length > 0;
   useEffect(() => {
     setDimensionDrafts({
@@ -327,7 +330,9 @@ export function WorkspaceSettingsModal({
     const nextValue = clamp(parsed, MIN_CUSTOM_SHAPE_DIMENSION, MAX_CUSTOM_SHAPE_DIMENSION);
     patchShapeCustomization(selectedShapeKind, key === "width" && selectedShapeKind === "cone"
       ? { width: nextValue, baseRadius: nextValue / 2 }
-      : { [key]: nextValue });
+      : key === "width" && selectedShapeKind === "cylinder"
+        ? { width: nextValue, depth: nextValue }
+        : { [key]: nextValue });
   };
   const setShapeSpecialNumber = (field: Extract<ShapeSpecialField, { type: "number" }>, rawValue: string) => {
     if (!rawValue.trim()) {
@@ -638,7 +643,7 @@ export function WorkspaceSettingsModal({
                     <div className="workspace-shape-dimensions">
                       {selectedShapeDimensionKeys.map((key) => (
                         <label key={`${selectedShapeKind}-${key}`}>
-                          <span>{t(key === "depth" ? "prop.length" : key === "width" ? "prop.width" : "prop.height")}</span>
+                          <span>{t(key === "depth" ? "prop.length" : key === "width" ? (selectedShapeKind === "cylinder" ? "prop.diameter" : "prop.width") : "prop.height")}</span>
                           <input
                             key={`${selectedShapeKind}-${key}-${selectedShapeCustomization[key] ?? "app"}`}
                             type="text"

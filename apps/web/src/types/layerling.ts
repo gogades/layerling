@@ -1,6 +1,7 @@
 export type ShapeKind =
   | "box"
   | "cylinder"
+  | "ellipse"
   | "sphere"
   | "sketch"
   | "scribble"

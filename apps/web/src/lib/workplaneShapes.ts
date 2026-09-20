@@ -162,7 +162,7 @@ export function shapeTaperScaleAt(shape: WorkplaneShape, normalizedHeight: numbe
 }
 
 export function meshYawDegrees(shape: WorkplaneShape) {
-  const isRoundPrimitive = !shape.importedMesh && (shape.kind === "cylinder" || shape.kind === "cone");
+  const isRoundPrimitive = !shape.importedMesh && (shape.kind === "cylinder" || shape.kind === "ellipse" || shape.kind === "cone");
   const isCircular = Math.abs(shapeWidth(shape) - shapeDepth(shape)) < 0.0005;
   if (!isRoundPrimitive || !isCircular) {
     return shape.rotation;
@@ -248,6 +248,7 @@ export function proportionalResizeScale(startWidth: number, startDepth: number, 
 export function fallbackSolidColor(shape: WorkplaneShape) {
   if (shape.sketchOperation === "revolve") return "#78b96b";
   if (shape.kind === "cylinder") return "#d97813";
+  if (shape.kind === "ellipse") return "#e0a324";
   if (shape.kind === "sphere") return "#0098c7";
   if (shape.kind === "cone") return "#6e2786";
   if (shape.kind === "pyramid") return "#f2cf10";
@@ -287,6 +288,13 @@ export function canonicalizeShape(shape: WorkplaneShape): WorkplaneShape {
     const footprint = threadFootprintPatch(next);
     Object.assign(next, footprint);
     next.size = resizedShapeSize(footprint.width, footprint.depth);
+  }
+  // A cylinder's cross-section must always stay circular - width is
+  // authoritative, depth follows. This is the single enforcement point: every
+  // creation, edit and project load runs through canonicalizeShape.
+  if (shape.kind === "cylinder" && next.width !== next.depth) {
+    next.depth = next.width;
+    next.size = next.width;
   }
   if (shape.groupedShapes) {
     next.groupedShapes = shape.groupedShapes.map(canonicalizeShape);

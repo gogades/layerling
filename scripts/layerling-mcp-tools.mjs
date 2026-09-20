@@ -18,7 +18,7 @@ export const editorTargetSchema = {
  * eine ausgezogene Skizze - beide stehen in keinem Katalog.
  */
 export const creatableShapeKinds = [
-  "box", "cube", "cylinder", "polygon", "sphere", "cone", "pyramid", "wedge",
+  "box", "cube", "cylinder", "ellipse", "polygon", "sphere", "cone", "pyramid", "wedge",
   "roundRoof", "halfSphere", "torus", "tube", "text", "thread", "spring", "gear",
   "ruler", "sketch",
 ];
