@@ -1038,6 +1038,9 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
     if (definition.threadHand !== undefined && definition.threadHand !== "right" && definition.threadHand !== "left") {
       throw new Error(`${label}.threadHand is invalid`);
     }
+    if (definition.threadProfile !== undefined && !["v", "trapezoidal", "round"].includes(definition.threadProfile as string)) {
+      throw new Error(`${label}.threadProfile is invalid`);
+    }
     if (definition.threadDiameter !== undefined) {
       const threadDiameter = finiteNumber(definition.threadDiameter, `${label}.threadDiameter`);
       if (threadDiameter < 1 || threadDiameter > 160) throw new Error(`${label}.threadDiameter is outside the supported range`);

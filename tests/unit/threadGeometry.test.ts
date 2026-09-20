@@ -483,6 +483,72 @@ describe("thread geometry", () => {
     expect(threadSettings({ threadRole: "screw", threadDiameter: 6, threadPitch: 1 }).headChamfer).toBe(0);
   });
 
+  it.each<["trapezoidal" | "round", ThreadRole, number]>([
+    ["trapezoidal", "rod", 20],
+    ["trapezoidal", "screw", 24],
+    ["trapezoidal", "nut", 5],
+    ["trapezoidal", "bore", 14],
+    ["round", "rod", 20],
+    ["round", "screw", 24],
+    ["round", "nut", 5],
+    ["round", "bore", 14],
+  ])(
+    "stays closed on a %s profile as a %s",
+    (threadProfile, role, height) => {
+      const { geometry } = geometryFor(role, height, { threadProfile });
+      const position = geometry.getAttribute("position") as unknown as Position;
+      expect(position.count).toBeGreaterThan(1000);
+      expect([...edgeUseCounts(position).values()].every((uses) => uses === 2)).toBe(true);
+      expect(signedVolume(position)).toBeGreaterThan(0);
+    },
+  );
+
+  it("cuts a flatter trapezoidal and round profile than the ISO default", () => {
+    // Dieselbe Pruefung wie beim Spitzgewinde, nur mit den Tiefen der beiden
+    // neuen Profile - bewusst gewaehlte, dokumentierte Naeherungen an DIN 103
+    // und DIN 405, keine geschaetzten Werte.
+    const trapezoidal = geometryFor("rod", 20, { threadProfile: "trapezoidal" });
+    const round = geometryFor("rod", 20, { threadProfile: "round" });
+    const minorRadiusOf = (geometry: typeof trapezoidal.geometry) => {
+      const position = geometry.getAttribute("position") as unknown as Position;
+      let smallest = Number.POSITIVE_INFINITY;
+      for (let index = 0; index < position.count; index += 1) {
+        const y = position.getY(index);
+        if (y < 4 || y > 16) continue;
+        smallest = Math.min(smallest, Math.hypot(position.getX(index), position.getZ(index)));
+      }
+      return smallest;
+    };
+    expect(minorRadiusOf(trapezoidal.geometry)).toBeCloseTo(3 - 0.4815, 3);
+    expect(minorRadiusOf(round.geometry)).toBeCloseTo(3 - 0.3, 3);
+    // Beide Profile sind flacher als das scharfe ISO-Gewinde - genau der Punkt.
+    expect(minorRadiusOf(trapezoidal.geometry)).toBeGreaterThan(3 - 0.5413);
+    expect(minorRadiusOf(round.geometry)).toBeGreaterThan(3 - 0.5413);
+  });
+
+  it("carries every thread profile through a saved package", async () => {
+    const asset = toolbarShapeAssets.find((entry) => entry.kind === "thread");
+    for (const threadProfile of ["v", "trapezoidal", "round"] as const) {
+      const shape = makeShapeFromAsset(asset!, { x: 0, z: 0 }, { threadProfile });
+      const shapes = [shape];
+      const bytes = await exportLylProject({
+        projectId: `project-profile-${threadProfile}`,
+        projectName: "Gewindeprofil",
+        createdAt: 1_700_000_000_000,
+        modifiedAt: 1_700_000_100_000,
+        shapes,
+        history: [editorHistoryEntry(shapes, [])],
+        historyIndex: 0,
+        assets: [],
+        workspace: DEFAULT_WORKPLANE_WORKSPACE,
+        snapGrid: DEFAULT_SNAP_GRID,
+        placementElevation: 0,
+      });
+      const loaded = (await importLylProject(bytes)).shapes[0];
+      expect(loaded.threadProfile).toBe(threadProfile);
+    }
+  });
+
   it("carries the inch sizes with the same profile", () => {
     const quarterUnc = threadSizeFor(6.35, 25.4 / 20);
     expect(quarterUnc?.id).toBe('1/4"-20 UNC');

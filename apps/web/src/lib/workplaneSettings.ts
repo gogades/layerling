@@ -148,6 +148,11 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
         : source.threadHand === "right" || source.threadHand === "left"
           ? source.threadHand
           : fallbackEntry?.threadHand;
+      entry.threadProfile = source.threadProfile === undefined
+        ? fallbackEntry?.threadProfile
+        : ["v", "trapezoidal", "round"].includes(source.threadProfile)
+          ? source.threadProfile
+          : fallbackEntry?.threadProfile;
       entry.threadDiameter = optionalShapeNumber(source.threadDiameter, fallbackEntry?.threadDiameter, 1, 160);
       entry.threadPitch = optionalShapeNumber(source.threadPitch, fallbackEntry?.threadPitch, 0.2, 12);
       entry.threadClearance = optionalShapeNumber(source.threadClearance, fallbackEntry?.threadClearance, 0, 1.5);

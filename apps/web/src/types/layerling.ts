@@ -70,6 +70,7 @@ export type ShapeCustomization = {
   threadRole?: ThreadRole;
   threadHead?: ThreadHead;
   threadHand?: ThreadHand;
+  threadProfile?: ThreadProfile;
   threadDiameter?: number;
   threadPitch?: number;
   threadClearance?: number;
@@ -162,6 +163,8 @@ export type GearType = "spur" | "helical" | "bevel";
 export type ThreadRole = "rod" | "screw" | "nut" | "bore";
 export type ThreadHead = "cylinder" | "countersunk" | "hex";
 export type ThreadHand = "right" | "left";
+/** Die Zahnform: scharfe ISO-Spitze, flache Trapezflanke oder rundes Profil. */
+export type ThreadProfile = "v" | "trapezoidal" | "round";
 
 export type SketchRevolveSettings = {
   startAngle: number;
@@ -291,6 +294,7 @@ export type WorkplaneShape = {
   threadRole?: ThreadRole;
   threadHead?: ThreadHead;
   threadHand?: ThreadHand;
+  threadProfile?: ThreadProfile;
   threadDiameter?: number;
   threadPitch?: number;
   threadClearance?: number;

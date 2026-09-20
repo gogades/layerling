@@ -52,6 +52,7 @@ export const shapeSettingSchema = {
   threadRole: { type: "string", enum: ["rod", "screw", "nut", "bore"], description: "Thread only. A bore becomes a cutter that threads the part it is grouped with." },
   threadHead: { type: "string", enum: ["cylinder", "countersunk", "hex"], description: "Thread only, and only for a screw." },
   threadHand: { type: "string", enum: ["right", "left"], description: "Thread only." },
+  threadProfile: { type: "string", enum: ["v", "trapezoidal", "round"], description: "Thread only: tooth shape. \"v\" is the sharp 60-degree ISO default; trapezoidal and round both leave a flat crest and root, which prints more reliably." },
   threadDiameter: { type: "number", description: "Thread only, in millimetres: 6 is an M6. Width and depth follow it, they are not set separately." },
   threadPitch: { type: "number", description: "Thread only, in millimetres per turn: an M6 runs 1.0 as standard." },
   threadClearance: { type: "number", description: "Thread only, for nuts and tapped holes: how much room the thread leaves so a printed pair still turns." },

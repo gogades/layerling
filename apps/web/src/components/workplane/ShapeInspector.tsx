@@ -38,6 +38,7 @@ import {
   normalizeThreadHeadChamfer,
   normalizeThreadHeadHeight,
   normalizeThreadPitch,
+  normalizeThreadProfile,
   normalizeThreadQuality,
   normalizeThreadRole,
   threadNaturalFootprint,
@@ -72,7 +73,7 @@ import {
 } from "@/lib/springGeometry";
 import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
 import { DEFAULT_TAPER_DIMENSION_MAX, MAX_HIGH_RESOLUTION_SIDES, shapeDimensionLimit } from "@/lib/workplaneSettings";
-import type { GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 
 const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
@@ -124,6 +125,11 @@ const THREAD_HEAD_OPTIONS: Array<{ value: ThreadHead; label: MessageKey }> = [
   { value: "cylinder", label: "thread.headCylinder" },
   { value: "countersunk", label: "thread.headCountersunk" },
   { value: "hex", label: "thread.headHex" },
+];
+const THREAD_PROFILE_OPTIONS: Array<{ value: ThreadProfile; label: MessageKey }> = [
+  { value: "v", label: "thread.profileV" },
+  { value: "trapezoidal", label: "thread.profileTrapezoidal" },
+  { value: "round", label: "thread.profileRound" },
 ];
 
 type RangePropertyConfig = {
@@ -517,7 +523,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
       next.pitch = normalizeThreadPitch(next.pitch, next.diameter);
       next.clearance = normalizeThreadClearance(next.clearance);
       next.quality = normalizeThreadQuality(next.quality);
-      next.chamfer = normalizeThreadChamfer(next.chamfer, { role: next.role, diameter: next.diameter, pitch: next.pitch });
+      next.chamfer = normalizeThreadChamfer(next.chamfer, { role: next.role, diameter: next.diameter, pitch: next.pitch, profile: next.profile });
       const headBase = { role: next.role, head: next.head, diameter: next.diameter, pitch: next.pitch };
       const keepHeadHeight = patch.headHeight !== undefined || !headFollowsStandard;
       next.headHeight = normalizeThreadHeadHeight(
@@ -526,12 +532,13 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
       );
       // Die Kopffase haengt am Kopf: wer den Kopf flacher zieht oder auf
       // Senkkopf umschaltet, darf keine Fase behalten, die es dort nicht gibt.
-      next.headChamfer = normalizeThreadHeadChamfer(next.headChamfer, { ...headBase, headHeight: next.headHeight });
+      next.headChamfer = normalizeThreadHeadChamfer(next.headChamfer, { ...headBase, headHeight: next.headHeight, profile: next.profile });
       const footprint = threadNaturalFootprint(next);
       const update: Partial<WorkplaneShape> = {
         threadRole: next.role,
         threadHead: next.head,
         threadHand: next.hand,
+        threadProfile: next.profile,
         threadDiameter: next.diameter,
         threadPitch: next.pitch,
         threadClearance: next.clearance,
@@ -658,6 +665,14 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         value: settings.hand,
         options: [{ value: "right", label: t("thread.right") }, { value: "left", label: t("thread.left") }],
         onChange: (hand) => applyThread({ hand: normalizeThreadHand(hand) }),
+      },
+      {
+        type: "select",
+        id: "threadProfile",
+        label: t("prop.threadProfile"),
+        value: settings.profile,
+        options: THREAD_PROFILE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })),
+        onChange: (profile) => applyThread({ profile: normalizeThreadProfile(profile) }),
       },
     );
     if (settings.role === "bore" || settings.role === "nut") {
@@ -868,7 +883,7 @@ export function ShapeInspector({
       ? properties.filter((property) => ["threadSize", "diameter", "threadLength", "headHeight", "headChamfer"].includes(property.id))
       : properties;
   const threadProperties = isThread
-    ? properties.filter((property) => ["pitch", "threadHand", "clearance", "chamfer", "quality"].includes(property.id))
+    ? properties.filter((property) => ["pitch", "threadHand", "threadProfile", "clearance", "chamfer", "quality"].includes(property.id))
     : [];
   const gearTeethProperties = shape.kind === "gear"
     ? properties.filter((property) => ["teeth", "toothSize", "toothWidth"].includes(property.id))

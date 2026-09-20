@@ -1,10 +1,11 @@
 import * as THREE from "three";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import type { ThreadHand, ThreadHead, ThreadRole } from "@/types/layerling";
+import type { ThreadHand, ThreadHead, ThreadProfile, ThreadRole } from "@/types/layerling";
 
 export const DEFAULT_THREAD_ROLE: ThreadRole = "rod";
 export const DEFAULT_THREAD_HEAD: ThreadHead = "cylinder";
 export const DEFAULT_THREAD_HAND: ThreadHand = "right";
+export const DEFAULT_THREAD_PROFILE: ThreadProfile = "v";
 export const DEFAULT_THREAD_DIAMETER = 6;
 export const DEFAULT_THREAD_PITCH = 1;
 export const DEFAULT_THREAD_CLEARANCE = 0.2;
@@ -210,6 +211,10 @@ export function normalizeThreadHand(value?: string): ThreadHand {
   return value === "left" ? "left" : DEFAULT_THREAD_HAND;
 }
 
+export function normalizeThreadProfile(value?: string): ThreadProfile {
+  return value === "trapezoidal" || value === "round" ? value : DEFAULT_THREAD_PROFILE;
+}
+
 export function normalizeThreadDiameter(value?: number) {
   return clamp(finite(value, DEFAULT_THREAD_DIAMETER), MIN_THREAD_DIAMETER, MAX_THREAD_DIAMETER);
 }
@@ -240,8 +245,8 @@ export function normalizeThreadClearance(value?: number) {
  * Innengewinden zeigt dieselbe Zahl nach aussen und wird zur Ansenkung am
  * Mundloch.
  */
-export function defaultThreadChamfer(pitch: number) {
-  return pitch * THREAD_DEPTH_PER_PITCH;
+export function defaultThreadChamfer(pitch: number, profile: ThreadProfile = DEFAULT_THREAD_PROFILE) {
+  return pitch * threadProfileSpec(profile).depthPerPitch;
 }
 
 export function threadChamferLimits(settings: Pick<ThreadSettings, "role" | "diameter" | "pitch">) {
@@ -254,9 +259,9 @@ export function threadChamferLimits(settings: Pick<ThreadSettings, "role" | "dia
   return { min: 0, max: Math.max(0.05, Math.min(settings.pitch * 3, settings.diameter / 3)) };
 }
 
-export function normalizeThreadChamfer(value: number | undefined, settings: Pick<ThreadSettings, "role" | "diameter" | "pitch">) {
+export function normalizeThreadChamfer(value: number | undefined, settings: Pick<ThreadSettings, "role" | "diameter" | "pitch" | "profile">) {
   const limits = threadChamferLimits(settings);
-  return clamp(finite(value, defaultThreadChamfer(settings.pitch)), limits.min, limits.max);
+  return clamp(finite(value, defaultThreadChamfer(settings.pitch, settings.profile)), limits.min, limits.max);
 }
 
 /**
@@ -273,6 +278,7 @@ export type ThreadShapeFields = {
   threadRole?: ThreadRole;
   threadHead?: ThreadHead;
   threadHand?: ThreadHand;
+  threadProfile?: ThreadProfile;
   threadDiameter?: number;
   threadPitch?: number;
   threadClearance?: number;
@@ -286,6 +292,7 @@ export type ThreadSettings = {
   role: ThreadRole;
   head: ThreadHead;
   hand: ThreadHand;
+  profile: ThreadProfile;
   diameter: number;
   pitch: number;
   clearance: number;
@@ -303,18 +310,20 @@ export function threadSettings(shape: ThreadShapeFields): ThreadSettings {
     diameter,
     pitch: normalizeThreadPitch(shape.threadPitch, diameter),
   };
+  const profile = normalizeThreadProfile(shape.threadProfile);
   const headHeight = normalizeThreadHeadHeight(shape.threadHeadHeight, head);
-  const chamfer = normalizeThreadChamfer(shape.threadChamfer, head);
+  const chamfer = normalizeThreadChamfer(shape.threadChamfer, { role: head.role, diameter: head.diameter, pitch: head.pitch, profile });
   return {
     ...head,
     hand: normalizeThreadHand(shape.threadHand),
+    profile,
     clearance: normalizeThreadClearance(shape.threadClearance),
     quality: normalizeThreadQuality(shape.threadQuality),
     headHeight,
     chamfer,
     // Die Aussenfase kennt ihre Grenze erst, wenn Kopfhoehe und Ansenkung
     // feststehen - bei der Mutter frisst die Ansenkung von innen mit.
-    headChamfer: normalizeThreadHeadChamfer(shape.threadHeadChamfer, { ...head, headHeight, chamfer }),
+    headChamfer: normalizeThreadHeadChamfer(shape.threadHeadChamfer, { ...head, headHeight, chamfer, profile }),
   };
 }
 
@@ -355,7 +364,7 @@ export function threadHeadDiameter(settings: Pick<ThreadSettings, "role" | "head
   return spec.headDiameter;
 }
 
-type HeadChamferShape = Pick<ThreadSettings, "role" | "head" | "diameter" | "pitch" | "headHeight"> & { chamfer?: number };
+type HeadChamferShape = Pick<ThreadSettings, "role" | "head" | "diameter" | "pitch" | "headHeight" | "profile"> & { chamfer?: number };
 
 /**
  * Der Kopf steht auf seinem freien Ende. `inscribed` ist der kleinste Radius
@@ -453,29 +462,89 @@ export function threadNaturalFootprint(settings: ThreadSettings) {
   return { width: diameter, depth: diameter };
 }
 
-// Ein metrisches Gewinde ist ein gleichseitiges Dreieck mit der Steigung als
-// Grundlinie, oben um H/8 und unten um H/4 gekappt. Ueber eine Steigung
-// verteilt sich das auf Kuppenbreite P/8, Flanke 5P/16, Grundbreite P/4,
-// Flanke 5P/16 - zusammen genau P.
-const PROFILE_U = [0, 1 / 8, 7 / 16, 11 / 16] as const;
+/**
+ * Jedes Profil ist eine Punktfolge ueber eine Steigung: `u` in [0,1) ist die
+ * axiale Lage, `level` 1 = Aussendurchmesser (Kuppe), 0 = Kerndurchmesser
+ * (Grund). Zwischen den Punkten wird linear interpoliert, nach dem letzten
+ * Punkt zurueck auf den ersten bei u=1 - das gilt fuer alle drei Profile,
+ * weil jedes bei u=0 an der Kuppe beginnt.
+ */
+type ThreadProfilePoint = { u: number; level: number };
+type ThreadProfileSpecification = {
+  /** Gewindetiefe (Aussen- minus Kernradius) als Bruchteil der Steigung. */
+  depthPerPitch: number;
+  points: readonly ThreadProfilePoint[];
+};
+
 /** Wie fein das Profil dort abgetastet wird, wo der Fasenkegel es beschneidet. */
 const CHAMFER_SUBDIVISIONS = 4;
-const CREST_END = 1 / 8;
-const FLANK_END = 7 / 16;
-const ROOT_END = 11 / 16;
-/** Die Flankentiefe: 5/8 der Dreieckshoehe H = P mal Wurzel(3)/2. */
-const THREAD_DEPTH_PER_PITCH = (5 / 8) * (Math.sqrt(3) / 2);
+
+// Ein metrisches Spitzgewinde ist ein gleichseitiges Dreieck mit der Steigung
+// als Grundlinie, oben um H/8 und unten um H/4 gekappt. Ueber eine Steigung
+// verteilt sich das auf Kuppenbreite P/8, Flanke 5P/16, Grundbreite P/4,
+// Flanke 5P/16 - zusammen genau P. Tiefe: 5/8 der Dreieckshoehe H = P mal
+// Wurzel(3)/2.
+const V_PROFILE: ThreadProfileSpecification = {
+  depthPerPitch: (5 / 8) * (Math.sqrt(3) / 2),
+  points: [
+    { u: 0, level: 1 },
+    { u: 1 / 8, level: 1 },
+    { u: 7 / 16, level: 0 },
+    { u: 11 / 16, level: 0 },
+  ],
+};
+
+// Trapezgewinde, an DIN 103 angenaehert: 30 Grad Flankenwinkel statt 60, dafuer
+// eine ebene Kuppe und ein ebener Grund statt einer Spitze - genau das macht
+// die Flanke fuer den 3D-Druck brauchbar, wie im Forum angemerkt. Tiefe knapp
+// unter der halben Steigung, wie beim echten Trapezgewinde.
+const TRAPEZOIDAL_PROFILE: ThreadProfileSpecification = {
+  depthPerPitch: 0.4815,
+  points: [
+    { u: 0, level: 1 },
+    { u: 0.366, level: 1 },
+    { u: 0.5, level: 0 },
+    { u: 0.866, level: 0 },
+  ],
+};
+
+// Rundgewinde, an DIN 405 angenaehert: keine Flanke und keine Kante mehr,
+// sondern eine Kosinuskurve ueber die ganze Steigung - an zwoelf Punkten
+// abgetastet, genau wie ein Vieleck anderswo im Code einen Kreis annaehert.
+// Die Tiefe bleibt bewusst flacher als bei den beiden anderen Profilen, weil
+// die Rundung selbst schon Platz braucht.
+const ROUND_PROFILE_SEGMENTS = 12;
+const ROUND_PROFILE: ThreadProfileSpecification = {
+  depthPerPitch: 0.3,
+  points: Array.from({ length: ROUND_PROFILE_SEGMENTS }, (_, index) => {
+    const u = index / ROUND_PROFILE_SEGMENTS;
+    return { u, level: (1 + Math.cos(2 * Math.PI * u)) / 2 };
+  }),
+};
+
+function threadProfileSpec(profile: ThreadProfile): ThreadProfileSpecification {
+  if (profile === "trapezoidal") return TRAPEZOIDAL_PROFILE;
+  if (profile === "round") return ROUND_PROFILE;
+  return V_PROFILE;
+}
 
 function wrapUnit(value: number) {
   return ((value % 1) + 1) % 1;
 }
 
-function profileRadius(u: number, major: number, minor: number) {
+function profileRadius(u: number, major: number, minor: number, points: readonly ThreadProfilePoint[]) {
   const phase = wrapUnit(u);
-  if (phase <= CREST_END) return major;
-  if (phase <= FLANK_END) return major + (minor - major) * ((phase - CREST_END) / (FLANK_END - CREST_END));
-  if (phase <= ROOT_END) return minor;
-  return minor + (major - minor) * ((phase - ROOT_END) / (1 - ROOT_END));
+  for (let index = 0; index < points.length; index += 1) {
+    const start = points[index];
+    const end = index + 1 < points.length ? points[index + 1] : { u: 1, level: points[0].level };
+    if (phase <= end.u) {
+      const span = end.u - start.u;
+      const fraction = span > 0 ? (phase - start.u) / span : 0;
+      const level = start.level + (end.level - start.level) * fraction;
+      return minor + (major - minor) * level;
+    }
+  }
+  return major;
 }
 
 /** Der Radius eines Sechskants unter dem Winkel, Ecken auf Vielfachen von 60 Grad. */
@@ -562,8 +631,9 @@ function threadWall(
   limitRadius: (y: number, radius: number) => number,
   subdivisions: number,
   bandHeight: number,
+  profilePoints: readonly ThreadProfilePoint[],
 ) {
-  const profileRadii = [major, major, minor, minor] as const;
+  const profileRadii = profilePoints.map((point) => minor + (major - minor) * point.level);
   const turns = (topY - bottomY) / pitch;
   const firstTurn = -2;
   const lastTurn = Math.ceil(turns) + 1;
@@ -574,18 +644,18 @@ function threadWall(
   for (let column = 0; column < angles.length; column += 1) {
     const angle = angles[column];
     const advance = handSign * (column / (angles.length - 1)) * pitch;
-    const bottomRadius = limitRadius(bottomY, profileRadius(-advance / pitch, major, minor));
-    const topRadius = limitRadius(topY, profileRadius((topY - bottomY - advance) / pitch, major, minor));
+    const bottomRadius = limitRadius(bottomY, profileRadius(-advance / pitch, major, minor, profilePoints));
+    const topRadius = limitRadius(topY, profileRadius((topY - bottomY - advance) / pitch, major, minor, profilePoints));
     const bottomVertex = pushVertex(builder, angle, bottomRadius, bottomY);
     const topVertex = pushVertex(builder, angle, topRadius, topY);
     const rows: number[] = [bottomVertex];
     for (let turn = firstTurn; turn <= lastTurn; turn += 1) {
-      for (let step = 0; step < PROFILE_U.length; step += 1) {
+      for (let step = 0; step < profilePoints.length; step += 1) {
         const nextIndex = step + 1;
-        const uStart = PROFILE_U[step];
-        const uEnd = nextIndex < PROFILE_U.length ? PROFILE_U[nextIndex] : 1;
+        const uStart = profilePoints[step].u;
+        const uEnd = nextIndex < profilePoints.length ? profilePoints[nextIndex].u : 1;
         const rStart = profileRadii[step];
-        const rEnd = nextIndex < PROFILE_U.length ? profileRadii[nextIndex] : major;
+        const rEnd = nextIndex < profilePoints.length ? profileRadii[nextIndex] : major;
         const segmentY = bottomY + advance + (turn + uStart) * pitch;
         /*
          * Feiner abgetastet wird nur dort, wo der Fasenkegel das Profil
@@ -655,14 +725,14 @@ export function threadFootprintPatch(shape: ThreadShapeFields & { width?: number
     const pitch = normalizeThreadPitch(settings.pitch * factor, diameter);
     const head: HeadShape = { role: settings.role, head: settings.head, diameter, pitch };
     const headHeight = normalizeThreadHeadHeight(settings.headHeight * factor, head);
-    const chamfer = normalizeThreadChamfer(settings.chamfer * factor, head);
+    const chamfer = normalizeThreadChamfer(settings.chamfer * factor, { role: head.role, diameter: head.diameter, pitch: head.pitch, profile: settings.profile });
     return {
       ...settings,
       diameter,
       pitch,
       headHeight,
       chamfer,
-      headChamfer: normalizeThreadHeadChamfer(settings.headChamfer * factor, { ...head, headHeight, chamfer }),
+      headChamfer: normalizeThreadHeadChamfer(settings.headChamfer * factor, { ...head, headHeight, chamfer, profile: settings.profile }),
     };
   })();
   const footprint = drift < 1e-6 ? natural : threadNaturalFootprint(scaled);
@@ -672,6 +742,7 @@ export function threadFootprintPatch(shape: ThreadShapeFields & { width?: number
     threadRole: scaled.role,
     threadHead: scaled.head,
     threadHand: scaled.hand,
+    threadProfile: scaled.profile,
     threadDiameter: scaled.diameter,
     threadPitch: scaled.pitch,
     threadClearance: scaled.clearance,
@@ -693,8 +764,9 @@ export function createThreadGeometry(options: ThreadGeometryOptions) {
   const height = Math.max(0.05, options.height);
   const spec = threadSizeSpec(settings.diameter, settings.pitch);
   const allowance = radialAllowance(settings.role, settings.clearance);
+  const profile = threadProfileSpec(settings.profile);
   const major = settings.diameter / 2 + allowance;
-  const minor = Math.max(0.02, major - settings.pitch * THREAD_DEPTH_PER_PITCH);
+  const minor = Math.max(0.02, major - settings.pitch * profile.depthPerPitch);
   const handSign = settings.hand === "left" ? -1 : 1;
 
   const headHeight = Math.min(height * 0.9, settings.headHeight);
@@ -718,7 +790,8 @@ export function createThreadGeometry(options: ThreadGeometryOptions) {
   const bandHeight = chamfer <= 0.001 ? 0 : chamfer + settings.pitch;
   const subdivisions = bandHeight > 0 ? CHAMFER_SUBDIVISIONS : 1;
   const denseSpan = Math.min(spanTurns, Math.ceil(bandHeight / settings.pitch) * 2 + 2);
-  const rows = ((spanTurns - denseSpan) * 4 + denseSpan * 4 * subdivisions) + 2;
+  const pointsPerTurn = profile.points.length;
+  const rows = ((spanTurns - denseSpan) * pointsPerTurn + denseSpan * pointsPerTurn * subdivisions) + 2;
   const requested = normalizeThreadQuality(settings.quality);
   const affordable = Math.floor(MAX_THREAD_VERTICES / Math.max(1, rows) / 6) * 6;
   const segments = clamp(Math.min(requested, affordable), MIN_THREAD_QUALITY, MAX_THREAD_QUALITY);
@@ -760,11 +833,11 @@ export function createThreadGeometry(options: ThreadGeometryOptions) {
     } else {
       wall(builder, outerBottom, outerTop);
     }
-    const bore = threadWall(builder, angles, 0, height, major, minor, settings.pitch, handSign, true, limitRadius, subdivisions, bandHeight);
+    const bore = threadWall(builder, angles, 0, height, major, minor, settings.pitch, handSign, true, limitRadius, subdivisions, bandHeight, profile.points);
     capRing(builder, bore.bottomEdge, outerBottom, false);
     capRing(builder, bore.topEdge, outerTop, true);
   } else if (settings.role === "screw") {
-    const shaft = threadWall(builder, angles, shaftBottom, height, major, minor, settings.pitch, handSign, false, limitRadius, subdivisions, bandHeight);
+    const shaft = threadWall(builder, angles, shaftBottom, height, major, minor, settings.pitch, handSign, false, limitRadius, subdivisions, bandHeight, profile.points);
     capFan(builder, shaft.topEdge, height, true);
 
     const headRadiusAt = (angle: number, y: number) => {
@@ -817,7 +890,7 @@ export function createThreadGeometry(options: ThreadGeometryOptions) {
       capFan(builder, headBottom, 0, false);
     }
   } else {
-    const rod = threadWall(builder, angles, 0, height, major, minor, settings.pitch, handSign, false, limitRadius, subdivisions, bandHeight);
+    const rod = threadWall(builder, angles, 0, height, major, minor, settings.pitch, handSign, false, limitRadius, subdivisions, bandHeight, profile.points);
     capFan(builder, rod.bottomEdge, 0, false);
     capFan(builder, rod.topEdge, height, true);
   }

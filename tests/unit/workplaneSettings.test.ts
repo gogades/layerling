@@ -164,11 +164,12 @@ describe("workplane settings helpers", () => {
   });
 
   it("keeps a thread's own values instead of dropping them", () => {
-    const kept = normalizeShapeCustomizations({ thread: { threadDiameter: 8, threadPitch: 1.25, threadRole: "screw" } }).thread;
+    const kept = normalizeShapeCustomizations({ thread: { threadDiameter: 8, threadPitch: 1.25, threadRole: "screw", threadProfile: "trapezoidal" } }).thread;
 
     expect(kept?.threadDiameter).toBe(8);
     expect(kept?.threadPitch).toBe(1.25);
     expect(kept?.threadRole).toBe("screw");
+    expect(kept?.threadProfile).toBe("trapezoidal");
   });
 
   it("keeps a spring's own values and reins in what is out of range", () => {
