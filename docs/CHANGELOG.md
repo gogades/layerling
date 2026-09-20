@@ -4,6 +4,12 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.10.3
+
+- An edge below the angle-detection slider's current threshold wasn't drawn in the edge tool at all, so clicking it did nothing until the slider was dragged down by hand - reported in the forum as fillets only taking effect after touching the slider. Every edge that could in principle be rounded or chamfered now stays visible, dimmed below the threshold, and clickable; clicking one lowers the threshold to its own angle automatically instead of requiring a manual drag first.
+- Grouping or cutting a selection that itself contained a group - several threaded holes grouped together, then unioned with a body, in the forum's report - flattened that inner group into the union's own child list. Ungrouping the union afterwards lost the inner grouping instead of restoring it, so it couldn't be reused. The union now keeps the original, ungrouped selection as its children, so ungrouping it again brings the inner group back intact.
+- Rotating a ruler to an angle that isn't a multiple of 90° bakes it into a plain mesh, the same as any other body - but the ruler had no case in the function that builds that mesh, so it silently fell back to unrelated placeholder geometry sized for a completely different shape. That corrupted both the live view and any STL/OBJ export made afterwards, matching a forum report of a ruler turning to visible garbage geometry at 45°. The missing case is filled in now.
+
 ## 1.10.2
 
 - A body that collected several fillets or chamfers one after another could end up with visibly rippling, uneven mesh lines - reported in the forum on a part built from a sketch and rounded several times over. Each edge treatment re-tessellates the whole body, but the fineness used to depend only on that one operation's own radius, with nothing carried over from an earlier, finer pass; a later fillet with a bigger radius could quietly resample an already finely curved region (a sketch's own rounded corners, an earlier small fillet) coarser than it had been. A body now remembers the finest tessellation any of its edge treatments has needed so far and treats it as a floor for the next one, so later, larger-radius work can no longer roughen up a region a smaller radius already needed fine.
