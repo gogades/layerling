@@ -20,14 +20,13 @@ function releaseNotesUrl() {
   return `${SOURCE_CODE_URL.replace(/\/+$/, "")}/releases`;
 }
 
-// German readers are already gathered in the drucktipps3d forum thread this
-// project grew out of; everyone else is pointed at GitHub Discussions instead,
-// since a German forum thread means nothing to them.
-const FORUM_THREAD_URL =
-  "https://forum.drucktipps3d.de/forum/thread/49957-vorstellung-tinkercad-alternative-layerling/";
+// German readers are already gathered in the drucktipps3d forum this project
+// grew out of; everyone else is pointed at GitHub Discussions instead, since
+// a German forum means nothing to them.
+const FORUM_URL = "https://forum.drucktipps3d.de/forum/board/127-layerling/";
 
 function communityUrl(language: Language) {
-  return language === "de" ? FORUM_THREAD_URL : `${SOURCE_CODE_URL.replace(/\/+$/, "")}/discussions`;
+  return language === "de" ? FORUM_URL : `${SOURCE_CODE_URL.replace(/\/+$/, "")}/discussions`;
 }
 
 // Whoever operates a layerling installation may be required to publish a legal
