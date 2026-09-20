@@ -291,9 +291,17 @@ Once installed, ask Codex:
 Use $layerling-mcp-skill to list my open layerling editors and inspect the current scene.
 ```
 
-### Claude
+### Claude Code
 
-Claude does not use Codex `SKILL.md` files, but it can use the same layerling MCP server. Add the server to Claude Desktop's MCP config using [`docs/mcp/claude-desktop-config.example.json`](docs/mcp/claude-desktop-config.example.json) as the template, replacing the script path with the absolute path on your machine.
+Nothing to install: the repo already ships `.mcp.json`, which registers the MCP server for this project, and a copy of the skill at `.claude/skills/layerling-mcp-skill`, which is where Claude Code looks for one. Open the layerling folder in Claude Code and ask:
+
+```text
+Use the layerling MCP tools to list my open layerling editors and inspect the current scene.
+```
+
+### Claude Desktop
+
+Claude Desktop does not read a project's `.mcp.json` or skill files, but it can use the same layerling MCP server through its own, separate config. Add the server to Claude Desktop's MCP config using [`docs/mcp/claude-desktop-config.example.json`](docs/mcp/claude-desktop-config.example.json) as the template, replacing the script path with the absolute path on your machine.
 
 After restarting Claude Desktop, ask:
 
