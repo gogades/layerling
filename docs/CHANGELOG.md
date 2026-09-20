@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.10.2
+
+- A body that collected several fillets or chamfers one after another could end up with visibly rippling, uneven mesh lines - reported in the forum on a part built from a sketch and rounded several times over. Each edge treatment re-tessellates the whole body, but the fineness used to depend only on that one operation's own radius, with nothing carried over from an earlier, finer pass; a later fillet with a bigger radius could quietly resample an already finely curved region (a sketch's own rounded corners, an earlier small fillet) coarser than it had been. A body now remembers the finest tessellation any of its edge treatments has needed so far and treats it as a floor for the next one, so later, larger-radius work can no longer roughen up a region a smaller radius already needed fine.
+
 ## 1.10.0
 
 - Duplicating a body now remembers the move and turn applied to the previous copy and repeats the same amount on the next one, the way Tinkercad's does - requested by name in the forum, for building a row of holes without dragging each one into place by hand. Pressing duplicate again without moving anything in between repeats the last such step too, so a row keeps extending with nothing but the same key. Most bodies bake a turn straight into a mesh and reset the plain rotation field to zero the moment it happens; the amount actually turned is read from the parametric record layerling already keeps for exactly that case, and reapplied through the same baking step a real turn goes through, so it lands on the copy's own mesh rather than a field that would reset to zero regardless.

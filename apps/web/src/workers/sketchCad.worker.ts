@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
+import { SKETCH_CAD_DEFLECTION } from "@/lib/cadModifierRuntime";
 import { cadSketchRegions, type OrderedCadSketchPath } from "@/lib/sketchCadProfile";
 import type { SketchCadBuildRequest, SketchCadBuildResponse } from "@/lib/sketchCadTypes";
 
@@ -64,7 +65,7 @@ self.onmessage = async (event: MessageEvent<SketchCadBuildRequest>) => {
     });
     const result = solids.length === 1 ? solids[0] : cad.makeCompound(solids);
     if (!cad.isValid(result)) throw new Error("OpenCascade produced invalid sketch topology");
-    const mesh = cad.tessellate(result, { linearDeflection: 0.05, angularDeflection: 0.16 });
+    const mesh = cad.tessellate(result, { linearDeflection: SKETCH_CAD_DEFLECTION.linear, angularDeflection: SKETCH_CAD_DEFLECTION.angular });
     const positions = new Float32Array(mesh.positions);
     const normals = new Float32Array(mesh.normals);
     const indices = new Uint32Array(mesh.indices);
