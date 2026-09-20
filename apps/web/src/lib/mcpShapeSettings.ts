@@ -23,6 +23,7 @@ export const MCP_SHAPE_SETTING_KEYS = [
   "steps", "sides", "bevel", "segments",
   "topRadius", "baseRadius", "topWidth", "topDepth",
   "taperTopWidth", "taperTopDepth", "taperBottomWidth", "taperBottomDepth",
+  "extrudeTwist", "extrudeTopOffsetX", "extrudeTopOffsetZ",
   "teeth", "toothSize", "toothWidth", "centerHoleSize", "gearType", "helixAngle", "helixQuality",
   "threadRole", "threadHead", "threadHand", "threadProfile", "threadDiameter", "threadPitch",
   "threadClearance", "threadQuality", "threadHeadHeight", "threadChamfer",

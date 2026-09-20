@@ -50,7 +50,7 @@ import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
 import { interiorWorkplaneGridCoordinates, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
-import { cleanNearZero, cleanRotationDegrees, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
+import { cleanNearZero, cleanRotationDegrees, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { LayerlingMcpViewFace } from "@/lib/layerlingMcpProtocol";
 import {
@@ -8767,7 +8767,7 @@ function createImagePlateMaterials(shape: WorkplaneShape, sideMaterial: THREE.Me
 }
 
 function taperGeometryForShape(geometry: THREE.BufferGeometry, shape: WorkplaneShape) {
-  if (!shapeHasTaper(shape)) return geometry;
+  if (!shapeHasShapeDeform(shape)) return geometry;
   const tapered = geometry.userData.cached ? geometry.clone() : geometry;
   if (tapered !== geometry) {
     tapered.userData = {};
@@ -8779,17 +8779,24 @@ function taperGeometryForShape(geometry: THREE.BufferGeometry, shape: WorkplaneS
   const height = Math.max(1e-6, box.max.y - box.min.y);
   const centerX = (box.min.x + box.max.x) / 2;
   const centerZ = (box.min.z + box.max.z) / 2;
+  const deformed = shapeHasExtrudeDeform(shape);
   for (let index = 0; index < position.count; index += 1) {
     const y = position.getY(index);
     const normalizedHeight = (y - box.min.y) / height;
     const widthScale = shapeTaperScaleAt(shape, normalizedHeight, "width");
     const depthScale = shapeTaperScaleAt(shape, normalizedHeight, "depth");
-    position.setXYZ(
-      index,
-      centerX + (position.getX(index) - centerX) * widthScale,
-      y,
-      centerZ + (position.getZ(index) - centerZ) * depthScale,
-    );
+    let localX = centerX + (position.getX(index) - centerX) * widthScale;
+    let localZ = centerZ + (position.getZ(index) - centerZ) * depthScale;
+    if (deformed) {
+      const deform = shapeExtrudeDeformAt(shape, normalizedHeight);
+      const cos = Math.cos(deform.twistRadians);
+      const sin = Math.sin(deform.twistRadians);
+      const relativeX = localX - centerX;
+      const relativeZ = localZ - centerZ;
+      localX = centerX + relativeX * cos - relativeZ * sin + deform.offsetX;
+      localZ = centerZ + relativeX * sin + relativeZ * cos + deform.offsetZ;
+    }
+    position.setXYZ(index, localX, y, localZ);
   }
   position.needsUpdate = true;
   tapered.computeVertexNormals();
@@ -8799,10 +8806,11 @@ function taperGeometryForShape(geometry: THREE.BufferGeometry, shape: WorkplaneS
 }
 
 function applyGroupedContentTaper(content: THREE.Group, shape: WorkplaneShape, baseBounds: THREE.Box3) {
-  if (!shapeHasTaper(shape)) return;
+  if (!shapeHasShapeDeform(shape)) return;
   const height = Math.max(1e-6, baseBounds.max.y - baseBounds.min.y);
   const centerX = (baseBounds.min.x + baseBounds.max.x) / 2;
   const centerZ = (baseBounds.min.z + baseBounds.max.z) / 2;
+  const deformed = shapeHasExtrudeDeform(shape);
   content.updateMatrixWorld(true);
   const contentWorldInverse = content.matrixWorld.clone().invert();
   content.traverse((object) => {
@@ -8827,6 +8835,15 @@ function applyGroupedContentTaper(content: THREE.Group, shape: WorkplaneShape, b
       const depthScale = shapeTaperScaleAt(shape, normalizedHeight, "depth");
       point.x = centerX + (point.x - centerX) * widthScale;
       point.z = centerZ + (point.z - centerZ) * depthScale;
+      if (deformed) {
+        const deform = shapeExtrudeDeformAt(shape, normalizedHeight);
+        const cos = Math.cos(deform.twistRadians);
+        const sin = Math.sin(deform.twistRadians);
+        const relativeX = point.x - centerX;
+        const relativeZ = point.z - centerZ;
+        point.x = centerX + relativeX * cos - relativeZ * sin + deform.offsetX;
+        point.z = centerZ + relativeX * sin + relativeZ * cos + deform.offsetZ;
+      }
       point.applyMatrix4(contentToLocal);
       position.setXYZ(index, point.x, point.y, point.z);
     }

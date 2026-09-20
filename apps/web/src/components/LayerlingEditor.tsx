@@ -79,6 +79,8 @@ import {
   resizedImportedMeshPositions,
   serializeShapesForSync,
   shapeDepth,
+  shapeExtrudeDeformAt,
+  shapeHasExtrudeDeform,
   shapeHasTaper,
   shapeTaperPatch,
   shapeTransformShouldRemainEditable,
@@ -1912,9 +1914,10 @@ async function restoreEdgeTreatmentInShape(shape: WorkplaneShape, path: number[]
 function transformMesh(mesh: MeshData, shape: WorkplaneShape): MeshData {
   const centerY = shape.height / 2;
   const tapered = shapeHasTaper(shape);
+  const deformed = shapeHasExtrudeDeform(shape);
   let minLocalY = 0;
   let maxLocalY = 1;
-  if (tapered && mesh.vertices.length) {
+  if ((tapered || deformed) && mesh.vertices.length) {
     minLocalY = Number.POSITIVE_INFINITY;
     maxLocalY = Number.NEGATIVE_INFINITY;
     mesh.vertices.forEach((vertex) => {
@@ -1941,7 +1944,18 @@ function transformMesh(mesh: MeshData, shape: WorkplaneShape): MeshData {
       const normalizedHeight = (y - minLocalY) / taperHeight;
       const widthScale = tapered ? shapeTaperScaleAt(shape, normalizedHeight, "width") : 1;
       const depthScale = tapered ? shapeTaperScaleAt(shape, normalizedHeight, "depth") : 1;
-      const vertex = new THREE.Vector3(x * widthScale * mirrorX, (y - centerY) * mirrorY, z * depthScale * mirrorZ).applyMatrix4(matrix);
+      let localX = x * widthScale;
+      let localZ = z * depthScale;
+      if (deformed) {
+        const deform = shapeExtrudeDeformAt(shape, normalizedHeight);
+        const cos = Math.cos(deform.twistRadians);
+        const sin = Math.sin(deform.twistRadians);
+        const twistedX = localX * cos - localZ * sin;
+        const twistedZ = localX * sin + localZ * cos;
+        localX = twistedX + deform.offsetX;
+        localZ = twistedZ + deform.offsetZ;
+      }
+      const vertex = new THREE.Vector3(localX * mirrorX, (y - centerY) * mirrorY, localZ * mirrorZ).applyMatrix4(matrix);
       return [vertex.x + shape.x, vertex.y + (shape.elevation ?? 0) + centerY, vertex.z + shape.z] as Vec3;
     }),
     faces: reversedWinding ? mesh.faces.map(([a, b, c]) => [a, c, b] as [number, number, number]) : mesh.faces,
@@ -2543,6 +2557,9 @@ function parametricSourceForBake(shape: WorkplaneShape): ParametricSource | unde
     taperTopDepth: shape.taperTopDepth,
     taperBottomWidth: shape.taperBottomWidth,
     taperBottomDepth: shape.taperBottomDepth,
+    extrudeTwist: shape.extrudeTwist,
+    extrudeTopOffsetX: shape.extrudeTopOffsetX,
+    extrudeTopOffsetZ: shape.extrudeTopOffsetZ,
   };
 }
 
@@ -2576,6 +2593,9 @@ function rebuiltParametricShape(shape: WorkplaneShape, patch: Partial<WorkplaneS
     taperTopDepth: source.taperTopDepth,
     taperBottomWidth: source.taperBottomWidth,
     taperBottomDepth: source.taperBottomDepth,
+    extrudeTwist: source.extrudeTwist,
+    extrudeTopOffsetX: source.extrudeTopOffsetX,
+    extrudeTopOffsetZ: source.extrudeTopOffsetZ,
     importedMesh: undefined,
     parametricSource: undefined,
     rotation: 0,

@@ -940,10 +940,45 @@ export function ShapeInspector({
       onChange: (taperBottomWidth) => onUpdate({ taperBottomWidth, taperBottomDepth: taper.bottomDepth, taperBottomScale: undefined }),
     },
   ];
+  /*
+   * Twist and lean take the same shapes taper does - shapeIgnoresTaper
+   * already answers that question, so this reuses it rather than asking
+   * shapeSupportsExtrudeDeform a second time for the same shape.
+   */
+  const twistProperties: ShapePropertyConfig[] = shapeIgnoresTaper ? [] : [
+    {
+      id: "extrudeTwist",
+      label: t("prop.twist"),
+      value: shape.extrudeTwist ?? 0,
+      min: -720,
+      max: 720,
+      step: 1,
+      onChange: (extrudeTwist) => onUpdate({ extrudeTwist }),
+    },
+    {
+      id: "extrudeTopOffsetX",
+      label: t("prop.widthOffset"),
+      value: shape.extrudeTopOffsetX ?? 0,
+      min: -80,
+      max: 80,
+      step: 0.5,
+      onChange: (extrudeTopOffsetX) => onUpdate({ extrudeTopOffsetX }),
+    },
+    {
+      id: "extrudeTopOffsetZ",
+      label: t("prop.lengthOffset"),
+      value: shape.extrudeTopOffsetZ ?? 0,
+      min: -80,
+      max: 80,
+      step: 0.5,
+      onChange: (extrudeTopOffsetZ) => onUpdate({ extrudeTopOffsetZ }),
+    },
+  ];
   const isSketchRevolve = shape.sketchOperation === "revolve" || Boolean(shape.sketchRevolve);
   const inspectorRef = useRef<HTMLElement>(null);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [taperOpen, setTaperOpen] = useState(false);
+  const [twistOpen, setTwistOpen] = useState(false);
   const [gearTeethOpen, setGearTeethOpen] = useState(true);
   const [threadOpen, setThreadOpen] = useState(true);
   const [gearHelixOpen, setGearHelixOpen] = useState(true);
@@ -1144,6 +1179,25 @@ export function ShapeInspector({
           {taperOpen ? (
             <div className="property-list" id={`taper-${shape.id}`}>
               <ShapePropertyRows properties={taperProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {!shapeIgnoresTaper ? (
+        <div className={`property-card ${twistOpen ? "" : "collapsed"}`}>
+          <button
+            className="property-card-header"
+            type="button"
+            aria-expanded={twistOpen}
+            aria-controls={`twist-${shape.id}`}
+            onClick={() => setTwistOpen((open) => !open)}
+          >
+            <span>{t("inspector.twist")}</span>
+            <ChevronUp className={twistOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
+          </button>
+          {twistOpen ? (
+            <div className="property-list" id={`twist-${shape.id}`}>
+              <ShapePropertyRows properties={twistProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
             </div>
           ) : null}
         </div>

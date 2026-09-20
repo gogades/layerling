@@ -51,6 +51,9 @@ export function shapeWithParametricSource(shape: WorkplaneShape): WorkplaneShape
     taperTopDepth: source.taperTopDepth,
     taperBottomWidth: source.taperBottomWidth,
     taperBottomDepth: source.taperBottomDepth,
+    extrudeTwist: source.extrudeTwist,
+    extrudeTopOffsetX: source.extrudeTopOffsetX,
+    extrudeTopOffsetZ: source.extrudeTopOffsetZ,
   };
 }
 
@@ -160,6 +163,42 @@ export function shapeTaperScaleAt(shape: WorkplaneShape, normalizedHeight: numbe
   const t = Math.min(1, Math.max(0, Number.isFinite(normalizedHeight) ? normalizedHeight : 0));
   return (bottom + (top - bottom) * t) / Math.max(0.01, base);
 }
+
+/**
+ * A twisted or leaning extrusion takes the same shapes taper does - a gear's
+ * tooth profile, a thread's helix, a spring's coil, a pyramid's own top, and
+ * a ruler's printed scale all have their own meaning for "top" that this
+ * would fight rather than combine with.
+ */
+export function shapeSupportsExtrudeDeform(kind: WorkplaneShape["kind"]) {
+  return shapeSupportsTaper(kind);
+}
+
+export function shapeHasExtrudeDeform(shape: WorkplaneShape) {
+  if (!shapeSupportsExtrudeDeform(shape.kind)) return false;
+  return Math.abs(shape.extrudeTwist ?? 0) > 1e-6 || Math.abs(shape.extrudeTopOffsetX ?? 0) > 1e-6 || Math.abs(shape.extrudeTopOffsetZ ?? 0) > 1e-6;
+}
+
+/** Either deformation needs the same per-vertex rebuild, so callers that only care whether to bother can ask once. */
+export function shapeHasShapeDeform(shape: WorkplaneShape) {
+  return shapeHasTaper(shape) || shapeHasExtrudeDeform(shape);
+}
+
+/**
+ * Twist and lean both grow linearly from nothing at the base to their full
+ * amount at the top, the same way taper's width and depth do - so a vertex
+ * partway up rotates and shifts by that same fraction of the total.
+ */
+export function shapeExtrudeDeformAt(shape: WorkplaneShape, normalizedHeight: number) {
+  const t = Math.min(1, Math.max(0, Number.isFinite(normalizedHeight) ? normalizedHeight : 0));
+  return {
+    twistRadians: THREE_MATH_DEG2RAD * (shape.extrudeTwist ?? 0) * t,
+    offsetX: (shape.extrudeTopOffsetX ?? 0) * t,
+    offsetZ: (shape.extrudeTopOffsetZ ?? 0) * t,
+  };
+}
+
+const THREE_MATH_DEG2RAD = Math.PI / 180;
 
 export function meshYawDegrees(shape: WorkplaneShape) {
   const isRoundPrimitive = !shape.importedMesh && (shape.kind === "cylinder" || shape.kind === "ellipse" || shape.kind === "cone");

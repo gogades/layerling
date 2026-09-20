@@ -240,6 +240,9 @@ export type ParametricSource = {
   taperTopDepth?: number;
   taperBottomWidth?: number;
   taperBottomDepth?: number;
+  extrudeTwist?: number;
+  extrudeTopOffsetX?: number;
+  extrudeTopOffsetZ?: number;
 };
 
 export type CadPrimitiveFrame = {
@@ -285,6 +288,12 @@ export type WorkplaneShape = {
   /** Legacy local-dev taper fields kept for compatibility with in-progress projects. */
   taperTopScale?: number;
   taperBottomScale?: number;
+  /** Rotates the top face relative to the base, in degrees, for a twisted extrusion. */
+  extrudeTwist?: number;
+  /** Shifts the top face along the shape's local X axis, in mm. */
+  extrudeTopOffsetX?: number;
+  /** Shifts the top face along the shape's local Z axis, in mm. */
+  extrudeTopOffsetZ?: number;
   teeth?: number;
   toothSize?: number;
   toothWidth?: number;
