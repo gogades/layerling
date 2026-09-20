@@ -4959,11 +4959,11 @@ button {
   position: relative;
 }
 
-.ruler-control-group {
+.tape-control-group {
   position: relative;
 }
 
-.ruler-tool-popover {
+.tape-tool-popover {
   position: absolute;
   top: 2px;
   left: calc(100% + 10px);
@@ -4975,23 +4975,23 @@ button {
   border-radius: 13px;
   box-shadow: 0 8px 24px rgba(84, 59, 32, 0.18), 0 2px 6px rgba(84, 59, 32, 0.1);
   backdrop-filter: blur(14px) saturate(1.15);
-  animation: ruler-tools-in 130ms ease-out;
+  animation: tape-tools-in 130ms ease-out;
 }
 
-.camera-controls .ruler-tool-popover button {
+.camera-controls .tape-tool-popover button {
   width: 35px;
   height: 35px;
   border-radius: 9px;
 }
 
-.camera-controls .ruler-tool-popover .ruler-delete-button.active {
+.camera-controls .tape-tool-popover .tape-delete-button.active {
   color: #b42318;
   background: #fff0ee;
   border-color: #ee9b92;
   box-shadow: inset 3px 0 0 #dc3f36;
 }
 
-@keyframes ruler-tools-in {
+@keyframes tape-tools-in {
   from {
     opacity: 0;
     transform: translateX(-4px) scale(0.96);
@@ -5037,18 +5037,18 @@ button {
   cursor: crosshair;
 }
 
-.workplane-wrap.ruler-mode .three-workplane-host,
-.workplane-wrap.ruler-mode .three-workplane-host:active {
+.workplane-wrap.tape-mode .three-workplane-host,
+.workplane-wrap.tape-mode .three-workplane-host:active {
   cursor: crosshair;
 }
 
-.workplane-wrap.ruler-delete-mode .three-workplane-host,
-.workplane-wrap.ruler-delete-mode .three-workplane-host:active {
+.workplane-wrap.tape-delete-mode .three-workplane-host,
+.workplane-wrap.tape-delete-mode .three-workplane-host:active {
   cursor: default;
 }
 
-.workplane-wrap.ruler-move-mode .three-workplane-host,
-.workplane-wrap.ruler-move-mode .three-workplane-host:active {
+.workplane-wrap.tape-move-mode .three-workplane-host,
+.workplane-wrap.tape-move-mode .three-workplane-host:active {
   cursor: default;
 }
 
@@ -5250,21 +5250,21 @@ button {
   }
 }
 
-.ruler-overlay {
+.tape-overlay {
   position: absolute;
   inset: 0;
   z-index: 7;
   pointer-events: none;
 }
 
-.ruler-guides {
+.tape-guides {
   position: absolute;
   inset: 0;
   overflow: visible;
   pointer-events: none;
 }
 
-.ruler-segment {
+.tape-segment {
   stroke: #5a3917;
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
@@ -5272,7 +5272,7 @@ button {
   transition: stroke 120ms ease, stroke-width 120ms ease;
 }
 
-.ruler-segment-hit {
+.tape-segment-hit {
   stroke: transparent;
   stroke-width: 14;
   vector-effect: non-scaling-stroke;
@@ -5280,55 +5280,55 @@ button {
   cursor: pointer;
 }
 
-.ruler-point,
-.ruler-hover-point {
+.tape-point,
+.tape-hover-point {
   fill: #ffffff;
   stroke: #b66108;
   stroke-width: 2.4;
   vector-effect: non-scaling-stroke;
 }
 
-.ruler-point {
+.tape-point {
   pointer-events: all;
   cursor: pointer;
   transition: fill 120ms ease, stroke 120ms ease, filter 120ms ease;
 }
 
-.ruler-overlay.move-mode .ruler-point {
+.tape-overlay.move-mode .tape-point {
   cursor: grab;
 }
 
-.ruler-overlay.move-mode .ruler-point:active {
+.tape-overlay.move-mode .tape-point:active {
   cursor: grabbing;
   fill: #f6f1e8;
   filter: drop-shadow(0 0 4px rgba(129, 67, 0, 0.4));
 }
 
-.ruler-overlay.delete-mode .ruler-segment-group:hover .ruler-segment {
+.tape-overlay.delete-mode .tape-segment-group:hover .tape-segment {
   stroke: #dc3f36;
   stroke-width: 3;
   filter: drop-shadow(0 0 2px rgba(220, 63, 54, 0.3));
 }
 
-.ruler-overlay.delete-mode .ruler-point:hover {
+.tape-overlay.delete-mode .tape-point:hover {
   fill: #fff0ee;
   stroke: #dc3f36;
   filter: drop-shadow(0 0 3px rgba(220, 63, 54, 0.36));
 }
 
-.ruler-point.pending {
+.tape-point.pending {
   fill: #cf6e09;
   stroke: #ffffff;
   filter: drop-shadow(0 0 3px rgba(113, 58, 0, 0.72));
 }
 
-.ruler-hover-point {
+.tape-hover-point {
   fill: rgba(155, 80, 0, 0.28);
   stroke-dasharray: 3 2;
   pointer-events: none;
 }
 
-.ruler-hover-edge {
+.tape-hover-edge {
   fill: none;
   stroke: #e17709;
   stroke-width: 4;
@@ -5339,7 +5339,7 @@ button {
   pointer-events: none;
 }
 
-.ruler-label {
+.tape-label {
   position: absolute;
   z-index: 2;
   min-width: 46px;
@@ -5355,6 +5355,78 @@ button {
   text-align: center;
   pointer-events: none;
   transform: translate(-50%, -50%);
+}
+
+.ruler-dimension-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.ruler-dimension-label {
+  position: absolute;
+  z-index: 3;
+  min-width: 40px;
+  padding: 4px 8px;
+  color: #3a2816;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(224, 208, 190, 0.96);
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(58, 40, 20, 0.12);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.ruler-dimension-label.editable {
+  pointer-events: all;
+  cursor: pointer;
+  border-color: rgba(166, 86, 0, 0.85);
+}
+
+.ruler-dimension-label.editable:hover {
+  background: #fff8ee;
+}
+
+.ruler-duplicate-handle {
+  position: absolute;
+  z-index: 3;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  background: #b66108;
+  border: 1px solid #8a4a06;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(58, 40, 20, 0.24);
+  cursor: pointer;
+  pointer-events: all;
+  transform: translate(-50%, -50%);
+}
+
+.ruler-duplicate-handle:hover {
+  background: #cf6e09;
+}
+
+.ruler-duplicate-preview {
+  position: absolute;
+  z-index: 9;
+  padding: 4px 8px;
+  color: #ffffff;
+  background: rgba(166, 86, 0, 0.92);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  transform: translate(-50%, -140%);
 }
 
 .transform-overlay {
@@ -8340,7 +8412,7 @@ html[data-theme="dark"] .visibility-dropdown,
 html[data-theme="dark"] .top-action-panel,
 html[data-theme="dark"] .edge-modifier-panel,
 html[data-theme="dark"] .camera-controls,
-html[data-theme="dark"] .ruler-tool-popover,
+html[data-theme="dark"] .tape-tool-popover,
 html[data-theme="dark"] .snap-menu {
   color: #ede4d4;
   background: rgba(40, 30, 20, 0.97);
@@ -9301,7 +9373,7 @@ html[data-theme="dark"] .language-switch svg {
   }
 
   .camera-controls > .workplane-control-group,
-  .camera-controls > .ruler-control-group {
+  .camera-controls > .tape-control-group {
     order: 2;
   }
 }

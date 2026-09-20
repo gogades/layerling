@@ -299,6 +299,13 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     ];
   }
 
+  if (shape.kind === "ruler") {
+    // Nur die Laenge ist einstellbar - Kreuzbreite und Dicke des Lineals stehen fest.
+    return [
+      { id: "width", label: t("prop.length"), value: width, min: 30, max: 500, onChange: setWidth },
+    ];
+  }
+
   if (shape.kind === "sphere") {
     return [
       { id: "steps", label: t("prop.steps"), value: shape.steps ?? 24, min: 6, max: 64, step: 1, onChange: (steps) => onUpdate({ steps: Math.round(steps) }) },
@@ -960,6 +967,7 @@ export function ShapeInspector({
 
       {!minimized ? (
         <>
+      {shape.kind !== "ruler" ? (
       <div className="shape-state-card" role="group" aria-label={t("inspector.shapeMode")}>
         <button
           className={!shape.hole ? "active solid-choice" : "solid-choice"}
@@ -988,6 +996,7 @@ export function ShapeInspector({
           <span>{t("inspector.hole")}</span>
         </button>
       </div>
+      ) : null}
 
       {colorOpen ? (
         <div className="color-card" aria-label={t("inspector.shapeColor")}>

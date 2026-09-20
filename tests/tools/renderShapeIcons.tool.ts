@@ -2,6 +2,7 @@ import { describe, it } from "vitest";
 import { writeFileSync } from "node:fs";
 import { encodePng } from "./png";
 import type * as THREE from "three";
+import { BoxGeometry } from "three";
 import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
 import { createPrismGeometry } from "@/lib/prismGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
@@ -256,6 +257,14 @@ describe("palette icons", () => {
         springWire: 3.4,
         springQuality: 72,
       }),
+    });
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/ruler.png",
+      height: 3,
+      lay: false,
+      azimuth: 25,
+      elevation: 28,
+      build: () => new BoxGeometry(150, 3, 25),
     });
     render({
       name: "apps/web/public/assets/editor/shape-icons-gray/polygon.png",

@@ -20,7 +20,7 @@ export const editorTargetSchema = {
 export const creatableShapeKinds = [
   "box", "cube", "cylinder", "polygon", "sphere", "cone", "pyramid", "wedge",
   "roundRoof", "halfSphere", "torus", "tube", "text", "thread", "spring", "gear",
-  "sketch",
+  "ruler", "sketch",
 ];
 
 /**

@@ -33,6 +33,10 @@ function guideSections(sharedStore: boolean): GuideSection[] {
       lines: ["guide.select.click", "guide.select.group", "guide.select.align", "guide.select.notes"],
     },
     {
+      title: "guide.group.measure",
+      lines: ["guide.measure.tape", "guide.measure.ruler"],
+    },
+    {
       title: "guide.group.solid",
       lines: ["guide.solid.modes", "guide.solid.group", "guide.solid.intersect"],
     },

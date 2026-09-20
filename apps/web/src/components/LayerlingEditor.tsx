@@ -7495,6 +7495,13 @@ export function LayerlingEditor({
     commitShapes([...shapes, ...duplicates], duplicates.map((shape) => shape.id), duplicates.length === 1 ? t("status.duplicatedOne") : t("status.duplicatedMany", { count: duplicates.length }));
   }, [commitShapes, hasSelection, selectedShapes, shapes]);
 
+  const duplicateShapeAt = useCallback((id: string, position: { x: number; z: number }) => {
+    const shape = shapesRef.current.find((entry) => entry.id === id);
+    if (!shape) return;
+    const duplicate = { ...cloneWorkplaneShapeTreeWithFreshIds(shape, "copy"), x: position.x, z: position.z };
+    commitShapes([...shapesRef.current, duplicate], [duplicate.id], t("status.duplicatedOne"));
+  }, [commitShapes]);
+
   const copySelected = useCallback(() => {
     if (!hasSelection) {
       setNotice(t("status.selectShapeFirst"));
@@ -7761,7 +7768,7 @@ export function LayerlingEditor({
   }, [invalidateCadModifierSession]);
 
   const startEdgeModifier = useCallback((kind: CadModifierKind) => {
-    if (selectedShapes.length !== 1 || !selectedShape || selectedShape.locked || selectedShape.hole) {
+    if (selectedShapes.length !== 1 || !selectedShape || selectedShape.locked || selectedShape.hole || selectedShape.kind === "ruler") {
       setNotice(t("status.selectOneUnlocked", { kind }));
       return;
     }
@@ -8341,6 +8348,11 @@ export function LayerlingEditor({
       return;
     }
 
+    if (selectedShapes.some((shape) => shape.kind === "ruler")) {
+      setNotice(t("status.rulerNotSolid"));
+      return;
+    }
+
     const sourceFingerprint = projectShapesFingerprint(shapesRef.current);
     const sourceProjectId = projectInfoRef.current.projectId;
     const result = await buildGroupedShapeFromSelection(selectedShapes);
@@ -8364,7 +8376,7 @@ export function LayerlingEditor({
   }, [commitShapes, selectedIds, selectedShapes]);
 
   const intersectSelected = useCallback(async () => {
-    const groupable = selectedShapes.filter((shape) => !shape.locked);
+    const groupable = selectedShapes.filter((shape) => !shape.locked && shape.kind !== "ruler");
     const hasSolid = groupable.some((shape) => !shape.hole);
     const hasHole = groupable.some((shape) => shape.hole);
     if (!hasSolid || !hasHole) {
@@ -8730,6 +8742,7 @@ export function LayerlingEditor({
         const groupable = currentShapes().filter((shape) => ids.has(shape.id));
         if (groupable.length < 2) throw new Error("Select at least two objects to group");
         if (groupable.some((shape) => shape.locked)) throw new Error("Unlock every selected object before grouping");
+        if (groupable.some((shape) => shape.kind === "ruler")) throw new Error("A ruler isn't a solid and can't be grouped");
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
         const sourceProjectId = projectInfoRef.current.projectId;
         const result = await buildGroupedShapeFromSelection(groupable);
@@ -8771,6 +8784,9 @@ export function LayerlingEditor({
         }
         if (operands.some((shape) => shape.locked)) {
           throw new Error("Unlock every boolean operand before cutting");
+        }
+        if (operands.some((shape) => shape.kind === "ruler")) {
+          throw new Error("A ruler isn't a solid and can't be a boolean operand");
         }
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
         const sourceProjectId = projectInfoRef.current.projectId;
@@ -8814,6 +8830,7 @@ export function LayerlingEditor({
       if (command.action === "apply_edge_treatment") {
         const target = findShape(params.id);
         if (!target) throw new Error("Object not found");
+        if (target.kind === "ruler") throw new Error("A ruler isn't a solid and has no edges to treat");
         return applyCadModifierForMcp(target, params);
       }
 
@@ -9117,7 +9134,7 @@ export function LayerlingEditor({
 
   const exportDesign = useCallback((format: DirectExportFormat, exportName: string) => {
     const sourceShapes = hasSelection ? selectedShapes : shapes;
-    const exportable = sourceShapes.filter((shape) => !shape.hole);
+    const exportable = sourceShapes.filter((shape) => !shape.hole && shape.kind !== "ruler");
     if (exportable.length === 0) {
       setNotice(hasSelection ? t("status.selectSolidBeforeExport") : t("status.addSolidBeforeExport"));
       return;
@@ -9919,8 +9936,8 @@ export function LayerlingEditor({
         }}
         canUndo={!projectInteractionActive && (historyIndex > 0 || Boolean(edgeModifier))}
         canRedo={!projectInteractionActive && historyIndex < history.length - 1}
-        canGroup={selectedShapes.length > 1 && selectedShapes.every((shape) => !shape.locked)}
-        canIntersect={selectedShapes.some((shape) => !shape.locked && !shape.hole) && selectedShapes.some((shape) => !shape.locked && Boolean(shape.hole))}
+        canGroup={selectedShapes.length > 1 && selectedShapes.every((shape) => !shape.locked && shape.kind !== "ruler")}
+        canIntersect={selectedShapes.some((shape) => !shape.locked && !shape.hole && shape.kind !== "ruler") && selectedShapes.some((shape) => !shape.locked && Boolean(shape.hole) && shape.kind !== "ruler")}
         canUngroup={selectedShapes.some((shape) => Boolean(shape.groupedShapes?.length))}
         hasClipboard={clipboard.length > 0 || systemClipboardSupported}
         hasSelection={hasSelection}
@@ -9928,7 +9945,7 @@ export function LayerlingEditor({
         selectionHidden={hasSelection && selectedShapes.every((shape) => shape.hidden)}
         alignMode={alignMode}
         canAlign={selectedShapes.length > 1}
-        canEdgeModify={selectedShapes.length === 1 && Boolean(selectedShape && !selectedShape.locked && !selectedShape.hole)}
+        canEdgeModify={selectedShapes.length === 1 && Boolean(selectedShape && !selectedShape.locked && !selectedShape.hole && selectedShape.kind !== "ruler")}
         edgeModifierKind={edgeModifier?.kind ?? null}
         mirrorMode={mirrorMode}
         sketchActive={sketchActive}
@@ -10067,6 +10084,7 @@ export function LayerlingEditor({
           canSeparateParts={canSeparateSelectedParts}
           onSeparateParts={separateSelectedParts}
           onUpdateShape={updateShape}
+          onDuplicateShapeAt={duplicateShapeAt}
           notes={notes}
           notesVisible={notesVisible}
           noteMode={noteMode}

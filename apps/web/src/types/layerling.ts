@@ -19,6 +19,7 @@ export type ShapeKind =
   | "wedge"
   | "polygon"
   | "icosahedron"
+  | "ruler"
   | "mesh";
 
 export type ShapeAsset = {
@@ -352,7 +353,7 @@ export type WorkplaneShape = {
  * Woran eine Notiz haengt, wenn sie nicht frei auf der Arbeitsebene steht: an
  * einem Koerper, und zwar an einer Stelle seines Rahmens statt an einer
  * Weltkoordinate. So faehrt sie mit, wenn der Koerper verschoben, gedreht oder
- * in der Groesse geaendert wird - dieselbe Rechnung wie beim Lineal.
+ * in der Groesse geaendert wird - dieselbe Rechnung wie beim Massband.
  */
 export type WorkplaneNoteAnchor = {
   shapeId: string;

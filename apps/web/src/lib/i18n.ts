@@ -63,6 +63,12 @@ export function setLanguage(language: Language, persist = true) {
       // A browser that refuses storage still gets the language for this visit.
     }
   }
+  // Screen readers and hyphenation read this, not just the eye - and the
+  // server always renders "en", so a stored German choice has to correct it
+  // here, once, on the one path every language change already takes.
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = language;
+  }
   listeners.forEach((listener) => listener());
 }
 

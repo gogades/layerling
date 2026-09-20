@@ -101,7 +101,7 @@ export function shapeTaperDimensions(shape: WorkplaneShape) {
  * die MCP-Bruecke nicht je ihre eigene fuehren.
  */
 export function shapeSupportsTaper(kind: WorkplaneShape["kind"]) {
-  return kind !== "gear" && kind !== "thread" && kind !== "spring" && kind !== "pyramid";
+  return kind !== "gear" && kind !== "thread" && kind !== "spring" && kind !== "pyramid" && kind !== "ruler";
 }
 
 /**

@@ -64,6 +64,7 @@ const SHAPE_LABEL_KEYS: Record<string, MessageKey> = {
   thread: "shape.thread",
   spring: "shape.spring",
   polygon: "shape.polygon",
+  ruler: "shape.ruler",
 };
 
 export type ToolbarShapeAsset = ShapeAsset & { menuIcon: string };
@@ -84,7 +85,12 @@ export const toolbarShapeAssets: ToolbarShapeAsset[] = [
   { id: "thread", name: "Thread", src: "assets/editor/shape-icons-gray/thread.png", menuIcon: "assets/editor/shape-icons-gray/thread.png", kind: "thread", color: "#8a98a6" },
   { id: "spring", name: "Spring", src: "assets/editor/shape-icons-gray/spring.png", menuIcon: "assets/editor/shape-icons-gray/spring.png", kind: "spring", color: "#18b99a" },
   { id: "gear", name: "Gear", src: "assets/editor/gear-types/spur.png", menuIcon: "assets/editor/gear-types/spur.png", kind: "gear", color: "#6f7f8d" },
+  { id: "ruler", name: "Ruler", src: "assets/editor/shape-icons-gray/ruler.png", menuIcon: "assets/editor/shape-icons-gray/ruler.png", kind: "ruler", color: "#f2e4b8" },
 ];
+
+/** Feste Kreuzausdehnung und Dicke des Lineals - nur die Laenge (width) ist einstellbar. */
+export const RULER_DEPTH = 25;
+export const RULER_HEIGHT = 3;
 
 export function shapeAssetDefaultDimensions(kind: ShapeKind) {
   if (kind === "thread") {
@@ -101,6 +107,9 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
     const aspect = regularPolygonAspect(6);
     const longest = Math.max(aspect.width, aspect.depth);
     return { width: (20 * aspect.width) / longest, depth: (20 * aspect.depth) / longest, height: 20 };
+  }
+  if (kind === "ruler") {
+    return { width: 150, depth: RULER_DEPTH, height: RULER_HEIGHT };
   }
   const roundProfile = kind === "sphere" || kind === "torus" || kind === "ring" || kind === "halfSphere";
   const flatProfile = kind === "torus" || kind === "ring" || kind === "text" || kind === "gear";

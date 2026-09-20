@@ -1,7 +1,7 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Crosshair, Cuboid, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Rotate3d, Ruler, X } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
+import { ChevronLeft, ChevronRight, Crosshair, Cuboid, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Rotate3d, RulerDimensionLine, X } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
 import * as THREE from "three";
 import { Brush, Evaluator, HOLLOW_INTERSECTION } from "three-bvh-csg";
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from "three-mesh-bvh";
@@ -31,6 +31,7 @@ import { createGearGeometry } from "@/lib/gearGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
+import { pointAlongRuler, rulerDimensionMatch, type RulerDimensionField } from "@/lib/rulerDimensions";
 import { createMoveDimensionOverlay, type MoveDimensionAxis, type MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
 import {
   horizontalPlacementWorkplane,
@@ -218,6 +219,7 @@ type WorkplaneViewportProps = {
   canSeparateParts?: boolean;
   onSeparateParts?: () => void;
   onUpdateShape: (id: string, patch: ShapeUpdatePatch) => void;
+  onDuplicateShapeAt?: (id: string, position: { x: number; z: number }) => void;
   notes?: WorkplaneNote[];
   notesVisible?: boolean;
   noteMode?: boolean;
@@ -405,58 +407,58 @@ type NoteDragState = {
   moved: boolean;
 };
 
-type RulerPoint = {
+type TapePoint = {
   id: string;
   x: number;
   y: number;
   z: number;
-  attachment?: RulerAttachment;
+  attachment?: TapeAttachment;
 };
 
-type RulerAttachment = {
+type TapeAttachment = {
   shapeId: string;
   normalized: [number, number, number];
   kind?: "vertex" | "edge" | "surface";
   topologyKey?: string;
 };
 
-type RulerEdgeAttachment = {
+type TapeEdgeAttachment = {
   key: string;
   shapeId: string;
   normalizedPoints: Array<[number, number, number]>;
   topologyKey?: string;
 };
 
-type RulerSegment = {
+type TapeSegment = {
   id: string;
   startId: string;
   endId: string;
-  edge?: RulerEdgeAttachment;
+  edge?: TapeEdgeAttachment;
 };
 
-type RulerModel = {
-  points: RulerPoint[];
-  segments: RulerSegment[];
+type TapeModel = {
+  points: TapePoint[];
+  segments: TapeSegment[];
   startPointId: string | null;
-  hover: RulerCandidate | null;
+  hover: TapeCandidate | null;
 };
 
-type RulerOverlayState = {
-  points: Array<RulerPoint & { screenX: number; screenY: number }>;
-  segments: Array<RulerSegment & { x1: number; y1: number; x2: number; y2: number; screenPoints?: string; labelX: number; labelY: number; label: string }>;
+type TapeOverlayState = {
+  points: Array<TapePoint & { screenX: number; screenY: number }>;
+  segments: Array<TapeSegment & { x1: number; y1: number; x2: number; y2: number; screenPoints?: string; labelX: number; labelY: number; label: string }>;
   hover: { screenX: number; screenY: number; edgeScreenPoints?: string } | null;
 };
 
-type RulerCandidate = {
+type TapeCandidate = {
   x: number;
   y: number;
   z: number;
   pointId?: string;
-  attachment?: RulerAttachment;
-  edge?: RulerEdgeAttachment;
+  attachment?: TapeAttachment;
+  edge?: TapeEdgeAttachment;
 };
 
-type RulerPointDragState = {
+type TapePointDragState = {
   pointId: string;
   pointerId: number;
 };
@@ -917,12 +919,12 @@ function syncTransformGuideWorldLines(
   state.needsRender = true;
 }
 
-function rulerShapeDimensions(object: THREE.Object3D) {
-  const dimensions = object.userData.rulerDimensions as [number, number, number] | undefined;
+function tapeShapeDimensions(object: THREE.Object3D) {
+  const dimensions = object.userData.tapeDimensions as [number, number, number] | undefined;
   return dimensions ?? [1, 1, 1];
 }
 
-function rulerShapeTopologyKey(shape: WorkplaneShape): string {
+function tapeShapeTopologyKey(shape: WorkplaneShape): string {
   const positions = shape.importedMesh?.positions ?? [];
   const positionSample = positions.length > 0
     ? Array.from({ length: Math.min(12, positions.length) }, (_, index) => positions[Math.floor(index * (positions.length - 1) / Math.max(1, Math.min(12, positions.length) - 1))]?.toFixed(4) ?? "0").join(",")
@@ -973,7 +975,7 @@ function rulerShapeTopologyKey(shape: WorkplaneShape): string {
     mesh: [positions.length, positionSample],
     brep: [brep.length, brepSample],
     treatments: shape.edgeTreatments,
-    children: shape.groupedShapes?.map((child) => [child.id, rulerShapeTopologyKey(child)]),
+    children: shape.groupedShapes?.map((child) => [child.id, tapeShapeTopologyKey(child)]),
   });
 }
 
@@ -1119,10 +1121,10 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
   });
 }
 
-function rulerAttachmentWorld(state: ThreeState, attachment: RulerAttachment) {
+function tapeAttachmentWorld(state: ThreeState, attachment: TapeAttachment) {
   const object = findShapeObject(state, attachment.shapeId);
   if (!object) return null;
-  const dimensions = rulerShapeDimensions(object);
+  const dimensions = tapeShapeDimensions(object);
   return object.localToWorld(new THREE.Vector3(
     attachment.normalized[0] * dimensions[0],
     attachment.normalized[1] * dimensions[1],
@@ -1130,15 +1132,15 @@ function rulerAttachmentWorld(state: ThreeState, attachment: RulerAttachment) {
   ));
 }
 
-function rulerAttachmentFromWorld(state: ThreeState, shapeId: string, world: THREE.Vector3, kind: RulerAttachment["kind"] = "surface"): RulerAttachment | null {
+function tapeAttachmentFromWorld(state: ThreeState, shapeId: string, world: THREE.Vector3, kind: TapeAttachment["kind"] = "surface"): TapeAttachment | null {
   const object = findShapeObject(state, shapeId);
   if (!object) return null;
-  const dimensions = rulerShapeDimensions(object);
+  const dimensions = tapeShapeDimensions(object);
   const local = object.worldToLocal(world.clone());
   return {
     shapeId,
     kind,
-    topologyKey: object.userData.rulerTopologyKey as string | undefined,
+    topologyKey: object.userData.tapeTopologyKey as string | undefined,
     normalized: [
       local.x / Math.max(0.001, dimensions[0]),
       local.y / Math.max(0.001, dimensions[1]),
@@ -1147,26 +1149,26 @@ function rulerAttachmentFromWorld(state: ThreeState, shapeId: string, world: THR
   };
 }
 
-function rulerPointWorld(state: ThreeState, point: Pick<RulerPoint, "x" | "y" | "z" | "attachment">) {
-  return point.attachment ? rulerAttachmentWorld(state, point.attachment) ?? new THREE.Vector3(point.x, point.y, point.z) : new THREE.Vector3(point.x, point.y, point.z);
+function tapePointWorld(state: ThreeState, point: Pick<TapePoint, "x" | "y" | "z" | "attachment">) {
+  return point.attachment ? tapeAttachmentWorld(state, point.attachment) ?? new THREE.Vector3(point.x, point.y, point.z) : new THREE.Vector3(point.x, point.y, point.z);
 }
 
-function rulerEdgeWorldPoints(state: ThreeState, edge: RulerEdgeAttachment) {
+function tapeEdgeWorldPoints(state: ThreeState, edge: TapeEdgeAttachment) {
   return edge.normalizedPoints.flatMap((normalized) => {
-    const world = rulerAttachmentWorld(state, { shapeId: edge.shapeId, normalized });
+    const world = tapeAttachmentWorld(state, { shapeId: edge.shapeId, normalized });
     return world ? [world] : [];
   });
 }
 
-function rulerPolylineLength(points: THREE.Vector3[]) {
+function tapePolylineLength(points: THREE.Vector3[]) {
   let length = 0;
   for (let index = 0; index + 1 < points.length; index += 1) length += points[index].distanceTo(points[index + 1]);
   return length;
 }
 
-function rulerPolylineMidpoint(points: THREE.Vector3[]) {
+function tapePolylineMidpoint(points: THREE.Vector3[]) {
   if (points.length === 0) return new THREE.Vector3();
-  const half = rulerPolylineLength(points) / 2;
+  const half = tapePolylineLength(points) / 2;
   let traversed = 0;
   for (let index = 0; index + 1 < points.length; index += 1) {
     const length = points[index].distanceTo(points[index + 1]);
@@ -1176,14 +1178,14 @@ function rulerPolylineMidpoint(points: THREE.Vector3[]) {
   return points[points.length - 1].clone();
 }
 
-function rulerScreenPointList(points: THREE.Vector3[], state: ThreeState) {
+function tapeScreenPointList(points: THREE.Vector3[], state: ThreeState) {
   return points.map((point) => {
     const screen = projectToScreen(point, state);
     return `${screen.x},${screen.y}`;
   }).join(" ");
 }
 
-function chainRulerLineSegments(segments: Array<[THREE.Vector3, THREE.Vector3]>) {
+function chainTapeLineSegments(segments: Array<[THREE.Vector3, THREE.Vector3]>) {
   if (segments.length <= 1) return segments.map(([a, b]) => [a, b]);
   const bounds = new THREE.Box3();
   segments.forEach(([a, b]) => {
@@ -1229,11 +1231,11 @@ function chainRulerLineSegments(segments: Array<[THREE.Vector3, THREE.Vector3]>)
   return paths;
 }
 
-function rulerNormalizedLineSegments(state: ThreeState, shapeId: string) {
+function tapeNormalizedLineSegments(state: ThreeState, shapeId: string) {
   const object = findShapeObject(state, shapeId);
   if (!object) return [];
   object.updateWorldMatrix(true, true);
-  const dimensions = rulerShapeDimensions(object);
+  const dimensions = tapeShapeDimensions(object);
   const normalizedFromWorld = (world: THREE.Vector3) => {
     const local = object.worldToLocal(world.clone());
     return new THREE.Vector3(
@@ -1261,32 +1263,32 @@ function rulerNormalizedLineSegments(state: ThreeState, shapeId: string) {
   return segments;
 }
 
-function rulerPointToSegmentDistance(point: THREE.Vector3, start: THREE.Vector3, end: THREE.Vector3) {
+function tapePointToSegmentDistance(point: THREE.Vector3, start: THREE.Vector3, end: THREE.Vector3) {
   const delta = end.clone().sub(start);
   const lengthSq = delta.lengthSq();
   const amount = lengthSq > 1e-12 ? clamp(point.clone().sub(start).dot(delta) / lengthSq, 0, 1) : 0;
   return point.distanceTo(start.clone().addScaledVector(delta, amount));
 }
 
-function rulerAttachmentMatchesTopology(state: ThreeState, attachment: RulerAttachment) {
+function tapeAttachmentMatchesTopology(state: ThreeState, attachment: TapeAttachment) {
   const object = findShapeObject(state, attachment.shapeId);
   if (!object) return false;
-  const currentTopologyKey = object.userData.rulerTopologyKey as string | undefined;
+  const currentTopologyKey = object.userData.tapeTopologyKey as string | undefined;
   if (!attachment.topologyKey || attachment.topologyKey === currentTopologyKey || attachment.kind === "surface") return true;
   const target = new THREE.Vector3(...attachment.normalized);
-  const segments = rulerNormalizedLineSegments(state, attachment.shapeId);
+  const segments = tapeNormalizedLineSegments(state, attachment.shapeId);
   if (attachment.kind === "vertex") {
     return segments.some(([start, end]) => start.distanceTo(target) <= 0.002 || end.distanceTo(target) <= 0.002);
   }
-  return segments.some(([start, end]) => rulerPointToSegmentDistance(target, start, end) <= 0.002);
+  return segments.some(([start, end]) => tapePointToSegmentDistance(target, start, end) <= 0.002);
 }
 
-function rulerEdgeMatchesTopology(state: ThreeState, edge: RulerEdgeAttachment) {
+function tapeEdgeMatchesTopology(state: ThreeState, edge: TapeEdgeAttachment) {
   const object = findShapeObject(state, edge.shapeId);
   if (!object) return false;
-  const currentTopologyKey = object.userData.rulerTopologyKey as string | undefined;
+  const currentTopologyKey = object.userData.tapeTopologyKey as string | undefined;
   if (!edge.topologyKey || edge.topologyKey === currentTopologyKey) return true;
-  const segments = rulerNormalizedLineSegments(state, edge.shapeId);
+  const segments = tapeNormalizedLineSegments(state, edge.shapeId);
   if (segments.length === 0) return false;
   const samples = edge.normalizedPoints.filter((_, index) => (
     index === 0
@@ -1295,11 +1297,11 @@ function rulerEdgeMatchesTopology(state: ThreeState, edge: RulerEdgeAttachment) 
   ));
   return samples.every((point) => {
     const target = new THREE.Vector3(...point);
-    return segments.some(([start, end]) => rulerPointToSegmentDistance(target, start, end) <= 0.002);
+    return segments.some(([start, end]) => tapePointToSegmentDistance(target, start, end) <= 0.002);
   });
 }
 
-function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX: number, clientY: number): RulerCandidate | null {
+function pickModelTapeCandidate(state: ThreeState, shapeIds: string[], clientX: number, clientY: number): TapeCandidate | null {
   const rect = state.renderer.domElement.getBoundingClientRect();
   const pointerX = clientX - rect.left;
   const pointerY = clientY - rect.top;
@@ -1311,8 +1313,8 @@ function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX:
 
   state.camera.updateMatrixWorld();
   targets.forEach((target) => target.updateWorldMatrix(true, true));
-  const vertexCandidates: Array<{ distance: number; candidate: RulerCandidate }> = [];
-  const edgeCandidates: Array<{ distance: number; candidate: RulerCandidate }> = [];
+  const vertexCandidates: Array<{ distance: number; candidate: TapeCandidate }> = [];
+  const edgeCandidates: Array<{ distance: number; candidate: TapeCandidate }> = [];
 
   targets.forEach((target) => {
     const shapeId = target.userData.shapeId as string;
@@ -1329,7 +1331,7 @@ function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX:
             new THREE.Vector3().fromBufferAttribute(position, index + 1).applyMatrix4(child.matrixWorld),
           ]);
         }
-        paths.push(...chainRulerLineSegments(segments));
+        paths.push(...chainTapeLineSegments(segments));
       } else {
         const path: THREE.Vector3[] = [];
         for (let index = 0; index < position.count; index += 1) path.push(new THREE.Vector3().fromBufferAttribute(position, index).applyMatrix4(child.matrixWorld));
@@ -1339,14 +1341,14 @@ function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX:
 
       paths.forEach((worldPoints, pathIndex) => {
         if (worldPoints.length < 2) return;
-        const attachments = worldPoints.map((point) => rulerAttachmentFromWorld(state, shapeId, point, "edge"));
+        const attachments = worldPoints.map((point) => tapeAttachmentFromWorld(state, shapeId, point, "edge"));
         if (attachments.some((attachment) => !attachment)) return;
-        const normalizedPoints = attachments.map((attachment) => (attachment as RulerAttachment).normalized);
-        const edge: RulerEdgeAttachment = {
+        const normalizedPoints = attachments.map((attachment) => (attachment as TapeAttachment).normalized);
+        const edge: TapeEdgeAttachment = {
           key: `${shapeId}:${child.uuid}:${pathIndex}`,
           shapeId,
           normalizedPoints,
-          topologyKey: target.userData.rulerTopologyKey as string | undefined,
+          topologyKey: target.userData.tapeTopologyKey as string | undefined,
         };
         const endpointIndexes = worldPoints[0].distanceToSquared(worldPoints[worldPoints.length - 1]) < 1e-10 ? [0] : [0, worldPoints.length - 1];
         endpointIndexes.forEach((index) => {
@@ -1359,7 +1361,7 @@ function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX:
                 x: worldPoints[index].x,
                 y: worldPoints[index].y,
                 z: worldPoints[index].z,
-                attachment: { ...(attachments[index] as RulerAttachment), kind: "vertex" },
+                attachment: { ...(attachments[index] as TapeAttachment), kind: "vertex" },
               },
             });
           }
@@ -1385,7 +1387,7 @@ function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX:
                 attachment: {
                   shapeId,
                   kind: "edge",
-                  topologyKey: target.userData.rulerTopologyKey as string | undefined,
+                  topologyKey: target.userData.tapeTopologyKey as string | undefined,
                   normalized: [
                     normalizedA[0] + (normalizedB[0] - normalizedA[0]) * amount,
                     normalizedA[1] + (normalizedB[1] - normalizedA[1]) * amount,
@@ -1413,7 +1415,7 @@ function pickModelRulerCandidate(state: ThreeState, shapeIds: string[], clientX:
   const surfaceHit = state.raycaster.intersectObjects(targets, true).find((entry) => entry.object instanceof THREE.Mesh);
   if (!surfaceHit) return null;
   const shapeId = surfaceHit.object.userData.shapeId as string;
-  const attachment = rulerAttachmentFromWorld(state, shapeId, surfaceHit.point);
+  const attachment = tapeAttachmentFromWorld(state, shapeId, surfaceHit.point);
   return attachment ? { x: surfaceHit.point.x, y: surfaceHit.point.y, z: surfaceHit.point.z, attachment } : null;
 }
 
@@ -1462,16 +1464,16 @@ function pickModifierEdgeFromScreen(state: ThreeState, edges: CadModifierEdge[],
   return nearestId;
 }
 
-function syncRulerOverlay(
+function syncTapeOverlay(
   state: ThreeState,
-  model: RulerModel,
-  overlayRef: MutableRefObject<RulerOverlayState | null>,
-  setOverlay: Dispatch<SetStateAction<RulerOverlayState | null>>,
+  model: TapeModel,
+  overlayRef: MutableRefObject<TapeOverlayState | null>,
+  setOverlay: Dispatch<SetStateAction<TapeOverlayState | null>>,
   accuracy: MeasurementAccuracy,
 ) {
   const projectedPoints = new Map<string, { screenX: number; screenY: number }>();
   const points = model.points.map((point) => {
-    const screen = projectToScreen(rulerPointWorld(state, point), state);
+    const screen = projectToScreen(tapePointWorld(state, point), state);
     const projected = { screenX: screen.x, screenY: screen.y };
     projectedPoints.set(point.id, projected);
     return { ...point, ...projected };
@@ -1484,11 +1486,11 @@ function syncRulerOverlay(
     if (!start || !end || !startScreen || !endScreen) {
       return [];
     }
-    const startWorld = rulerPointWorld(state, start);
-    const endWorld = rulerPointWorld(state, end);
-    const attachedEdgePoints = segment.edge ? rulerEdgeWorldPoints(state, segment.edge) : [];
+    const startWorld = tapePointWorld(state, start);
+    const endWorld = tapePointWorld(state, end);
+    const attachedEdgePoints = segment.edge ? tapeEdgeWorldPoints(state, segment.edge) : [];
     const worldPoints = attachedEdgePoints.length >= 2 ? attachedEdgePoints : [startWorld, endWorld];
-    const labelScreen = projectToScreen(rulerPolylineMidpoint(worldPoints), state);
+    const labelScreen = projectToScreen(tapePolylineMidpoint(worldPoints), state);
     return [
       {
         ...segment,
@@ -1496,23 +1498,23 @@ function syncRulerOverlay(
         y1: startScreen.screenY,
         x2: endScreen.screenX,
         y2: endScreen.screenY,
-        screenPoints: segment.edge && worldPoints.length >= 2 ? rulerScreenPointList(worldPoints, state) : undefined,
+        screenPoints: segment.edge && worldPoints.length >= 2 ? tapeScreenPointList(worldPoints, state) : undefined,
         labelX: labelScreen.x,
         labelY: labelScreen.y - 18,
-        label: formatMeasure(rulerPolylineLength(worldPoints), accuracy),
+        label: formatMeasure(tapePolylineLength(worldPoints), accuracy),
       },
     ];
   });
-  const hoverWorld = model.hover ? rulerPointWorld(state, model.hover) : null;
+  const hoverWorld = model.hover ? tapePointWorld(state, model.hover) : null;
   const hoverScreen = hoverWorld ? projectToScreen(hoverWorld, state) : null;
-  const hoverEdgePoints = model.hover?.edge ? rulerEdgeWorldPoints(state, model.hover.edge) : [];
-  const next: RulerOverlayState = {
+  const hoverEdgePoints = model.hover?.edge ? tapeEdgeWorldPoints(state, model.hover.edge) : [];
+  const next: TapeOverlayState = {
     points,
     segments,
     hover: hoverScreen ? {
       screenX: hoverScreen.x,
       screenY: hoverScreen.y,
-      edgeScreenPoints: hoverEdgePoints.length >= 2 ? rulerScreenPointList(hoverEdgePoints, state) : undefined,
+      edgeScreenPoints: hoverEdgePoints.length >= 2 ? tapeScreenPointList(hoverEdgePoints, state) : undefined,
     } : null,
   };
   const previous = overlayRef.current;
@@ -1549,13 +1551,13 @@ function syncRulerOverlay(
 
 /**
  * Wo eine Notiz gerade steht. Eine angeheftete rechnet sich aus dem Koerper,
- * an dem sie haengt - dieselbe Rechnung wie beim Lineal, damit sie beim
+ * an dem sie haengt - dieselbe Rechnung wie beim Massband, damit sie beim
  * Verschieben, Drehen und Groessenaendern mitfaehrt. Ist der Koerper nicht mehr
  * da, gilt die zuletzt bekannte Stelle.
  */
 function noteWorldPosition(state: ThreeState, note: WorkplaneNote) {
   if (note.anchor) {
-    const world = rulerAttachmentWorld(state, { shapeId: note.anchor.shapeId, normalized: note.anchor.normalized });
+    const world = tapeAttachmentWorld(state, { shapeId: note.anchor.shapeId, normalized: note.anchor.normalized });
     if (world) return world;
   }
   return new THREE.Vector3(note.x, note.y, note.z);
@@ -1753,7 +1755,7 @@ function NoteOverlay({
   );
 }
 
-function RulerOverlay({
+function TapeOverlay({
   overlay,
   startPointId,
   active,
@@ -1764,7 +1766,7 @@ function RulerOverlay({
   onPointPointerUp,
   onSegmentPointerDown,
 }: {
-  overlay: RulerOverlayState;
+  overlay: TapeOverlayState;
   startPointId: string | null;
   active: boolean;
   deleteMode: boolean;
@@ -1775,20 +1777,20 @@ function RulerOverlay({
   onSegmentPointerDown: (event: ReactPointerEvent<SVGElement>, segmentId: string) => void;
 }) {
   return (
-    <div className={`ruler-overlay ${active ? "active" : ""} ${deleteMode ? "delete-mode" : ""} ${moveMode ? "move-mode" : ""}`} aria-label="Ruler measurements">
-      <svg className="ruler-guides" width="100%" height="100%" aria-hidden="true">
+    <div className={`tape-overlay ${active ? "active" : ""} ${deleteMode ? "delete-mode" : ""} ${moveMode ? "move-mode" : ""}`} aria-label="Tape measurements">
+      <svg className="tape-guides" width="100%" height="100%" aria-hidden="true">
         {overlay.segments.map((segment) => (
-          <g key={segment.id} className="ruler-segment-group">
+          <g key={segment.id} className="tape-segment-group">
             {segment.screenPoints ? (
               <>
-                <polyline className="ruler-segment" points={segment.screenPoints} fill="none" />
-                <polyline className="ruler-segment-hit" points={segment.screenPoints} fill="none" onPointerDown={(event) => onSegmentPointerDown(event, segment.id)} />
+                <polyline className="tape-segment" points={segment.screenPoints} fill="none" />
+                <polyline className="tape-segment-hit" points={segment.screenPoints} fill="none" onPointerDown={(event) => onSegmentPointerDown(event, segment.id)} />
               </>
             ) : (
               <>
-                <line className="ruler-segment" x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} />
+                <line className="tape-segment" x1={segment.x1} y1={segment.y1} x2={segment.x2} y2={segment.y2} />
                 <line
-                  className="ruler-segment-hit"
+                  className="tape-segment-hit"
                   x1={segment.x1}
                   y1={segment.y1}
                   x2={segment.x2}
@@ -1802,7 +1804,7 @@ function RulerOverlay({
         {overlay.points.map((point) => (
           <circle
             key={point.id}
-            className={`ruler-point ${point.id === startPointId ? "pending" : ""}`}
+            className={`tape-point ${point.id === startPointId ? "pending" : ""}`}
             cx={point.screenX}
             cy={point.screenY}
             r="5"
@@ -1812,12 +1814,148 @@ function RulerOverlay({
             onPointerCancel={(event) => onPointPointerUp(event, point.id)}
           />
         ))}
-        {active && overlay.hover?.edgeScreenPoints ? <polyline className="ruler-hover-edge" points={overlay.hover.edgeScreenPoints} fill="none" /> : null}
-        {active && overlay.hover ? <circle className="ruler-hover-point" cx={overlay.hover.screenX} cy={overlay.hover.screenY} r="5" /> : null}
+        {active && overlay.hover?.edgeScreenPoints ? <polyline className="tape-hover-edge" points={overlay.hover.edgeScreenPoints} fill="none" /> : null}
+        {active && overlay.hover ? <circle className="tape-hover-point" cx={overlay.hover.screenX} cy={overlay.hover.screenY} r="5" /> : null}
       </svg>
       {overlay.segments.map((segment) => (
-        <span key={`${segment.id}-label`} className="ruler-label" style={{ left: segment.labelX, top: segment.labelY }}>
+        <span key={`${segment.id}-label`} className="tape-label" style={{ left: segment.labelX, top: segment.labelY }}>
           {segment.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+type RulerDimensionOverlayItem = {
+  key: string;
+  rulerId: string;
+  shapeId: string;
+  field: RulerDimensionField | null;
+  value: number;
+  label: string;
+  labelX: number;
+  labelY: number;
+  handleX: number;
+  handleY: number;
+};
+
+type RulerDimensionOverlayState = {
+  items: RulerDimensionOverlayItem[];
+};
+
+/**
+ * Wer neben einem Lineal steht, bekommt seine Ausdehnung entlang dessen Achse
+ * eingeblendet - kein eigener Werkzeugmodus, das Lineal ist einfach ein
+ * Koerper auf der Arbeitsflaeche. Rechnet ueber alle Lineale und alle anderen
+ * Formen; bei der ueblichen Formenzahl ist das billig genug fuer jeden Sync.
+ */
+function syncRulerDimensionOverlay(
+  state: ThreeState | null,
+  shapes: WorkplaneShape[],
+  overlayRef: MutableRefObject<RulerDimensionOverlayState | null>,
+  setOverlay: Dispatch<SetStateAction<RulerDimensionOverlayState | null>>,
+  accuracy: MeasurementAccuracy,
+) {
+  const items: RulerDimensionOverlayItem[] = [];
+  if (state) {
+    const rulers = shapes.filter((shape) => shape.kind === "ruler" && !shape.hidden);
+    const topY = shapes.reduce((max, shape) => Math.max(max, (shape.elevation ?? 0) + shape.height), 0);
+    rulers.forEach((ruler) => {
+      const rulerPose = { x: ruler.x, z: ruler.z, rotation: ruler.rotation, length: shapeWidth(ruler), crossWidth: shapeDepth(ruler) };
+      const axisAcross = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternionForShape(ruler));
+      shapes.forEach((candidate) => {
+        if (candidate.id === ruler.id || candidate.kind === "ruler" || candidate.hidden) return;
+        const match = rulerDimensionMatch(rulerPose, {
+          x: candidate.x,
+          z: candidate.z,
+          rotation: candidate.rotation,
+          rotationX: candidate.rotationX,
+          rotationZ: candidate.rotationZ,
+          width: shapeWidth(candidate),
+          height: candidate.height,
+          depth: shapeDepth(candidate),
+        });
+        if (!match) return;
+        const acrossSign = match.acrossOffset >= 0 ? 1 : -1;
+        const labelAcross = acrossSign * (rulerPose.crossWidth / 2 + 16);
+        const labelAlong = pointAlongRuler(rulerPose, match.alongOffset);
+        const labelWorld = new THREE.Vector3(labelAlong.x + axisAcross.x * labelAcross, topY + 6, labelAlong.z + axisAcross.z * labelAcross);
+        const handleAt = pointAlongRuler(rulerPose, match.alongOffset + match.extentAlong / 2);
+        const handleWorld = new THREE.Vector3(handleAt.x, topY + 6, handleAt.z);
+        const labelScreen = projectToScreen(labelWorld, state);
+        const handleScreen = projectToScreen(handleWorld, state);
+        items.push({
+          key: `${ruler.id}:${candidate.id}`,
+          rulerId: ruler.id,
+          shapeId: candidate.id,
+          field: match.alignedField,
+          value: match.extentAlong,
+          label: formatMeasure(match.extentAlong, accuracy),
+          labelX: labelScreen.x,
+          labelY: labelScreen.y,
+          handleX: handleScreen.x,
+          handleY: handleScreen.y,
+        });
+      });
+    });
+  }
+  const previous = overlayRef.current;
+  if (previous && previous.items.length === 0 && items.length === 0) {
+    return;
+  }
+  const next = { items };
+  overlayRef.current = next;
+  setOverlay(next);
+}
+
+function RulerDimensionOverlay({
+  overlay,
+  onLabelClick,
+  onHandlePointerDown,
+  onHandlePointerMove,
+  onHandlePointerUp,
+}: {
+  overlay: RulerDimensionOverlayState;
+  onLabelClick: (item: RulerDimensionOverlayItem) => void;
+  onHandlePointerDown: (event: ReactPointerEvent<HTMLButtonElement>, item: RulerDimensionOverlayItem) => void;
+  onHandlePointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  onHandlePointerUp: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+}) {
+  if (overlay.items.length === 0) {
+    return null;
+  }
+  return (
+    <div className="ruler-dimension-overlay" aria-label="Ruler dimensions">
+      {overlay.items.map((item) => (
+        <span key={item.key}>
+          {item.field ? (
+            <button
+              type="button"
+              className="ruler-dimension-label editable"
+              style={{ left: item.labelX, top: item.labelY }}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => onLabelClick(item)}
+            >
+              {item.label}
+            </button>
+          ) : (
+            <span className="ruler-dimension-label" style={{ left: item.labelX, top: item.labelY }}>
+              {item.label}
+            </span>
+          )}
+          <button
+            type="button"
+            className="ruler-duplicate-handle"
+            aria-label={t("camera.duplicateAlongRuler")}
+            title={t("camera.duplicateAlongRuler")}
+            style={{ left: item.handleX, top: item.handleY }}
+            onPointerDown={(event) => onHandlePointerDown(event, item)}
+            onPointerMove={onHandlePointerMove}
+            onPointerUp={onHandlePointerUp}
+            onPointerCancel={onHandlePointerUp}
+          >
+            <Plus size={12} strokeWidth={3} aria-hidden="true" />
+          </button>
         </span>
       ))}
     </div>
@@ -2661,6 +2799,7 @@ export function WorkplaneViewport({
   canSeparateParts = false,
   onSeparateParts,
   onUpdateShape,
+  onDuplicateShapeAt,
   notes = EMPTY_NOTES,
   notesVisible = true,
   noteMode = false,
@@ -2698,15 +2837,19 @@ export function WorkplaneViewport({
   const [pinnedRotationWheelView, setPinnedRotationWheelView] = useState<PinnedRotationWheelView | null>(null);
   const [editingDimension, setEditingDimension] = useState<EditingDimension>(null);
   const [editingRotation, setEditingRotation] = useState<EditingRotation>(null);
-  const [rulerMode, setRulerMode] = useState(false);
-  const [rulerDeleteMode, setRulerDeleteMode] = useState(false);
-  const [rulerMoveMode, setRulerMoveMode] = useState(false);
-  const [rulerToolsOpen, setRulerToolsOpen] = useState(false);
+  const [tapeMode, setTapeMode] = useState(false);
+  const [tapeDeleteMode, setTapeDeleteMode] = useState(false);
+  const [tapeMoveMode, setTapeMoveMode] = useState(false);
+  const [tapeToolsOpen, setTapeToolsOpen] = useState(false);
   const [cameraControlsCollapsed, setCameraControlsCollapsed] = useState(false);
   const language = useLanguage();
   const [orthographicView, setOrthographicView] = useState(false);
-  const [rulerModel, setRulerModel] = useState<RulerModel>({ points: [], segments: [], startPointId: null, hover: null });
-  const [rulerOverlay, setRulerOverlay] = useState<RulerOverlayState | null>(null);
+  const [tapeModel, setTapeModel] = useState<TapeModel>({ points: [], segments: [], startPointId: null, hover: null });
+  const [tapeOverlay, setTapeOverlay] = useState<TapeOverlayState | null>(null);
+  const [rulerDimensionOverlay, setRulerDimensionOverlay] = useState<RulerDimensionOverlayState | null>(null);
+  const [rulerDimensionEditing, setRulerDimensionEditing] = useState<{ shapeId: string; field: RulerDimensionField; x: number; y: number; value: string } | null>(null);
+  const [rulerDuplicatePreview, setRulerDuplicatePreview] = useState<{ x: number; y: number; label: string } | null>(null);
+  const [rulerDuplicateEditing, setRulerDuplicateEditing] = useState<{ rulerId: string; shapeId: string; baseAlong: number; x: number; y: number; value: string } | null>(null);
   const [noteOverlay, setNoteOverlay] = useState<NoteOverlayState | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [moveDimensionOverlay, setMoveDimensionOverlay] = useState<MoveDimensionOverlayState | null>(null);
@@ -2752,19 +2895,21 @@ export function WorkplaneViewport({
   const transformOverlayRef = useRef<TransformOverlayState | null>(null);
   const alignOverlayRef = useRef<AlignOverlayState | null>(null);
   const mirrorOverlayRef = useRef<MirrorOverlayState | null>(null);
-  const rulerModeRef = useRef(false);
-  const rulerDeleteModeRef = useRef(false);
-  const rulerMoveModeRef = useRef(false);
-  const rulerPointDragRef = useRef<RulerPointDragState | null>(null);
-  const rulerModelRef = useRef(rulerModel);
+  const tapeModeRef = useRef(false);
+  const tapeDeleteModeRef = useRef(false);
+  const tapeMoveModeRef = useRef(false);
+  const tapePointDragRef = useRef<TapePointDragState | null>(null);
+  const tapeModelRef = useRef(tapeModel);
   const notesRef = useRef(notes);
   const noteModeRef = useRef(noteMode);
   const notesVisibleRef = useRef(notesVisible);
   const noteOverlayRef = useRef<NoteOverlayState | null>(null);
   const noteDragRef = useRef<NoteDragState | null>(null);
   const noteClickSuppressedRef = useRef<string | null>(null);
-  const rulerOverlayRef = useRef<RulerOverlayState | null>(null);
-  const rulerIdRef = useRef(0);
+  const tapeOverlayRef = useRef<TapeOverlayState | null>(null);
+  const tapeIdRef = useRef(0);
+  const rulerDimensionOverlayRef = useRef<RulerDimensionOverlayState | null>(null);
+  const rulerDuplicateDragRef = useRef<{ pointerId: number; rulerId: string; shapeId: string; baseAlong: number; planeY: number; sourceX: number; sourceZ: number } | null>(null);
   const alignModeRef = useRef(alignMode);
   const alignAnchorIdRef = useRef(alignAnchorId);
   const alignHandlesRef = useRef(alignHandles);
@@ -3016,6 +3161,7 @@ export function WorkplaneViewport({
       );
       syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
       syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
+      syncRulerDimensionOverlay(threeRef.current, shapes, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspaceRef.current.accuracy);
       threeRef.current.needsRender = true;
     }
   }, [shapes]);
@@ -3137,24 +3283,24 @@ export function WorkplaneViewport({
   }, [snap]);
 
   useEffect(() => {
-    rulerModeRef.current = rulerMode;
-  }, [rulerMode]);
+    tapeModeRef.current = tapeMode;
+  }, [tapeMode]);
 
   useEffect(() => {
-    rulerDeleteModeRef.current = rulerDeleteMode;
-  }, [rulerDeleteMode]);
+    tapeDeleteModeRef.current = tapeDeleteMode;
+  }, [tapeDeleteMode]);
 
   useEffect(() => {
-    rulerMoveModeRef.current = rulerMoveMode;
-  }, [rulerMoveMode]);
+    tapeMoveModeRef.current = tapeMoveMode;
+  }, [tapeMoveMode]);
 
   useEffect(() => {
-    rulerModelRef.current = rulerModel;
+    tapeModelRef.current = tapeModel;
     if (threeRef.current) {
-      syncRulerOverlay(threeRef.current, rulerModel, rulerOverlayRef, setRulerOverlay, workspaceRef.current.accuracy);
+      syncTapeOverlay(threeRef.current, tapeModel, tapeOverlayRef, setTapeOverlay, workspaceRef.current.accuracy);
       threeRef.current.needsRender = true;
     }
-  }, [rulerModel]);
+  }, [tapeModel]);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -3235,7 +3381,8 @@ export function WorkplaneViewport({
         placementWorkplaneRef.current,
         resolvedThemeRef.current,
       );
-      syncRulerOverlay(threeRef.current, rulerModelRef.current, rulerOverlayRef, setRulerOverlay, workspace.accuracy);
+      syncTapeOverlay(threeRef.current, tapeModelRef.current, tapeOverlayRef, setTapeOverlay, workspace.accuracy);
+      syncRulerDimensionOverlay(threeRef.current, shapesRef.current, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspace.accuracy);
       syncNoteOverlay(threeRef.current, notesRef.current, notesVisibleRef.current, noteOverlayRef, setNoteOverlay);
       syncMoveDimensionWorldLines(threeRef.current, moveDimensionSessionRef.current, resolvedTheme);
       threeRef.current.needsRender = true;
@@ -3314,7 +3461,8 @@ export function WorkplaneViewport({
         );
         syncAlignOverlay(state, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
         syncMirrorOverlay(state, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
-        syncRulerOverlay(state, rulerModelRef.current, rulerOverlayRef, setRulerOverlay, workspaceRef.current.accuracy);
+        syncTapeOverlay(state, tapeModelRef.current, tapeOverlayRef, setTapeOverlay, workspaceRef.current.accuracy);
+        syncRulerDimensionOverlay(state, previewShapes, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspaceRef.current.accuracy);
         syncNoteOverlay(state, notesRef.current, notesVisibleRef.current, noteOverlayRef, setNoteOverlay);
         syncMoveDimensionOverlay(
           state,
@@ -3384,16 +3532,16 @@ export function WorkplaneViewport({
     const visible = !workplaneMode
       && !alignMode
       && !mirrorMode
-      && !rulerMode
-      && !rulerDeleteMode
-      && !rulerMoveMode
+      && !tapeMode
+      && !tapeDeleteMode
+      && !tapeMoveMode
       && !modifierActive
       && activeTransformKind !== "rotate";
     if (state.transformGuideLayer.visible !== visible) {
       state.transformGuideLayer.visible = visible;
       state.needsRender = true;
     }
-  }, [activeTransformKind, alignMode, mirrorMode, modifierActive, rulerDeleteMode, rulerMode, rulerMoveMode, workplaneMode]);
+  }, [activeTransformKind, alignMode, mirrorMode, modifierActive, tapeDeleteMode, tapeMode, tapeMoveMode, workplaneMode]);
 
   useEffect(() => {
     window.layerlingPerf = {
@@ -3467,13 +3615,13 @@ export function WorkplaneViewport({
     );
   }, [toRawPlanePoint]);
 
-  const storeRulerModel = useCallback((next: RulerModel) => {
-    rulerModelRef.current = next;
-    setRulerModel(next);
+  const storeTapeModel = useCallback((next: TapeModel) => {
+    tapeModelRef.current = next;
+    setTapeModel(next);
   }, []);
 
   useEffect(() => {
-    const current = rulerModelRef.current;
+    const current = tapeModelRef.current;
     const shapeById = new Map(shapes.map((shape) => [shape.id, shape]));
     const shapeIds = new Set(shapeById.keys());
     const state = threeRef.current;
@@ -3482,12 +3630,12 @@ export function WorkplaneViewport({
     const updatedPoints = current.points.map((point) => {
       if (!point.attachment) return point;
       const attachedShape = shapeById.get(point.attachment.shapeId);
-      if (!attachedShape || (state && !attachedShape.hidden && !rulerAttachmentMatchesTopology(state, point.attachment))) {
+      if (!attachedShape || (state && !attachedShape.hidden && !tapeAttachmentMatchesTopology(state, point.attachment))) {
         removedPointIds.add(point.id);
         return point;
       }
       const object = state ? findShapeObject(state, point.attachment.shapeId) : null;
-      const topologyKey = object?.userData.rulerTopologyKey as string | undefined;
+      const topologyKey = object?.userData.tapeTopologyKey as string | undefined;
       if (topologyKey && topologyKey !== point.attachment.topologyKey) {
         metadataChanged = true;
         return { ...point, attachment: { ...point.attachment, topologyKey } };
@@ -3498,12 +3646,12 @@ export function WorkplaneViewport({
     const updatedSegments = current.segments.map((segment) => {
       if (!segment.edge) return segment;
       const attachedShape = shapeById.get(segment.edge.shapeId);
-      if (!attachedShape || (state && !attachedShape.hidden && !rulerEdgeMatchesTopology(state, segment.edge))) {
+      if (!attachedShape || (state && !attachedShape.hidden && !tapeEdgeMatchesTopology(state, segment.edge))) {
         invalidEdgeSegments.add(segment.id);
         return segment;
       }
       const object = state ? findShapeObject(state, segment.edge.shapeId) : null;
-      const topologyKey = object?.userData.rulerTopologyKey as string | undefined;
+      const topologyKey = object?.userData.tapeTopologyKey as string | undefined;
       if (topologyKey && topologyKey !== segment.edge.topologyKey) {
         metadataChanged = true;
         return { ...segment, edge: { ...segment.edge, topologyKey } };
@@ -3524,39 +3672,39 @@ export function WorkplaneViewport({
     const points = updatedPoints.filter((point) => !removedPointIds.has(point.id));
     const hoverRemoved = Boolean(current.hover?.attachment && (
       !shapeIds.has(current.hover.attachment.shapeId)
-      || (state && !shapeById.get(current.hover.attachment.shapeId)?.hidden && !rulerAttachmentMatchesTopology(state, current.hover.attachment))
+      || (state && !shapeById.get(current.hover.attachment.shapeId)?.hidden && !tapeAttachmentMatchesTopology(state, current.hover.attachment))
     ));
     if (removedPointIds.size === 0 && invalidEdgeSegments.size === 0 && !hoverRemoved && !metadataChanged) return;
-    if (rulerPointDragRef.current && removedPointIds.has(rulerPointDragRef.current.pointId)) rulerPointDragRef.current = null;
-    storeRulerModel({
+    if (tapePointDragRef.current && removedPointIds.has(tapePointDragRef.current.pointId)) tapePointDragRef.current = null;
+    storeTapeModel({
       points,
       segments,
       startPointId: current.startPointId && !removedPointIds.has(current.startPointId) ? current.startPointId : null,
       hover: hoverRemoved ? null : current.hover,
     });
-  }, [shapes, storeRulerModel]);
+  }, [shapes, storeTapeModel]);
 
-  const setRulerActive = useCallback((active: boolean) => {
-    rulerModeRef.current = active;
-    setRulerMode(active);
+  const setTapeActive = useCallback((active: boolean) => {
+    tapeModeRef.current = active;
+    setTapeMode(active);
     if (!active) {
-      const current = rulerModelRef.current;
-      storeRulerModel({ ...current, startPointId: null, hover: null });
+      const current = tapeModelRef.current;
+      storeTapeModel({ ...current, startPointId: null, hover: null });
     }
-  }, [storeRulerModel]);
+  }, [storeTapeModel]);
 
-  const resolveRulerCandidate = useCallback(
-    (clientX: number, clientY: number, ignoredPointId?: string): RulerCandidate | null => {
+  const resolveTapeCandidate = useCallback(
+    (clientX: number, clientY: number, ignoredPointId?: string): TapeCandidate | null => {
       const state = threeRef.current;
       if (!state) return null;
 
-      const model = rulerModelRef.current;
+      const model = tapeModelRef.current;
       const rect = state.renderer.domElement.getBoundingClientRect();
       const localX = clientX - rect.left;
       const localY = clientY - rect.top;
-      const closestPoint = model.points.reduce<{ point: RulerPoint; distance: number } | null>((closest, point) => {
+      const closestPoint = model.points.reduce<{ point: TapePoint; distance: number } | null>((closest, point) => {
         if (point.id === ignoredPointId) return closest;
-        const screen = projectToScreen(rulerPointWorld(state, point), state);
+        const screen = projectToScreen(tapePointWorld(state, point), state);
         const distance = Math.hypot(screen.x - localX, screen.y - localY);
         if (distance <= 12 && (!closest || distance < closest.distance)) {
           return { point, distance };
@@ -3564,7 +3712,7 @@ export function WorkplaneViewport({
         return closest;
       }, null);
       if (closestPoint) {
-        const world = rulerPointWorld(state, closestPoint.point);
+        const world = tapePointWorld(state, closestPoint.point);
         return { x: world.x, y: world.y, z: world.z, pointId: closestPoint.point.id, attachment: closestPoint.point.attachment };
       }
 
@@ -3573,8 +3721,8 @@ export function WorkplaneViewport({
         const start = model.points.find((point) => point.id === segment.startId);
         const end = model.points.find((point) => point.id === segment.endId);
         if (!start || !end) return closest;
-        const edgePoints = segment.edge ? rulerEdgeWorldPoints(state, segment.edge) : [];
-        const worldPoints = edgePoints.length >= 2 ? edgePoints : [rulerPointWorld(state, start), rulerPointWorld(state, end)];
+        const edgePoints = segment.edge ? tapeEdgeWorldPoints(state, segment.edge) : [];
+        const worldPoints = edgePoints.length >= 2 ? edgePoints : [tapePointWorld(state, start), tapePointWorld(state, end)];
         for (let index = 0; index + 1 < worldPoints.length; index += 1) {
           const a = projectToScreen(worldPoints[index], state);
           const b = projectToScreen(worldPoints[index + 1], state);
@@ -3590,13 +3738,13 @@ export function WorkplaneViewport({
       }, null);
 
       if (closestSegment) {
-        const existing = model.points.find((point) => rulerPointWorld(state, point).distanceTo(closestSegment.world) < 0.001);
+        const existing = model.points.find((point) => tapePointWorld(state, point).distanceTo(closestSegment.world) < 0.001);
         return { x: closestSegment.world.x, y: closestSegment.world.y, z: closestSegment.world.z, pointId: existing?.id };
       }
 
       const selectedShapeIds = selectedIdsRef.current.filter((id) => shapesRef.current.some((shape) => shape.id === id && !shape.hidden));
       const targetShapeIds = selectedShapeIds.length > 0 ? selectedShapeIds : shapesRef.current.filter((shape) => !shape.hidden).map((shape) => shape.id);
-      const modelCandidate = pickModelRulerCandidate(state, targetShapeIds, clientX, clientY);
+      const modelCandidate = pickModelTapeCandidate(state, targetShapeIds, clientX, clientY);
       if (modelCandidate) return modelCandidate;
 
       const raw = toRawPlanePoint(clientX, clientY, state.dragPlane);
@@ -3614,10 +3762,10 @@ export function WorkplaneViewport({
     [toRawPlanePoint],
   );
 
-  const selectRulerCandidate = useCallback(
-    (candidate: RulerCandidate) => {
-      const current = rulerModelRef.current;
-      const sameAttachment = (point: RulerPoint, attachment: RulerAttachment | undefined) => Boolean(
+  const selectTapeCandidate = useCallback(
+    (candidate: TapeCandidate) => {
+      const current = tapeModelRef.current;
+      const sameAttachment = (point: TapePoint, attachment: TapeAttachment | undefined) => Boolean(
         attachment
         && point.attachment?.shapeId === attachment.shapeId
         && Math.hypot(
@@ -3626,11 +3774,11 @@ export function WorkplaneViewport({
           point.attachment.normalized[2] - attachment.normalized[2],
         ) < 1e-5,
       );
-      const findExisting = (value: Pick<RulerCandidate, "x" | "y" | "z" | "pointId" | "attachment">) => value.pointId
+      const findExisting = (value: Pick<TapeCandidate, "x" | "y" | "z" | "pointId" | "attachment">) => value.pointId
         ? current.points.find((point) => point.id === value.pointId)
         : current.points.find((point) => sameAttachment(point, value.attachment) || (!point.attachment && !value.attachment && Math.hypot(point.x - value.x, point.y - value.y, point.z - value.z) < 0.001));
-      const makePoint = (value: Pick<RulerCandidate, "x" | "y" | "z" | "pointId" | "attachment">) => findExisting(value) ?? {
-        id: `ruler-point-${++rulerIdRef.current}`,
+      const makePoint = (value: Pick<TapeCandidate, "x" | "y" | "z" | "pointId" | "attachment">) => findExisting(value) ?? {
+        id: `tape-point-${++tapeIdRef.current}`,
         x: value.x,
         y: value.y,
         z: value.z,
@@ -3639,15 +3787,15 @@ export function WorkplaneViewport({
 
       if (candidate.edge && !current.startPointId) {
         const state = threeRef.current;
-        const worldPoints = state ? rulerEdgeWorldPoints(state, candidate.edge) : [];
+        const worldPoints = state ? tapeEdgeWorldPoints(state, candidate.edge) : [];
         if (worldPoints.length >= 2) {
-          const firstAttachment: RulerAttachment = {
+          const firstAttachment: TapeAttachment = {
             shapeId: candidate.edge.shapeId,
             normalized: candidate.edge.normalizedPoints[0],
             kind: "vertex",
             topologyKey: candidate.edge.topologyKey,
           };
-          const lastAttachment: RulerAttachment = {
+          const lastAttachment: TapeAttachment = {
             shapeId: candidate.edge.shapeId,
             normalized: candidate.edge.normalizedPoints[candidate.edge.normalizedPoints.length - 1],
             kind: "vertex",
@@ -3661,12 +3809,12 @@ export function WorkplaneViewport({
           if (!points.some((point) => point.id === end.id)) points.push(end);
           const duplicate = current.segments.some((segment) => segment.edge?.key === candidate.edge?.key);
           const segments = duplicate ? current.segments : [...current.segments, {
-            id: `ruler-segment-${++rulerIdRef.current}`,
+            id: `tape-segment-${++tapeIdRef.current}`,
             startId: start.id,
             endId: end.id,
             edge: candidate.edge,
           }];
-          storeRulerModel({ points, segments, startPointId: null, hover: null });
+          storeTapeModel({ points, segments, startPointId: null, hover: null });
           return;
         }
       }
@@ -3675,7 +3823,7 @@ export function WorkplaneViewport({
       const point = existing ?? makePoint(candidate);
       const points = existing ? current.points : [...current.points, point];
       if (!current.startPointId) {
-        storeRulerModel({ ...current, points, startPointId: point.id, hover: { x: point.x, y: point.y, z: point.z, attachment: point.attachment } });
+        storeTapeModel({ ...current, points, startPointId: point.id, hover: { x: point.x, y: point.y, z: point.z, attachment: point.attachment } });
         return;
       }
       if (current.startPointId === point.id) {
@@ -3689,54 +3837,54 @@ export function WorkplaneViewport({
       );
       const segments = duplicate
         ? current.segments
-        : [...current.segments, { id: `ruler-segment-${++rulerIdRef.current}`, startId: current.startPointId, endId: point.id }];
-      storeRulerModel({ points, segments, startPointId: null, hover: null });
+        : [...current.segments, { id: `tape-segment-${++tapeIdRef.current}`, startId: current.startPointId, endId: point.id }];
+      storeTapeModel({ points, segments, startPointId: null, hover: null });
     },
-    [storeRulerModel],
+    [storeTapeModel],
   );
 
-  const updateRulerHover = useCallback(
+  const updateTapeHover = useCallback(
     (clientX: number, clientY: number) => {
-      if (!rulerModeRef.current) {
+      if (!tapeModeRef.current) {
         return;
       }
-      const candidate = resolveRulerCandidate(clientX, clientY);
-      const current = rulerModelRef.current;
+      const candidate = resolveTapeCandidate(clientX, clientY);
+      const current = tapeModelRef.current;
       const hover = candidate;
       if ((!current.hover && !hover) || (current.hover && hover
         && current.hover.edge?.key === hover.edge?.key
         && Math.hypot(current.hover.x - hover.x, current.hover.y - hover.y, current.hover.z - hover.z) < 0.0001)) {
         return;
       }
-      storeRulerModel({ ...current, hover });
+      storeTapeModel({ ...current, hover });
     },
-    [resolveRulerCandidate, storeRulerModel],
+    [resolveTapeCandidate, storeTapeModel],
   );
 
-  const removeRulerSegment = useCallback(
+  const removeTapeSegment = useCallback(
     (segmentId: string) => {
-      const current = rulerModelRef.current;
+      const current = tapeModelRef.current;
       const segments = current.segments.filter((segment) => segment.id !== segmentId);
       const usedPointIds = new Set(segments.flatMap((segment) => [segment.startId, segment.endId]));
       const points = current.points.filter((point) => usedPointIds.has(point.id) || point.id === current.startPointId);
-      storeRulerModel({ ...current, points, segments });
+      storeTapeModel({ ...current, points, segments });
     },
-    [storeRulerModel],
+    [storeTapeModel],
   );
 
-  const removeRulerPoint = useCallback(
+  const removeTapePoint = useCallback(
     (pointId: string) => {
-      const current = rulerModelRef.current;
+      const current = tapeModelRef.current;
       const segments = current.segments.filter((segment) => segment.startId !== pointId && segment.endId !== pointId);
       const points = current.points.filter((point) => point.id !== pointId);
-      storeRulerModel({
+      storeTapeModel({
         ...current,
         points,
         segments,
         startPointId: current.startPointId === pointId ? null : current.startPointId,
       });
     },
-    [storeRulerModel],
+    [storeTapeModel],
   );
 
   const setMarqueeFromState = useCallback((marquee: MarqueeState | null) => {
@@ -4337,6 +4485,141 @@ export function WorkplaneViewport({
     setEditingDimension(null);
   }, []);
 
+  const beginRulerDimensionEdit = useCallback((item: RulerDimensionOverlayItem) => {
+    if (!item.field) return;
+    setRulerDimensionEditing({ shapeId: item.shapeId, field: item.field, x: item.labelX, y: item.labelY, value: formatMeasure(item.value, workspaceRef.current.accuracy) });
+  }, []);
+
+  const commitRulerDimensionEdit = useCallback(() => {
+    const edit = rulerDimensionEditing;
+    setRulerDimensionEditing(null);
+    if (!edit) return;
+    const shape = shapesRef.current.find((entry) => entry.id === edit.shapeId);
+    const value = parseMeasurementInput(edit.value);
+    if (shape && Number.isFinite(value) && value > 0) {
+      const nextValue = Math.max(MIN_SHAPE_SIZE, value);
+      if (edit.field === "width") {
+        onUpdateShape(edit.shapeId, { width: nextValue, size: resizedShapeSize(nextValue, shapeDepth(shape)) });
+      } else if (edit.field === "depth") {
+        onUpdateShape(edit.shapeId, { depth: nextValue, size: resizedShapeSize(shapeWidth(shape), nextValue) });
+      } else {
+        onUpdateShape(edit.shapeId, { height: nextValue });
+      }
+    }
+  }, [onUpdateShape, rulerDimensionEditing]);
+
+  const cancelRulerDimensionEdit = useCallback(() => {
+    setRulerDimensionEditing(null);
+  }, []);
+
+  const rulerDuplicateMoveThreshold = 6;
+
+  const handleRulerDuplicatePointerDown = useCallback((event: ReactPointerEvent<HTMLButtonElement>, item: RulerDimensionOverlayItem) => {
+    event.stopPropagation();
+    const shape = shapesRef.current.find((entry) => entry.id === item.shapeId);
+    const ruler = shapesRef.current.find((entry) => entry.id === item.rulerId);
+    if (!shape || !ruler) return;
+    const rulerPose = { x: ruler.x, z: ruler.z, rotation: ruler.rotation, length: shapeWidth(ruler), crossWidth: shapeDepth(ruler) };
+    const match = rulerDimensionMatch(rulerPose, {
+      x: shape.x,
+      z: shape.z,
+      rotation: shape.rotation,
+      rotationX: shape.rotationX,
+      rotationZ: shape.rotationZ,
+      width: shapeWidth(shape),
+      height: shape.height,
+      depth: shapeDepth(shape),
+    });
+    if (!match) return;
+    (event.target as HTMLButtonElement).setPointerCapture(event.pointerId);
+    // Der Ziehpunkt haengt ueber der Arbeitsflaeche - die Ruecknahme muss auf
+    // dieselbe Hoehe zielen, sonst verschiebt die Kamera-Schraege den
+    // zurueckgerechneten Punkt naeher an sich heran (Parallaxenfehler).
+    const planeY = shapesRef.current.reduce((max, entry) => Math.max(max, (entry.elevation ?? 0) + entry.height), 0) + 6;
+    rulerDuplicateDragRef.current = {
+      pointerId: event.pointerId,
+      rulerId: ruler.id,
+      shapeId: shape.id,
+      baseAlong: match.alongOffset + match.extentAlong / 2,
+      planeY,
+      sourceX: shape.x,
+      sourceZ: shape.z,
+    };
+    setRulerDuplicatePreview({ x: item.handleX, y: item.handleY, label: formatMeasure(match.extentAlong, workspaceRef.current.accuracy) });
+  }, []);
+
+  const handleRulerDuplicatePointerMove = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = rulerDuplicateDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const ruler = shapesRef.current.find((entry) => entry.id === drag.rulerId);
+    const point = ruler ? toPlanePointAtY(event.clientX, event.clientY, drag.planeY) : null;
+    if (!ruler || !point) return;
+    const rulerPose = { x: ruler.x, z: ruler.z, rotation: ruler.rotation, length: shapeWidth(ruler), crossWidth: shapeDepth(ruler) };
+    const axisAlong = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternionForShape(ruler));
+    const pointerAlong = (point.x - rulerPose.x) * axisAlong.x + (point.z - rulerPose.z) * axisAlong.z;
+    const distance = pointerAlong - drag.baseAlong;
+    const state = threeRef.current;
+    if (state && Math.abs(distance) >= 0.01) {
+      const target = pointAlongRuler(rulerPose, drag.baseAlong + distance);
+      const preview = projectToScreen(new THREE.Vector3(target.x, drag.planeY, target.z), state);
+      setRulerDuplicatePreview({ x: preview.x, y: preview.y, label: formatMeasure(Math.abs(distance), workspaceRef.current.accuracy) });
+    }
+  }, [toPlanePointAtY]);
+
+  const handleRulerDuplicatePointerUp = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = rulerDuplicateDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    rulerDuplicateDragRef.current = null;
+    setRulerDuplicatePreview(null);
+    const ruler = shapesRef.current.find((entry) => entry.id === drag.rulerId);
+    const point = ruler ? toPlanePointAtY(event.clientX, event.clientY, drag.planeY) : null;
+    if (!ruler || !point) return;
+    const rulerPose = { x: ruler.x, z: ruler.z, rotation: ruler.rotation, length: shapeWidth(ruler), crossWidth: shapeDepth(ruler) };
+    const axisAlong = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternionForShape(ruler));
+    const pointerAlong = (point.x - rulerPose.x) * axisAlong.x + (point.z - rulerPose.z) * axisAlong.z;
+    const distance = pointerAlong - drag.baseAlong;
+    if (Math.abs(distance) < rulerDuplicateMoveThreshold) {
+      // Kaum Bewegung - das war ein Klick, keine Ziehbewegung. Statt eines
+      // kaum lesbaren Kopiervorgangs im Millimeterbereich lieber eine
+      // eintippbare Distanz anbieten, mit der eigenen Laenge als Vorschlag.
+      const shape = shapesRef.current.find((entry) => entry.id === drag.shapeId);
+      const own = shape ? rulerDimensionMatch(rulerPose, {
+        x: shape.x, z: shape.z, rotation: shape.rotation, rotationX: shape.rotationX, rotationZ: shape.rotationZ,
+        width: shapeWidth(shape), height: shape.height, depth: shapeDepth(shape),
+      }) : null;
+      const suggested = own?.extentAlong ?? 10;
+      setRulerDuplicateEditing({
+        rulerId: drag.rulerId,
+        shapeId: drag.shapeId,
+        baseAlong: drag.baseAlong,
+        x: event.clientX,
+        y: event.clientY,
+        value: formatMeasure(suggested, workspaceRef.current.accuracy),
+      });
+      return;
+    }
+    const targetAlong = drag.baseAlong + distance;
+    const target = pointAlongRuler(rulerPose, targetAlong);
+    onDuplicateShapeAt?.(drag.shapeId, target);
+  }, [onDuplicateShapeAt, toPlanePointAtY]);
+
+  const commitRulerDuplicateEdit = useCallback(() => {
+    const edit = rulerDuplicateEditing;
+    setRulerDuplicateEditing(null);
+    if (!edit) return;
+    const ruler = shapesRef.current.find((entry) => entry.id === edit.rulerId);
+    const value = parseMeasurementInput(edit.value);
+    if (ruler && Number.isFinite(value)) {
+      const rulerPose = { x: ruler.x, z: ruler.z, rotation: ruler.rotation, length: shapeWidth(ruler), crossWidth: shapeDepth(ruler) };
+      const target = pointAlongRuler(rulerPose, edit.baseAlong + value);
+      onDuplicateShapeAt?.(edit.shapeId, target);
+    }
+  }, [onDuplicateShapeAt, rulerDuplicateEditing]);
+
+  const cancelRulerDuplicateEdit = useCallback(() => {
+    setRulerDuplicateEditing(null);
+  }, []);
+
   const beginRotationEdit = useCallback((handleKey: string, x: number, y: number) => {
     if (suppressNextRotationEditRef.current) {
       suppressNextRotationEditRef.current = false;
@@ -4482,7 +4765,7 @@ export function WorkplaneViewport({
   /**
    * Wohin eine Notiz gehoert, die hier gesetzt oder hingezogen wird: auf den
    * Koerper unter dem Zeiger - dann haengt sie an ihm -, sonst auf die
-   * Arbeitsebene. Anders als das Lineal sucht sie keine Ecke und keine Kante;
+   * Arbeitsebene. Anders als das Massband sucht sie keine Ecke und keine Kante;
    * eine Notiz will dort stehen, wo hingezeigt wurde.
    */
   const resolveNoteAnchor = useCallback((clientX: number, clientY: number) => {
@@ -4501,7 +4784,7 @@ export function WorkplaneViewport({
     });
     if (hit) {
       const shapeId = hit.object.userData.shapeId as string;
-      const attachment = rulerAttachmentFromWorld(state, shapeId, hit.point.clone());
+      const attachment = tapeAttachmentFromWorld(state, shapeId, hit.point.clone());
       if (attachment) {
         return {
           x: hit.point.x,
@@ -4648,22 +4931,22 @@ export function WorkplaneViewport({
         return;
       }
 
-      if (rulerDeleteModeRef.current) {
+      if (tapeDeleteModeRef.current) {
         event.preventDefault();
         return;
       }
 
-      if (rulerMoveModeRef.current) {
+      if (tapeMoveModeRef.current) {
         event.preventDefault();
         event.stopPropagation();
         return;
       }
 
-      if (rulerModeRef.current) {
+      if (tapeModeRef.current) {
         event.preventDefault();
-        const candidate = resolveRulerCandidate(event.clientX, event.clientY);
+        const candidate = resolveTapeCandidate(event.clientX, event.clientY);
         if (candidate) {
-          selectRulerCandidate(candidate);
+          selectTapeCandidate(candidate);
         }
         return;
       }
@@ -4951,8 +5234,8 @@ export function WorkplaneViewport({
       pickModifierEdge,
       pickShape,
       pickTransformHandle,
-      resolveRulerCandidate,
-      selectRulerCandidate,
+      resolveTapeCandidate,
+      selectTapeCandidate,
       setMarqueeFromState,
       toPlanePoint,
       toPlanePointAtY,
@@ -4999,11 +5282,11 @@ export function WorkplaneViewport({
         updateModifierEdgeHover(event.clientX, event.clientY);
         return;
       }
-      if (rulerModeRef.current) {
-        updateRulerHover(event.clientX, event.clientY);
+      if (tapeModeRef.current) {
+        updateTapeHover(event.clientX, event.clientY);
         return;
       }
-      if (rulerMoveModeRef.current) return;
+      if (tapeMoveModeRef.current) return;
       const transform = transformRef.current;
       if (transform) {
         updateTransform(event.clientX, event.clientY, event.shiftKey, event.altKey);
@@ -5081,7 +5364,7 @@ export function WorkplaneViewport({
         threeRef.current.needsRender = true;
       }
     },
-    [pickPlacementSurface, setMarqueeFromState, toPlacementWorkplanePoint, toRawPlanePoint, updateModifierEdgeHover, updateRulerHover, updateTransform],
+    [pickPlacementSurface, setMarqueeFromState, toPlacementWorkplanePoint, toRawPlanePoint, updateModifierEdgeHover, updateTapeHover, updateTransform],
   );
 
   useEffect(() => {
@@ -5296,7 +5579,7 @@ export function WorkplaneViewport({
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      if (rulerMoveModeRef.current) return;
+      if (tapeMoveModeRef.current) return;
       const raw = event.dataTransfer.getData("application/x-layerling-shape");
       if (!raw) {
         return;
@@ -5402,14 +5685,14 @@ export function WorkplaneViewport({
   }, []);
 
   const togglePlacementWorkplane = useCallback(() => {
-    setRulerToolsOpen(false);
-    setRulerActive(false);
-    rulerDeleteModeRef.current = false;
-    setRulerDeleteMode(false);
-    rulerMoveModeRef.current = false;
-    setRulerMoveMode(false);
+    setTapeToolsOpen(false);
+    setTapeActive(false);
+    tapeDeleteModeRef.current = false;
+    setTapeDeleteMode(false);
+    tapeMoveModeRef.current = false;
+    setTapeMoveMode(false);
     onToggleWorkplaneTool();
-  }, [onToggleWorkplaneTool, setRulerActive]);
+  }, [onToggleWorkplaneTool, setTapeActive]);
 
   const setPlacementWorkplaneAtSelection = useCallback(() => {
     if (selectedIdsRef.current.length !== 1) return false;
@@ -5431,102 +5714,102 @@ export function WorkplaneViewport({
     return true;
   }, [onSetPlacementWorkplane, onWorkplaneModeChange]);
 
-  const toggleRulerTools = useCallback(() => {
-    const next = !rulerToolsOpen;
-    setRulerToolsOpen(next);
-    setRulerActive(false);
-    rulerDeleteModeRef.current = false;
-    setRulerDeleteMode(false);
-    rulerMoveModeRef.current = false;
-    setRulerMoveMode(false);
+  const toggleTapeTools = useCallback(() => {
+    const next = !tapeToolsOpen;
+    setTapeToolsOpen(next);
+    setTapeActive(false);
+    tapeDeleteModeRef.current = false;
+    setTapeDeleteMode(false);
+    tapeMoveModeRef.current = false;
+    setTapeMoveMode(false);
     if (next) {
       onWorkplaneModeChange(false);
     }
-  }, [onWorkplaneModeChange, rulerToolsOpen, setRulerActive]);
+  }, [onWorkplaneModeChange, tapeToolsOpen, setTapeActive]);
 
-  const activateRulerAdd = useCallback(() => {
-    rulerDeleteModeRef.current = false;
-    setRulerDeleteMode(false);
-    rulerMoveModeRef.current = false;
-    setRulerMoveMode(false);
-    setRulerActive(true);
+  const activateTapeAdd = useCallback(() => {
+    tapeDeleteModeRef.current = false;
+    setTapeDeleteMode(false);
+    tapeMoveModeRef.current = false;
+    setTapeMoveMode(false);
+    setTapeActive(true);
     onWorkplaneModeChange(false);
-  }, [onWorkplaneModeChange, setRulerActive]);
+  }, [onWorkplaneModeChange, setTapeActive]);
 
-  const activateRulerDelete = useCallback(() => {
-    setRulerActive(false);
-    rulerMoveModeRef.current = false;
-    setRulerMoveMode(false);
-    rulerDeleteModeRef.current = true;
-    setRulerDeleteMode(true);
+  const activateTapeDelete = useCallback(() => {
+    setTapeActive(false);
+    tapeMoveModeRef.current = false;
+    setTapeMoveMode(false);
+    tapeDeleteModeRef.current = true;
+    setTapeDeleteMode(true);
     onWorkplaneModeChange(false);
-  }, [onWorkplaneModeChange, setRulerActive]);
+  }, [onWorkplaneModeChange, setTapeActive]);
 
-  const activateRulerMove = useCallback(() => {
-    setRulerActive(false);
-    rulerDeleteModeRef.current = false;
-    setRulerDeleteMode(false);
-    rulerMoveModeRef.current = true;
-    setRulerMoveMode(true);
+  const activateTapeMove = useCallback(() => {
+    setTapeActive(false);
+    tapeDeleteModeRef.current = false;
+    setTapeDeleteMode(false);
+    tapeMoveModeRef.current = true;
+    setTapeMoveMode(true);
     onWorkplaneModeChange(false);
     onSelectShape(null);
-  }, [onSelectShape, onWorkplaneModeChange, setRulerActive]);
+  }, [onSelectShape, onWorkplaneModeChange, setTapeActive]);
 
   const collapseCameraControls = useCallback(() => {
     setCameraControlsCollapsed(true);
-    setRulerToolsOpen(false);
-    setRulerActive(false);
-    rulerDeleteModeRef.current = false;
-    setRulerDeleteMode(false);
-    rulerMoveModeRef.current = false;
-    setRulerMoveMode(false);
-    rulerPointDragRef.current = null;
-  }, [setRulerActive]);
+    setTapeToolsOpen(false);
+    setTapeActive(false);
+    tapeDeleteModeRef.current = false;
+    setTapeDeleteMode(false);
+    tapeMoveModeRef.current = false;
+    setTapeMoveMode(false);
+    tapePointDragRef.current = null;
+  }, [setTapeActive]);
 
-  const handleRulerPointPointerDown = useCallback(
+  const handleTapePointPointerDown = useCallback(
     (event: ReactPointerEvent<SVGCircleElement>, pointId: string) => {
       if (event.button !== 0) {
         return;
       }
-      if (rulerDeleteModeRef.current) {
+      if (tapeDeleteModeRef.current) {
         event.preventDefault();
         event.stopPropagation();
-        removeRulerPoint(pointId);
+        removeTapePoint(pointId);
         return;
       }
-      if (rulerMoveModeRef.current) {
+      if (tapeMoveModeRef.current) {
         event.preventDefault();
         event.stopPropagation();
         event.currentTarget.setPointerCapture(event.pointerId);
-        rulerPointDragRef.current = { pointId, pointerId: event.pointerId };
+        tapePointDragRef.current = { pointId, pointerId: event.pointerId };
         return;
       }
-      if (!rulerModeRef.current) {
+      if (!tapeModeRef.current) {
         return;
       }
-      const point = rulerModelRef.current.points.find((candidate) => candidate.id === pointId);
+      const point = tapeModelRef.current.points.find((candidate) => candidate.id === pointId);
       if (!point) {
         return;
       }
       event.preventDefault();
       event.stopPropagation();
       const state = threeRef.current;
-      const world = state ? rulerPointWorld(state, point) : new THREE.Vector3(point.x, point.y, point.z);
-      selectRulerCandidate({ x: world.x, y: world.y, z: world.z, pointId, attachment: point.attachment });
+      const world = state ? tapePointWorld(state, point) : new THREE.Vector3(point.x, point.y, point.z);
+      selectTapeCandidate({ x: world.x, y: world.y, z: world.z, pointId, attachment: point.attachment });
     },
-    [removeRulerPoint, selectRulerCandidate],
+    [removeTapePoint, selectTapeCandidate],
   );
 
-  const handleRulerPointPointerMove = useCallback(
+  const handleTapePointPointerMove = useCallback(
     (event: ReactPointerEvent<SVGCircleElement>, pointId: string) => {
-      const drag = rulerPointDragRef.current;
-      if (!rulerMoveModeRef.current || !drag || drag.pointId !== pointId || drag.pointerId !== event.pointerId) return;
+      const drag = tapePointDragRef.current;
+      if (!tapeMoveModeRef.current || !drag || drag.pointId !== pointId || drag.pointerId !== event.pointerId) return;
       event.preventDefault();
       event.stopPropagation();
-      const candidate = resolveRulerCandidate(event.clientX, event.clientY, pointId);
+      const candidate = resolveTapeCandidate(event.clientX, event.clientY, pointId);
       if (!candidate) return;
-      const current = rulerModelRef.current;
-      storeRulerModel({
+      const current = tapeModelRef.current;
+      storeTapeModel({
         ...current,
         points: current.points.map((point) => point.id === pointId ? {
           ...point,
@@ -5539,45 +5822,45 @@ export function WorkplaneViewport({
         hover: candidate,
       });
     },
-    [resolveRulerCandidate, storeRulerModel],
+    [resolveTapeCandidate, storeTapeModel],
   );
 
-  const handleRulerPointPointerUp = useCallback(
+  const handleTapePointPointerUp = useCallback(
     (event: ReactPointerEvent<SVGCircleElement>, pointId: string) => {
-      const drag = rulerPointDragRef.current;
+      const drag = tapePointDragRef.current;
       if (!drag || drag.pointId !== pointId || drag.pointerId !== event.pointerId) return;
       event.preventDefault();
       event.stopPropagation();
       if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-      rulerPointDragRef.current = null;
-      const current = rulerModelRef.current;
-      storeRulerModel({ ...current, hover: null });
+      tapePointDragRef.current = null;
+      const current = tapeModelRef.current;
+      storeTapeModel({ ...current, hover: null });
     },
-    [storeRulerModel],
+    [storeTapeModel],
   );
 
-  const handleRulerSegmentPointerDown = useCallback(
+  const handleTapeSegmentPointerDown = useCallback(
     (event: ReactPointerEvent<SVGElement>, segmentId: string) => {
       if (event.button !== 0) {
         return;
       }
-      if (rulerDeleteModeRef.current) {
+      if (tapeDeleteModeRef.current) {
         event.preventDefault();
         event.stopPropagation();
-        removeRulerSegment(segmentId);
+        removeTapeSegment(segmentId);
         return;
       }
-      if (!rulerModeRef.current) {
+      if (!tapeModeRef.current) {
         return;
       }
       event.preventDefault();
       event.stopPropagation();
-      const candidate = resolveRulerCandidate(event.clientX, event.clientY);
+      const candidate = resolveTapeCandidate(event.clientX, event.clientY);
       if (candidate) {
-        selectRulerCandidate(candidate);
+        selectTapeCandidate(candidate);
       }
     },
-    [removeRulerSegment, resolveRulerCandidate, selectRulerCandidate],
+    [removeTapeSegment, resolveTapeCandidate, selectTapeCandidate],
   );
 
   useEffect(() => {
@@ -5600,15 +5883,15 @@ export function WorkplaneViewport({
       if (event.key === "Escape" && workplaneModeRef.current) {
         event.preventDefault();
         onWorkplaneModeChange(false);
-      } else if (event.key === "Escape" && (rulerToolsOpen || rulerModeRef.current || rulerDeleteModeRef.current || rulerMoveModeRef.current)) {
+      } else if (event.key === "Escape" && (tapeToolsOpen || tapeModeRef.current || tapeDeleteModeRef.current || tapeMoveModeRef.current)) {
         event.preventDefault();
-        setRulerActive(false);
-        rulerDeleteModeRef.current = false;
-        setRulerDeleteMode(false);
-        rulerMoveModeRef.current = false;
-        setRulerMoveMode(false);
-        rulerPointDragRef.current = null;
-        setRulerToolsOpen(false);
+        setTapeActive(false);
+        tapeDeleteModeRef.current = false;
+        setTapeDeleteMode(false);
+        tapeMoveModeRef.current = false;
+        setTapeMoveMode(false);
+        tapePointDragRef.current = null;
+        setTapeToolsOpen(false);
       } else if (shortcutView) {
         event.preventDefault();
         setViewCubeFace(shortcutView);
@@ -5637,7 +5920,7 @@ export function WorkplaneViewport({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusSelection, onWorkplaneModeChange, resetView, rulerToolsOpen, setPlacementWorkplaneAtSelection, setRulerActive, setViewCubeFace, togglePlacementWorkplane, toggleProjection, zoomCamera]);
+  }, [focusSelection, onWorkplaneModeChange, resetView, tapeToolsOpen, setPlacementWorkplaneAtSelection, setTapeActive, setViewCubeFace, togglePlacementWorkplane, toggleProjection, zoomCamera]);
 
   return (
     <main className="workplane-stage">
@@ -5718,26 +6001,26 @@ export function WorkplaneViewport({
                 <PanelsTopLeft size={25} strokeWidth={2.1} aria-hidden="true" />
               </button>
             </div>
-            <div className="ruler-control-group">
+            <div className="tape-control-group">
               <button
-                className={`ruler-trigger ${rulerToolsOpen ? "active" : ""}`}
-                aria-label={t("camera.rulerTools")}
-                title={t("camera.rulerTools")}
-                aria-expanded={rulerToolsOpen}
-                aria-controls="ruler-tool-popover"
-                onClick={toggleRulerTools}
+                className={`tape-trigger ${tapeToolsOpen ? "active" : ""}`}
+                aria-label={t("camera.tapeTools")}
+                title={t("camera.tapeTools")}
+                aria-expanded={tapeToolsOpen}
+                aria-controls="tape-tool-popover"
+                onClick={toggleTapeTools}
               >
-                <Ruler size={26} strokeWidth={2.2} aria-hidden="true" />
+                <RulerDimensionLine size={26} strokeWidth={2.2} aria-hidden="true" />
               </button>
-              {rulerToolsOpen ? (
-                <div id="ruler-tool-popover" className="ruler-tool-popover" aria-label={t("camera.rulerActions")}>
-                  <button className={rulerMode ? "active" : ""} aria-label={t("camera.addMeasurement")} title={t("camera.addMeasurement")} aria-pressed={rulerMode} onClick={activateRulerAdd}>
+              {tapeToolsOpen ? (
+                <div id="tape-tool-popover" className="tape-tool-popover" aria-label={t("camera.tapeActions")}>
+                  <button className={tapeMode ? "active" : ""} aria-label={t("camera.addMeasurement")} title={t("camera.addMeasurement")} aria-pressed={tapeMode} onClick={activateTapeAdd}>
                     <Plus size={21} strokeWidth={2.4} aria-hidden="true" />
                   </button>
-                  <button className={rulerMoveMode ? "active" : ""} aria-label={t("camera.moveMeasurement")} title={t("camera.moveMeasurement")} aria-pressed={rulerMoveMode} onClick={activateRulerMove}>
+                  <button className={tapeMoveMode ? "active" : ""} aria-label={t("camera.moveMeasurement")} title={t("camera.moveMeasurement")} aria-pressed={tapeMoveMode} onClick={activateTapeMove}>
                     <MousePointer2 size={20} strokeWidth={2.25} aria-hidden="true" />
                   </button>
-                  <button className={`ruler-delete-button ${rulerDeleteMode ? "active" : ""}`} aria-label={t("camera.deleteMeasurement")} title={t("camera.deleteMeasurement")} aria-pressed={rulerDeleteMode} onClick={activateRulerDelete}>
+                  <button className={`tape-delete-button ${tapeDeleteMode ? "active" : ""}`} aria-label={t("camera.deleteMeasurement")} title={t("camera.deleteMeasurement")} aria-pressed={tapeDeleteMode} onClick={activateTapeDelete}>
                     <X size={20} strokeWidth={2.4} aria-hidden="true" />
                   </button>
                 </div>
@@ -5747,7 +6030,7 @@ export function WorkplaneViewport({
         )}
       </div>
 
-      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${rulerMode ? "ruler-mode" : ""} ${rulerDeleteMode ? "ruler-delete-mode" : ""} ${rulerMoveMode ? "ruler-move-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label="Workplane">
+      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label="Workplane">
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
@@ -5771,7 +6054,7 @@ export function WorkplaneViewport({
               onCommit={commitMoveDimension}
             />
           ) : null}
-          {!workplaneMode && transformOverlay && !alignMode && !mirrorMode && !rulerMode && !rulerDeleteMode && !rulerMoveMode && !modifierActive ? (
+          {!workplaneMode && transformOverlay && !alignMode && !mirrorMode && !tapeMode && !tapeDeleteMode && !tapeMoveMode && !modifierActive ? (
             <TransformOverlay
               box={transformOverlay}
               measureKey={pinnedMeasureKey ?? hoverMeasureKey}
@@ -5820,23 +6103,71 @@ export function WorkplaneViewport({
           ) : null}
           {!workplaneMode && alignOverlay ? <AlignOverlay overlay={alignOverlay} onAlign={onAlignSelection} onPreview={onAlignPreview} onPreviewClear={onAlignPreviewClear} /> : null}
           {!workplaneMode && mirrorOverlay ? <MirrorOverlay overlay={mirrorOverlay} onMirror={onMirrorSelection} onPreview={onMirrorPreview} onPreviewClear={onMirrorPreviewClear} /> : null}
-          {!workplaneMode && rulerOverlay && (rulerOverlay.points.length > 0 || rulerOverlay.hover) ? (
-            <RulerOverlay
-              overlay={rulerOverlay}
-              startPointId={rulerModel.startPointId}
-              active={rulerMode || rulerMoveMode}
-              deleteMode={rulerDeleteMode}
-              moveMode={rulerMoveMode}
-              onPointPointerDown={handleRulerPointPointerDown}
-              onPointPointerMove={handleRulerPointPointerMove}
-              onPointPointerUp={handleRulerPointPointerUp}
-              onSegmentPointerDown={handleRulerSegmentPointerDown}
+          {!workplaneMode && tapeOverlay && (tapeOverlay.points.length > 0 || tapeOverlay.hover) ? (
+            <TapeOverlay
+              overlay={tapeOverlay}
+              startPointId={tapeModel.startPointId}
+              active={tapeMode || tapeMoveMode}
+              deleteMode={tapeDeleteMode}
+              moveMode={tapeMoveMode}
+              onPointPointerDown={handleTapePointPointerDown}
+              onPointPointerMove={handleTapePointPointerMove}
+              onPointPointerUp={handleTapePointPointerUp}
+              onSegmentPointerDown={handleTapeSegmentPointerDown}
             />
+          ) : null}
+          {!workplaneMode && rulerDimensionOverlay && rulerDimensionOverlay.items.length > 0 ? (
+            <RulerDimensionOverlay
+              overlay={rulerDimensionOverlay}
+              onLabelClick={beginRulerDimensionEdit}
+              onHandlePointerDown={handleRulerDuplicatePointerDown}
+              onHandlePointerMove={handleRulerDuplicatePointerMove}
+              onHandlePointerUp={handleRulerDuplicatePointerUp}
+            />
+          ) : null}
+          {rulerDimensionEditing ? (
+            <input
+              className="dimension-input"
+              style={{ "--overlay-x": `${rulerDimensionEditing.x}px`, "--overlay-y": `${rulerDimensionEditing.y}px` } as CSSProperties}
+              value={rulerDimensionEditing.value}
+              autoFocus
+              inputMode="decimal"
+              onPointerDown={(event) => event.stopPropagation()}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setRulerDimensionEditing((edit) => edit && { ...edit, value: event.target.value })}
+              onBlur={commitRulerDimensionEdit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commitRulerDimensionEdit();
+                if (event.key === "Escape") cancelRulerDimensionEdit();
+              }}
+            />
+          ) : null}
+          {rulerDuplicateEditing ? (
+            <input
+              className="dimension-input"
+              style={{ "--overlay-x": `${rulerDuplicateEditing.x}px`, "--overlay-y": `${rulerDuplicateEditing.y}px` } as CSSProperties}
+              value={rulerDuplicateEditing.value}
+              autoFocus
+              inputMode="decimal"
+              onPointerDown={(event) => event.stopPropagation()}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setRulerDuplicateEditing((edit) => edit && { ...edit, value: event.target.value })}
+              onBlur={commitRulerDuplicateEdit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commitRulerDuplicateEdit();
+                if (event.key === "Escape") cancelRulerDuplicateEdit();
+              }}
+            />
+          ) : null}
+          {rulerDuplicatePreview ? (
+            <span className="ruler-duplicate-preview" style={{ left: rulerDuplicatePreview.x, top: rulerDuplicatePreview.y }}>
+              {rulerDuplicatePreview.label}
+            </span>
           ) : null}
         </div>
       </section>
 
-      {selectedShape && !modifierActive && !rulerMode && !rulerDeleteMode && !rulerMoveMode ? (
+      {selectedShape && !modifierActive && !tapeMode && !tapeDeleteMode && !tapeMoveMode ? (
         <ShapeInspector
           shape={shapeWithParametricSource(selectedShape)}
           snap={snap}
@@ -6753,8 +7084,8 @@ function syncCutPreviewOverlays(state: ThreeState, shapes: WorkplaneShape[]) {
 function updateShapeObjectTransform(object: THREE.Group, shape: WorkplaneShape) {
   object.name = shape.name;
   object.userData.shapeId = shape.id;
-  object.userData.rulerDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
-  object.userData.rulerTopologyKey = rulerShapeTopologyKey(shape);
+  object.userData.tapeDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
+  object.userData.tapeTopologyKey = tapeShapeTopologyKey(shape);
   object.position.set(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z);
   object.rotation.set(
     THREE.MathUtils.degToRad(shape.rotationX ?? 0),
@@ -6766,8 +7097,8 @@ function updateShapeObjectTransform(object: THREE.Group, shape: WorkplaneShape) 
 }
 
 function syncShapeObjectDimensions(object: THREE.Group, shape: WorkplaneShape) {
-  object.userData.rulerDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
-  object.userData.rulerTopologyKey = rulerShapeTopologyKey(shape);
+  object.userData.tapeDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
+  object.userData.tapeTopologyKey = tapeShapeTopologyKey(shape);
   const surface = object.children.find((child): child is THREE.Mesh => child instanceof THREE.Mesh && Boolean(child.userData.shapeSurface));
   if (!surface) return;
   const width = shapeWidth(shape);
@@ -8096,8 +8427,8 @@ function createShapeObject(
   group.userData.shapeId = shape.id;
   group.userData.showEdges = showEdges;
   group.userData.acceleratedPicking = acceleratedPicking;
-  group.userData.rulerDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
-  group.userData.rulerTopologyKey = rulerShapeTopologyKey(shape);
+  group.userData.tapeDimensions = [shapeWidth(shape), shape.height, shapeDepth(shape)] satisfies [number, number, number];
+  group.userData.tapeTopologyKey = tapeShapeTopologyKey(shape);
   group.position.set(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z);
   group.rotation.set(
     THREE.MathUtils.degToRad(shape.rotationX ?? 0),
@@ -8158,6 +8489,17 @@ function createShapeObject(
         undefined,
         undefined,
         shape.radius && shape.radius > 0 ? undefined : new THREE.Vector3(width, height, depth),
+      );
+      break;
+    case "ruler":
+      addMesh(
+        group,
+        sharedShapeGeometry(geometryCacheKey, () => new THREE.BoxGeometry(1, 1, 1)),
+        createRulerMaterials(shape, material),
+        shape,
+        undefined,
+        undefined,
+        new THREE.Vector3(width, height, depth),
       );
       break;
     case "cylinder":
@@ -8300,6 +8642,57 @@ function createShapeObject(
   freezeStaticObjectMatrices(group);
 
   return group;
+}
+
+const RULER_TICK_TEXTURE_WIDTH = 2048;
+
+/**
+ * Zeichnet Teilstriche und Zehner-Zahlen auf einen deckenden Untergrund in der
+ * Lineal-Farbe - anders als bei einer Bild-Deckplatte gibt es hier kein Foto,
+ * das die Flaeche ohnehin fuellt, also muss die Tinte selbst fuer den
+ * Untergrund sorgen, sonst waere die Deckflaeche stellenweise durchsichtig.
+ */
+function createRulerTickTexture(length: number, crossWidth: number, baseColor: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = RULER_TICK_TEXTURE_WIDTH;
+  canvas.height = Math.max(1, Math.round((RULER_TICK_TEXTURE_WIDTH * crossWidth) / Math.max(1, length)));
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.fillStyle = baseColor;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#1a1a1a";
+  context.strokeStyle = "#1a1a1a";
+  context.textAlign = "center";
+  context.textBaseline = "top";
+  const pxPerMm = canvas.width / length;
+  const lastMm = Math.floor(length);
+  for (let value = 0; value <= lastMm; value += 1) {
+    const isTen = value % 10 === 0;
+    const isFive = value % 5 === 0;
+    const x = value * pxPerMm;
+    context.lineWidth = isTen ? 3 : 1.6;
+    context.beginPath();
+    context.moveTo(x, 0);
+    context.lineTo(x, canvas.height * (isTen ? 0.62 : isFive ? 0.42 : 0.26));
+    context.stroke();
+    if (isTen) {
+      context.font = `600 ${Math.round(canvas.height * 0.24)}px ${WORKPLANE_LABEL_FONT_STACK}`;
+      context.fillText(String(value), x, canvas.height * 0.66, pxPerMm * 9);
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createRulerMaterials(shape: WorkplaneShape, sideMaterial: THREE.MeshStandardMaterial) {
+  const sideMaterials = Array.from({ length: 5 }, (_, index) => (index === 0 ? sideMaterial : sideMaterial.clone()));
+  const topMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.55, metalness: 0 });
+  const texture = createRulerTickTexture(shapeWidth(shape), shapeDepth(shape), shape.color);
+  if (texture) topMaterial.map = texture;
+  return [sideMaterials[0], sideMaterials[1], topMaterial, sideMaterials[2], sideMaterials[3], sideMaterials[4]];
 }
 
 function createImagePlateMaterials(shape: WorkplaneShape, sideMaterial: THREE.MeshStandardMaterial, onTextureReady?: () => void) {

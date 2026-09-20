@@ -46,7 +46,7 @@ export function composedShapeRotation(outer: ShapeRotation, inner: ShapeRotation
   return rotationPatchFromQuaternion(quaternionForShape(outer).multiply(quaternionForShape(inner)));
 }
 
-function quaternionForShape(shape: ShapeRotation) {
+export function quaternionForShape(shape: ShapeRotation) {
   return new THREE.Quaternion().setFromEuler(
     new THREE.Euler(
       THREE.MathUtils.degToRad(shape.rotationX ?? 0),
