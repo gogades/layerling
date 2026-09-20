@@ -234,6 +234,7 @@ type WorkplaneViewportProps = {
   modifierActive?: boolean;
   modifierPreviewActive?: boolean;
   modifierEdges?: CadModifierEdge[];
+  modifierHighlightedEdgeIds?: number[];
   selectedModifierEdgeIds?: number[];
   onModifierEdgeToggle?: (id: number, singleEdge: boolean) => void;
   themePreference?: AppThemePreference;
@@ -2830,6 +2831,7 @@ export function WorkplaneViewport({
   modifierActive = false,
   modifierPreviewActive = false,
   modifierEdges = [],
+  modifierHighlightedEdgeIds = [],
   selectedModifierEdgeIds = [],
   onModifierEdgeToggle,
   themePreference = "system",
@@ -2959,8 +2961,8 @@ export function WorkplaneViewport({
 
   useEffect(() => {
     modifierEdgesRef.current = modifierEdges;
-    rebuildModifierEdges(threeRef.current, modifierEdges, selectedModifierEdgeIds, modifierPreviewActive, hoverModifierEdgeId);
-  }, [hoverModifierEdgeId, modifierEdges, modifierPreviewActive, selectedModifierEdgeIds]);
+    rebuildModifierEdges(threeRef.current, modifierEdges, selectedModifierEdgeIds, modifierPreviewActive, hoverModifierEdgeId, modifierHighlightedEdgeIds);
+  }, [hoverModifierEdgeId, modifierEdges, modifierHighlightedEdgeIds, modifierPreviewActive, selectedModifierEdgeIds]);
 
   const resolvedThemeRef = useRef(resolvedTheme);
   resolvedThemeRef.current = resolvedTheme;
@@ -7324,26 +7326,35 @@ function rebuildShapes(
   state.needsRender = true;
 }
 
-function modifierEdgeMaterialStyle(active: boolean, hovered: boolean, previewActive: boolean) {
+function modifierEdgeMaterialStyle(active: boolean, hovered: boolean, previewActive: boolean, belowThreshold = false) {
   const subduedSelectedPreviewEdge = previewActive && active && !hovered;
   return {
-    color: active ? (hovered ? "#ffbf45" : "#ff8a1d") : hovered ? "#84edff" : "#17b7e5",
-    opacity: subduedSelectedPreviewEdge ? 0.18 : active || hovered ? 1 : 0.72,
+    color: active ? (hovered ? "#ffbf45" : "#ff8a1d") : hovered ? "#84edff" : belowThreshold ? "#4d7f91" : "#17b7e5",
+    opacity: subduedSelectedPreviewEdge ? 0.18 : active || hovered ? 1 : belowThreshold ? 0.35 : 0.72,
     linewidth: active || hovered ? 3 : 1,
   };
 }
 
-function rebuildModifierEdges(state: ThreeState | null, edges: CadModifierEdge[], selectedIds: number[], previewActive = false, hoverId: number | null = null) {
+function rebuildModifierEdges(
+  state: ThreeState | null,
+  edges: CadModifierEdge[],
+  selectedIds: number[],
+  previewActive = false,
+  hoverId: number | null = null,
+  highlightedIds: number[] = [],
+) {
   if (!state) return;
   disposeChildren(state.modifierLayer);
   const selected = new Set(selectedIds);
+  const highlighted = new Set(highlightedIds);
   edges.forEach((edge) => {
     if (edge.points.length < 6) return;
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(edge.points, 3));
     const active = selected.has(edge.id);
     const hovered = hoverId === edge.id;
-    const style = modifierEdgeMaterialStyle(active, hovered, previewActive);
+    const belowThreshold = !active && !hovered && !highlighted.has(edge.id);
+    const style = modifierEdgeMaterialStyle(active, hovered, previewActive, belowThreshold);
     const material = new THREE.LineBasicMaterial({
       color: style.color,
       depthTest: false,

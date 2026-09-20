@@ -358,6 +358,7 @@ export const MESSAGES_EN = {
   "status.rulerNotSolid": "A ruler isn't a solid and doesn't count here",
   "status.selectHighlightedEdges": "Select highlighted edges, then adjust the preview",
   "status.sharpAngleLowered": "No edge matched the threshold - it is now {angle}°",
+  "status.sharpAngleLoweredForEdge": "Threshold lowered to {angle}° so the clicked edge counts",
   "status.selectOneToSeparate": "Select one object to separate",
   "status.selectSketchShape": "Select one shape created from a sketch to edit it",
   "status.selectedAllVisible": "Selected all visible shapes",

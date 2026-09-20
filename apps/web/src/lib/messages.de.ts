@@ -357,6 +357,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "status.rulerNotSolid": "Ein Lineal ist kein Körper und zählt hier nicht mit",
   "status.selectHighlightedEdges": "Wähle die hervorgehobenen Kanten und passe dann die Vorschau an",
   "status.sharpAngleLowered": "Keine Kante war so scharf wie die Schwelle - sie steht jetzt auf {angle}°",
+  "status.sharpAngleLoweredForEdge": "Schwelle auf {angle}° gesenkt, damit die angeklickte Kante zählt",
   "status.selectOneToSeparate": "Wähle ein Objekt zum Trennen",
   "status.selectSketchShape": "Wähle eine aus einer Skizze entstandene Form, um sie zu bearbeiten",
   "status.selectedAllVisible": "Alle sichtbaren Formen ausgewählt",

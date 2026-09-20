@@ -6,6 +6,7 @@ import {
   CAD_MODIFIER_RUNTIME_BASE,
   CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT,
   cadModifierBaseDeflection,
+  cadModifierCandidateEdge,
   cadModifierPrepareCostMs,
   cadModifierPrepareTimeoutMs,
   cadModifierTessellationDeflection,
@@ -132,6 +133,24 @@ describe("CAD modifier runtime state", () => {
     expect(cadModifierTopologyEdgeIsSelectable(hiddenDetailEdge)).toBe(true);
     expect(selectableCadModifierEdge(hiddenDetailEdge, 25)).toBe(true);
     expect(selectableCadModifierEdge(hiddenDetailEdge, 60)).toBe(false);
+  });
+
+  it("keeps a shallow-angle edge pickable independent of the sharp-angle slider (Forum: Verrundung erst nach Schieberegler)", () => {
+    const shallowEdge = { selectable: true, manifold: true, boundary: false, angle: 8 };
+
+    // Unter der Schwelle nicht in der Vorauswahl - aber grundsaetzlich verrundbar.
+    expect(selectableCadModifierEdge(shallowEdge, 25)).toBe(false);
+    expect(cadModifierCandidateEdge(shallowEdge)).toBe(true);
+  });
+
+  it("still excludes edges that are structurally unusable, not just below the threshold", () => {
+    const nonManifoldEdge = { selectable: true, manifold: false, boundary: false, angle: 45 };
+    const boundaryEdge = { selectable: true, manifold: true, boundary: true, angle: 45 };
+    const unselectableEdge = { selectable: false, manifold: true, boundary: false, angle: 45 };
+
+    expect(cadModifierCandidateEdge(nonManifoldEdge)).toBe(false);
+    expect(cadModifierCandidateEdge(boundaryEdge)).toBe(false);
+    expect(cadModifierCandidateEdge(unselectableEdge)).toBe(false);
   });
 });
 

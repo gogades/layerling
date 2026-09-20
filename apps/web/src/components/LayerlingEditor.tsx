@@ -98,6 +98,7 @@ import {
   cadModifierPrepareTimeoutMs,
   cadModifierTimeoutMessage,
   cadModifierWorkerFailureMessage,
+  cadModifierCandidateEdge,
   defaultCadModifierTangentChain,
   rescueSharpAngleForEdges,
   selectableCadModifierEdge,
@@ -2275,6 +2276,15 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         ? new RoundedBoxGeometry(width, height, depth, Math.max(1, shape.steps ?? 10), shape.radius)
         : new THREE.BoxGeometry(width, height, depth);
       break;
+    case "ruler":
+      // Reines Messwerkzeug, keine echte Formgeometrie - derselbe schlichte
+      // Quader wie im Live-Viewport (WorkplaneViewport.tsx, case "ruler"),
+      // nur ohne die Tick-Textur, die hier fuer Backen/Export nicht gebraucht
+      // wird. Fehlte dieser Fall, fiel ein bei 45 Grad gebackenes Lineal auf
+      // die falsche "sketch"-Ersatzgeometrie zurueck (Forum: kaputtes Netz
+      // nach schraeger Drehung).
+      geometry = new THREE.BoxGeometry(width, height, depth);
+      break;
     case "cylinder":
     case "ellipse":
       geometry = createPrismGeometry(width, height, depth, roundSideCount(shape.sides, width, depth), shape.segments ?? 1);
@@ -4052,7 +4062,7 @@ function cuboidsToMesh(name: string, cuboids: Cuboid[], centerX: number, centerZ
   return { name, vertices, faces };
 }
 
-function booleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
+function booleanMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   const solids = selection.filter((shape) => !shape.hole && !shape.locked);
   const holes = selection.filter((shape) => shape.hole);
   if (solids.length === 0 || holes.length === 0) {
@@ -4126,7 +4136,7 @@ function booleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
       groupedBaseWidth: width,
       groupedBaseDepth: depth,
       groupedBaseHeight: height,
-      groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+      groupedShapes: (groupChildren ?? selection).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
       locked: false,
       hidden: false,
     };
@@ -4140,6 +4150,7 @@ function resultGeometryToMeshShape(
   solids: WorkplaneShape[],
   geometry: THREE.BufferGeometry,
   idPrefix: string,
+  groupChildren?: WorkplaneShape[],
 ): WorkplaneShape | null {
   const resultPositions = positionsFromGeometryDrawRange(geometry);
   const groupBounds = boundsForPositions(resultPositions);
@@ -4188,7 +4199,7 @@ function resultGeometryToMeshShape(
     groupedBaseWidth: width,
     groupedBaseDepth: depth,
     groupedBaseHeight: height,
-    groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+    groupedShapes: (groupChildren ?? selection).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
     locked: false,
     hidden: false,
   };
@@ -4451,7 +4462,7 @@ function positionsInteriorTriangleCount(positions: number[], cutters: WorkplaneS
   return count;
 }
 
-function meshPositionsToGroupShape(selection: WorkplaneShape[], solids: WorkplaneShape[], positions: number[], idPrefix: string): WorkplaneShape | null {
+function meshPositionsToGroupShape(selection: WorkplaneShape[], solids: WorkplaneShape[], positions: number[], idPrefix: string, groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   if (positions.length < 9) {
     return null;
   }
@@ -4517,7 +4528,7 @@ function meshPositionsToGroupShape(selection: WorkplaneShape[], solids: Workplan
     groupedBaseWidth: width,
     groupedBaseDepth: depth,
     groupedBaseHeight: height,
-    groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+    groupedShapes: (groupChildren ?? selection).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
     locked: false,
     hidden: false,
   };
@@ -4584,7 +4595,7 @@ function disposeManifold(value: unknown) {
   (value as { delete?: () => void } | null)?.delete?.();
 }
 
-async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { requireImported?: boolean; idPrefix?: string } = {}): Promise<WorkplaneShape | null> {
+async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { requireImported?: boolean; idPrefix?: string } = {}, groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
   // GROUPING SAFETY NOTE FOR FUTURE AGENTS:
   // Imported STL + hole grouping stays on exact boolean first. Rotated cutters
   // are validated against their real oriented volume, not their broad AABB.
@@ -4638,7 +4649,7 @@ async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { 
       }
     }
 
-    const group = meshPositionsToGroupShape(selection, solids, positions, options.idPrefix ?? "grouped-manifold-cut");
+    const group = meshPositionsToGroupShape(selection, solids, positions, options.idPrefix ?? "grouped-manifold-cut", groupChildren);
     const usable = isUsableBooleanGroup(group, sourceMesh.faces.length);
     const changedEnough = sourceCutTriangles > 0 || !looksLikeUnchangedBooleanResult(group, sourceMesh.faces.length, true);
     if (!usable || !changedEnough) {
@@ -4652,7 +4663,7 @@ async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { 
   }
 }
 
-async function manifoldUnionMeshShape(selection: WorkplaneShape[]): Promise<WorkplaneShape | null> {
+async function manifoldUnionMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
   const solids = selection.filter((shape) => !shape.hole && !shape.locked);
   if (solids.length < 2 || !selection.some((shape) => Boolean(shape.importedMesh))) {
     return null;
@@ -4677,7 +4688,7 @@ async function manifoldUnionMeshShape(selection: WorkplaneShape[]): Promise<Work
 
     const outputMesh = result.getMesh();
     const positions = manifoldMeshToPositions(outputMesh);
-    const group = meshPositionsToGroupShape(selection, solids, positions, "grouped-manifold-union");
+    const group = meshPositionsToGroupShape(selection, solids, positions, "grouped-manifold-union", groupChildren);
     return isUsableBooleanGroup(group, mergedSourceMesh.faces.length, false) ? group : null;
   } catch {
     return null;
@@ -4858,7 +4869,7 @@ function clearsImportedCutVolume(geometry: THREE.BufferGeometry, sourceInteriorT
   return remainingInteriorTriangles <= Math.max(4, Math.floor(sourceInteriorTriangles * 0.05));
 }
 
-function importedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
+function importedBooleanMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   const solids = selection.filter((shape) => !shape.hole && !shape.locked);
   const holes = selection.filter((shape) => shape.hole);
   if (solids.length === 0 || holes.length === 0 || !selection.some((shape) => Boolean(shape.importedMesh))) {
@@ -4906,7 +4917,7 @@ function importedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape |
         result.updateMatrixWorld(true);
       });
 
-      const group = resultGeometryToMeshShape(selection, solids, result.geometry, attempt.idPrefix);
+      const group = resultGeometryToMeshShape(selection, solids, result.geometry, attempt.idPrefix, groupChildren);
       const resultPositions = positionsFromGeometryDrawRange(result.geometry);
       const resultChanged = geometryDiffersFromMeshData(result.geometry, mergedSolidMesh);
       const hasOpenCutBoundary = hasImportedHole && introducesOpenCutBoundary(resultPositions, mergedSolidMesh, operationHoles.map(paddedCutterShape));
@@ -4926,7 +4937,7 @@ function importedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape |
   return null;
 }
 
-function boxedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
+function boxedBooleanMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   const solids = selection.filter((shape) => !shape.hole && shape.kind === "box" && !shape.locked);
   const holes = selection.filter((shape) => shape.hole && shape.kind === "box");
   if (solids.length === 0 || holes.length === 0) {
@@ -4974,7 +4985,7 @@ function boxedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | nu
     groupedBaseWidth: width,
     groupedBaseDepth: depth,
     groupedBaseHeight: height,
-    groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+    groupedShapes: (groupChildren ?? selection).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
     locked: false,
     hidden: false,
   };
@@ -5184,7 +5195,7 @@ function cutFullyConsumesSolids(selection: WorkplaneShape[]) {
   });
 }
 
-function mergedMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
+function mergedMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   const groupable = selection.filter((shape) => !shape.locked);
   if (groupable.length < 2) {
     return null;
@@ -5265,7 +5276,7 @@ function mergedMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
     groupedBaseWidth: width,
     groupedBaseDepth: depth,
     groupedBaseHeight: height,
-    groupedShapes: groupable.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+    groupedShapes: (groupChildren ?? groupable).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
     locked: false,
     hidden: false,
   };
@@ -5439,17 +5450,23 @@ async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Prom
   const hasHole = booleanSelection.some((shape) => shape.hole);
   const hasImportedMesh = booleanSelection.some((shape) => Boolean(shape.importedMesh));
   const boxBooleanSelection = hasSolid && hasHole ? expandGroupsForBoxBoolean(groupable) : [];
-  const cleanBoxGroup = canUseBoxBoolean(boxBooleanSelection) ? boxedBooleanMeshShape(boxBooleanSelection) : null;
-  const manifoldCutGroup = hasSolid && hasHole ? await manifoldBooleanMeshShape(booleanSelection, { requireImported: false }) : null;
-  const manifoldImportedMerge = hasImportedMesh && hasSolid && !hasHole ? await manifoldUnionMeshShape(booleanSelection) : null;
-  const exactImportedGroup = hasImportedMesh && hasSolid && hasHole ? manifoldCutGroup ?? importedBooleanMeshShape(booleanSelection) : null;
-  const bakedImportedMerge = hasImportedMesh && !(hasSolid && hasHole) ? manifoldImportedMerge ?? mergedMeshShape(booleanSelection) : null;
+  // Der Boolesche Kern rechnet auf der geflachten Auswahl, aber das Ergebnis
+  // soll trotzdem die urspruenglichen, ungeflachten Formen als seine
+  // "groupedShapes" tragen - sonst geht eine mitgebrachte Gruppe (z. B. vier
+  // gruppierte Gewinde) beim Vereinigen verloren, weil sie ab da nur noch
+  // als vier einzelne Kinder existiert (Forum: Gruppe verschwindet beim
+  // Aufloesen einer Vereinigung, die eine Gewinde-Gruppe enthielt).
+  const cleanBoxGroup = canUseBoxBoolean(boxBooleanSelection) ? boxedBooleanMeshShape(boxBooleanSelection, groupable) : null;
+  const manifoldCutGroup = hasSolid && hasHole ? await manifoldBooleanMeshShape(booleanSelection, { requireImported: false }, groupable) : null;
+  const manifoldImportedMerge = hasImportedMesh && hasSolid && !hasHole ? await manifoldUnionMeshShape(booleanSelection, groupable) : null;
+  const exactImportedGroup = hasImportedMesh && hasSolid && hasHole ? manifoldCutGroup ?? importedBooleanMeshShape(booleanSelection, groupable) : null;
+  const bakedImportedMerge = hasImportedMesh && !(hasSolid && hasHole) ? manifoldImportedMerge ?? mergedMeshShape(booleanSelection, groupable) : null;
   const group = hasSolid && hasHole
     ? cleanBoxGroup ??
       exactImportedGroup ??
       (hasImportedMesh
         ? null
-        : manifoldCutGroup ?? booleanMeshShape(booleanSelection))
+        : manifoldCutGroup ?? booleanMeshShape(booleanSelection, groupable))
     : hasImportedMesh
       ? bakedImportedMerge ?? groupedShape(groupable)
       : groupedShape(groupable);
@@ -6316,6 +6333,13 @@ export function LayerlingEditor({
     () => edgeModifier ? edgeModifier.edges.filter((edge) => selectableCadModifierEdge(edge, edgeModifier.sharpAngle)).map((edge) => edge.id) : [],
     [edgeModifier?.edges, edgeModifier?.sharpAngle],
   );
+  // Alle grundsaetzlich verrundbaren Kanten, unabhaengig von der Schwelle -
+  // damit eine feinere Kante im 3D-Bild sicht- und anklickbar bleibt, statt
+  // erst nach manuellem Verschieben des Schiebereglers aufzutauchen.
+  const modifierCandidateEdgeIds = useMemo(
+    () => edgeModifier ? edgeModifier.edges.filter(cadModifierCandidateEdge).map((edge) => edge.id) : [],
+    [edgeModifier?.edges],
+  );
   const edgeModifierMaxAmount = useMemo(() => {
     const source = cadModifierBaseShapeRef.current ?? selectedShape;
     if (!source) return 10;
@@ -6330,16 +6354,30 @@ export function LayerlingEditor({
     [selectedShape, selectedShapes.length],
   );
   const toggleModifierEdge = useCallback((id: number, singleEdge = false) => {
-    setEdgeModifier((current) => {
-      if (!current || current.busy) return current;
-      const allowed = new Set(current.edges.filter((edge) => selectableCadModifierEdge(edge, current.sharpAngle)).map((edge) => edge.id));
-      if (!allowed.has(id)) return current;
-      const ids = current.tangentChain && !singleEdge ? tangentCadEdgeChain(current.edges, id, allowed) : [id];
-      const next = new Set(current.selectedEdgeIds);
-      const remove = ids.every((edgeId) => next.has(edgeId));
-      ids.forEach((edgeId) => remove ? next.delete(edgeId) : next.add(edgeId));
-      return { ...current, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : t("edge.selectAtLeastOne") };
-    });
+    // Nebenwirkungen (setNotice) hier im Funktionskoerper, nicht im
+    // setState-Updater - der laeuft unter React StrictMode doppelt.
+    const current = edgeModifierRef.current;
+    if (!current || current.busy) return;
+    let sharpAngle = current.sharpAngle;
+    let allowed = new Set(current.edges.filter((edge) => selectableCadModifierEdge(edge, sharpAngle)).map((edge) => edge.id));
+    let notice: string | null = null;
+    if (!allowed.has(id)) {
+      // Die angeklickte Kante ist grundsaetzlich verrundbar, liegt nur unter
+      // der aktuellen Schwelle - dieselbe Rettung wie beim Vorbereiten, nur
+      // gezielt fuer genau diese Kante statt fuer "irgendeine".
+      const clicked = current.edges.find((edge) => edge.id === id);
+      if (!clicked || !cadModifierCandidateEdge(clicked)) return;
+      sharpAngle = Math.max(1, Math.min(current.sharpAngle, Math.floor(clicked.angle)));
+      allowed = new Set(current.edges.filter((edge) => selectableCadModifierEdge(edge, sharpAngle)).map((edge) => edge.id));
+      if (!allowed.has(id)) return;
+      notice = t("status.sharpAngleLoweredForEdge", { angle: sharpAngle });
+    }
+    const ids = current.tangentChain && !singleEdge ? tangentCadEdgeChain(current.edges, id, allowed) : [id];
+    const next = new Set(current.selectedEdgeIds);
+    const remove = ids.every((edgeId) => next.has(edgeId));
+    ids.forEach((edgeId) => remove ? next.delete(edgeId) : next.add(edgeId));
+    setEdgeModifier((latest) => latest ? { ...latest, sharpAngle, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : t("edge.selectAtLeastOne") } : latest);
+    if (notice) setNotice(notice, true);
   }, []);
   const exportableShapeCount = useMemo(() => (hasSelection ? selectedShapes : shapes).filter((shape) => !shape.hole).length, [hasSelection, selectedShapes, shapes]);
   const exportScopeLabel = hasSelection ? "selected" : "total";
@@ -10216,7 +10254,8 @@ export function LayerlingEditor({
           onWorkplaneModeChange={closeViewportWorkplaneMode}
           modifierActive={Boolean(edgeModifier)}
           modifierPreviewActive={Boolean(edgeModifier?.preview)}
-          modifierEdges={edgeModifier?.edges.filter((edge) => modifierAvailableEdgeIds.includes(edge.id)) ?? []}
+          modifierEdges={edgeModifier?.edges.filter((edge) => modifierCandidateEdgeIds.includes(edge.id)) ?? []}
+          modifierHighlightedEdgeIds={modifierAvailableEdgeIds}
           selectedModifierEdgeIds={edgeModifier?.selectedEdgeIds ?? []}
           onModifierEdgeToggle={toggleModifierEdge}
           themePreference={themePreference}

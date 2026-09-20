@@ -133,6 +133,20 @@ export function selectableCadModifierEdge(
   return edge.selectable && edge.manifold && !edge.boundary && edge.angle + 1e-3 >= sharpAngle;
 }
 
+/**
+ * Dieselbe Kante, ohne die Schwelle - jede Kante, die grundsaetzlich
+ * verrundbar waere, unabhaengig davon, ob der Schieberegler sie gerade
+ * zeigt. Damit bleibt eine feinere Kante als die Vorgabe im 3D-Bild sicht-
+ * und anklickbar, statt bis zum manuellen Verschieben des Reglers unsichtbar
+ * zu sein (Forum: "Verrundung funktioniert manchmal erst, nachdem man den
+ * Schieberegler bewegt hat").
+ */
+export function cadModifierCandidateEdge(
+  edge: Pick<CadModifierEdge, "selectable" | "manifold" | "boundary">,
+) {
+  return edge.selectable && edge.manifold && !edge.boundary;
+}
+
 export function edgeModifierSelectionStatus(prepared: boolean, selectedCount: number, availableCount: number) {
   return prepared
     ? t("edge.selectionStatus", { selected: selectedCount, available: availableCount })
