@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.12.2
+
+- Selecting a single shape now keeps its width, depth and height on screen right on the shape itself - diameter and height for a cylinder - instead of only showing up while hovering or dragging a resize handle. Each one stays click-to-edit exactly as before: click the number, type a new one, done. Requested on the forum, after Tinkercad, where a selected body's full dimensions are always readable and editable in place without opening a side panel.
+
 ## 1.12.1
 
 - layerling now notices on its own when a newer version has been published on GitHub. Running a self-hosted instance, or just returning to the browser app after a while, made it easy to miss recent fixes and new features unless someone checked the repository by hand. A quiet check against GitHub's public releases API now runs in the background on start: if the latest published release carries a higher version than the running build, a dismissible banner appears at the top of the dashboard, and the version label in the footer gains a small badge linking straight to the release notes. The check is cached for an hour so it never runs into GitHub's rate limits, and it fails completely silently when offline; dismissing the banner is remembered for the rest of the session so it never gets in the way of working on a design.
