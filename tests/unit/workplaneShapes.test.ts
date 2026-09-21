@@ -142,6 +142,18 @@ describe("workplane shape helpers", () => {
     expect(shapeHasShapeDeform(gearTwisted)).toBe(false);
   });
 
+  it("treats a twist/lean-only change as a real difference, not a no-op patch", () => {
+    // workplaneShapesEqual gates whether an inspector edit actually commits
+    // (LayerlingEditor.tsx's updateShape returns the old shape untouched when
+    // it reports true) - missing these three fields made every drag on the
+    // Twist & Lean sliders silently revert, the slider looking unresponsive.
+    const plain = shape();
+    expect(workplaneShapesEqual(plain, shape({ extrudeTwist: 45 }))).toBe(false);
+    expect(workplaneShapesEqual(plain, shape({ extrudeTopOffsetX: 5 }))).toBe(false);
+    expect(workplaneShapesEqual(plain, shape({ extrudeTopOffsetZ: -5 }))).toBe(false);
+    expect(workplaneShapesEqual(plain, shape())).toBe(true);
+  });
+
   it("canonicalizes mirror flags and nested group rotations", () => {
     const canonical = canonicalizeShape(
       shape({

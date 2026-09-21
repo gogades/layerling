@@ -422,6 +422,9 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.taperBottomDepth === b.taperBottomDepth &&
     a.taperTopScale === b.taperTopScale &&
     a.taperBottomScale === b.taperBottomScale &&
+    a.extrudeTwist === b.extrudeTwist &&
+    a.extrudeTopOffsetX === b.extrudeTopOffsetX &&
+    a.extrudeTopOffsetZ === b.extrudeTopOffsetZ &&
     a.teeth === b.teeth &&
     a.toothSize === b.toothSize &&
     a.toothWidth === b.toothWidth &&
