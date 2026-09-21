@@ -4,6 +4,14 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.11.0
+
+- Selecting a single body now keeps two floating lines on screen, showing its distance to the X and Z axis of the active workplane - the always-visible measurement several forum posters asked for by name, wanting to place a body precisely without a ruler object in the way. It steps aside the moment anything else already owns the screen (dragging, resizing, aligning, mirroring, the tape measure, edge editing) or more than one body is selected, and a body straddling an axis loses only that one line rather than showing a guess. A new setting turns it off for anyone who finds it distracting.
+
+- A second, genuinely bodiless ruler joins the tape measure and the straight one: a corner tool, the kind Tinkercad has, that drops onto the workplane with a single click and draws two ticked arms meeting at a right angle, ticks facing outward the same way Tinkercad's do. Drag its handle to move it, click the handle to turn it 90°, and a small × removes it again. Like the straight ruler, any body touching one of its arms gets its size along that arm shown as a floating number - but unlike the straight ruler, it is not a body at all: nothing to select, group, export or cast a shadow, so placing one never touches the shape list or the undo history, and by the same design it does not survive a reload, the same trade-off the tape measure already makes.
+
+- The quick guide's **Measuring** section now explains the corner ruler too, between the tape measure and the straight one.
+
 ## 1.10.3
 
 - An edge below the angle-detection slider's current threshold wasn't drawn in the edge tool at all, so clicking it did nothing until the slider was dragged down by hand - reported in the forum as fillets only taking effect after touching the slider. Every edge that could in principle be rounded or chamfered now stays visible, dimmed below the threshold, and clickable; clicking one lowers the threshold to its own angle automatically instead of requiring a manual drag first.
