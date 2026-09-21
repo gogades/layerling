@@ -105,6 +105,17 @@ export function shapeSupportsTaper(kind: WorkplaneShape["kind"]) {
 }
 
 /**
+ * Reine Messwerkzeuge ohne echtes CAD-Volumen - technisch eine `WorkplaneShape`,
+ * aber ueberall dort ausgeschlossen, wo ein echter Koerper vorausgesetzt wird
+ * (Gruppieren, Verschneiden, Kantenwerkzeug, Ausfuhr). Eine einzige Stelle
+ * dafuer, weil das gerade Lineal frueher gleich drei getrennte Erlaubnislisten
+ * hatte, die auseinanderliefen - siehe layerling-lineal.md.
+ */
+export function isNonSolidShapeKind(kind: WorkplaneShape["kind"]) {
+  return kind === "ruler";
+}
+
+/**
  * Eine Verjuengung setzen, wie es das Merkmalsfeld tut: Wer einen der beiden
  * Werte einer Kante angibt, schreibt auch den anderen fest und loescht den
  * Massstab. Ohne das liefe die Schwester weiter dem Massstab nach statt dem,

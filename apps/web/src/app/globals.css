@@ -5042,6 +5042,11 @@ button {
   cursor: crosshair;
 }
 
+.workplane-wrap.corner-ruler-mode .three-workplane-host,
+.workplane-wrap.corner-ruler-mode .three-workplane-host:active {
+  cursor: crosshair;
+}
+
 .workplane-wrap.tape-delete-mode .three-workplane-host,
 .workplane-wrap.tape-delete-mode .three-workplane-host:active {
   cursor: default;
@@ -5112,6 +5117,19 @@ button {
 
 .move-dimension-input {
   appearance: textfield;
+}
+
+.origin-dimension-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.origin-dimension-value {
+  pointer-events: none;
+  cursor: default;
+  opacity: 0.92;
 }
 
 /* --- Notizen ---------------------------------------------------------------
@@ -5355,6 +5373,87 @@ button {
   text-align: center;
   pointer-events: none;
   transform: translate(-50%, -50%);
+}
+
+/* --- Winkellineal-Werkzeug ---------------------------------------------
+   Reine Bildschirm-Darstellung wie das Massband, kein Three.js-Objekt und
+   kein Formen-Katalog-Eintrag - der Griff ist immer direkt ziehbar, ohne
+   eigenen Verschieben-Modus. Siehe layerling-lineal.md. */
+.corner-ruler-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.corner-ruler-guides {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.corner-ruler-arm {
+  stroke: #5a3917;
+  stroke-width: 2.2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.corner-ruler-tick {
+  stroke: #8a6a45;
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.corner-ruler-handle {
+  fill: #ffffff;
+  stroke: #b66108;
+  stroke-width: 2.4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+  cursor: grab;
+}
+
+.corner-ruler-handle:active {
+  cursor: grabbing;
+  fill: #f6f1e8;
+  filter: drop-shadow(0 0 4px rgba(129, 67, 0, 0.4));
+}
+
+.corner-ruler-tick-label {
+  position: absolute;
+  z-index: 2;
+  color: #5a3917;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.corner-ruler-delete {
+  position: absolute;
+  z-index: 8;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #b42318;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(238, 155, 146, 0.9);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(58, 40, 20, 0.16);
+  pointer-events: all;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+
+.corner-ruler-delete:hover {
+  background: #fff0ee;
 }
 
 .ruler-dimension-overlay {
@@ -9373,7 +9472,8 @@ html[data-theme="dark"] .language-switch svg {
   }
 
   .camera-controls > .workplane-control-group,
-  .camera-controls > .tape-control-group {
+  .camera-controls > .tape-control-group,
+  .camera-controls > .corner-ruler-control-group {
     order: 2;
   }
 }
