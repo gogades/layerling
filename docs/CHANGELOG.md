@@ -4,6 +4,12 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.12.1
+
+- layerling now notices on its own when a newer version has been published on GitHub. Running a self-hosted instance, or just returning to the browser app after a while, made it easy to miss recent fixes and new features unless someone checked the repository by hand. A quiet check against GitHub's public releases API now runs in the background on start: if the latest published release carries a higher version than the running build, a dismissible banner appears at the top of the dashboard, and the version label in the footer gains a small badge linking straight to the release notes. The check is cached for an hour so it never runs into GitHub's rate limits, and it fails completely silently when offline; dismissing the banner is remembered for the rest of the session so it never gets in the way of working on a design.
+
+- The workplane settings now have a toggle to hide the grid entirely, next to the existing controls for its block size and color - useful for a clean screenshot or just a less busy view while working. The setting already existed under the hood; it only had no switch to reach it from.
+
 ## 1.12.0
 
 - A box- or cylinder-style extrusion can now be twisted and leaned, next to its existing taper: **Twist** rotates the top face relative to the base by up to 720°, and **Width Offset**/**Length Offset** shift it up to 80 mm sideways along either axis - in the properties panel, in shape defaults and through the MCP bridge, everywhere taper already reaches. Contributed from outside the project; reviewing it turned up several places that already gate on taper alone and needed the same treatment for the new deformation to take effect there too, most importantly chamfering or filleting a twisted body, which was silently dropping the twist and working from a plain, undeformed copy instead - fixed before it ever shipped.
