@@ -210,6 +210,27 @@ export function shapeExtrudeDeformAt(shape: WorkplaneShape, normalizedHeight: nu
 }
 
 const THREE_MATH_DEG2RAD = Math.PI / 180;
+const EXTRUDE_TWIST_MAX = 720;
+const EXTRUDE_OFFSET_MAX = 80;
+
+/**
+ * Setzen wie es das Merkmalsfeld tut (dieselben Grenzen wie dessen drei
+ * Schieberegler) - fuer die MCP-Bruecke, nach demselben Vorbild wie
+ * `shapeTaperPatch`: Verdrehung/Neigung gehoert dem einzelnen Koerper, steht
+ * in keiner Formvorgabe und braucht deshalb ihren eigenen Weg dorthin.
+ */
+export function shapeExtrudeDeformPatch(
+  shape: WorkplaneShape,
+  requested: { twist?: number; offsetX?: number; offsetZ?: number },
+): Partial<WorkplaneShape> {
+  if (!shapeSupportsExtrudeDeform(shape.kind)) return {};
+  const patch: Partial<WorkplaneShape> = {};
+  const clamp = (value: number, limit: number) => Math.min(limit, Math.max(-limit, value));
+  if (requested.twist !== undefined) patch.extrudeTwist = clamp(requested.twist, EXTRUDE_TWIST_MAX);
+  if (requested.offsetX !== undefined) patch.extrudeTopOffsetX = clamp(requested.offsetX, EXTRUDE_OFFSET_MAX);
+  if (requested.offsetZ !== undefined) patch.extrudeTopOffsetZ = clamp(requested.offsetZ, EXTRUDE_OFFSET_MAX);
+  return patch;
+}
 
 export function meshYawDegrees(shape: WorkplaneShape) {
   const isRoundPrimitive = !shape.importedMesh && (shape.kind === "cylinder" || shape.kind === "ellipse" || shape.kind === "cone");

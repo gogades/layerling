@@ -17,6 +17,9 @@ import {
   resizedShapeSize,
   serializeShapesForSync,
   shapeDepth,
+  shapeExtrudeDeformAt,
+  shapeHasExtrudeDeform,
+  shapeHasShapeDeform,
   shapeHasTaper,
   shapeOverallFootprintDimensions,
   shapeTransformShouldRemainEditable,
@@ -108,6 +111,35 @@ describe("workplane shape helpers", () => {
     expect(shapeHasTaper(gear)).toBe(false);
     expect(shapeTaperScaleAt(gear, 0.5, "width")).toBe(1);
     expect(shapeTaperScaleAt(gear, 0.5, "depth")).toBe(1);
+  });
+
+  it("treats a twisted or leaning extrusion as the same non-affine deformation category as taper", () => {
+    const plain = shape();
+    expect(shapeHasExtrudeDeform(plain)).toBe(false);
+    expect(shapeHasShapeDeform(plain)).toBe(false);
+
+    const twisted = shape({ extrudeTwist: 90 });
+    expect(shapeHasExtrudeDeform(twisted)).toBe(true);
+    expect(shapeHasShapeDeform(twisted)).toBe(true);
+    expect(shapeExtrudeDeformAt(twisted, 0).twistRadians).toBe(0);
+    expect(shapeExtrudeDeformAt(twisted, 1).twistRadians).toBeCloseTo(Math.PI / 2);
+    expect(shapeExtrudeDeformAt(twisted, 0.5).twistRadians).toBeCloseTo(Math.PI / 4);
+
+    const leaning = shape({ extrudeTopOffsetX: 10, extrudeTopOffsetZ: -4 });
+    expect(shapeHasExtrudeDeform(leaning)).toBe(true);
+    expect(shapeExtrudeDeformAt(leaning, 0.5)).toEqual({ twistRadians: 0, offsetX: 5, offsetZ: -2 });
+
+    // A taper-only shape must keep signalling shapeHasShapeDeform even though
+    // it has no extrude deform of its own - the CAD-primitive gate this backs
+    // (LayerlingEditor.tsx's cadModifierPrimitiveForShape) needs either one.
+    const tapered = shape({ taperTopWidth: 30, taperBottomWidth: 10 });
+    expect(shapeHasExtrudeDeform(tapered)).toBe(false);
+    expect(shapeHasShapeDeform(tapered)).toBe(true);
+
+    // Twist/lean follow the same shape restriction list as taper (no gear, thread, spring, pyramid, ruler).
+    const gearTwisted = shape({ kind: "gear", extrudeTwist: 45 });
+    expect(shapeHasExtrudeDeform(gearTwisted)).toBe(false);
+    expect(shapeHasShapeDeform(gearTwisted)).toBe(false);
   });
 
   it("canonicalizes mirror flags and nested group rotations", () => {

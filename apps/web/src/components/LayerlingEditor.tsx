@@ -81,7 +81,9 @@ import {
   serializeShapesForSync,
   shapeDepth,
   shapeExtrudeDeformAt,
+  shapeExtrudeDeformPatch,
   shapeHasExtrudeDeform,
+  shapeHasShapeDeform,
   shapeHasTaper,
   shapeTaperPatch,
   shapeTransformShouldRemainEditable,
@@ -1771,11 +1773,12 @@ function groupedShapeWithComponentEdgeTreatment(
 ) {
   if (
     !base.groupedShapes?.length ||
-    // A tapered group is sent to CAD as one baked final mesh because the parent
-    // deformation cannot be represented by its untapered child primitives.
-    // Keep the treated result flattened instead of rebuilding a nested group
-    // that would reintroduce the old pre-taper children.
-    shapeHasTaper(base) ||
+    // A tapered or twisted/leaned group is sent to CAD as one baked final mesh
+    // because the parent deformation cannot be represented by its undeformed
+    // child primitives. Keep the treated result flattened instead of
+    // rebuilding a nested group that would reintroduce the old pre-deform
+    // children.
+    shapeHasShapeDeform(base) ||
     !hasOneToOneCadComponentMapping(sourceParts.length, session.componentPreviews.map((component) => component.owner))
   ) {
     return null;
@@ -2534,10 +2537,11 @@ function formatTriangleCount(count: number) {
 }
 
 function cadModifierPrimitiveForShape(shape: WorkplaneShape): CadModifierPrimitivePart | null {
-  // Taper is a non-affine deformation, so an analytic primitive or stored BREP
-  // cannot represent the final visible surface. Send the baked mesh to the CAD
-  // worker instead so edge selection/treatment matches the viewport exactly.
-  if (shapeHasTaper(shape)) return null;
+  // Taper, twist and lean are all non-affine deformations, so an analytic
+  // primitive or stored BREP cannot represent the final visible surface.
+  // Send the baked mesh to the CAD worker instead so edge selection/treatment
+  // matches the viewport exactly.
+  if (shapeHasShapeDeform(shape)) return null;
   return cadModifierPrimitiveForBakedShape(shape)
     ?? (shapeHasTransformToBake(shape) ? cadModifierPrimitiveForAnalyticBox(shape) : null);
 }
@@ -5683,6 +5687,20 @@ function mcpTaperPatch(shape: WorkplaneShape, params: Record<string, unknown>, m
 }
 
 /**
+ * Verdrehung und Neigung sind wie die Verjuengung Eigenschaften des einzelnen
+ * Koerpers, nicht der Formvorgabe - derselbe eigene Weg wie `mcpTaperPatch`,
+ * sonst nimmt die Bruecke die drei Werte zwar in ihr Schema auf, setzt sie
+ * aber nie tatsaechlich am Koerper.
+ */
+function mcpExtrudeDeformPatch(shape: WorkplaneShape, params: Record<string, unknown>): Partial<WorkplaneShape> {
+  return shapeExtrudeDeformPatch(shape, {
+    twist: mcpOptionalNumber(params.extrudeTwist),
+    offsetX: mcpOptionalNumber(params.extrudeTopOffsetX),
+    offsetZ: mcpOptionalNumber(params.extrudeTopOffsetZ),
+  });
+}
+
+/**
  * Ein Gewinde haengt an seinem Durchmesser: Breite und Tiefe gehoeren ihm, nicht
  * umgekehrt. Alle Gewindewerte gehen deshalb einmal durch `threadSettings` -
  * das ist dieselbe Pruefung wie im Merkmalsfeld - und der Platzbedarf wird neu
@@ -8002,7 +8020,7 @@ export function LayerlingEditor({
     invalidateCadModifierSession();
     const appliedEdgeTreatmentCount = edgeTreatmentFeatureCount(selectedShape);
     const hasAppliedEdgeTreatment = Boolean(selectedShape.importedMesh && selectedShape.edgeTreatments?.length);
-    const sourceParts = (selectedShape.groupedShapes?.length && !hasAppliedEdgeTreatment && !shapeHasTaper(selectedShape)
+    const sourceParts = (selectedShape.groupedShapes?.length && !hasAppliedEdgeTreatment && !shapeHasShapeDeform(selectedShape)
       ? restoreGroupedChildren(selectedShape)
       : [selectedShape]).flatMap(cadModifierSourceParts);
     const partInputs: Array<{ shape: WorkplaneShape; mesh?: MeshData; brep?: string; brepTransform?: number[]; primitive?: CadModifierPrimitivePart }> = sourceParts.map((shape) => {
@@ -8012,7 +8030,7 @@ export function LayerlingEditor({
         Math.abs(shapeDepth(shape) - (frame?.depth ?? shapeDepth(shape))) > 1e-6 ||
         Math.abs(shape.height - (frame?.height ?? shape.height)) > 1e-6
       );
-      if (shapeHasTaper(shape)) return { shape, mesh: meshForShape(shape) };
+      if (shapeHasShapeDeform(shape)) return { shape, mesh: meshForShape(shape) };
       const primitive = cadModifierPrimitiveForShape(shape);
       if (primitive) return { shape, primitive };
       return shape.cadBrep && frame && !preserveNeedsRetessellation
@@ -8085,7 +8103,7 @@ export function LayerlingEditor({
     }
     const appliedEdgeTreatmentCount = edgeTreatmentFeatureCount(shape);
     const hasAppliedEdgeTreatment = Boolean(shape.importedMesh && shape.edgeTreatments?.length);
-    const sourceParts = (shape.groupedShapes?.length && !hasAppliedEdgeTreatment && !shapeHasTaper(shape)
+    const sourceParts = (shape.groupedShapes?.length && !hasAppliedEdgeTreatment && !shapeHasShapeDeform(shape)
       ? restoreGroupedChildren(shape)
       : [shape]).flatMap(cadModifierSourceParts);
     const partInputs: Array<{ shape: WorkplaneShape; mesh?: MeshData; brep?: string; brepTransform?: number[]; primitive?: CadModifierPrimitivePart }> = sourceParts.map((partShape) => {
@@ -8095,7 +8113,7 @@ export function LayerlingEditor({
         Math.abs(shapeDepth(partShape) - (frame?.depth ?? shapeDepth(partShape))) > 1e-6 ||
         Math.abs(partShape.height - (frame?.height ?? partShape.height)) > 1e-6
       );
-      if (shapeHasTaper(partShape)) return { shape: partShape, mesh: meshForShape(partShape) };
+      if (shapeHasShapeDeform(partShape)) return { shape: partShape, mesh: meshForShape(partShape) };
       const primitive = cadModifierPrimitiveForShape(partShape);
       if (primitive) return { shape: partShape, primitive };
       return partShape.cadBrep && frame && !preserveNeedsRetessellation
@@ -8793,6 +8811,7 @@ export function LayerlingEditor({
             shape = applyMcpThreadSettings(shape, params, true);
           }
           shape = { ...shape, ...mcpTaperPatch(shape, params, shapeDimensionLimit(workspaceSettingsRef.current, shape.kind, DEFAULT_TAPER_DIMENSION_MAX)) };
+          shape = { ...shape, ...mcpExtrudeDeformPatch(shape, params) };
         } else {
           throw new Error(`MCP create_shape does not know a shape called "${rawKind}"`);
         }
@@ -8897,6 +8916,7 @@ export function LayerlingEditor({
         // Die Verjuengung liest sich aus demselben Objekt, das der Befehl gerade
         // umbaut - erst Breite und Tiefe anwenden, dann die Kanten darauf.
         Object.assign(patch, mcpTaperPatch({ ...target, ...patch }, params, shapeDimensionLimit(workspaceSettingsRef.current, target.kind, DEFAULT_TAPER_DIMENSION_MAX)));
+        Object.assign(patch, mcpExtrudeDeformPatch({ ...target, ...patch }, params));
         if (target.kind === "thread") {
           // Der Durchmesser zieht den Platzbedarf mit - sonst macht die
           // Vereinheitlichung die Aenderung gleich wieder rueckgaengig. Und ein
