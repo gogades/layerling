@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.12.3
+
+- A cylinder or cone sent to the edge tool is no longer tessellated into a faceted mesh first - it now reconstructs the exact cylindrical or conical surface before filleting or chamfering, the same way a box already did. This resolves a case reported on the forum: a small fillet on the sloped rim of a tapered cone (a 38/60 mm truncated cone) failed outright even though the edge itself was found cleanly, because the facet size on that mesh lost the race against the fillet's own space requirement on the acute side of the taper - documented at the time as a structural limit of the meshing approach, not something a small patch could reach. Rounding at 90°, on a plain box or hexagonal prism, was never affected by this.
+
 ## 1.12.2
 
 - Selecting a single shape now keeps its width, depth and height on screen right on the shape itself - diameter and height for a cylinder - instead of only showing up while hovering or dragging a resize handle. Each one stays click-to-edit exactly as before: click the number, type a new one, done. Requested on the forum, after Tinkercad, where a selected body's full dimensions are always readable and editable in place without opening a side panel.
