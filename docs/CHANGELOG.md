@@ -4,6 +4,14 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.12.0
+
+- A box- or cylinder-style extrusion can now be twisted and leaned, next to its existing taper: **Twist** rotates the top face relative to the base by up to 720°, and **Width Offset**/**Length Offset** shift it up to 80 mm sideways along either axis - in the properties panel, in shape defaults and through the MCP bridge, everywhere taper already reaches. Contributed from outside the project; reviewing it turned up several places that already gate on taper alone and needed the same treatment for the new deformation to take effect there too, most importantly chamfering or filleting a twisted body, which was silently dropping the twist and working from a plain, undeformed copy instead - fixed before it ever shipped.
+
+- A workplane set at an angle now actually reaches a sketch drawn for a revolve, the way it already worked for an extrusion - turn a face 90° to sketch a body meant to be spun into a bottle or a knob, say, and it revolves in place instead of needing to be turned back into position by hand afterward. Switching workplanes, or clearing one back to the base plane, is undo/redo-able now too, like any other edit. Both reported in the forum.
+
+- A long status message - the explanation for why an edge treatment or a boolean operation was just refused, say - no longer gets cut off with an ellipsis partway through; it wraps onto more than one line, and hovering it shows the same text again as a native tooltip for a quick re-read. Reported on GitHub.
+
 ## 1.11.0
 
 - Selecting a single body now keeps two floating lines on screen, showing its distance to the X and Z axis of the active workplane - the always-visible measurement several forum posters asked for by name, wanting to place a body precisely without a ruler object in the way. It steps aside the moment anything else already owns the screen (dragging, resizing, aligning, mirroring, the tape measure, edge editing) or more than one body is selected, and a body straddling an axis loses only that one line rather than showing a guess. A new setting turns it off for anyone who finds it distracting.
