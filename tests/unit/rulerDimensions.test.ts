@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pointAlongRuler, rulerDimensionMatch, type RulerCandidatePose, type RulerPose } from "@/lib/rulerDimensions";
+import { cornerRulerCorner, cornerRulerDimensionMatches, cornerRulerDimensionMatchesFromCorner, cornerRulerTicks, pointAlongRuler, rulerDimensionMatch, type CornerRulerPose, type RulerCandidatePose, type RulerPose } from "@/lib/rulerDimensions";
 
 function ruler(overrides: Partial<RulerPose> = {}): RulerPose {
   return { x: 0, z: 0, rotation: 0, length: 150, crossWidth: 25, ...overrides };
@@ -69,5 +69,87 @@ describe("pointAlongRuler", () => {
 
     expect(punkt.x).toBeCloseTo(0, 6);
     expect(punkt.z).toBeCloseTo(-30, 6);
+  });
+});
+
+function cornerPose(overrides: Partial<CornerRulerPose> = {}): CornerRulerPose {
+  return { x: 0, z: 0, rotation: 0, armLengthX: 100, armLengthZ: 80, armWidth: 12, ...overrides };
+}
+
+describe("cornerRulerCorner", () => {
+  it("liegt bei Drehung 0 eine halbe Armlaenge je Achse von der Mitte entfernt", () => {
+    const corner = cornerRulerCorner(cornerPose());
+
+    expect(corner.x).toBeCloseTo(-50, 6);
+    expect(corner.z).toBeCloseTo(-40, 6);
+  });
+
+  it("folgt der eigenen Drehung der Form", () => {
+    const corner = cornerRulerCorner(cornerPose({ rotation: 90 }));
+
+    expect(corner.x).toBeCloseTo(-40, 6);
+    expect(corner.z).toBeCloseTo(50, 6);
+  });
+});
+
+describe("cornerRulerDimensionMatches", () => {
+  it("erkennt einen Nachbarn nur am Arm, in dessen Band er liegt", () => {
+    const nearArmX = cornerRulerDimensionMatches(cornerPose(), candidate({ x: 10, z: -40 }));
+
+    expect(nearArmX.armX).not.toBeNull();
+    expect(nearArmX.armX?.extentAlong).toBeCloseTo(20, 6);
+    expect(nearArmX.armZ).toBeNull();
+  });
+
+  it("erkennt denselben Nachbarn am anderen Arm, wenn er dort liegt", () => {
+    const nearArmZ = cornerRulerDimensionMatches(cornerPose(), candidate({ x: -50, z: 10 }));
+
+    expect(nearArmZ.armX).toBeNull();
+    expect(nearArmZ.armZ).not.toBeNull();
+    expect(nearArmZ.armZ?.extentAlong).toBeCloseTo(12, 6);
+  });
+
+  it("meldet keinen Treffer, wenn der Nachbar zu weit von beiden Armen absteht", () => {
+    const weitWeg = cornerRulerDimensionMatches(cornerPose(), candidate({ x: 200, z: 200 }));
+
+    expect(weitWeg.armX).toBeNull();
+    expect(weitWeg.armZ).toBeNull();
+  });
+});
+
+describe("cornerRulerDimensionMatchesFromCorner", () => {
+  it("liefert dasselbe Ergebnis wie cornerRulerDimensionMatches, wenn die Ecke direkt vorliegt", () => {
+    const pose = cornerPose();
+    const corner = cornerRulerCorner(pose);
+    const viaCenter = cornerRulerDimensionMatches(pose, candidate({ x: 10, z: -40 }));
+    const viaCornerDirekt = cornerRulerDimensionMatchesFromCorner(corner, pose.rotation, pose.armLengthX, pose.armLengthZ, pose.armWidth, candidate({ x: 10, z: -40 }));
+
+    expect(viaCornerDirekt.armX?.extentAlong).toBeCloseTo(viaCenter.armX?.extentAlong ?? NaN, 6);
+    expect(viaCornerDirekt.armZ).toBeNull();
+    expect(viaCenter.armZ).toBeNull();
+  });
+});
+
+describe("cornerRulerTicks", () => {
+  it("erzeugt einen Teilstrich je Millimeter, einschliesslich beider Enden", () => {
+    const ticks = cornerRulerTicks(10);
+
+    expect(ticks).toHaveLength(11);
+    expect(ticks[0]).toEqual({ offset: 0, isTen: true, isFive: true });
+    expect(ticks[10]).toEqual({ offset: 10, isTen: true, isFive: true });
+  });
+
+  it("markiert Fuenfer- und Zehner-Teilstriche richtig", () => {
+    const ticks = cornerRulerTicks(12);
+
+    expect(ticks.find((tick) => tick.offset === 5)).toMatchObject({ isFive: true, isTen: false });
+    expect(ticks.find((tick) => tick.offset === 7)).toMatchObject({ isFive: false, isTen: false });
+    expect(ticks.find((tick) => tick.offset === 12)).toMatchObject({ isFive: false, isTen: false });
+  });
+
+  it("liefert nur den Nullstrich fuer eine Laenge von 0", () => {
+    const ticks = cornerRulerTicks(0);
+
+    expect(ticks).toEqual([{ offset: 0, isTen: true, isFive: true }]);
   });
 });

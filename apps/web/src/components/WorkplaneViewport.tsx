@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Crosshair, Cuboid, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Rotate3d, RulerDimensionLine, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crosshair, Cuboid, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Rotate3d, Ruler, RulerDimensionLine, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
 import * as THREE from "three";
 import { Brush, Evaluator, HOLLOW_INTERSECTION } from "three-bvh-csg";
@@ -20,6 +20,7 @@ import helvetikerBoldFontJson from "three/examples/fonts/helvetiker_bold.typefac
 import optimerBoldFontJson from "three/examples/fonts/optimer_bold.typeface.json";
 import { AlignOverlay, MirrorOverlay, type AlignOverlayState, type MirrorOverlayState } from "@/components/workplane/ActionOverlays";
 import { MoveDimensionOverlay } from "@/components/workplane/MoveDimensionOverlay";
+import { OriginDimensionOverlay } from "@/components/workplane/OriginDimensionOverlay";
 import { ShapeInspector, SnapGridControl, type ShapeInspectorUpdateOptions } from "@/components/workplane/ShapeInspector";
 import { WorkspaceSettingsModal } from "@/components/workplane/WorkspaceSettingsModal";
 import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
@@ -31,8 +32,9 @@ import { createGearGeometry } from "@/lib/gearGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
-import { pointAlongRuler, rulerDimensionMatch, type RulerDimensionField } from "@/lib/rulerDimensions";
+import { cornerRulerDimensionMatchesFromCorner, cornerRulerTicks, pointAlongRuler, rulerDimensionMatch, type RulerDimensionField, type RulerDimensionMatch } from "@/lib/rulerDimensions";
 import { createMoveDimensionOverlay, type MoveDimensionAxis, type MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
+import { computeOriginAxisDistance, createOriginDimensionOverlay, type OriginDimensionOverlayData } from "@/lib/originDimensionLines";
 import {
   horizontalPlacementWorkplane,
   placementWorkplaneCoordinates,
@@ -50,7 +52,7 @@ import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
 import { interiorWorkplaneGridCoordinates, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
-import { cleanNearZero, cleanRotationDegrees, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
+import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { LayerlingMcpViewFace } from "@/lib/layerlingMcpProtocol";
 import {
@@ -89,6 +91,11 @@ const MIN_GRID_BLOCK_SIZE = 1;
 const MAX_GRID_BLOCK_SIZE = 200;
 const WORKSPACE_DEFAULTS_STORAGE_PREFIX = "layerling.workspaceDefault.";
 const MOVE_DIMENSIONS_ENABLED_STORAGE_KEY = "layerling.editor.moveDimensionsEnabled";
+const ORIGIN_DIMENSIONS_ENABLED_STORAGE_KEY = "layerling.editor.originDimensionsEnabled";
+/** Kreuzbreite und Vorgabe-Armlaengen des Winkellineal-Werkzeugs - kein Formen-Katalog-Eintrag mehr, siehe layerling-lineal.md. */
+const CORNER_RULER_ARM_WIDTH = 12;
+const CORNER_RULER_DEFAULT_ARM_X = 100;
+const CORNER_RULER_DEFAULT_ARM_Z = 80;
 const DEFAULT_WORKSPACE = DEFAULT_WORKPLANE_WORKSPACE;
 const CAMERA_FOV = 38;
 const CAMERA_HOME = new THREE.Vector3(118, 96, 118);
@@ -234,6 +241,7 @@ type WorkplaneViewportProps = {
   modifierActive?: boolean;
   modifierPreviewActive?: boolean;
   modifierEdges?: CadModifierEdge[];
+  modifierHighlightedEdgeIds?: number[];
   selectedModifierEdgeIds?: number[];
   onModifierEdgeToggle?: (id: number, singleEdge: boolean) => void;
   themePreference?: AppThemePreference;
@@ -281,6 +289,13 @@ function readMoveDimensionsEnabled() {
   return window.localStorage.getItem(MOVE_DIMENSIONS_ENABLED_STORAGE_KEY) !== "false";
 }
 
+function readOriginDimensionsEnabled() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+  return window.localStorage.getItem(ORIGIN_DIMENSIONS_ENABLED_STORAGE_KEY) !== "false";
+}
+
 type ShapeRenderRecord = {
   object: THREE.Group;
   shape: WorkplaneShape;
@@ -301,6 +316,7 @@ type ThreeState = {
   helperLayer: THREE.Group;
   transformGuideLayer: THREE.Group;
   moveDimensionLayer: THREE.Group;
+  originDimensionLayer: THREE.Group;
   modifierLayer: THREE.Group;
   shapeRecords: Map<string, ShapeRenderRecord>;
   officialShapeLayerActive: boolean;
@@ -1780,7 +1796,7 @@ function TapeOverlay({
   onSegmentPointerDown: (event: ReactPointerEvent<SVGElement>, segmentId: string) => void;
 }) {
   return (
-    <div className={`tape-overlay ${active ? "active" : ""} ${deleteMode ? "delete-mode" : ""} ${moveMode ? "move-mode" : ""}`} aria-label="Tape measurements">
+    <div className={`tape-overlay ${active ? "active" : ""} ${deleteMode ? "delete-mode" : ""} ${moveMode ? "move-mode" : ""}`} aria-label={t("aria.tapeMeasurements")}>
       <svg className="tape-guides" width="100%" height="100%" aria-hidden="true">
         {overlay.segments.map((segment) => (
           <g key={segment.id} className="tape-segment-group">
@@ -1867,7 +1883,7 @@ function syncRulerDimensionOverlay(
       const rulerPose = { x: ruler.x, z: ruler.z, rotation: ruler.rotation, length: shapeWidth(ruler), crossWidth: shapeDepth(ruler) };
       const axisAcross = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternionForShape(ruler));
       shapes.forEach((candidate) => {
-        if (candidate.id === ruler.id || candidate.kind === "ruler" || candidate.hidden) return;
+        if (candidate.id === ruler.id || isNonSolidShapeKind(candidate.kind) || candidate.hidden) return;
         const match = rulerDimensionMatch(rulerPose, {
           x: candidate.x,
           z: candidate.z,
@@ -1928,7 +1944,7 @@ function RulerDimensionOverlay({
     return null;
   }
   return (
-    <div className="ruler-dimension-overlay" aria-label="Ruler dimensions">
+    <div className="ruler-dimension-overlay" aria-label={t("aria.rulerDimensions")}>
       {overlay.items.map((item) => (
         <span key={item.key}>
           {item.field ? (
@@ -1963,6 +1979,360 @@ function RulerDimensionOverlay({
       ))}
     </div>
   );
+}
+
+/** Ein platziertes Winkellineal - reines Bildschirm-Werkzeug wie das Massband, kein Koerper, nicht gespeichert (siehe layerling-lineal.md). */
+type CornerRulerInstance = {
+  id: string;
+  x: number;
+  z: number;
+  elevation: number;
+  rotation: number;
+  armLengthX: number;
+  armLengthZ: number;
+};
+
+type CornerRulerTickScreen = { x1: number; y1: number; x2: number; y2: number };
+type CornerRulerLabelScreen = { x: number; y: number; text: string };
+type CornerRulerNeighborLabel = { key: string; x: number; y: number; text: string };
+
+type CornerRulerOverlayItem = {
+  id: string;
+  handleX: number;
+  handleY: number;
+  armXLine: { x1: number; y1: number; x2: number; y2: number };
+  armZLine: { x1: number; y1: number; x2: number; y2: number };
+  ticks: CornerRulerTickScreen[];
+  labels: CornerRulerLabelScreen[];
+  neighborLabels: CornerRulerNeighborLabel[];
+};
+
+type CornerRulerOverlayState = {
+  items: CornerRulerOverlayItem[];
+};
+
+/** Bemassungslabel eines Nachbarn an einem Arm - reine Ablesung, kein Eintippen (siehe layerling-lineal.md). */
+function cornerRulerNeighborLabel(
+  key: string,
+  armPose: { x: number; z: number; rotation: number; length: number; crossWidth: number },
+  acrossAxis: THREE.Vector3,
+  match: RulerDimensionMatch,
+  topY: number,
+  state: ThreeState,
+  accuracy: MeasurementAccuracy,
+): CornerRulerNeighborLabel {
+  const acrossSign = match.acrossOffset >= 0 ? 1 : -1;
+  const labelAcross = acrossSign * (CORNER_RULER_ARM_WIDTH / 2 + 16);
+  const labelAlong = pointAlongRuler(armPose, match.alongOffset);
+  const labelWorld = new THREE.Vector3(labelAlong.x + acrossAxis.x * labelAcross, topY + 6, labelAlong.z + acrossAxis.z * labelAcross);
+  const labelScreen = projectToScreen(labelWorld, state);
+  return { key, x: labelScreen.x, y: labelScreen.y, text: formatMeasure(match.extentAlong, accuracy) };
+}
+
+/**
+ * Projiziert jede platzierte Winkellineal-Instanz auf den Bildschirm: die
+ * Ecke, die beiden Arm-Endpunkte, jeden Teilstrich (`cornerRulerTicks`) und
+ * die automatische Bemassung benachbarter Formen an beiden Armen
+ * (`cornerRulerDimensionMatchesFromCorner`, unveraendert wiederverwendet).
+ * Reine Bildschirm-Darstellung wie beim Massband - kein Three.js-Objekt.
+ */
+function syncCornerRulerToolOverlay(
+  state: ThreeState | null,
+  rulers: CornerRulerInstance[],
+  shapes: WorkplaneShape[],
+  overlayRef: MutableRefObject<CornerRulerOverlayState | null>,
+  setOverlay: Dispatch<SetStateAction<CornerRulerOverlayState | null>>,
+  accuracy: MeasurementAccuracy,
+) {
+  const items: CornerRulerOverlayItem[] = [];
+  if (state) {
+    const topY = shapes.reduce((max, shape) => Math.max(max, (shape.elevation ?? 0) + shape.height), 0);
+    rulers.forEach((ruler) => {
+      const armWidth = CORNER_RULER_ARM_WIDTH;
+      const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, THREE.MathUtils.degToRad(ruler.rotation), 0, "XYZ"));
+      const xAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion);
+      const zAxis = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion);
+      const corner = new THREE.Vector3(ruler.x, ruler.elevation, ruler.z);
+
+      const handleScreen = projectToScreen(corner, state);
+      const armXEndScreen = projectToScreen(corner.clone().addScaledVector(xAxis, ruler.armLengthX), state);
+      const armZEndScreen = projectToScreen(corner.clone().addScaledVector(zAxis, ruler.armLengthZ), state);
+
+      const ticks: CornerRulerTickScreen[] = [];
+      const labels: CornerRulerLabelScreen[] = [];
+      const buildTicks = (axisDir: THREE.Vector3, acrossDir: THREE.Vector3, length: number) => {
+        cornerRulerTicks(length).forEach((tick) => {
+          const base = corner.clone().addScaledVector(axisDir, tick.offset);
+          const tickHeight = armWidth * (tick.isTen ? 0.62 : tick.isFive ? 0.42 : 0.26);
+          const baseScreen = projectToScreen(base, state);
+          const tipScreen = projectToScreen(base.clone().addScaledVector(acrossDir, tickHeight), state);
+          ticks.push({ x1: baseScreen.x, y1: baseScreen.y, x2: tipScreen.x, y2: tipScreen.y });
+          if (tick.isTen && tick.offset > 0) {
+            const labelScreen = projectToScreen(base.clone().addScaledVector(acrossDir, armWidth * 0.95), state);
+            labels.push({ x: labelScreen.x, y: labelScreen.y, text: String(tick.offset) });
+          }
+        });
+      };
+      // Die Teilstriche zeigen nach aussen (weg vom jeweils anderen Arm),
+      // wie bei Tinkercad - nicht in die Ecke hinein, wo sonst platzierte
+      // Formen sitzen wuerden.
+      buildTicks(xAxis, zAxis.clone().negate(), ruler.armLengthX);
+      buildTicks(zAxis, xAxis.clone().negate(), ruler.armLengthZ);
+
+      const neighborLabels: CornerRulerNeighborLabel[] = [];
+      shapes.forEach((candidate) => {
+        if (isNonSolidShapeKind(candidate.kind) || candidate.hidden) return;
+        const { armX, armZ } = cornerRulerDimensionMatchesFromCorner(
+          { x: ruler.x, z: ruler.z },
+          ruler.rotation,
+          ruler.armLengthX,
+          ruler.armLengthZ,
+          armWidth,
+          {
+            x: candidate.x,
+            z: candidate.z,
+            rotation: candidate.rotation,
+            rotationX: candidate.rotationX,
+            rotationZ: candidate.rotationZ,
+            width: shapeWidth(candidate),
+            height: candidate.height,
+            depth: shapeDepth(candidate),
+          },
+        );
+        if (armX) {
+          neighborLabels.push(cornerRulerNeighborLabel(
+            `${ruler.id}:${candidate.id}:x`,
+            { x: ruler.x, z: ruler.z, rotation: ruler.rotation, length: ruler.armLengthX, crossWidth: armWidth },
+            zAxis, armX, topY, state, accuracy,
+          ));
+        }
+        if (armZ) {
+          neighborLabels.push(cornerRulerNeighborLabel(
+            `${ruler.id}:${candidate.id}:z`,
+            { x: ruler.x, z: ruler.z, rotation: ruler.rotation + 90, length: ruler.armLengthZ, crossWidth: armWidth },
+            xAxis, armZ, topY, state, accuracy,
+          ));
+        }
+      });
+
+      items.push({
+        id: ruler.id,
+        handleX: handleScreen.x,
+        handleY: handleScreen.y,
+        armXLine: { x1: handleScreen.x, y1: handleScreen.y, x2: armXEndScreen.x, y2: armXEndScreen.y },
+        armZLine: { x1: handleScreen.x, y1: handleScreen.y, x2: armZEndScreen.x, y2: armZEndScreen.y },
+        ticks,
+        labels,
+        neighborLabels,
+      });
+    });
+  }
+  const previous = overlayRef.current;
+  if (previous && previous.items.length === 0 && items.length === 0) {
+    return;
+  }
+  const next = { items };
+  overlayRef.current = next;
+  setOverlay(next);
+}
+
+function CornerRulerToolOverlay({
+  overlay,
+  onHandlePointerDown,
+  onHandlePointerMove,
+  onHandlePointerUp,
+  onDelete,
+}: {
+  overlay: CornerRulerOverlayState;
+  onHandlePointerDown: (event: ReactPointerEvent<SVGCircleElement>, id: string) => void;
+  onHandlePointerMove: (event: ReactPointerEvent<SVGCircleElement>, id: string) => void;
+  onHandlePointerUp: (event: ReactPointerEvent<SVGCircleElement>, id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  if (overlay.items.length === 0) {
+    return null;
+  }
+  return (
+    <div className="corner-ruler-overlay" aria-label={t("aria.cornerRulerTool")}>
+      <svg className="corner-ruler-guides" width="100%" height="100%" aria-hidden="true">
+        {overlay.items.map((item) => (
+          <g key={item.id} className="corner-ruler-group">
+            <line className="corner-ruler-arm" x1={item.armXLine.x1} y1={item.armXLine.y1} x2={item.armXLine.x2} y2={item.armXLine.y2} />
+            <line className="corner-ruler-arm" x1={item.armZLine.x1} y1={item.armZLine.y1} x2={item.armZLine.x2} y2={item.armZLine.y2} />
+            {item.ticks.map((tick, index) => (
+              <line key={index} className="corner-ruler-tick" x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} />
+            ))}
+            <circle
+              className="corner-ruler-handle"
+              cx={item.handleX}
+              cy={item.handleY}
+              r="6"
+              onPointerDown={(event) => onHandlePointerDown(event, item.id)}
+              onPointerMove={(event) => onHandlePointerMove(event, item.id)}
+              onPointerUp={(event) => onHandlePointerUp(event, item.id)}
+              onPointerCancel={(event) => onHandlePointerUp(event, item.id)}
+            />
+          </g>
+        ))}
+      </svg>
+      {overlay.items.map((item) => (
+        <span key={`${item.id}-labels`}>
+          {item.labels.map((label, index) => (
+            <span key={index} className="corner-ruler-tick-label" style={{ left: label.x, top: label.y }}>
+              {label.text}
+            </span>
+          ))}
+          {item.neighborLabels.map((label) => (
+            <span key={label.key} className="ruler-dimension-label" style={{ left: label.x, top: label.y }}>
+              {label.text}
+            </span>
+          ))}
+          <button
+            type="button"
+            className="corner-ruler-delete"
+            style={{ left: item.handleX + 14, top: item.handleY - 14 }}
+            aria-label={t("aria.deleteCornerRuler")}
+            title={t("aria.deleteCornerRuler")}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onDelete(item.id)}
+          >
+            <X size={10} strokeWidth={3} aria-hidden="true" />
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function syncOriginDimensionWorldLines(state: ThreeState, frame: OriginDimensionFrame | null, theme: ResolvedAppTheme) {
+  const layer = state.originDimensionLayer;
+  const signature = frame
+    ? [frame.origin.x, frame.origin.y, frame.origin.z, frame.distanceX, frame.distanceZ, theme].join(":")
+    : "";
+  if (layer.userData.originDimensionSignature === signature) {
+    return;
+  }
+  layer.userData.originDimensionSignature = signature;
+  disposeChildren(layer);
+  if (!frame || (frame.distanceX === null && frame.distanceZ === null)) {
+    state.needsRender = true;
+    return;
+  }
+
+  const origin = frame.origin;
+  const solidColor = theme === "dark" ? "#f1f8fc" : "#111a21";
+  const solidPoints: number[] = [];
+
+  const addSegment = (points: number[], start: THREE.Vector3, end: THREE.Vector3) => {
+    points.push(start.x, start.y, start.z, end.x, end.y, end.z);
+  };
+  const addWideSegments = (points: number[], color: string, linewidth: number, opacity: number, renderOrder: number) => {
+    if (points.length === 0) {
+      return;
+    }
+    const geometry = new LineSegmentsGeometry();
+    geometry.setPositions(points);
+    const material = new LineMaterial({
+      color,
+      linewidth,
+      worldUnits: false,
+      transparent: true,
+      opacity,
+      depthTest: false,
+      depthWrite: false,
+      alphaToCoverage: false,
+    });
+    material.toneMapped = false;
+    const rect = state.renderer.domElement.getBoundingClientRect();
+    material.resolution.set(Math.max(1, rect.width), Math.max(1, rect.height));
+    const lines = new LineSegments2(geometry, material);
+    lines.renderOrder = renderOrder;
+    lines.frustumCulled = false;
+    setObjectRenderLayer(lines, RENDER_LAYER_HELPERS);
+    layer.add(lines);
+  };
+  const addArrow = (endpoint: THREE.Vector3, direction: THREE.Vector3, magnitude: number) => {
+    const arrowLength = Math.min(1.1, Math.max(0.26, magnitude * 0.5));
+    const arrowWidth = arrowLength * 0.72;
+    const base = endpoint.clone().addScaledVector(direction, -arrowLength);
+    const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x).multiplyScalar(arrowWidth / 2);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute([
+        endpoint.x, endpoint.y, endpoint.z,
+        base.x + perpendicular.x, base.y, base.z + perpendicular.z,
+        base.x - perpendicular.x, base.y, base.z - perpendicular.z,
+      ], 3),
+    );
+    const arrowMaterial = new THREE.MeshBasicMaterial({
+      color: solidColor,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 1,
+      depthTest: false,
+      depthWrite: false,
+    });
+    arrowMaterial.toneMapped = false;
+    const arrow = new THREE.Mesh(geometry, arrowMaterial);
+    arrow.renderOrder = 1002;
+    arrow.frustumCulled = false;
+    setObjectRenderLayer(arrow, RENDER_LAYER_HELPERS);
+    layer.add(arrow);
+  };
+
+  const addLeg = (endpoint: THREE.Vector3 | null) => {
+    if (!endpoint) return;
+    const delta = endpoint.clone().sub(origin);
+    const length = delta.length();
+    if (length < 1e-9) return;
+    const direction = delta.multiplyScalar(1 / length);
+    const overrun = Math.min(2, Math.max(0.5, length * 0.15));
+    const start = origin.clone().addScaledVector(direction, -overrun);
+    addSegment(solidPoints, start, endpoint);
+    addArrow(endpoint, direction, length);
+  };
+
+  addLeg(frame.xEndpoint);
+  addLeg(frame.zEndpoint);
+
+  addWideSegments(solidPoints, solidColor, 1.45, 1, 1001);
+  state.needsRender = true;
+}
+
+function syncOriginDimensionOverlay(
+  state: ThreeState | null,
+  shape: WorkplaneShape | null,
+  workplane: PlacementWorkplane,
+  accuracy: MeasurementAccuracy,
+  theme: ResolvedAppTheme,
+  overlayRef: MutableRefObject<OriginDimensionOverlayData | null>,
+  setOverlay: Dispatch<SetStateAction<OriginDimensionOverlayData | null>>,
+) {
+  if (!state) {
+    return;
+  }
+  const frame = shape ? originFrameForShape(shape, workplane, accuracy) : null;
+  syncOriginDimensionWorldLines(state, frame, theme);
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  const next = frame && (frame.distanceX !== null || frame.distanceZ !== null)
+    ? createOriginDimensionOverlay({
+        originWorld: { x: frame.origin.x, y: frame.origin.y, z: frame.origin.z },
+        xEndpointWorld: frame.xEndpoint ? { x: frame.xEndpoint.x, y: frame.xEndpoint.y, z: frame.xEndpoint.z } : null,
+        zEndpointWorld: frame.zEndpoint ? { x: frame.zEndpoint.x, y: frame.zEndpoint.y, z: frame.zEndpoint.z } : null,
+        distanceX: frame.distanceX,
+        distanceZ: frame.distanceZ,
+        accuracy,
+        width: rect.width,
+        height: rect.height,
+        project: ({ x, y, z }) => projectToScreen(new THREE.Vector3(x, y, z), state),
+      })
+    : null;
+  if (JSON.stringify(overlayRef.current) === JSON.stringify(next)) {
+    return;
+  }
+  overlayRef.current = next;
+  setOverlay(next);
 }
 
 function shapeCenter(shape: WorkplaneShape) {
@@ -2056,6 +2426,38 @@ function importedShapeProjectionBounds(
   return { min, max };
 }
 
+/** Bounding-Box einer Form auf drei vorgegebene Achsen projiziert, relativ zu `origin` - Kern sowohl fuer die Zieh-Griff-Rahmen als auch fuer die Abstands-zum-Ursprung-Anzeige. */
+function projectShapeExtent(
+  shape: WorkplaneShape,
+  xAxis: THREE.Vector3,
+  yAxis: THREE.Vector3,
+  zAxis: THREE.Vector3,
+  origin: THREE.Vector3,
+): { min: THREE.Vector3; max: THREE.Vector3 } {
+  const importedBounds = importedShapeProjectionBounds(shape, xAxis, yAxis, zAxis);
+  if (importedBounds) {
+    const originProjection = new THREE.Vector3(origin.dot(xAxis), origin.dot(yAxis), origin.dot(zAxis));
+    return { min: importedBounds.min.sub(originProjection), max: importedBounds.max.sub(originProjection) };
+  }
+  const center = shapeCenter(shape);
+  const extents = shapeLocalExtents(shape);
+  const shapeQuaternion = quaternionForShape(shape);
+  const min = new THREE.Vector3(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+  const max = new THREE.Vector3(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
+  [-1, 1].forEach((xSign) => {
+    [-1, 1].forEach((ySign) => {
+      [-1, 1].forEach((zSign) => {
+        const point = new THREE.Vector3(xSign * extents.x, ySign * extents.y, zSign * extents.z).applyQuaternion(shapeQuaternion).add(center);
+        const local = point.sub(origin);
+        local.set(local.dot(xAxis), local.dot(yAxis), local.dot(zAxis));
+        min.min(local);
+        max.max(local);
+      });
+    });
+  });
+  return { min, max };
+}
+
 function selectionFrameForShapes(
   shapes: WorkplaneShape[],
   selectedIds: string[],
@@ -2096,27 +2498,9 @@ function selectionFrameForShapes(
   }
 
   selected.forEach((shape) => {
-    const importedBounds = importedShapeProjectionBounds(shape, xAxis, yAxis, zAxis);
-    if (importedBounds) {
-      const originProjection = new THREE.Vector3(origin.dot(xAxis), origin.dot(yAxis), origin.dot(zAxis));
-      localMin.min(importedBounds.min.sub(originProjection));
-      localMax.max(importedBounds.max.sub(originProjection));
-      return;
-    }
-    const center = shapeCenter(shape);
-    const extents = shapeLocalExtents(shape);
-    const shapeQuaternion = quaternionForShape(shape);
-    [-1, 1].forEach((xSign) => {
-      [-1, 1].forEach((ySign) => {
-        [-1, 1].forEach((zSign) => {
-          const point = new THREE.Vector3(xSign * extents.x, ySign * extents.y, zSign * extents.z).applyQuaternion(shapeQuaternion).add(center);
-          const offset = point.sub(origin);
-          const local = new THREE.Vector3(offset.dot(xAxis), offset.dot(yAxis), offset.dot(zAxis));
-          localMin.min(local);
-          localMax.max(local);
-        });
-      });
-    });
+    const { min, max } = projectShapeExtent(shape, xAxis, yAxis, zAxis, origin);
+    localMin.min(min);
+    localMax.max(max);
   });
 
   const localCenter = localMin.clone().add(localMax).multiplyScalar(0.5);
@@ -2141,6 +2525,38 @@ function selectionFrameForShapes(
     min: new THREE.Vector3(-width / 2, -height / 2, -depth / 2),
     max: new THREE.Vector3(width / 2, height / 2, depth / 2),
     singleShape,
+  };
+}
+
+type OriginDimensionFrame = {
+  origin: THREE.Vector3;
+  distanceX: number | null;
+  distanceZ: number | null;
+  xEndpoint: THREE.Vector3 | null;
+  zEndpoint: THREE.Vector3 | null;
+};
+
+/**
+ * Abstand einer einzelnen Form zum Ursprung der Werkflaeche, immer entlang
+ * deren eigener Achsen - anders als `selectionFrameForShapes` weicht das nie
+ * auf die Drehung der Form selbst aus, weil der Abstand zum Nullpunkt am
+ * Raster gemessen wird, nicht an der Neigung des Objekts.
+ */
+function originFrameForShape(shape: WorkplaneShape, workplane: PlacementWorkplane, accuracy: MeasurementAccuracy): OriginDimensionFrame {
+  const origin = new THREE.Vector3(workplane.origin.x, workplane.origin.y, workplane.origin.z);
+  const xAxis = new THREE.Vector3(workplane.xAxis.x, workplane.xAxis.y, workplane.xAxis.z).normalize();
+  const yAxis = new THREE.Vector3(workplane.normal.x, workplane.normal.y, workplane.normal.z).normalize();
+  const zAxis = new THREE.Vector3(workplane.zAxis.x, workplane.zAxis.y, workplane.zAxis.z).normalize();
+  const { min, max } = projectShapeExtent(shape, xAxis, yAxis, zAxis, origin);
+  const eps = 0.5 * 10 ** -accuracy;
+  const distanceX = computeOriginAxisDistance((min.x + max.x) / 2, (max.x - min.x) / 2, eps);
+  const distanceZ = computeOriginAxisDistance((min.z + max.z) / 2, (max.z - min.z) / 2, eps);
+  return {
+    origin,
+    distanceX,
+    distanceZ,
+    xEndpoint: distanceX !== null ? origin.clone().addScaledVector(xAxis, distanceX) : null,
+    zEndpoint: distanceZ !== null ? origin.clone().addScaledVector(zAxis, distanceZ) : null,
   };
 }
 
@@ -2830,6 +3246,7 @@ export function WorkplaneViewport({
   modifierActive = false,
   modifierPreviewActive = false,
   modifierEdges = [],
+  modifierHighlightedEdgeIds = [],
   selectedModifierEdgeIds = [],
   onModifierEdgeToggle,
   themePreference = "system",
@@ -2864,6 +3281,8 @@ export function WorkplaneViewport({
   const [tapeModel, setTapeModel] = useState<TapeModel>({ points: [], segments: [], startPointId: null, hover: null });
   const [tapeOverlay, setTapeOverlay] = useState<TapeOverlayState | null>(null);
   const [rulerDimensionOverlay, setRulerDimensionOverlay] = useState<RulerDimensionOverlayState | null>(null);
+  const [cornerRulerMode, setCornerRulerMode] = useState(false);
+  const [cornerRulerOverlay, setCornerRulerOverlay] = useState<CornerRulerOverlayState | null>(null);
   const [rulerDimensionEditing, setRulerDimensionEditing] = useState<{ shapeId: string; field: RulerDimensionField; x: number; y: number; value: string } | null>(null);
   const [rulerDuplicatePreview, setRulerDuplicatePreview] = useState<{ x: number; y: number; label: string } | null>(null);
   const [rulerDuplicateEditing, setRulerDuplicateEditing] = useState<{ rulerId: string; shapeId: string; baseAlong: number; x: number; y: number; value: string } | null>(null);
@@ -2871,6 +3290,8 @@ export function WorkplaneViewport({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [moveDimensionOverlay, setMoveDimensionOverlay] = useState<MoveDimensionOverlayState | null>(null);
   const [moveDimensionsEnabled, setMoveDimensionsEnabled] = useState(true);
+  const [originDimensionOverlay, setOriginDimensionOverlay] = useState<OriginDimensionOverlayData | null>(null);
+  const [originDimensionsEnabled, setOriginDimensionsEnabled] = useState(true);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const threeRef = useRef<ThreeState | null>(null);
   const shapesRef = useRef(shapes);
@@ -2895,6 +3316,8 @@ export function WorkplaneViewport({
   const moveDimensionSessionRef = useRef<MoveDimensionSession | null>(null);
   const moveDimensionOverlayRef = useRef<MoveDimensionOverlayState | null>(null);
   const moveDimensionsEnabledRef = useRef(true);
+  const originDimensionOverlayRef = useRef<OriginDimensionOverlayData | null>(null);
+  const originDimensionsEnabledRef = useRef(true);
   const marqueeRef = useRef<MarqueeState | null>(null);
   const transformRef = useRef<TransformDragState | null>(null);
   const lastResizeAnchorRef = useRef<ResizeAnchorMemory | null>(null);
@@ -2926,6 +3349,11 @@ export function WorkplaneViewport({
   const tapeOverlayRef = useRef<TapeOverlayState | null>(null);
   const tapeIdRef = useRef(0);
   const rulerDimensionOverlayRef = useRef<RulerDimensionOverlayState | null>(null);
+  const cornerRulerModeRef = useRef(false);
+  const cornerRulerModelRef = useRef<CornerRulerInstance[]>([]);
+  const cornerRulerOverlayRef = useRef<CornerRulerOverlayState | null>(null);
+  const cornerRulerIdRef = useRef(0);
+  const cornerRulerDragRef = useRef<{ id: string; pointerId: number; moved: boolean } | null>(null);
   const rulerDuplicateDragRef = useRef<{ pointerId: number; rulerId: string; shapeId: string; baseAlong: number; planeY: number; sourceX: number; sourceZ: number } | null>(null);
   const alignModeRef = useRef(alignMode);
   const alignAnchorIdRef = useRef(alignAnchorId);
@@ -2956,11 +3384,24 @@ export function WorkplaneViewport({
     ),
     [],
   );
+  /** Nur bei genau einer ausgewaehlten Form und wenn gerade nichts anderes den Bildschirm belegt - siehe layerling-lineal.md. */
+  const originDimensionShapeFor = useCallback(
+    (shapesList: WorkplaneShape[], ids = selectedIdsRef.current) => {
+      if (!originDimensionsEnabledRef.current) return null;
+      const rendered = renderSelectionIds(ids);
+      if (rendered.length !== 1) return null;
+      if (alignModeRef.current || mirrorModeRef.current) return null;
+      if (tapeModeRef.current || tapeDeleteModeRef.current || tapeMoveModeRef.current) return null;
+      if (transformRef.current || dragRef.current) return null;
+      return shapesList.find((shape) => shape.id === rendered[0] && !shape.hidden) ?? null;
+    },
+    [renderSelectionIds],
+  );
 
   useEffect(() => {
     modifierEdgesRef.current = modifierEdges;
-    rebuildModifierEdges(threeRef.current, modifierEdges, selectedModifierEdgeIds, modifierPreviewActive, hoverModifierEdgeId);
-  }, [hoverModifierEdgeId, modifierEdges, modifierPreviewActive, selectedModifierEdgeIds]);
+    rebuildModifierEdges(threeRef.current, modifierEdges, selectedModifierEdgeIds, modifierPreviewActive, hoverModifierEdgeId, modifierHighlightedEdgeIds);
+  }, [hoverModifierEdgeId, modifierEdges, modifierHighlightedEdgeIds, modifierPreviewActive, selectedModifierEdgeIds]);
 
   const resolvedThemeRef = useRef(resolvedTheme);
   resolvedThemeRef.current = resolvedTheme;
@@ -3005,6 +3446,65 @@ export function WorkplaneViewport({
       clearMoveDimensions();
     }
   }, [clearMoveDimensions]);
+
+  const clearOriginDimensions = useCallback(() => {
+    originDimensionOverlayRef.current = null;
+    setOriginDimensionOverlay(null);
+    if (threeRef.current) {
+      syncOriginDimensionWorldLines(threeRef.current, null, resolvedThemeRef.current);
+    }
+  }, []);
+
+  /** Beim Wiedereinschalten soll eine bereits ausgewaehlte Form sofort wieder ihre Bemassung zeigen, nicht erst bei der naechsten Auswahl. */
+  const refreshOriginDimensions = useCallback(() => {
+    if (!threeRef.current) return;
+    syncOriginDimensionOverlay(
+      threeRef.current,
+      originDimensionShapeFor(shapesRef.current),
+      placementWorkplaneRef.current,
+      workspaceRef.current.accuracy,
+      resolvedThemeRef.current,
+      originDimensionOverlayRef,
+      setOriginDimensionOverlay,
+    );
+    threeRef.current.needsRender = true;
+  }, [originDimensionShapeFor]);
+
+  useEffect(() => {
+    const applyStoredPreference = () => {
+      const enabled = readOriginDimensionsEnabled();
+      originDimensionsEnabledRef.current = enabled;
+      setOriginDimensionsEnabled(enabled);
+      if (!enabled) {
+        clearOriginDimensions();
+      } else {
+        refreshOriginDimensions();
+      }
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === ORIGIN_DIMENSIONS_ENABLED_STORAGE_KEY) {
+        applyStoredPreference();
+      }
+    };
+    applyStoredPreference();
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [clearOriginDimensions, refreshOriginDimensions]);
+
+  const changeOriginDimensionsEnabled = useCallback((enabled: boolean) => {
+    originDimensionsEnabledRef.current = enabled;
+    setOriginDimensionsEnabled(enabled);
+    try {
+      window.localStorage.setItem(ORIGIN_DIMENSIONS_ENABLED_STORAGE_KEY, String(enabled));
+    } catch {
+      // The preference still applies to this editor session when storage is unavailable.
+    }
+    if (!enabled) {
+      clearOriginDimensions();
+    } else {
+      refreshOriginDimensions();
+    }
+  }, [clearOriginDimensions, refreshOriginDimensions]);
 
   const commitMoveDimension = useCallback(
     (axis: MoveDimensionAxis, rawValue: string) => {
@@ -3179,6 +3679,16 @@ export function WorkplaneViewport({
       syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
       syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
       syncRulerDimensionOverlay(threeRef.current, shapes, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspaceRef.current.accuracy);
+      syncCornerRulerToolOverlay(threeRef.current, cornerRulerModelRef.current, shapes, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
+      syncOriginDimensionOverlay(
+        threeRef.current,
+        originDimensionShapeFor(shapes),
+        placementWorkplaneRef.current,
+        workspaceRef.current.accuracy,
+        resolvedThemeRef.current,
+        originDimensionOverlayRef,
+        setOriginDimensionOverlay,
+      );
       threeRef.current.needsRender = true;
     }
   }, [shapes]);
@@ -3240,6 +3750,15 @@ export function WorkplaneViewport({
       );
       syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIds, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
       syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIds, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
+      syncOriginDimensionOverlay(
+        threeRef.current,
+        originDimensionShapeFor(shapesRef.current, selectedIds),
+        placementWorkplaneRef.current,
+        workspaceRef.current.accuracy,
+        resolvedThemeRef.current,
+        originDimensionOverlayRef,
+        setOriginDimensionOverlay,
+      );
       threeRef.current.needsRender = true;
     }
   }, [clearMoveDimensions, selectedIds]);
@@ -3360,6 +3879,7 @@ export function WorkplaneViewport({
     if (state) {
       state.modifierLayer.visible = !workplaneMode;
       state.moveDimensionLayer.visible = !workplaneMode;
+      state.originDimensionLayer.visible = !workplaneMode;
       state.needsRender = true;
     }
     if (workplaneMode) {
@@ -3400,6 +3920,7 @@ export function WorkplaneViewport({
       );
       syncTapeOverlay(threeRef.current, tapeModelRef.current, tapeOverlayRef, setTapeOverlay, workspace.accuracy);
       syncRulerDimensionOverlay(threeRef.current, shapesRef.current, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspace.accuracy);
+      syncCornerRulerToolOverlay(threeRef.current, cornerRulerModelRef.current, shapesRef.current, cornerRulerOverlayRef, setCornerRulerOverlay, workspace.accuracy);
       syncNoteOverlay(threeRef.current, notesRef.current, notesVisibleRef.current, noteOverlayRef, setNoteOverlay);
       syncMoveDimensionWorldLines(threeRef.current, moveDimensionSessionRef.current, resolvedTheme);
       threeRef.current.needsRender = true;
@@ -3480,6 +4001,7 @@ export function WorkplaneViewport({
         syncMirrorOverlay(state, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
         syncTapeOverlay(state, tapeModelRef.current, tapeOverlayRef, setTapeOverlay, workspaceRef.current.accuracy);
         syncRulerDimensionOverlay(state, previewShapes, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspaceRef.current.accuracy);
+        syncCornerRulerToolOverlay(state, cornerRulerModelRef.current, previewShapes, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
         syncNoteOverlay(state, notesRef.current, notesVisibleRef.current, noteOverlayRef, setNoteOverlay);
         syncMoveDimensionOverlay(
           state,
@@ -3488,6 +4010,15 @@ export function WorkplaneViewport({
           setMoveDimensionOverlay,
           workspaceRef.current.accuracy,
           resolvedThemeRef.current,
+        );
+        syncOriginDimensionOverlay(
+          state,
+          originDimensionShapeFor(previewShapes),
+          placementWorkplaneRef.current,
+          workspaceRef.current.accuracy,
+          resolvedThemeRef.current,
+          originDimensionOverlayRef,
+          setOriginDimensionOverlay,
         );
         state.lastOverlaySync = now;
       }
@@ -3525,6 +4056,7 @@ export function WorkplaneViewport({
       disposeChildren(state.helperLayer);
       disposeChildren(state.transformGuideLayer);
       disposeChildren(state.moveDimensionLayer);
+      disposeChildren(state.originDimensionLayer);
       disposeChildren(state.modifierLayer);
       state.renderer.dispose();
       host.replaceChildren();
@@ -4863,6 +5395,73 @@ export function WorkplaneViewport({
     if (note) onNoteUpdate?.(noteId, { x: note.x, y: note.y, z: note.z, anchor: note.anchor });
   }, [onNoteUpdate]);
 
+  /**
+   * Nur der Ref traegt das Modell - keine eigene React-Zustandsvariable dafuer,
+   * weil `setCornerRulerOverlay` gleich danach ohnehin den Neuaufbau ausloest.
+   * Sofortiger Sync direkt hier, nicht erst beim naechsten Kamera-Bildtakt -
+   * dieselbe Falle wie beim Ursprungs-Overlay, siehe layerling-lineal.md.
+   */
+  const storeCornerRulerModel = useCallback((next: CornerRulerInstance[]) => {
+    cornerRulerModelRef.current = next;
+    if (threeRef.current) {
+      syncCornerRulerToolOverlay(threeRef.current, next, shapesRef.current, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
+      threeRef.current.needsRender = true;
+    }
+  }, []);
+
+  const placeCornerRuler = useCallback((point: { x: number; z: number }) => {
+    const instance: CornerRulerInstance = {
+      id: `corner-ruler-${++cornerRulerIdRef.current}`,
+      x: point.x,
+      z: point.z,
+      elevation: 0,
+      rotation: 90,
+      armLengthX: CORNER_RULER_DEFAULT_ARM_X,
+      armLengthZ: CORNER_RULER_DEFAULT_ARM_Z,
+    };
+    storeCornerRulerModel([...cornerRulerModelRef.current, instance]);
+  }, [storeCornerRulerModel]);
+
+  const removeCornerRuler = useCallback((id: string) => {
+    storeCornerRulerModel(cornerRulerModelRef.current.filter((ruler) => ruler.id !== id));
+  }, [storeCornerRulerModel]);
+
+  const toggleCornerRulerTool = useCallback(() => {
+    const next = !cornerRulerModeRef.current;
+    cornerRulerModeRef.current = next;
+    setCornerRulerMode(next);
+  }, []);
+
+  /** Der Griff ist immer direkt ziehbar, ohne eigenen Verschieben-Modus - wie bei einer Notiz-Nadel, nicht wie beim Massband (das mehrere Punkte je Strecke verwaltet und deshalb einen Modus braucht). Ein Klick ohne Zug dreht die Instanz um 90 Grad - wie in Tinkercad. */
+  const handleCornerRulerHandlePointerDown = useCallback((event: ReactPointerEvent<SVGCircleElement>, id: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    cornerRulerDragRef.current = { id, pointerId: event.pointerId, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, []);
+
+  const handleCornerRulerHandlePointerMove = useCallback((event: ReactPointerEvent<SVGCircleElement>, id: string) => {
+    const drag = cornerRulerDragRef.current;
+    if (!drag || drag.id !== id || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const point = toPlanePoint(event.clientX, event.clientY);
+    if (!point) return;
+    drag.moved = true;
+    storeCornerRulerModel(cornerRulerModelRef.current.map((ruler) => ruler.id === id ? { ...ruler, x: point.x, z: point.z } : ruler));
+  }, [storeCornerRulerModel, toPlanePoint]);
+
+  const handleCornerRulerHandlePointerUp = useCallback((event: ReactPointerEvent<SVGCircleElement>, id: string) => {
+    const drag = cornerRulerDragRef.current;
+    if (!drag || drag.id !== id) return;
+    cornerRulerDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (drag.moved) return;
+    storeCornerRulerModel(cornerRulerModelRef.current.map((ruler) => ruler.id === id ? { ...ruler, rotation: (ruler.rotation + 90) % 360 } : ruler));
+  }, [storeCornerRulerModel]);
+
   const toggleNoteCard = useCallback((noteId: string) => {
     if (noteClickSuppressedRef.current === noteId) {
       noteClickSuppressedRef.current = null;
@@ -4983,6 +5582,15 @@ export function WorkplaneViewport({
         const anchor = resolveNoteAnchor(event.clientX, event.clientY);
         if (anchor) onNoteAdd?.(anchor);
         onNoteModeChange?.(false);
+        return;
+      }
+
+      if (cornerRulerModeRef.current) {
+        event.preventDefault();
+        const point = toPlanePoint(event.clientX, event.clientY);
+        if (point) placeCornerRuler(point);
+        cornerRulerModeRef.current = false;
+        setCornerRulerMode(false);
         return;
       }
 
@@ -5254,6 +5862,7 @@ export function WorkplaneViewport({
       onAlignAnchorChange,
       onInteractionActiveChange,
       onModifierEdgeToggle,
+      placeCornerRuler,
       onSelectShape,
       onSetPlacementWorkplane,
       onWorkplaneModeChange,
@@ -5919,6 +6528,10 @@ export function WorkplaneViewport({
         setTapeMoveMode(false);
         tapePointDragRef.current = null;
         setTapeToolsOpen(false);
+      } else if (event.key === "Escape" && cornerRulerModeRef.current) {
+        event.preventDefault();
+        cornerRulerModeRef.current = false;
+        setCornerRulerMode(false);
       } else if (shortcutView) {
         event.preventDefault();
         setViewCubeFace(shortcutView);
@@ -6053,11 +6666,22 @@ export function WorkplaneViewport({
                 </div>
               ) : null}
             </div>
+            <div className="corner-ruler-control-group">
+              <button
+                className={cornerRulerMode ? "active" : ""}
+                aria-label={t("camera.cornerRulerTool")}
+                title={t("camera.cornerRulerTool")}
+                aria-pressed={cornerRulerMode}
+                onClick={toggleCornerRulerTool}
+              >
+                <Ruler size={24} strokeWidth={2.15} aria-hidden="true" />
+              </button>
+            </div>
           </>
         )}
       </div>
 
-      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label="Workplane">
+      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label={t("aria.workplane")}>
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
@@ -6080,6 +6704,9 @@ export function WorkplaneViewport({
               active={moveDimensionOverlay.active}
               onCommit={commitMoveDimension}
             />
+          ) : null}
+          {!workplaneMode && originDimensionsEnabled && originDimensionOverlay ? (
+            <OriginDimensionOverlay overlay={originDimensionOverlay} />
           ) : null}
           {!workplaneMode && transformOverlay && !alignMode && !mirrorMode && !tapeMode && !tapeDeleteMode && !tapeMoveMode && !modifierActive ? (
             <TransformOverlay
@@ -6150,6 +6777,15 @@ export function WorkplaneViewport({
               onHandlePointerDown={handleRulerDuplicatePointerDown}
               onHandlePointerMove={handleRulerDuplicatePointerMove}
               onHandlePointerUp={handleRulerDuplicatePointerUp}
+            />
+          ) : null}
+          {!workplaneMode && cornerRulerOverlay && cornerRulerOverlay.items.length > 0 ? (
+            <CornerRulerToolOverlay
+              overlay={cornerRulerOverlay}
+              onHandlePointerDown={handleCornerRulerHandlePointerDown}
+              onHandlePointerMove={handleCornerRulerHandlePointerMove}
+              onHandlePointerUp={handleCornerRulerHandlePointerUp}
+              onDelete={removeCornerRuler}
             />
           ) : null}
           {rulerDimensionEditing ? (
@@ -6228,11 +6864,13 @@ export function WorkplaneViewport({
           snap={snap}
           themePreference={themePreference}
           moveDimensionsEnabled={moveDimensionsEnabled}
+          originDimensionsEnabled={originDimensionsEnabled}
           showProjectNameInToolbar={showProjectNameInToolbar}
           onWorkspaceChange={setWorkspace}
           onSnapChange={chooseSnapGrid}
           onThemePreferenceChange={onThemePreferenceChange}
           onMoveDimensionsEnabledChange={changeMoveDimensionsEnabled}
+          onOriginDimensionsEnabledChange={changeOriginDimensionsEnabled}
           onShowProjectNameInToolbarChange={onShowProjectNameInToolbarChange}
           onMakeDefault={makeWorkspaceDefault}
           onClose={() => setSettingsOpen(false)}
@@ -6320,10 +6958,13 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
   const moveDimensionLayer = new THREE.Group();
   moveDimensionLayer.name = "MoveDimensions";
   moveDimensionLayer.layers.set(RENDER_LAYER_HELPERS);
+  const originDimensionLayer = new THREE.Group();
+  originDimensionLayer.name = "OriginDimensions";
+  originDimensionLayer.layers.set(RENDER_LAYER_HELPERS);
   const modifierLayer = new THREE.Group();
   modifierLayer.name = "EdgeModifier";
   modifierLayer.layers.set(RENDER_LAYER_MODIFIERS);
-  scene.add(workplaneLayer, workplanePreviewLayer, shapeLayer, helperLayer, transformGuideLayer, moveDimensionLayer, modifierLayer);
+  scene.add(workplaneLayer, workplanePreviewLayer, shapeLayer, helperLayer, transformGuideLayer, moveDimensionLayer, originDimensionLayer, modifierLayer);
 
   const raycaster = new THREE.Raycaster();
   raycaster.params.Line = { threshold: 1.15 };
@@ -6336,7 +6977,7 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
     const height = Math.max(1, host.clientHeight);
     renderer.setSize(width, height);
     updateCameraViewport(state.camera, width, height);
-    [state.transformGuideLayer, state.moveDimensionLayer].forEach((layer) => {
+    [state.transformGuideLayer, state.moveDimensionLayer, state.originDimensionLayer].forEach((layer) => {
       layer.traverse((child) => {
         const material = (child as THREE.Mesh).material;
         const materials = Array.isArray(material) ? material : material ? [material] : [];
@@ -6361,6 +7002,7 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
     helperLayer,
     transformGuideLayer,
     moveDimensionLayer,
+    originDimensionLayer,
     modifierLayer,
     shapeRecords: new Map<string, ShapeRenderRecord>(),
     officialShapeLayerActive: false,
@@ -7324,26 +7966,35 @@ function rebuildShapes(
   state.needsRender = true;
 }
 
-function modifierEdgeMaterialStyle(active: boolean, hovered: boolean, previewActive: boolean) {
+function modifierEdgeMaterialStyle(active: boolean, hovered: boolean, previewActive: boolean, belowThreshold = false) {
   const subduedSelectedPreviewEdge = previewActive && active && !hovered;
   return {
-    color: active ? (hovered ? "#ffbf45" : "#ff8a1d") : hovered ? "#84edff" : "#17b7e5",
-    opacity: subduedSelectedPreviewEdge ? 0.18 : active || hovered ? 1 : 0.72,
+    color: active ? (hovered ? "#ffbf45" : "#ff8a1d") : hovered ? "#84edff" : belowThreshold ? "#4d7f91" : "#17b7e5",
+    opacity: subduedSelectedPreviewEdge ? 0.18 : active || hovered ? 1 : belowThreshold ? 0.35 : 0.72,
     linewidth: active || hovered ? 3 : 1,
   };
 }
 
-function rebuildModifierEdges(state: ThreeState | null, edges: CadModifierEdge[], selectedIds: number[], previewActive = false, hoverId: number | null = null) {
+function rebuildModifierEdges(
+  state: ThreeState | null,
+  edges: CadModifierEdge[],
+  selectedIds: number[],
+  previewActive = false,
+  hoverId: number | null = null,
+  highlightedIds: number[] = [],
+) {
   if (!state) return;
   disposeChildren(state.modifierLayer);
   const selected = new Set(selectedIds);
+  const highlighted = new Set(highlightedIds);
   edges.forEach((edge) => {
     if (edge.points.length < 6) return;
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(edge.points, 3));
     const active = selected.has(edge.id);
     const hovered = hoverId === edge.id;
-    const style = modifierEdgeMaterialStyle(active, hovered, previewActive);
+    const belowThreshold = !active && !hovered && !highlighted.has(edge.id);
+    const style = modifierEdgeMaterialStyle(active, hovered, previewActive, belowThreshold);
     const material = new THREE.LineBasicMaterial({
       color: style.color,
       depthTest: false,

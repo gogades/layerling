@@ -233,11 +233,13 @@ export function WorkspaceSettingsModal({
   snap,
   themePreference,
   moveDimensionsEnabled,
+  originDimensionsEnabled,
   showProjectNameInToolbar,
   onWorkspaceChange,
   onSnapChange,
   onThemePreferenceChange,
   onMoveDimensionsEnabledChange,
+  onOriginDimensionsEnabledChange,
   onShowProjectNameInToolbarChange,
   onMakeDefault,
   onClose,
@@ -246,11 +248,13 @@ export function WorkspaceSettingsModal({
   snap: GridSize;
   themePreference: AppThemePreference;
   moveDimensionsEnabled: boolean;
+  originDimensionsEnabled: boolean;
   showProjectNameInToolbar: boolean;
   onWorkspaceChange: (next: WorkspaceSettings) => void;
   onSnapChange: (next: GridSize) => void;
   onThemePreferenceChange?: (preference: AppThemePreference) => void;
   onMoveDimensionsEnabledChange: (enabled: boolean) => void;
+  onOriginDimensionsEnabledChange: (enabled: boolean) => void;
   onShowProjectNameInToolbarChange?: (show: boolean) => void;
   onMakeDefault: () => void;
   onClose: () => void;
@@ -470,6 +474,11 @@ export function WorkspaceSettingsModal({
                     label={t("workspace.showMoveDimensions")}
                     checked={moveDimensionsEnabled}
                     onChange={onMoveDimensionsEnabledChange}
+                  />
+                  <WorkspaceToggle
+                    label={t("workspace.showOriginDimensions")}
+                    checked={originDimensionsEnabled}
+                    onChange={onOriginDimensionsEnabledChange}
                   />
                   <WorkspaceToggle
                     label={t("workspace.selectBeforeMoving")}
@@ -957,13 +966,13 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
             }}
           />
         </div>
-        <div className="workspace-color-presets" aria-label="Grid color presets">
+        <div className="workspace-color-presets" aria-label={t("aria.gridColorPresets")}>
           {GRID_COLOR_PRESETS.map((preset) => (
             <button
               key={preset}
               className={preset.toLowerCase() === draftColor.toLowerCase() ? "selected" : ""}
               type="button"
-              aria-label={`Use grid color ${preset}`}
+              aria-label={t("aria.useGridColor", { color: preset })}
               aria-pressed={preset.toLowerCase() === draftColor.toLowerCase()}
               style={{ backgroundColor: preset }}
               onClick={() => {
@@ -981,14 +990,14 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
               onChange={previewColor}
               onBlur={commitDraftColor}
               prefixed
-              aria-label="Grid color hexadecimal value"
+              aria-label={t("aria.gridColorHex")}
             />
           </label>
           <button
             className="workspace-color-reset"
             type="button"
-            title="Reset grid color"
-            aria-label="Reset grid color"
+            title={t("aria.resetGridColor")}
+            aria-label={t("aria.resetGridColor")}
             onClick={() => {
               previewColor(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
               onChange(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
@@ -1016,7 +1025,7 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
           ref={triggerRef}
           className="workspace-color-trigger"
           type="button"
-          aria-label={`Grid color ${color}`}
+          aria-label={t("aria.gridColorValue", { color })}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => {

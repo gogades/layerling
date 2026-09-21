@@ -5,8 +5,11 @@ import {
   CAD_MODIFIER_REQUEST_TIMEOUT_MS,
   CAD_MODIFIER_RUNTIME_BASE,
   CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT,
+  cadModifierBaseDeflection,
+  cadModifierCandidateEdge,
   cadModifierPrepareCostMs,
   cadModifierPrepareTimeoutMs,
+  cadModifierTessellationDeflection,
   cadModifierTopologyEdgeIsSelectable,
   cadTransformRequiresGeneralTransform,
   cadModifierTimeoutMessage,
@@ -17,6 +20,7 @@ import {
   isCadModifierWasmMemoryFault,
   selectableCadModifierEdge,
   CAD_MODIFIER_KERNEL_RESTART_MESSAGE,
+  SKETCH_CAD_DEFLECTION,
 } from "@/lib/cadModifierRuntime";
 
 describe("CAD modifier runtime state", () => {
@@ -130,6 +134,24 @@ describe("CAD modifier runtime state", () => {
     expect(selectableCadModifierEdge(hiddenDetailEdge, 25)).toBe(true);
     expect(selectableCadModifierEdge(hiddenDetailEdge, 60)).toBe(false);
   });
+
+  it("keeps a shallow-angle edge pickable independent of the sharp-angle slider (Forum: Verrundung erst nach Schieberegler)", () => {
+    const shallowEdge = { selectable: true, manifold: true, boundary: false, angle: 8 };
+
+    // Unter der Schwelle nicht in der Vorauswahl - aber grundsaetzlich verrundbar.
+    expect(selectableCadModifierEdge(shallowEdge, 25)).toBe(false);
+    expect(cadModifierCandidateEdge(shallowEdge)).toBe(true);
+  });
+
+  it("still excludes edges that are structurally unusable, not just below the threshold", () => {
+    const nonManifoldEdge = { selectable: true, manifold: false, boundary: false, angle: 45 };
+    const boundaryEdge = { selectable: true, manifold: true, boundary: true, angle: 45 };
+    const unselectableEdge = { selectable: false, manifold: true, boundary: false, angle: 45 };
+
+    expect(cadModifierCandidateEdge(nonManifoldEdge)).toBe(false);
+    expect(cadModifierCandidateEdge(boundaryEdge)).toBe(false);
+    expect(cadModifierCandidateEdge(unselectableEdge)).toBe(false);
+  });
 });
 
 /*
@@ -157,6 +179,43 @@ describe("Kernel am Ende oder nur die Aufgabe?", () => {
   it("meldet den Neustart mit einem Satz, der den Anwender nicht ratlos laesst", () => {
     expect(CAD_MODIFIER_KERNEL_RESTART_MESSAGE).toContain("restarted");
     expect(isCadModifierKernelExhausted(CAD_MODIFIER_KERNEL_RESTART_MESSAGE)).toBe(false);
+  });
+});
+
+/*
+ * Forenmeldung: ein Koerper aus einer Skizze mit mehreren nacheinander
+ * angewandten Verrundungen bekommt zunehmend wellige Netzlinien. Ursache: jede
+ * Verrundung tessellierte den GANZEN Koerper neu, aber die Feinheit hing nur
+ * am Radius der jeweils neuen Operation - eine spaetere, groessere Verrundung
+ * durfte eine schon fein vernetzte Stelle (z. B. eine Rundung der Skizze
+ * selbst) groeber neu abtasten als sie schon war.
+ */
+describe("Vernetzungsfeinheit ueber mehrere Verrundungen hinweg", () => {
+  it("wird bei einem groesseren Radius grober, ohne ein Mindestmass", () => {
+    const erste = cadModifierBaseDeflection("standard", 1);
+    const zweite = cadModifierBaseDeflection("standard", 8);
+    expect(zweite.linear).toBeGreaterThan(erste.linear);
+  });
+
+  it("darf eine schon feinere Stelle nicht groeber ueberschreiben", () => {
+    const fein = cadModifierBaseDeflection("standard", 1);
+    const grob = cadModifierTessellationDeflection("standard", 8, fein);
+    expect(grob.linear).toBe(fein.linear);
+    expect(grob.angular).toBe(fein.angular);
+  });
+
+  it("lässt eine tatsaechlich feinere neue Operation trotzdem gewinnen", () => {
+    const grob = cadModifierBaseDeflection("standard", 8);
+    const fein = cadModifierTessellationDeflection("fine", 1, grob);
+    expect(fein.linear).toBeLessThan(grob.linear);
+  });
+
+  it("verhaelt sich ohne Vorgeschichte wie zuvor", () => {
+    expect(cadModifierTessellationDeflection("standard", 2)).toEqual(cadModifierBaseDeflection("standard", 2));
+  });
+
+  it("gibt der ersten Extrusion einer Skizze eine feste, feine Vorgabe", () => {
+    expect(SKETCH_CAD_DEFLECTION.linear).toBeLessThan(cadModifierBaseDeflection("standard", 1).linear);
   });
 });
 

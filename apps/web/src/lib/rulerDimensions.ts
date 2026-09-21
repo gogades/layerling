@@ -87,3 +87,84 @@ export function pointAlongRuler(ruler: RulerPose, alongOffset: number): { x: num
   const axisAlong = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternionForShape(ruler));
   return { x: ruler.x + axisAlong.x * alongOffset, z: ruler.z + axisAlong.z * alongOffset };
 }
+
+/** Lage und Armlaengen des Winkellineals, so wie es auf der Arbeitsebene steht. */
+export type CornerRulerPose = {
+  x: number;
+  z: number;
+  rotation: number;
+  /** Laenge des ersten Arms (lokale X-Achse) - am Koerper das Feld `width`. */
+  armLengthX: number;
+  /** Laenge des zweiten Arms (lokale Z-Achse) - am Koerper das Feld `depth`. */
+  armLengthZ: number;
+  /** Kreuzbreite beider Arme. */
+  armWidth: number;
+};
+
+/**
+ * Die Ecke, an der sich beide Arme treffen - anders als beim geraden Lineal ist
+ * `x`/`z` des Winkellineals die Mitte der Bounding-Box (wie bei jeder anderen
+ * Form, damit Zieh-Griffe/Auswahl keine Sonderbehandlung brauchen), nicht der
+ * Nullpunkt der Skala. Die Ecke ist ein abgeleiteter Punkt, eine halbe
+ * Armlaenge je Achse von der Mitte entfernt, in Richtung der eigenen Drehung.
+ */
+export function cornerRulerCorner(pose: CornerRulerPose): { x: number; z: number } {
+  const quaternion = quaternionForShape({ rotation: pose.rotation });
+  const local = new THREE.Vector3(-pose.armLengthX / 2, 0, -pose.armLengthZ / 2).applyQuaternion(quaternion);
+  return { x: pose.x + local.x, z: pose.z + local.z };
+}
+
+/**
+ * Wie `rulerDimensionMatch`, aber fuer beide Arme des Winkellineals auf einmal -
+ * ruft die bestehende Funktion zweimal auf, einmal je Arm-Richtung (0 Grad bzw.
+ * 90 Grad zur eigenen Drehung), von der gemeinsamen Ecke aus. Keine Aenderung an
+ * `rulerDimensionMatch` noetig, weil sie schon eine freie Pose entgegennimmt statt
+ * eines tatsaechlichen Lineal-Koerpers.
+ */
+export function cornerRulerDimensionMatches(pose: CornerRulerPose, candidate: RulerCandidatePose): {
+  armX: RulerDimensionMatch | null;
+  armZ: RulerDimensionMatch | null;
+} {
+  const corner = cornerRulerCorner(pose);
+  return cornerRulerDimensionMatchesFromCorner(corner, pose.rotation, pose.armLengthX, pose.armLengthZ, pose.armWidth, candidate);
+}
+
+/**
+ * Wie `cornerRulerDimensionMatches`, aber wenn der Ursprungspunkt schon die
+ * Ecke selbst ist statt der Bounding-Box-Mitte einer Form - so sitzt das
+ * platzierte Winkellineal-Werkzeug, das direkt an seiner Ecke gesetzt wird,
+ * nicht an einer daraus abgeleiteten Mitte.
+ */
+export function cornerRulerDimensionMatchesFromCorner(
+  corner: { x: number; z: number },
+  rotation: number,
+  armLengthX: number,
+  armLengthZ: number,
+  armWidth: number,
+  candidate: RulerCandidatePose,
+): { armX: RulerDimensionMatch | null; armZ: RulerDimensionMatch | null } {
+  const armX = rulerDimensionMatch({ x: corner.x, z: corner.z, rotation, length: armLengthX, crossWidth: armWidth }, candidate);
+  const armZ = rulerDimensionMatch({ x: corner.x, z: corner.z, rotation: rotation + 90, length: armLengthZ, crossWidth: armWidth }, candidate);
+  return { armX, armZ };
+}
+
+/**
+ * Teilstriche fuer einen Arm des Winkellineal-Werkzeugs, einer je Millimeter -
+ * dieselbe Dichte wie die verworfene Tick-Textur (`createRulerTickTexture`),
+ * nur als reine Zahlenliste statt als Zeichnung, damit die Bildschirm-Anzeige
+ * jeden Strich einzeln ueber `projectToScreen` platzieren kann.
+ */
+export type CornerRulerTick = {
+  offset: number;
+  isTen: boolean;
+  isFive: boolean;
+};
+
+export function cornerRulerTicks(length: number): CornerRulerTick[] {
+  const ticks: CornerRulerTick[] = [];
+  const last = Math.max(0, Math.floor(length));
+  for (let value = 0; value <= last; value += 1) {
+    ticks.push({ offset: value, isTen: value % 10 === 0, isFive: value % 5 === 0 });
+  }
+  return ticks;
+}

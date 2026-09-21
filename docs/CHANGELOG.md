@@ -4,6 +4,24 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.11.0
+
+- Selecting a single body now keeps two floating lines on screen, showing its distance to the X and Z axis of the active workplane - the always-visible measurement several forum posters asked for by name, wanting to place a body precisely without a ruler object in the way. It steps aside the moment anything else already owns the screen (dragging, resizing, aligning, mirroring, the tape measure, edge editing) or more than one body is selected, and a body straddling an axis loses only that one line rather than showing a guess. A new setting turns it off for anyone who finds it distracting.
+
+- A second, genuinely bodiless ruler joins the tape measure and the straight one: a corner tool, the kind Tinkercad has, that drops onto the workplane with a single click and draws two ticked arms meeting at a right angle, ticks facing outward the same way Tinkercad's do. Drag its handle to move it, click the handle to turn it 90°, and a small × removes it again. Like the straight ruler, any body touching one of its arms gets its size along that arm shown as a floating number - but unlike the straight ruler, it is not a body at all: nothing to select, group, export or cast a shadow, so placing one never touches the shape list or the undo history, and by the same design it does not survive a reload, the same trade-off the tape measure already makes.
+
+- The quick guide's **Measuring** section now explains the corner ruler too, between the tape measure and the straight one.
+
+## 1.10.3
+
+- An edge below the angle-detection slider's current threshold wasn't drawn in the edge tool at all, so clicking it did nothing until the slider was dragged down by hand - reported in the forum as fillets only taking effect after touching the slider. Every edge that could in principle be rounded or chamfered now stays visible, dimmed below the threshold, and clickable; clicking one lowers the threshold to its own angle automatically instead of requiring a manual drag first.
+- Grouping or cutting a selection that itself contained a group - several threaded holes grouped together, then unioned with a body, in the forum's report - flattened that inner group into the union's own child list. Ungrouping the union afterwards lost the inner grouping instead of restoring it, so it couldn't be reused. The union now keeps the original, ungrouped selection as its children, so ungrouping it again brings the inner group back intact.
+- Rotating a ruler to an angle that isn't a multiple of 90° bakes it into a plain mesh, the same as any other body - but the ruler had no case in the function that builds that mesh, so it silently fell back to unrelated placeholder geometry sized for a completely different shape. That corrupted both the live view and any STL/OBJ export made afterwards, matching a forum report of a ruler turning to visible garbage geometry at 45°. The missing case is filled in now.
+
+## 1.10.2
+
+- A body that collected several fillets or chamfers one after another could end up with visibly rippling, uneven mesh lines - reported in the forum on a part built from a sketch and rounded several times over. Each edge treatment re-tessellates the whole body, but the fineness used to depend only on that one operation's own radius, with nothing carried over from an earlier, finer pass; a later fillet with a bigger radius could quietly resample an already finely curved region (a sketch's own rounded corners, an earlier small fillet) coarser than it had been. A body now remembers the finest tessellation any of its edge treatments has needed so far and treats it as a floor for the next one, so later, larger-radius work can no longer roughen up a region a smaller radius already needed fine.
+
 ## 1.10.0
 
 - Duplicating a body now remembers the move and turn applied to the previous copy and repeats the same amount on the next one, the way Tinkercad's does - requested by name in the forum, for building a row of holes without dragging each one into place by hand. Pressing duplicate again without moving anything in between repeats the last such step too, so a row keeps extending with nothing but the same key. Most bodies bake a turn straight into a mesh and reset the plain rotation field to zero the moment it happens; the amount actually turned is read from the parametric record layerling already keeps for exactly that case, and reapplied through the same baking step a real turn goes through, so it lands on the copy's own mesh rather than a field that would reset to zero regardless.

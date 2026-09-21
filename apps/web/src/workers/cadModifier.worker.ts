@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
 
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
-import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
-import { CAD_MODIFIER_KERNEL_RESTART_MESSAGE, CAD_MODIFIER_RUNTIME_BASE, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, isCadModifierKernelExhausted, isCadModifierWasmMemoryFault } from "@/lib/cadModifierRuntime";
+import type { CadModifierComponentMesh, CadModifierDeflection, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
+import { CAD_MODIFIER_KERNEL_RESTART_MESSAGE, CAD_MODIFIER_RUNTIME_BASE, cadModifierTessellationDeflection, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, isCadModifierKernelExhausted, isCadModifierWasmMemoryFault } from "@/lib/cadModifierRuntime";
 
 const HASH_UPPER_BOUND = 2_147_483_647;
 const CAD_EDGE_WIREFRAME_DEFLECTION = 0.035;
@@ -375,10 +375,9 @@ function cadDisplayEdgesFromCollected(edges: CollectedCadEdge[]): CadModifierDis
     .map((edge) => ({ points: edge.points }));
 }
 
-function tessellationOptions(quality: CadModifierQuality, amount: number) {
-  if (quality === "draft") return { linearDeflection: Math.max(0.12, amount / 3), angularDeflection: 0.42 };
-  if (quality === "fine") return { linearDeflection: Math.max(0.025, amount / 12), angularDeflection: 0.1 };
-  return { linearDeflection: Math.max(0.055, amount / 7), angularDeflection: 0.2 };
+function tessellationOptions(quality: CadModifierQuality, amount: number, minDeflection?: CadModifierDeflection) {
+  const deflection = cadModifierTessellationDeflection(quality, amount, minDeflection);
+  return { linearDeflection: deflection.linear, angularDeflection: deflection.angular };
 }
 
 function copyCadMesh(mesh: { positions: Float32Array; normals: Float32Array; indices: Uint32Array; triangleCount: number }) {
@@ -480,7 +479,8 @@ async function bearbeiteAnfrage(request: CadModifierWorkerRequest, halter: { cad
     }
     result = componentResults.length === 1 ? componentResults[0] : activeCad.makeCompound(componentResults);
     if (!cadShapeIsValid(activeCad, result)) throw new Error("The chosen size creates invalid or overlapping edge geometry");
-    const options = tessellationOptions(request.quality, request.amount);
+    const options = tessellationOptions(request.quality, request.amount, request.minDeflection);
+    const deflection: CadModifierDeflection = { linear: options.linearDeflection, angular: options.angularDeflection };
     const mesh = copyCadMesh(activeCad.tessellate(result, options));
     const displayEdges = collectEdges(activeCad, result, 0).displayEdges;
     const brep = activeCad.toBREP(result);
@@ -497,7 +497,7 @@ async function bearbeiteAnfrage(request: CadModifierWorkerRequest, halter: { cad
       };
     });
     post(
-      { type: "preview", requestId: request.requestId, positions: mesh.positions, normals: mesh.normals, indices: mesh.indices, triangleCount: mesh.triangleCount, brep, displayEdges, components },
+      { type: "preview", requestId: request.requestId, positions: mesh.positions, normals: mesh.normals, indices: mesh.indices, triangleCount: mesh.triangleCount, brep, displayEdges, components, deflection },
       [
         mesh.positions.buffer,
         mesh.normals.buffer,

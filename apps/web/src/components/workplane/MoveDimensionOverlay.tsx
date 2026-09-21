@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import type { MoveDimensionAxis, MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
 import { selectWholeValue } from "@/lib/numberField";
+import { t } from "@/lib/i18n";
 
 export function MoveDimensionOverlay({
   overlay,
@@ -51,14 +52,14 @@ export function MoveDimensionOverlay({
   }) as CSSProperties;
 
   return (
-    <div className={`move-dimension-overlay ${active ? "active" : "settled"}`} aria-label="Movement dimensions">
+    <div className={`move-dimension-overlay ${active ? "active" : "settled"}`} aria-label={t("aria.moveDimensions")}>
       {overlay.lines.map((line) => {
         if (editing?.axis === line.axis) {
           return (
             <input
               key={`edit-${line.axis}`}
               className="dimension-input move-dimension-input"
-              aria-label={`${line.axis.toUpperCase()} movement`}
+              aria-label={t("aria.axisMovement", { axis: line.axis.toUpperCase() })}
               value={editing.value}
               autoFocus
               inputMode="decimal"
@@ -99,7 +100,7 @@ export function MoveDimensionOverlay({
             key={line.axis}
             className="dimension-label move-dimension-value"
             type="button"
-            aria-label={`${line.axis.toUpperCase()} movement`}
+            aria-label={t("aria.axisMovement", { axis: line.axis.toUpperCase() })}
             style={styleForLine(line)}
             onClick={() => setEditing({ axis: line.axis, value: line.label })}
             onPointerDown={stopPointerPropagation}

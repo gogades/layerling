@@ -34,7 +34,7 @@ function guideSections(sharedStore: boolean): GuideSection[] {
     },
     {
       title: "guide.group.measure",
-      lines: ["guide.measure.tape", "guide.measure.ruler"],
+      lines: ["guide.measure.tape", "guide.measure.cornerRuler", "guide.measure.ruler"],
     },
     {
       title: "guide.group.solid",

@@ -71,6 +71,7 @@ import {
   cloneWorkplaneShapeTreeWithFreshIds,
   cleanNearZero,
   cleanRotationDegrees,
+  isNonSolidShapeKind,
   meshYawDegrees,
   mirroredAxisCount,
   mirrorSign,
@@ -100,14 +101,16 @@ import {
   cadModifierPrepareTimeoutMs,
   cadModifierTimeoutMessage,
   cadModifierWorkerFailureMessage,
+  cadModifierCandidateEdge,
   defaultCadModifierTangentChain,
   rescueSharpAngleForEdges,
   selectableCadModifierEdge,
+  SKETCH_CAD_DEFLECTION,
   type CadModifierRequestPhase,
 } from "@/lib/cadModifierRuntime";
 import { createCadPreviewQueue } from "@/lib/cadPreviewQueue";
 import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatmentAppliedFrame, restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
-import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, projectShapesFingerprint, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
+import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, projectShapesFingerprint, workplaneForHistoryIndex, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { composedShapeRotation, geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
 import { createLocalId } from "@/lib/localIds";
@@ -137,13 +140,14 @@ import {
   normalizePlacementWorkplane,
   placementPatchForNewShape,
   placementWorkplaneCoordinates,
+  placementWorkplaneFingerprint,
   placementWorkplaneFromSurface,
   placementWorkplaneIsBase,
   translationToWorkplane,
   type PlacementPoint,
   type PlacementWorkplane,
 } from "@/lib/placementWorkplane";
-import { placeSketchExtrusion } from "@/lib/sketchPlacement";
+import { placeSketchExtrusion, placeSketchShape } from "@/lib/sketchPlacement";
 import {
   LAYERLING_MCP_HEARTBEAT_MS,
   LAYERLING_MCP_POLL_RETRY_MS,
@@ -153,7 +157,7 @@ import {
   type LayerlingMcpShapeSummary,
   type LayerlingMcpViewFace,
 } from "@/lib/layerlingMcpProtocol";
-import type { CadModifierComponentMesh, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
+import type { CadModifierComponentMesh, CadModifierDeflection, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSource, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
@@ -655,7 +659,7 @@ async function cadShapeFromSketchProfile(profile: SketchProfile, height: number,
     cadDisplayEdges: undefined,
     cadDisplayEdgesVersion: undefined,
   });
-  const shape = shapeFromCadMesh(source, response.positions, response.normals, response.indices, response.brep);
+  const shape = shapeFromCadMesh(source, response.positions, response.normals, response.indices, response.brep, SKETCH_CAD_DEFLECTION);
   if (!shape) throw new Error("OpenCascade returned an empty sketch solid");
   return { ...shape, sketchProfile: cloneSketchProfile(profile), sketchOperation: "extrude" as const };
 }
@@ -1400,6 +1404,7 @@ function shapeFromCadMesh(
   normals: Float32Array,
   indices: Uint32Array,
   brep: string,
+  deflection?: CadModifierDeflection,
 ): WorkplaneShape | null {
   if (positions.length < 9 || indices.length < 3) return null;
   let minX = Number.POSITIVE_INFINITY;
@@ -1469,6 +1474,7 @@ function shapeFromCadMesh(
     },
     imagePlate: undefined,
     cadBrep: brep,
+    cadMeshDeflection: deflection ?? source.cadMeshDeflection,
     cadBrepFrame: {
       x: cleanNearZero(centerX, 0.0005),
       z: cleanNearZero(centerZ, 0.0005),
@@ -1577,13 +1583,13 @@ function cadDisplayEdgesForShape(shape: WorkplaneShape, edges: CadModifierDispla
     }));
 }
 
-function cadModifierComponentPreviews(sourceParts: WorkplaneShape[], components: CadModifierComponentMesh[] | undefined): EdgeModifierComponentPreview[] {
+function cadModifierComponentPreviews(sourceParts: WorkplaneShape[], components: CadModifierComponentMesh[] | undefined, deflection?: CadModifierDeflection): EdgeModifierComponentPreview[] {
   if (!components?.length) return [];
   const previews: EdgeModifierComponentPreview[] = [];
   components.forEach((component) => {
     const source = sourceParts[component.owner] ?? sourceParts[0];
     if (!source) return;
-    const shape = shapeFromCadMesh(source, component.positions, component.normals, component.indices, component.brep);
+    const shape = shapeFromCadMesh(source, component.positions, component.normals, component.indices, component.brep, deflection);
     if (!shape) return;
     previews.push({
       owner: component.owner,
@@ -2285,6 +2291,15 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
       geometry = shape.radius && shape.radius > 0
         ? new RoundedBoxGeometry(width, height, depth, Math.max(1, shape.steps ?? 10), shape.radius)
         : new THREE.BoxGeometry(width, height, depth);
+      break;
+    case "ruler":
+      // Reines Messwerkzeug, keine echte Formgeometrie - derselbe schlichte
+      // Quader wie im Live-Viewport (WorkplaneViewport.tsx, case "ruler"),
+      // nur ohne die Tick-Textur, die hier fuer Backen/Export nicht gebraucht
+      // wird. Fehlte dieser Fall, fiel ein bei 45 Grad gebackenes Lineal auf
+      // die falsche "sketch"-Ersatzgeometrie zurueck (Forum: kaputtes Netz
+      // nach schraeger Drehung).
+      geometry = new THREE.BoxGeometry(width, height, depth);
       break;
     case "cylinder":
     case "ellipse":
@@ -4069,7 +4084,7 @@ function cuboidsToMesh(name: string, cuboids: Cuboid[], centerX: number, centerZ
   return { name, vertices, faces };
 }
 
-function booleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
+function booleanMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   const solids = selection.filter((shape) => !shape.hole && !shape.locked);
   const holes = selection.filter((shape) => shape.hole);
   if (solids.length === 0 || holes.length === 0) {
@@ -4143,7 +4158,7 @@ function booleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
       groupedBaseWidth: width,
       groupedBaseDepth: depth,
       groupedBaseHeight: height,
-      groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+      groupedShapes: (groupChildren ?? selection).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
       locked: false,
       hidden: false,
     };
@@ -4157,6 +4172,7 @@ function resultGeometryToMeshShape(
   solids: WorkplaneShape[],
   geometry: THREE.BufferGeometry,
   idPrefix: string,
+  groupChildren?: WorkplaneShape[],
 ): WorkplaneShape | null {
   const resultPositions = positionsFromGeometryDrawRange(geometry);
   const groupBounds = boundsForPositions(resultPositions);
@@ -4205,7 +4221,7 @@ function resultGeometryToMeshShape(
     groupedBaseWidth: width,
     groupedBaseDepth: depth,
     groupedBaseHeight: height,
-    groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+    groupedShapes: (groupChildren ?? selection).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
     locked: false,
     hidden: false,
   };
@@ -4468,7 +4484,7 @@ function positionsInteriorTriangleCount(positions: number[], cutters: WorkplaneS
   return count;
 }
 
-function meshPositionsToGroupShape(selection: WorkplaneShape[], solids: WorkplaneShape[], positions: number[], idPrefix: string): WorkplaneShape | null {
+function meshPositionsToGroupShape(selection: WorkplaneShape[], solids: WorkplaneShape[], positions: number[], idPrefix: string, groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   if (positions.length < 9) {
     return null;
   }
@@ -4534,7 +4550,7 @@ function meshPositionsToGroupShape(selection: WorkplaneShape[], solids: Workplan
     groupedBaseWidth: width,
     groupedBaseDepth: depth,
     groupedBaseHeight: height,
-    groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+    groupedShapes: (groupChildren ?? selection).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
     locked: false,
     hidden: false,
   };
@@ -4601,7 +4617,7 @@ function disposeManifold(value: unknown) {
   (value as { delete?: () => void } | null)?.delete?.();
 }
 
-async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { requireImported?: boolean; idPrefix?: string } = {}): Promise<WorkplaneShape | null> {
+async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { requireImported?: boolean; idPrefix?: string } = {}, groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
   // GROUPING SAFETY NOTE FOR FUTURE AGENTS:
   // Imported STL + hole grouping stays on exact boolean first. Rotated cutters
   // are validated against their real oriented volume, not their broad AABB.
@@ -4655,7 +4671,7 @@ async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { 
       }
     }
 
-    const group = meshPositionsToGroupShape(selection, solids, positions, options.idPrefix ?? "grouped-manifold-cut");
+    const group = meshPositionsToGroupShape(selection, solids, positions, options.idPrefix ?? "grouped-manifold-cut", groupChildren);
     const usable = isUsableBooleanGroup(group, sourceMesh.faces.length);
     const changedEnough = sourceCutTriangles > 0 || !looksLikeUnchangedBooleanResult(group, sourceMesh.faces.length, true);
     if (!usable || !changedEnough) {
@@ -4669,7 +4685,7 @@ async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { 
   }
 }
 
-async function manifoldUnionMeshShape(selection: WorkplaneShape[]): Promise<WorkplaneShape | null> {
+async function manifoldUnionMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
   const solids = selection.filter((shape) => !shape.hole && !shape.locked);
   if (solids.length < 2 || !selection.some((shape) => Boolean(shape.importedMesh))) {
     return null;
@@ -4694,7 +4710,7 @@ async function manifoldUnionMeshShape(selection: WorkplaneShape[]): Promise<Work
 
     const outputMesh = result.getMesh();
     const positions = manifoldMeshToPositions(outputMesh);
-    const group = meshPositionsToGroupShape(selection, solids, positions, "grouped-manifold-union");
+    const group = meshPositionsToGroupShape(selection, solids, positions, "grouped-manifold-union", groupChildren);
     return isUsableBooleanGroup(group, mergedSourceMesh.faces.length, false) ? group : null;
   } catch {
     return null;
@@ -4875,7 +4891,7 @@ function clearsImportedCutVolume(geometry: THREE.BufferGeometry, sourceInteriorT
   return remainingInteriorTriangles <= Math.max(4, Math.floor(sourceInteriorTriangles * 0.05));
 }
 
-function importedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
+function importedBooleanMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   const solids = selection.filter((shape) => !shape.hole && !shape.locked);
   const holes = selection.filter((shape) => shape.hole);
   if (solids.length === 0 || holes.length === 0 || !selection.some((shape) => Boolean(shape.importedMesh))) {
@@ -4923,7 +4939,7 @@ function importedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape |
         result.updateMatrixWorld(true);
       });
 
-      const group = resultGeometryToMeshShape(selection, solids, result.geometry, attempt.idPrefix);
+      const group = resultGeometryToMeshShape(selection, solids, result.geometry, attempt.idPrefix, groupChildren);
       const resultPositions = positionsFromGeometryDrawRange(result.geometry);
       const resultChanged = geometryDiffersFromMeshData(result.geometry, mergedSolidMesh);
       const hasOpenCutBoundary = hasImportedHole && introducesOpenCutBoundary(resultPositions, mergedSolidMesh, operationHoles.map(paddedCutterShape));
@@ -4943,7 +4959,7 @@ function importedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape |
   return null;
 }
 
-function boxedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
+function boxedBooleanMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   const solids = selection.filter((shape) => !shape.hole && shape.kind === "box" && !shape.locked);
   const holes = selection.filter((shape) => shape.hole && shape.kind === "box");
   if (solids.length === 0 || holes.length === 0) {
@@ -4991,7 +5007,7 @@ function boxedBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | nu
     groupedBaseWidth: width,
     groupedBaseDepth: depth,
     groupedBaseHeight: height,
-    groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+    groupedShapes: (groupChildren ?? selection).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
     locked: false,
     hidden: false,
   };
@@ -5201,7 +5217,7 @@ function cutFullyConsumesSolids(selection: WorkplaneShape[]) {
   });
 }
 
-function mergedMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
+function mergedMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): WorkplaneShape | null {
   const groupable = selection.filter((shape) => !shape.locked);
   if (groupable.length < 2) {
     return null;
@@ -5282,7 +5298,7 @@ function mergedMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
     groupedBaseWidth: width,
     groupedBaseDepth: depth,
     groupedBaseHeight: height,
-    groupedShapes: groupable.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
+    groupedShapes: (groupChildren ?? groupable).map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
     locked: false,
     hidden: false,
   };
@@ -5456,17 +5472,23 @@ async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Prom
   const hasHole = booleanSelection.some((shape) => shape.hole);
   const hasImportedMesh = booleanSelection.some((shape) => Boolean(shape.importedMesh));
   const boxBooleanSelection = hasSolid && hasHole ? expandGroupsForBoxBoolean(groupable) : [];
-  const cleanBoxGroup = canUseBoxBoolean(boxBooleanSelection) ? boxedBooleanMeshShape(boxBooleanSelection) : null;
-  const manifoldCutGroup = hasSolid && hasHole ? await manifoldBooleanMeshShape(booleanSelection, { requireImported: false }) : null;
-  const manifoldImportedMerge = hasImportedMesh && hasSolid && !hasHole ? await manifoldUnionMeshShape(booleanSelection) : null;
-  const exactImportedGroup = hasImportedMesh && hasSolid && hasHole ? manifoldCutGroup ?? importedBooleanMeshShape(booleanSelection) : null;
-  const bakedImportedMerge = hasImportedMesh && !(hasSolid && hasHole) ? manifoldImportedMerge ?? mergedMeshShape(booleanSelection) : null;
+  // Der Boolesche Kern rechnet auf der geflachten Auswahl, aber das Ergebnis
+  // soll trotzdem die urspruenglichen, ungeflachten Formen als seine
+  // "groupedShapes" tragen - sonst geht eine mitgebrachte Gruppe (z. B. vier
+  // gruppierte Gewinde) beim Vereinigen verloren, weil sie ab da nur noch
+  // als vier einzelne Kinder existiert (Forum: Gruppe verschwindet beim
+  // Aufloesen einer Vereinigung, die eine Gewinde-Gruppe enthielt).
+  const cleanBoxGroup = canUseBoxBoolean(boxBooleanSelection) ? boxedBooleanMeshShape(boxBooleanSelection, groupable) : null;
+  const manifoldCutGroup = hasSolid && hasHole ? await manifoldBooleanMeshShape(booleanSelection, { requireImported: false }, groupable) : null;
+  const manifoldImportedMerge = hasImportedMesh && hasSolid && !hasHole ? await manifoldUnionMeshShape(booleanSelection, groupable) : null;
+  const exactImportedGroup = hasImportedMesh && hasSolid && hasHole ? manifoldCutGroup ?? importedBooleanMeshShape(booleanSelection, groupable) : null;
+  const bakedImportedMerge = hasImportedMesh && !(hasSolid && hasHole) ? manifoldImportedMerge ?? mergedMeshShape(booleanSelection, groupable) : null;
   const group = hasSolid && hasHole
     ? cleanBoxGroup ??
       exactImportedGroup ??
       (hasImportedMesh
         ? null
-        : manifoldCutGroup ?? booleanMeshShape(booleanSelection))
+        : manifoldCutGroup ?? booleanMeshShape(booleanSelection, groupable))
     : hasImportedMesh
       ? bakedImportedMerge ?? groupedShape(groupable)
       : groupedShape(groupable);
@@ -5830,6 +5852,7 @@ export function LayerlingEditor({
   if (initialSceneRef.current === null) {
     initialSceneRef.current = initialShapes.map(canonicalizeShape);
   }
+  const initialNormalizedWorkplane = normalizePlacementWorkplane(initialPlacementWorkplane, initialPlacementElevation);
   const initialHistoryStateRef = useRef<EditorHistoryState | null>(null);
   if (initialHistoryStateRef.current === null) {
     initialHistoryStateRef.current = hydrateEditorHistoryState(
@@ -5838,6 +5861,7 @@ export function LayerlingEditor({
       initialHistoryIndex,
       normalizeWorkspaceSettings(initialWorkspace).historyLimit,
       notesForHistoryIndex(initialHistory, initialHistoryIndex),
+      initialNormalizedWorkplane,
     );
   }
   const [shapes, setShapes] = useState<WorkplaneShape[]>(() => initialSceneRef.current as WorkplaneShape[]);
@@ -5852,10 +5876,17 @@ export function LayerlingEditor({
   const [systemClipboardSupported, setSystemClipboardSupported] = useState(false);
   const [history, setHistory] = useState<EditorHistoryEntry[]>(() => (initialHistoryStateRef.current as EditorHistoryState).entries);
   const [historyIndex, setHistoryIndex] = useState(() => (initialHistoryStateRef.current as EditorHistoryState).index);
-  const [placementElevation, setPlacementElevation] = useState(() => Number.isFinite(initialPlacementElevation) ? initialPlacementElevation : 0);
   const [placementWorkplane, setPlacementWorkplane] = useState<PlacementWorkplane>(
-    () => normalizePlacementWorkplane(initialPlacementWorkplane, initialPlacementElevation),
+    () => workplaneForHistoryIndex(initialHistory, initialHistoryIndex, initialNormalizedWorkplane) ?? initialNormalizedWorkplane,
   );
+  const [placementElevation, setPlacementElevation] = useState(() => {
+    const resolved = workplaneForHistoryIndex(initialHistory, initialHistoryIndex, initialNormalizedWorkplane) ?? initialNormalizedWorkplane;
+    return Math.abs(resolved.normal.x) < 1e-6
+      && Math.abs(resolved.normal.y - 1) < 1e-6
+      && Math.abs(resolved.normal.z) < 1e-6
+      ? resolved.origin.y
+      : Number.isFinite(initialPlacementElevation) ? initialPlacementElevation : 0;
+  });
   const [workspaceSettings, setWorkspaceSettings] = useState<WorkplaneWorkspaceSettings>(() => normalizeWorkspaceSettings(initialWorkspace));
   const [snapGrid, setSnapGrid] = useState<GridSize>(() => normalizeSnapGrid(initialSnap));
   const [workplaneMode, setWorkplaneMode] = useState(false);
@@ -6096,13 +6127,13 @@ export function LayerlingEditor({
         }
         const base = cadModifierBaseShapeRef.current;
         const sourceParts = cadModifierSourcePartsRef.current.length ? cadModifierSourcePartsRef.current : (base ? [base] : []);
-        const rawPreview = base ? shapeFromCadMesh(base, message.positions, message.normals, message.indices, message.brep) : null;
+        const rawPreview = base ? shapeFromCadMesh(base, message.positions, message.normals, message.indices, message.brep, message.deflection) : null;
         const preview = rawPreview ? {
           ...rawPreview,
           cadDisplayEdges: cadDisplayEdgesForShape(rawPreview, message.displayEdges),
           cadDisplayEdgesVersion: 2 as const,
         } : null;
-        const componentPreviews = cadModifierComponentPreviews(sourceParts, message.components);
+        const componentPreviews = cadModifierComponentPreviews(sourceParts, message.components, message.deflection);
         setEdgeModifier((current) => current ? {
           ...current,
           preview,
@@ -6333,6 +6364,13 @@ export function LayerlingEditor({
     () => edgeModifier ? edgeModifier.edges.filter((edge) => selectableCadModifierEdge(edge, edgeModifier.sharpAngle)).map((edge) => edge.id) : [],
     [edgeModifier?.edges, edgeModifier?.sharpAngle],
   );
+  // Alle grundsaetzlich verrundbaren Kanten, unabhaengig von der Schwelle -
+  // damit eine feinere Kante im 3D-Bild sicht- und anklickbar bleibt, statt
+  // erst nach manuellem Verschieben des Schiebereglers aufzutauchen.
+  const modifierCandidateEdgeIds = useMemo(
+    () => edgeModifier ? edgeModifier.edges.filter(cadModifierCandidateEdge).map((edge) => edge.id) : [],
+    [edgeModifier?.edges],
+  );
   const edgeModifierMaxAmount = useMemo(() => {
     const source = cadModifierBaseShapeRef.current ?? selectedShape;
     if (!source) return 10;
@@ -6347,16 +6385,30 @@ export function LayerlingEditor({
     [selectedShape, selectedShapes.length],
   );
   const toggleModifierEdge = useCallback((id: number, singleEdge = false) => {
-    setEdgeModifier((current) => {
-      if (!current || current.busy) return current;
-      const allowed = new Set(current.edges.filter((edge) => selectableCadModifierEdge(edge, current.sharpAngle)).map((edge) => edge.id));
-      if (!allowed.has(id)) return current;
-      const ids = current.tangentChain && !singleEdge ? tangentCadEdgeChain(current.edges, id, allowed) : [id];
-      const next = new Set(current.selectedEdgeIds);
-      const remove = ids.every((edgeId) => next.has(edgeId));
-      ids.forEach((edgeId) => remove ? next.delete(edgeId) : next.add(edgeId));
-      return { ...current, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : t("edge.selectAtLeastOne") };
-    });
+    // Nebenwirkungen (setNotice) hier im Funktionskoerper, nicht im
+    // setState-Updater - der laeuft unter React StrictMode doppelt.
+    const current = edgeModifierRef.current;
+    if (!current || current.busy) return;
+    let sharpAngle = current.sharpAngle;
+    let allowed = new Set(current.edges.filter((edge) => selectableCadModifierEdge(edge, sharpAngle)).map((edge) => edge.id));
+    let notice: string | null = null;
+    if (!allowed.has(id)) {
+      // Die angeklickte Kante ist grundsaetzlich verrundbar, liegt nur unter
+      // der aktuellen Schwelle - dieselbe Rettung wie beim Vorbereiten, nur
+      // gezielt fuer genau diese Kante statt fuer "irgendeine".
+      const clicked = current.edges.find((edge) => edge.id === id);
+      if (!clicked || !cadModifierCandidateEdge(clicked)) return;
+      sharpAngle = Math.max(1, Math.min(current.sharpAngle, Math.floor(clicked.angle)));
+      allowed = new Set(current.edges.filter((edge) => selectableCadModifierEdge(edge, sharpAngle)).map((edge) => edge.id));
+      if (!allowed.has(id)) return;
+      notice = t("status.sharpAngleLoweredForEdge", { angle: sharpAngle });
+    }
+    const ids = current.tangentChain && !singleEdge ? tangentCadEdgeChain(current.edges, id, allowed) : [id];
+    const next = new Set(current.selectedEdgeIds);
+    const remove = ids.every((edgeId) => next.has(edgeId));
+    ids.forEach((edgeId) => remove ? next.delete(edgeId) : next.add(edgeId));
+    setEdgeModifier((latest) => latest ? { ...latest, sharpAngle, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : t("edge.selectAtLeastOne") } : latest);
+    if (notice) setNotice(notice, true);
   }, []);
   const exportableShapeCount = useMemo(() => (hasSelection ? selectedShapes : shapes).filter((shape) => !shape.hole).length, [hasSelection, selectedShapes, shapes]);
   const exportScopeLabel = hasSelection ? "selected" : "total";
@@ -6569,8 +6621,13 @@ export function LayerlingEditor({
   }, []);
 
   const appendHistorySnapshot = useCallback(
-    (nextShapes: WorkplaneShape[], nextSelection: string[], nextNotes: WorkplaneNote[] = notesRef.current) =>
-      appendHistoryEntry(editorHistoryEntry(nextShapes, nextSelection, nextNotes)),
+    (
+      nextShapes: WorkplaneShape[],
+      nextSelection: string[],
+      nextNotes: WorkplaneNote[] = notesRef.current,
+      nextWorkplane: PlacementWorkplane = placementWorkplaneRef.current,
+    ) =>
+      appendHistoryEntry(editorHistoryEntry(nextShapes, nextSelection, nextNotes, nextWorkplane)),
     [appendHistoryEntry],
   );
 
@@ -6583,7 +6640,7 @@ export function LayerlingEditor({
       return;
     }
 
-    const entry = editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current);
+    const entry = editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current);
     if (!startFingerprint || startFingerprint === entry.fingerprint) {
       return;
     }
@@ -6609,7 +6666,7 @@ export function LayerlingEditor({
           finalizeInteractionHistory();
         }
         if (!projectInteractionActiveRef.current) {
-          interactionHistoryStartRef.current = projectSceneFingerprint(shapesRef.current, notesRef.current);
+          interactionHistoryStartRef.current = projectSceneFingerprint(shapesRef.current, notesRef.current, placementWorkplaneRef.current);
           interactionHistoryChangedRef.current = false;
         }
         projectInteractionActiveRef.current = true;
@@ -6705,7 +6762,7 @@ export function LayerlingEditor({
       const normalized = normalizeNotes(next);
       notesRef.current = normalized;
       setNotes(normalized);
-      const changed = appendHistoryEntry(editorHistoryEntry(shapesRef.current, selectedIdsRef.current, normalized));
+      const changed = appendHistoryEntry(editorHistoryEntry(shapesRef.current, selectedIdsRef.current, normalized, placementWorkplaneRef.current));
       if (message) setNotice(message);
       // Der Abgleich mit dem Projektspeicher vergleicht Koerper. Eine Notiz
       // aendert daran nichts, also muss er hier ausdruecklich laufen.
@@ -6920,6 +6977,20 @@ export function LayerlingEditor({
         .addScaledVector(normal, -selectedShape.height / 2)
         .addScaledVector(xAxis, -profileCenterX)
         .addScaledVector(zAxis, -profileCenterZ);
+      editWorkplane = placementWorkplaneFromSurface(
+        { x: origin.x, y: origin.y, z: origin.z },
+        { x: normal.x, y: normal.y, z: normal.z },
+        { x: xAxis.x, y: xAxis.y, z: xAxis.z },
+      );
+    } else if (operation === "revolve") {
+      const quaternion = quaternionForShape(selectedShape);
+      const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion).normalize();
+      const xAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion).normalize();
+      const origin = new THREE.Vector3(
+        selectedShape.x,
+        (selectedShape.elevation ?? 0) + selectedShape.height / 2,
+        selectedShape.z,
+      ).addScaledVector(normal, -selectedShape.height / 2);
       editWorkplane = placementWorkplaneFromSurface(
         { x: origin.x, y: origin.y, z: origin.z },
         { x: normal.x, y: normal.y, z: normal.z },
@@ -7349,11 +7420,13 @@ export function LayerlingEditor({
     let resolved: WorkplaneShape | null;
     try {
       if (sketchOperation === "revolve") {
-        resolved = await shapeFromRevolvedSketchProfile(sketchProfile, sketchRevolveSettings, existing);
+        setNotice(t("status.buildingSketch"), true);
+        const revolved = await shapeFromRevolvedSketchProfile(sketchProfile, sketchRevolveSettings, existing);
+        resolved = placeSketchShape(revolved, activeSketchWorkplane, existing);
       } else {
         setNotice(t("status.buildingSketch"), true);
         const extrusion = await cadShapeFromSketchProfile(sketchProfile, height, existing);
-        resolved = placeSketchExtrusion(extrusion, activeSketchWorkplane, existing);
+        resolved = placeSketchShape(extrusion, activeSketchWorkplane, existing);
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : `The sketch profile cannot be ${sketchOperation === "revolve" ? "revolved" : "extruded"} to 3D`);
@@ -7692,14 +7765,24 @@ export function LayerlingEditor({
     const nextShapes = (entry?.shapes ?? []).map(canonicalizeShape);
     const nextSelection = (entry?.selectedIds ?? []).filter((id) => nextShapes.some((shape) => shape.id === id));
     const nextNotes = normalizeNotes(entry?.notes);
+    const nextWorkplane = normalizePlacementWorkplane(entry?.placementWorkplane);
+    const nextElevation = Math.abs(nextWorkplane.normal.x) < 1e-6
+      && Math.abs(nextWorkplane.normal.y - 1) < 1e-6
+      && Math.abs(nextWorkplane.normal.z) < 1e-6
+      ? nextWorkplane.origin.y
+      : 0;
     historyIndexRef.current = nextIndex;
     shapesRef.current = nextShapes;
     selectedIdsRef.current = nextSelection;
     notesRef.current = nextNotes;
+    placementWorkplaneRef.current = nextWorkplane;
+    placementElevationRef.current = nextElevation;
     setHistoryIndex(nextIndex);
     setShapes(nextShapes);
     setNotes(nextNotes);
     setSelectedIds(nextSelection);
+    setPlacementWorkplane(nextWorkplane);
+    setPlacementElevation(nextElevation);
     syncProjectShapes(nextShapes);
     setNotice(modifierCancelled ? t("status.edgeCancelledUndo") : t("status.undo"));
   }, [invalidateCadModifierSession, syncProjectShapes]);
@@ -7721,14 +7804,24 @@ export function LayerlingEditor({
     const nextShapes = (entry?.shapes ?? []).map(canonicalizeShape);
     const nextSelection = (entry?.selectedIds ?? []).filter((id) => nextShapes.some((shape) => shape.id === id));
     const nextNotes = normalizeNotes(entry?.notes);
+    const nextWorkplane = normalizePlacementWorkplane(entry?.placementWorkplane);
+    const nextElevation = Math.abs(nextWorkplane.normal.x) < 1e-6
+      && Math.abs(nextWorkplane.normal.y - 1) < 1e-6
+      && Math.abs(nextWorkplane.normal.z) < 1e-6
+      ? nextWorkplane.origin.y
+      : 0;
     historyIndexRef.current = nextIndex;
     shapesRef.current = nextShapes;
     selectedIdsRef.current = nextSelection;
     notesRef.current = nextNotes;
+    placementWorkplaneRef.current = nextWorkplane;
+    placementElevationRef.current = nextElevation;
     setHistoryIndex(nextIndex);
     setShapes(nextShapes);
     setNotes(nextNotes);
     setSelectedIds(nextSelection);
+    setPlacementWorkplane(nextWorkplane);
+    setPlacementElevation(nextElevation);
     syncProjectShapes(nextShapes);
     setNotice(modifierCancelled ? t("status.edgeCancelledRedo") : t("status.redo"));
   }, [invalidateCadModifierSession, syncProjectShapes]);
@@ -7902,7 +7995,7 @@ export function LayerlingEditor({
   }, [invalidateCadModifierSession]);
 
   const startEdgeModifier = useCallback((kind: CadModifierKind) => {
-    if (selectedShapes.length !== 1 || !selectedShape || selectedShape.locked || selectedShape.hole || selectedShape.kind === "ruler") {
+    if (selectedShapes.length !== 1 || !selectedShape || selectedShape.locked || selectedShape.hole || isNonSolidShapeKind(selectedShape.kind)) {
       setNotice(t("status.selectOneUnlocked", { kind }));
       return;
     }
@@ -8065,11 +8158,12 @@ export function LayerlingEditor({
       amount,
       quality,
       chamferAngle,
+      minDeflection: shape.cadMeshDeflection,
     }, [], 30000);
     if (previewResponse.type !== "preview") {
       throw new Error("The CAD worker did not return an edge preview");
     }
-    const rawPreview = shapeFromCadMesh(shape, previewResponse.positions, previewResponse.normals, previewResponse.indices, previewResponse.brep);
+    const rawPreview = shapeFromCadMesh(shape, previewResponse.positions, previewResponse.normals, previewResponse.indices, previewResponse.brep, previewResponse.deflection);
     if (!rawPreview) {
       throw new Error("The CAD kernel returned an empty edge treatment");
     }
@@ -8098,7 +8192,7 @@ export function LayerlingEditor({
       prepared: true,
       error: null,
       preview,
-      componentPreviews: cadModifierComponentPreviews(sourceParts, previewResponse.components),
+      componentPreviews: cadModifierComponentPreviews(sourceParts, previewResponse.components, previewResponse.deflection),
     };
     const createdAt = Date.now();
     const groupedModifiedShape = groupedShapeWithComponentEdgeTreatment(shape, preview, sourceParts, session, feature, createdAt);
@@ -8254,6 +8348,7 @@ export function LayerlingEditor({
         amount: edgeModifier.amount,
         quality: edgeModifier.quality,
         chamferAngle: edgeModifier.chamferAngle,
+        minDeflection: cadModifierBaseShapeRef.current?.cadMeshDeflection,
       });
     }, 120);
     return () => window.clearTimeout(timer);
@@ -8450,18 +8545,25 @@ export function LayerlingEditor({
   }, []);
 
   const setActivePlacementWorkplane = useCallback((next: PlacementWorkplane, source: "shape" | "base") => {
-    placementWorkplaneRef.current = next;
-    setPlacementWorkplane(next);
-    const horizontalElevation = Math.abs(next.normal.x) < 1e-6
-      && Math.abs(next.normal.y - 1) < 1e-6
-      && Math.abs(next.normal.z) < 1e-6
-      ? next.origin.y
+    const previous = placementWorkplaneRef.current;
+    const normalizedNext = normalizePlacementWorkplane(next);
+    placementWorkplaneRef.current = normalizedNext;
+    setPlacementWorkplane(normalizedNext);
+    const horizontalElevation = Math.abs(normalizedNext.normal.x) < 1e-6
+      && Math.abs(normalizedNext.normal.y - 1) < 1e-6
+      && Math.abs(normalizedNext.normal.z) < 1e-6
+      ? normalizedNext.origin.y
       : 0;
+    placementElevationRef.current = horizontalElevation;
     setPlacementElevation(horizontalElevation);
+    if (placementWorkplaneFingerprint(normalizedNext) !== placementWorkplaneFingerprint(previous)) {
+      appendHistoryEntry(editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current, normalizedNext));
+      syncProjectShapes(shapesRef.current, true);
+    }
     setNotice(source === "shape"
       ? t("status.workplaneFromFace")
-      : placementWorkplaneIsBase(next) ? t("status.workplaneReset") : t("status.workplaneUpdated"));
-  }, []);
+      : placementWorkplaneIsBase(normalizedNext) ? t("status.workplaneReset") : t("status.workplaneUpdated"));
+  }, [appendHistoryEntry, syncProjectShapes]);
 
   const setViewportPlacementWorkplane = useCallback((next: PlacementWorkplane, source: "shape" | "base") => {
     setActivePlacementWorkplane(next, source);
@@ -8482,7 +8584,7 @@ export function LayerlingEditor({
       return;
     }
 
-    if (selectedShapes.some((shape) => shape.kind === "ruler")) {
+    if (selectedShapes.some((shape) => isNonSolidShapeKind(shape.kind))) {
       setNotice(t("status.rulerNotSolid"));
       return;
     }
@@ -8510,7 +8612,7 @@ export function LayerlingEditor({
   }, [commitShapes, selectedIds, selectedShapes]);
 
   const intersectSelected = useCallback(async () => {
-    const groupable = selectedShapes.filter((shape) => !shape.locked && shape.kind !== "ruler");
+    const groupable = selectedShapes.filter((shape) => !shape.locked && !isNonSolidShapeKind(shape.kind));
     const hasSolid = groupable.some((shape) => !shape.hole);
     const hasHole = groupable.some((shape) => shape.hole);
     if (!hasSolid || !hasHole) {
@@ -8877,7 +8979,7 @@ export function LayerlingEditor({
         const groupable = currentShapes().filter((shape) => ids.has(shape.id));
         if (groupable.length < 2) throw new Error("Select at least two objects to group");
         if (groupable.some((shape) => shape.locked)) throw new Error("Unlock every selected object before grouping");
-        if (groupable.some((shape) => shape.kind === "ruler")) throw new Error("A ruler isn't a solid and can't be grouped");
+        if (groupable.some((shape) => isNonSolidShapeKind(shape.kind))) throw new Error("A ruler isn't a solid and can't be grouped");
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
         const sourceProjectId = projectInfoRef.current.projectId;
         const result = await buildGroupedShapeFromSelection(groupable);
@@ -8920,7 +9022,7 @@ export function LayerlingEditor({
         if (operands.some((shape) => shape.locked)) {
           throw new Error("Unlock every boolean operand before cutting");
         }
-        if (operands.some((shape) => shape.kind === "ruler")) {
+        if (operands.some((shape) => isNonSolidShapeKind(shape.kind))) {
           throw new Error("A ruler isn't a solid and can't be a boolean operand");
         }
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
@@ -8965,7 +9067,7 @@ export function LayerlingEditor({
       if (command.action === "apply_edge_treatment") {
         const target = findShape(params.id);
         if (!target) throw new Error("Object not found");
-        if (target.kind === "ruler") throw new Error("A ruler isn't a solid and has no edges to treat");
+        if (isNonSolidShapeKind(target.kind)) throw new Error("A ruler isn't a solid and has no edges to treat");
         return applyCadModifierForMcp(target, params);
       }
 
@@ -9269,7 +9371,7 @@ export function LayerlingEditor({
 
   const exportDesign = useCallback((format: DirectExportFormat, exportName: string) => {
     const sourceShapes = hasSelection ? selectedShapes : shapes;
-    const exportable = sourceShapes.filter((shape) => !shape.hole && shape.kind !== "ruler");
+    const exportable = sourceShapes.filter((shape) => !shape.hole && !isNonSolidShapeKind(shape.kind));
     if (exportable.length === 0) {
       setNotice(hasSelection ? t("status.selectSolidBeforeExport") : t("status.addSolidBeforeExport"));
       return;
@@ -10071,8 +10173,8 @@ export function LayerlingEditor({
         }}
         canUndo={!projectInteractionActive && (historyIndex > 0 || Boolean(edgeModifier))}
         canRedo={!projectInteractionActive && historyIndex < history.length - 1}
-        canGroup={selectedShapes.length > 1 && selectedShapes.every((shape) => !shape.locked && shape.kind !== "ruler")}
-        canIntersect={selectedShapes.some((shape) => !shape.locked && !shape.hole && shape.kind !== "ruler") && selectedShapes.some((shape) => !shape.locked && Boolean(shape.hole) && shape.kind !== "ruler")}
+        canGroup={selectedShapes.length > 1 && selectedShapes.every((shape) => !shape.locked && !isNonSolidShapeKind(shape.kind))}
+        canIntersect={selectedShapes.some((shape) => !shape.locked && !shape.hole && !isNonSolidShapeKind(shape.kind)) && selectedShapes.some((shape) => !shape.locked && Boolean(shape.hole) && !isNonSolidShapeKind(shape.kind))}
         canUngroup={selectedShapes.some((shape) => Boolean(shape.groupedShapes?.length))}
         hasClipboard={clipboard.length > 0 || systemClipboardSupported}
         hasSelection={hasSelection}
@@ -10080,7 +10182,7 @@ export function LayerlingEditor({
         selectionHidden={hasSelection && selectedShapes.every((shape) => shape.hidden)}
         alignMode={alignMode}
         canAlign={selectedShapes.length > 1}
-        canEdgeModify={selectedShapes.length === 1 && Boolean(selectedShape && !selectedShape.locked && !selectedShape.hole && selectedShape.kind !== "ruler")}
+        canEdgeModify={selectedShapes.length === 1 && Boolean(selectedShape && !selectedShape.locked && !selectedShape.hole && !isNonSolidShapeKind(selectedShape.kind))}
         edgeModifierKind={edgeModifier?.kind ?? null}
         mirrorMode={mirrorMode}
         sketchActive={sketchActive}
@@ -10231,7 +10333,8 @@ export function LayerlingEditor({
           onWorkplaneModeChange={closeViewportWorkplaneMode}
           modifierActive={Boolean(edgeModifier)}
           modifierPreviewActive={Boolean(edgeModifier?.preview)}
-          modifierEdges={edgeModifier?.edges.filter((edge) => modifierAvailableEdgeIds.includes(edge.id)) ?? []}
+          modifierEdges={edgeModifier?.edges.filter((edge) => modifierCandidateEdgeIds.includes(edge.id)) ?? []}
+          modifierHighlightedEdgeIds={modifierAvailableEdgeIds}
           selectedModifierEdgeIds={edgeModifier?.selectedEdgeIds ?? []}
           onModifierEdgeToggle={toggleModifierEdge}
           themePreference={themePreference}
@@ -10349,7 +10452,7 @@ export function LayerlingEditor({
       ) : null}
       {guideOpen ? <GuideModal sharedStore={sharedProjectsEnabled} onClose={() => setGuideOpen(false)} /> : null}
       {notice ? (
-        <p className="editor-status" role="status" aria-live="polite">
+        <p className="editor-status" role="status" aria-live="polite" title={notice}>
           {notice}
         </p>
       ) : null}

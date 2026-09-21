@@ -1,7 +1,42 @@
 import { t } from "@/lib/i18n";
-import type { CadModifierEdge } from "@/lib/cadModifierTypes";
+import type { CadModifierDeflection, CadModifierEdge, CadModifierQuality } from "@/lib/cadModifierTypes";
 
 export const CAD_MODIFIER_RUNTIME_BASE = "/occt";
+
+/**
+ * Tessellation deflection used the one time a sketch is first extruded into a
+ * solid (sketchCad.worker.ts). Edge treatments applied afterwards start their
+ * own deflection floor from this value, so a later, coarser-radius fillet
+ * cannot re-tessellate a region the sketch itself already needed this fine.
+ */
+export const SKETCH_CAD_DEFLECTION: CadModifierDeflection = { linear: 0.05, angular: 0.16 };
+
+/** How finely a single edge treatment tessellates the whole body, before any floor from earlier treatments. */
+export function cadModifierBaseDeflection(quality: CadModifierQuality, amount: number): CadModifierDeflection {
+  if (quality === "draft") return { linear: Math.max(0.12, amount / 3), angular: 0.42 };
+  if (quality === "fine") return { linear: Math.max(0.025, amount / 12), angular: 0.1 };
+  return { linear: Math.max(0.055, amount / 7), angular: 0.2 };
+}
+
+/**
+ * A body remembers the finest tessellation any earlier edge treatment on it
+ * needed. Without this floor, a later fillet with a bigger radius picks a
+ * coarser deflection for the WHOLE shape and re-samples an already finely
+ * curved region (e.g. the sketch's own rounded corners) more coarsely than it
+ * already was - the rippling mesh reported after several sequential fillets.
+ */
+export function cadModifierTessellationDeflection(
+  quality: CadModifierQuality,
+  amount: number,
+  minDeflection?: CadModifierDeflection,
+): CadModifierDeflection {
+  const base = cadModifierBaseDeflection(quality, amount);
+  if (!minDeflection) return base;
+  return {
+    linear: Math.min(base.linear, minDeflection.linear),
+    angular: Math.min(base.angular, minDeflection.angular),
+  };
+}
 export const CAD_MODIFIER_REQUEST_TIMEOUT_MS = 30_000;
 export const CAD_MODIFIER_MAX_PREPARE_TIMEOUT_MS = 180_000;
 export const CAD_MODIFIER_MAX_SHARP_ANGLE = 90;
@@ -96,6 +131,20 @@ export function selectableCadModifierEdge(
   sharpAngle: number,
 ) {
   return edge.selectable && edge.manifold && !edge.boundary && edge.angle + 1e-3 >= sharpAngle;
+}
+
+/**
+ * Dieselbe Kante, ohne die Schwelle - jede Kante, die grundsaetzlich
+ * verrundbar waere, unabhaengig davon, ob der Schieberegler sie gerade
+ * zeigt. Damit bleibt eine feinere Kante als die Vorgabe im 3D-Bild sicht-
+ * und anklickbar, statt bis zum manuellen Verschieben des Reglers unsichtbar
+ * zu sein (Forum: "Verrundung funktioniert manchmal erst, nachdem man den
+ * Schieberegler bewegt hat").
+ */
+export function cadModifierCandidateEdge(
+  edge: Pick<CadModifierEdge, "selectable" | "manifold" | "boundary">,
+) {
+  return edge.selectable && edge.manifold && !edge.boundary;
 }
 
 export function edgeModifierSelectionStatus(prepared: boolean, selectedCount: number, availableCount: number) {

@@ -353,6 +353,12 @@ export type WorkplaneShape = {
   edgeResizeMode?: "scale" | "preserve";
   cadBrep?: string;
   cadBrepFrame?: CadBrepFrame;
+  // The finest tessellation deflection any edge treatment on this body has
+  // needed so far. Carried forward as a floor for the next one, so a later
+  // fillet with a larger radius cannot re-tessellate an already finely
+  // curved region more coarsely than it already was (layerling forum: mesh
+  // quality getting worse over several sequential fillets).
+  cadMeshDeflection?: { linear: number; angular: number };
   cadPrimitiveFrame?: CadPrimitiveFrame;
   groupedShapes?: WorkplaneShape[];
   groupedBaseWidth?: number;

@@ -57,7 +57,7 @@ import {
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, measurementOptionLabel, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
-import { resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeWidth } from "@/lib/workplaneShapes";
+import { isNonSolidShapeKind, resizedShapeSize, shapeDepth, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeWidth } from "@/lib/workplaneShapes";
 import { normalizeSketchRevolveSettings } from "@/lib/sketchRevolve";
 import { roundSideCount } from "@/lib/roundSideCount";
 import { normalizePyramidTop } from "@/lib/pyramidGeometry";
@@ -1030,7 +1030,7 @@ export function ShapeInspector({
 
       {!minimized ? (
         <>
-      {shape.kind !== "ruler" ? (
+      {!isNonSolidShapeKind(shape.kind) ? (
       <div className="shape-state-card" role="group" aria-label={t("inspector.shapeMode")}>
         <button
           className={!shape.hole ? "active solid-choice" : "solid-choice"}
@@ -1075,7 +1075,7 @@ export function ShapeInspector({
                 type="button"
                 style={{ "--shape-swatch": color } as CSSProperties}
                 title={color.toUpperCase()}
-                aria-label={`Set color ${color}`}
+                aria-label={t("aria.setColor", { color })}
                 disabled={locked}
                 onClick={() => {
                   onUpdate({ color, hole: false });

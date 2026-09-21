@@ -44,6 +44,8 @@ export type CadModifierComponentMesh = {
   displayEdges: CadModifierDisplayEdge[];
 };
 
+export type CadModifierDeflection = { linear: number; angular: number };
+
 export type CadModifierWorkerRequest =
   | { type: "prepare"; requestId: number; parts: CadModifierMeshPart[]; sharpAngle: number; suppressTreatmentDetailEdges?: boolean }
   | {
@@ -54,6 +56,9 @@ export type CadModifierWorkerRequest =
       amount: number;
       quality: CadModifierQuality;
       chamferAngle: number;
+      // The finest deflection the shape's edge-treatment history has needed
+      // so far, if any - a floor beneath this operation's own deflection.
+      minDeflection?: CadModifierDeflection;
     }
   | { type: "dispose"; requestId: number };
 
@@ -69,6 +74,9 @@ export type CadModifierWorkerResponse =
       brep: string;
       displayEdges: CadModifierDisplayEdge[];
       components?: CadModifierComponentMesh[];
+      // The deflection actually used for this operation - request.minDeflection
+      // folded in, so the caller can carry it forward as the new floor.
+      deflection: CadModifierDeflection;
     }
   | { type: "disposed"; requestId: number }
   | { type: "error"; requestId: number; message: string; resetSession?: boolean };
