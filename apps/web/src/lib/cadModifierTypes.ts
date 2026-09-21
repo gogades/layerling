@@ -17,13 +17,31 @@ export type CadModifierDisplayEdge = {
   points: number[];
 };
 
-export type CadModifierPrimitivePart = {
-  kind: "box";
-  width: number;
-  depth: number;
-  height: number;
-  transform?: number[];
-};
+export type CadModifierPrimitivePart =
+  | {
+      kind: "box";
+      width: number;
+      depth: number;
+      height: number;
+      transform?: number[];
+    }
+  | {
+      kind: "cylinder";
+      radius: number;
+      width: number;
+      depth: number;
+      height: number;
+      transform?: number[];
+    }
+  | {
+      kind: "cone";
+      baseRadius: number;
+      topRadius: number;
+      width: number;
+      depth: number;
+      height: number;
+      transform?: number[];
+    };
 
 export type CadModifierMeshPart = {
   positions?: Float32Array;

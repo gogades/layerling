@@ -246,10 +246,13 @@ export type ParametricSource = {
 };
 
 export type CadPrimitiveFrame = {
-  kind: "box";
+  kind: "box" | "cylinder" | "cone";
   width: number;
   depth: number;
   height: number;
+  radius?: number;
+  baseRadius?: number;
+  topRadius?: number;
   frame: CadBrepFrame;
 };
 

@@ -44,8 +44,8 @@ function allFinitePositive(values: number[]) {
   return values.every((value) => Number.isFinite(value) && value > 0);
 }
 
-export function cadModifierPrimitiveForAnalyticBox(shape: WorkplaneShape): CadModifierPrimitivePart | null {
-  if (shape.kind !== "box" || shape.importedMesh || shape.groupedShapes?.length) {
+export function cadModifierPrimitiveForAnalyticShape(shape: WorkplaneShape): CadModifierPrimitivePart | null {
+  if (shape.importedMesh || shape.groupedShapes?.length) {
     return null;
   }
 
@@ -71,19 +71,69 @@ export function cadModifierPrimitiveForAnalyticBox(shape: WorkplaneShape): CadMo
     .multiply(new THREE.Matrix4().makeTranslation(0, -centerY, 0));
 
   const transform = cadTransformFromMatrix(matrix);
-  return {
-    kind: "box",
-    width,
-    depth,
-    height,
-    transform: isIdentityCadTransform(transform) ? undefined : transform,
-  };
+  const finalTransform = isIdentityCadTransform(transform) ? undefined : transform;
+
+  if (shape.kind === "box") {
+    return {
+      kind: "box",
+      width,
+      depth,
+      height,
+      transform: finalTransform,
+    };
+  }
+
+  if (shape.kind === "cylinder") {
+    if (Math.abs(width - depth) > 1e-4) {
+      return null;
+    }
+    const radius = width / 2;
+    if (!Number.isFinite(radius) || radius <= 0) {
+      return null;
+    }
+    return {
+      kind: "cylinder",
+      radius,
+      width,
+      depth,
+      height,
+      transform: finalTransform,
+    };
+  }
+
+  if (shape.kind === "cone") {
+    if (Math.abs(width - depth) > 1e-4) {
+      return null;
+    }
+    const baseRadius = width / 2;
+    const topScale = shape.baseRadius ? (shape.topRadius ?? 0) / shape.baseRadius : 0;
+    const topRadius = Math.max(0, shape.baseRadius ? baseRadius * topScale : (shape.topRadius ?? 0));
+    if (!Number.isFinite(baseRadius) || baseRadius <= 0 || !Number.isFinite(topRadius) || topRadius < 0) {
+      return null;
+    }
+    return {
+      kind: "cone",
+      baseRadius,
+      topRadius,
+      width,
+      depth,
+      height,
+      transform: finalTransform,
+    };
+  }
+
+  return null;
+}
+
+export function cadModifierPrimitiveForAnalyticBox(shape: WorkplaneShape): CadModifierPrimitivePart | null {
+  if (shape.kind !== "box") return null;
+  return cadModifierPrimitiveForAnalyticShape(shape);
 }
 
 export function cadModifierPrimitiveForBakedShape(shape: WorkplaneShape): CadModifierPrimitivePart | null {
   const primitive = shape.cadPrimitiveFrame;
   const frame = primitive?.frame;
-  if (!primitive || primitive.kind !== "box" || !frame) {
+  if (!primitive || (primitive.kind !== "box" && primitive.kind !== "cylinder" && primitive.kind !== "cone") || !frame) {
     return null;
   }
 
@@ -124,13 +174,45 @@ export function cadModifierPrimitiveForBakedShape(shape: WorkplaneShape): CadMod
     .multiply(cadTransformToMatrix(frame.sourceTransform));
 
   const transform = cadTransformFromMatrix(matrix);
-  return {
-    kind: primitive.kind,
-    width: primitive.width,
-    depth: primitive.depth,
-    height: primitive.height,
-    transform: isIdentityCadTransform(transform) ? undefined : transform,
-  };
+  const finalTransform = isIdentityCadTransform(transform) ? undefined : transform;
+
+  if (primitive.kind === "box") {
+    return {
+      kind: "box",
+      width: primitive.width,
+      depth: primitive.depth,
+      height: primitive.height,
+      transform: finalTransform,
+    };
+  }
+
+  if (primitive.kind === "cylinder") {
+    const radius = primitive.radius ?? primitive.width / 2;
+    return {
+      kind: "cylinder",
+      radius,
+      width: primitive.width,
+      depth: primitive.depth,
+      height: primitive.height,
+      transform: finalTransform,
+    };
+  }
+
+  if (primitive.kind === "cone") {
+    const baseRadius = primitive.baseRadius ?? primitive.width / 2;
+    const topRadius = primitive.topRadius ?? 0;
+    return {
+      kind: "cone",
+      baseRadius,
+      topRadius,
+      width: primitive.width,
+      depth: primitive.depth,
+      height: primitive.height,
+      transform: finalTransform,
+    };
+  }
+
+  return null;
 }
 
 export function bakedBoxSelectionFrame(shape: WorkplaneShape) {
@@ -235,7 +317,7 @@ function bakeCadDisplayEdgesForShape(shape: WorkplaneShape, frame: BakedCadMetad
 }
 
 function bakeCadPrimitiveFrameForShapeTransform(shape: WorkplaneShape, frame: BakedCadMetadataFrame) {
-  const primitive = cadModifierPrimitiveForBakedShape(shape) ?? cadModifierPrimitiveForAnalyticBox(shape);
+  const primitive = cadModifierPrimitiveForBakedShape(shape) ?? cadModifierPrimitiveForAnalyticShape(shape);
   if (!primitive) {
     return undefined;
   }
@@ -245,6 +327,8 @@ function bakeCadPrimitiveFrameForShapeTransform(shape: WorkplaneShape, frame: Ba
     width: primitive.width,
     depth: primitive.depth,
     height: primitive.height,
+    ...(primitive.kind === "cylinder" ? { radius: primitive.radius } : {}),
+    ...(primitive.kind === "cone" ? { baseRadius: primitive.baseRadius, topRadius: primitive.topRadius } : {}),
     frame: {
       x: frame.centerX,
       z: frame.centerZ,

@@ -3057,6 +3057,8 @@ function resizeImportedShapeAlongFrameNormal(
         width: primitive.width,
         depth: primitive.depth,
         height: primitive.height,
+        ...(primitive.kind === "cylinder" ? { radius: primitive.radius } : {}),
+        ...(primitive.kind === "cone" ? { baseRadius: primitive.baseRadius, topRadius: primitive.topRadius } : {}),
         frame: {
           x: centerX,
           z: centerZ,

@@ -94,7 +94,7 @@ import {
   workplaneShapesEqual,
 } from "@/lib/workplaneShapes";
 import { workplaneCenteringOffset } from "@/lib/workplaneCentering";
-import { bakeCadMetadataForShapeTransform, cadBrepTransformForShape, cadModifierPrimitiveForAnalyticBox, cadModifierPrimitiveForBakedShape } from "@/lib/cadBakeMetadata";
+import { bakeCadMetadataForShapeTransform, cadBrepTransformForShape, cadModifierPrimitiveForAnalyticBox, cadModifierPrimitiveForAnalyticShape, cadModifierPrimitiveForBakedShape } from "@/lib/cadBakeMetadata";
 import { hasOneToOneCadComponentMapping } from "@/lib/cadModifierGroups";
 import {
   CAD_MODIFIER_MAX_SHARP_ANGLE,
@@ -2543,7 +2543,7 @@ function cadModifierPrimitiveForShape(shape: WorkplaneShape): CadModifierPrimiti
   // matches the viewport exactly.
   if (shapeHasShapeDeform(shape)) return null;
   return cadModifierPrimitiveForBakedShape(shape)
-    ?? (shapeHasTransformToBake(shape) ? cadModifierPrimitiveForAnalyticBox(shape) : null);
+    ?? cadModifierPrimitiveForAnalyticShape(shape);
 }
 
 /**
