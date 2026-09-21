@@ -4,6 +4,12 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.12.4
+
+- The edge modifier (fillet/chamfer) now presents clear, localized error messages instead of raw worker exceptions. When an operation cannot be built—most commonly because a radius is too large for the edge and collides with or consumes adjacent faces (such as trying to apply a 3 mm fillet across a narrow 2 mm geometry)—the panel explains in plain language why it was rejected and suggests trying a smaller value (e.g. 1.5 mm). Timeouts and internal worker issues are similarly localized in both German and English.
+
+- The quick guide now includes a dedicated **Workplane** section explaining how to activate an auxiliary workplane on any face with the `W` key or the toolbar, how to reset back to the base ground plane by clicking into empty space or pressing Escape, and where to toggle the workplane grid. In addition, the guide clarifies that server-backed project storage runs in addition to local browser storage, and reinforces that all CAD geometry calculations and exports remain 100% local to the user's browser.
+
 ## 1.12.3
 
 - A cylinder or cone sent to the edge tool is no longer tessellated into a faceted mesh first - it now reconstructs the exact cylindrical or conical surface before filleting or chamfering, the same way a box already did. This resolves a case reported on the forum: a small fillet on the sloped rim of a tapered cone (a 38/60 mm truncated cone) failed outright even though the edge itself was found cleanly, because the facet size on that mesh lost the race against the fillet's own space requirement on the acute side of the taper - documented at the time as a structural limit of the meshing approach, not something a small patch could reach. Rounding at 90°, on a plain box or hexagonal prism, was never affected by this.
