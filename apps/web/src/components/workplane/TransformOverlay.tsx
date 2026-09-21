@@ -63,7 +63,12 @@ export function TransformOverlay({
   onCommitRotationEdit,
   onCancelRotationEdit,
 }: TransformOverlayProps) {
-  const marks = measureKey ? (box.dimensions[measureKey] ?? []) : [];
+  // With no handle hovered or pinned, a lone selection still shows its width,
+  // depth and height (diameter and height for a cylinder) so they can be read
+  // and edited without hovering first - see alwaysVisibleDimensionKeys.
+  const marks = measureKey
+    ? (box.dimensions[measureKey] ?? [])
+    : box.alwaysVisibleDimensionKeys.flatMap((key) => box.dimensions[key] ?? []);
   const visibleMarks = (hideDimensionMarks ? [] : marks).filter((mark) => mark.key !== editingDimension?.key);
   const handleMeasureKey = (handle: TransformOverlayState["handles"][number]) => measureKeyForHandle(handle.kind, handle.key, box);
   const protractorTicks = Array.from({ length: 16 }, (_, index) => {

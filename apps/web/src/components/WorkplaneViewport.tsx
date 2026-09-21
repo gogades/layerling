@@ -5000,6 +5000,7 @@ export function WorkplaneViewport({
         });
       }
       setEditingDimension(null);
+      setPinnedMeasureKey(null);
       return;
     }
     if (Number.isFinite(value) && value > 0) {
@@ -5060,10 +5061,12 @@ export function WorkplaneViewport({
       }
     }
     setEditingDimension(null);
+    setPinnedMeasureKey(null);
   }, [editingDimension, onUpdateShape]);
 
   const cancelDimensionEdit = useCallback(() => {
     setEditingDimension(null);
+    setPinnedMeasureKey(null);
   }, []);
 
   const beginRulerDimensionEdit = useCallback((item: RulerDimensionOverlayItem) => {
@@ -8479,6 +8482,19 @@ function syncTransformOverlay(
     rotateBottomSource.visible ? { key: "rotate-bottom", className: "screen-bottom", x: rotateBottom.x, y: rotateBottom.y, plane: normalizedRotationPlaneBasis(rotationHandlePlanes.y, true) } : null,
   ].filter((handle): handle is NonNullable<typeof handle> => Boolean(handle)) : [];
 
+  // Which mid-edge handle sits on the side of the shape currently facing the
+  // camera - same sign convention as showLowerHandles above, so the always-on
+  // dimension labels for a lone selection land on a readable, visible face
+  // instead of potentially behind the shape.
+  const cameraView = state.camera.position.clone().sub(frame.center);
+  const widthMidHandleKey = cameraView.dot(xFootAxis) >= 0 ? "right-mid" : "left-mid";
+  const depthMidHandleKey = cameraView.dot(zFootAxis) >= 0 ? "near-mid" : "far-mid";
+  const alwaysVisibleDimensionKeys = frame.singleShape
+    ? isCircularFootprint
+      ? [widthMidHandleKey, heightHandleKey]
+      : [widthMidHandleKey, depthMidHandleKey, heightHandleKey]
+    : [];
+
   const next = {
     id: frame.ids.join("|"),
     width: rect.width,
@@ -8487,6 +8503,7 @@ function syncTransformOverlay(
     handles,
     rotateHandles,
     dimensions: dimensionMarks,
+    alwaysVisibleDimensionKeys,
     rotationWheel: rotationWheels.y,
     rotationWheels,
     rotationPlaneCenters,
