@@ -132,11 +132,8 @@ export function AppFooter({
             {t("dashboard.projectOnGitHub")}
           </a>,
           <a href={releaseNotesUrl()} target="_blank" rel="noreferrer" key="releases">
-            {t("dashboard.releaseNotes")}
+            {t("dashboard.releaseNotes", { version })}
           </a>,
-          <span className="dashboard-legal-version" key="version">
-            {t("dashboard.version", { version })}
-          </span>,
           update ? (
             <a
               className="dashboard-legal-update"

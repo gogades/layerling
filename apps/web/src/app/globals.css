@@ -1041,10 +1041,6 @@ button {
   border-radius: 2px;
 }
 
-.dashboard-legal-version {
-  color: #9a836a;
-}
-
 /* The one thing in this row that asks for something, so it is the one thing
    that looks like a control. Both selectors carry the element too, otherwise
    `.dashboard-legal a` above wins on specificity and the colour never lands.
@@ -8312,10 +8308,6 @@ html[data-theme="dark"] .editor-status {
   background: rgba(40, 30, 20, 0.97);
   border-color: #5b4b3a;
   box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34);
-}
-
-html[data-theme="dark"] .dashboard-legal-version {
-  color: #8d7660;
 }
 
 html[data-theme="dark"] .store-trail button {
