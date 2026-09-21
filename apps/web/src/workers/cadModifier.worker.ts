@@ -169,20 +169,48 @@ function applyCadTransform(cad: OcctKernel, shape: ShapeHandle, transform: numbe
   }
 }
 
+const ROTATE_Z_TO_Y: number[] = [
+  1, 0, 0, 0,
+  0, 0, 1, 0,
+  0, -1, 0, 0,
+];
+
 function reconstructPrimitiveSolid(cad: OcctKernel, primitive: CadModifierPrimitivePart) {
-  if (primitive.kind !== "box") {
-    throw new Error(`Unsupported CAD primitive: ${primitive.kind}`);
+  let solid: ShapeHandle;
+  if (primitive.kind === "box") {
+    const width = primitive.width;
+    const depth = primitive.depth;
+    const height = primitive.height;
+    if (![width, depth, height].every((value) => Number.isFinite(value) && value > 0)) {
+      throw new Error("The selected primitive has invalid dimensions");
+    }
+    solid = cad.makeBoxFromCorners(
+      { x: -width / 2, y: 0, z: -depth / 2 },
+      { x: width / 2, y: height, z: depth / 2 },
+    );
+  } else if (primitive.kind === "cylinder") {
+    const radius = primitive.radius;
+    const height = primitive.height;
+    if (![radius, height].every((value) => Number.isFinite(value) && value > 0)) {
+      throw new Error("The selected primitive has invalid dimensions");
+    }
+    const raw = cad.makeCylinder(radius, height);
+    solid = cad.transform(raw, ROTATE_Z_TO_Y);
+    cad.release(raw);
+  } else if (primitive.kind === "cone") {
+    const baseRadius = primitive.baseRadius;
+    const topRadius = primitive.topRadius;
+    const height = primitive.height;
+    if (![baseRadius, topRadius, height].every(Number.isFinite) || baseRadius <= 0 || topRadius < 0 || height <= 0) {
+      throw new Error("The selected primitive has invalid dimensions");
+    }
+    const raw = cad.makeCone(baseRadius, topRadius, height);
+    solid = cad.transform(raw, ROTATE_Z_TO_Y);
+    cad.release(raw);
+  } else {
+    throw new Error(`Unsupported CAD primitive: ${(primitive as { kind: string }).kind}`);
   }
-  const width = primitive.width;
-  const depth = primitive.depth;
-  const height = primitive.height;
-  if (![width, depth, height].every((value) => Number.isFinite(value) && value > 0)) {
-    throw new Error("The selected primitive has invalid dimensions");
-  }
-  const solid = cad.makeBoxFromCorners(
-    { x: -width / 2, y: 0, z: -depth / 2 },
-    { x: width / 2, y: height, z: depth / 2 },
-  );
+
   const transformed = applyCadTransform(cad, solid, primitive.transform);
   if (!cad.isSolid(transformed) || !cadShapeIsValid(cad, transformed)) {
     throw new Error("The selected primitive could not be prepared as a valid CAD solid");

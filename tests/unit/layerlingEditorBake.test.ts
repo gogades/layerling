@@ -3,6 +3,7 @@ import {
   bakeCadMetadataForShapeTransform,
   cadBrepTransformForShape,
   cadModifierPrimitiveForAnalyticBox,
+  cadModifierPrimitiveForAnalyticShape,
   cadModifierPrimitiveForBakedShape,
 } from "@/lib/cadBakeMetadata";
 import { cadTransformRequiresGeneralTransform } from "@/lib/cadModifierRuntime";
@@ -73,6 +74,52 @@ function boxShape(overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
     rotation: 32,
     rotationX: 18,
     rotationZ: 24,
+    locked: false,
+    hidden: false,
+    ...overrides,
+  };
+}
+
+function cylinderShape(overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
+  return {
+    id: "cylinder-shape",
+    name: "Cylinder",
+    kind: "cylinder",
+    color: "#d97813",
+    x: 0,
+    z: 0,
+    elevation: 0,
+    size: 20,
+    width: 20,
+    depth: 20,
+    height: 30,
+    rotation: 0,
+    rotationX: 0,
+    rotationZ: 0,
+    locked: false,
+    hidden: false,
+    ...overrides,
+  };
+}
+
+function coneShape(overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
+  return {
+    id: "cone-shape",
+    name: "Cone",
+    kind: "cone",
+    color: "#6e2786",
+    x: 0,
+    z: 0,
+    elevation: 0,
+    size: 28,
+    width: 28,
+    depth: 28,
+    height: 40,
+    baseRadius: 14,
+    topRadius: 0,
+    rotation: 0,
+    rotationX: 0,
+    rotationZ: 0,
     locked: false,
     hidden: false,
     ...overrides,
@@ -233,5 +280,163 @@ describe("Layerling transform baking", () => {
     const restoredPrimitive = cadModifierPrimitiveForBakedShape(resizedBakedShape);
     expect(restoredPrimitive?.transform).toBeDefined();
     expect(cadTransformRequiresGeneralTransform(restoredPrimitive?.transform ?? [])).toBe(true);
+  });
+
+  it("extracts an analytic cylinder primitive for circular cylinders and skips elliptical ones", () => {
+    const circular = cylinderShape();
+    const primitive = cadModifierPrimitiveForAnalyticShape(circular);
+    expect(primitive).toMatchObject({
+      kind: "cylinder",
+      radius: 10,
+      width: 20,
+      depth: 20,
+      height: 30,
+    });
+
+    const elliptical = cylinderShape({ width: 20, depth: 25 });
+    expect(cadModifierPrimitiveForAnalyticShape(elliptical)).toBeNull();
+  });
+
+  it("extracts an analytic cone primitive including truncated cones", () => {
+    const pointedCone = coneShape();
+    const pointedPrimitive = cadModifierPrimitiveForAnalyticShape(pointedCone);
+    expect(pointedPrimitive).toMatchObject({
+      kind: "cone",
+      baseRadius: 14,
+      topRadius: 0,
+      width: 28,
+      depth: 28,
+      height: 40,
+    });
+
+    const truncatedCone = coneShape({ topRadius: 6 });
+    const truncatedPrimitive = cadModifierPrimitiveForAnalyticShape(truncatedCone);
+    expect(truncatedPrimitive).toMatchObject({
+      kind: "cone",
+      baseRadius: 14,
+      topRadius: 6,
+      width: 28,
+      depth: 28,
+      height: 40,
+    });
+  });
+
+  it("preserves an analytic cylinder primitive through transform baking", () => {
+    const shape = cylinderShape({
+      x: 10,
+      elevation: 2,
+      rotation: 30,
+    });
+    const directPrimitive = cadModifierPrimitiveForAnalyticShape(shape);
+    expect(directPrimitive?.kind).toBe("cylinder");
+
+    const baked = bakeCadMetadataForShapeTransform(shape, {
+      centerX: 10,
+      minY: 2,
+      centerZ: 0,
+      width: 20,
+      depth: 20,
+      height: 30,
+      yawDegrees: 30,
+    });
+
+    expect(baked.cadPrimitiveFrame).toMatchObject({
+      kind: "cylinder",
+      radius: 10,
+      width: 20,
+      depth: 20,
+      height: 30,
+    });
+
+    const bakedShape: WorkplaneShape = {
+      ...shape,
+      ...baked,
+      kind: "mesh",
+      x: 10,
+      z: 0,
+      elevation: 2,
+      rotation: 0,
+      rotationX: 0,
+      rotationZ: 0,
+      importedMesh: {
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        baseWidth: 20,
+        baseDepth: 20,
+        baseHeight: 30,
+        triangleCount: 1,
+        sourceFormat: "json",
+      },
+    };
+
+    const restored = cadModifierPrimitiveForBakedShape(bakedShape);
+    expect(restored).toMatchObject({
+      kind: "cylinder",
+      radius: 10,
+      width: 20,
+      depth: 20,
+      height: 30,
+    });
+    expectTransformClose(restored?.transform, directPrimitive?.transform ?? []);
+  });
+
+  it("preserves an analytic cone primitive through transform baking", () => {
+    const shape = coneShape({
+      x: 5,
+      elevation: 0,
+      topRadius: 4,
+      rotation: 45,
+    });
+    const directPrimitive = cadModifierPrimitiveForAnalyticShape(shape);
+    expect(directPrimitive?.kind).toBe("cone");
+
+    const baked = bakeCadMetadataForShapeTransform(shape, {
+      centerX: 5,
+      minY: 0,
+      centerZ: 0,
+      width: 28,
+      depth: 28,
+      height: 40,
+      yawDegrees: 45,
+    });
+
+    expect(baked.cadPrimitiveFrame).toMatchObject({
+      kind: "cone",
+      baseRadius: 14,
+      topRadius: 4,
+      width: 28,
+      depth: 28,
+      height: 40,
+    });
+
+    const bakedShape: WorkplaneShape = {
+      ...shape,
+      ...baked,
+      kind: "mesh",
+      x: 5,
+      z: 0,
+      elevation: 0,
+      rotation: 0,
+      rotationX: 0,
+      rotationZ: 0,
+      importedMesh: {
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        baseWidth: 28,
+        baseDepth: 28,
+        baseHeight: 40,
+        triangleCount: 1,
+        sourceFormat: "json",
+      },
+    };
+
+    const restored = cadModifierPrimitiveForBakedShape(bakedShape);
+    expect(restored).toMatchObject({
+      kind: "cone",
+      baseRadius: 14,
+      topRadius: 4,
+      width: 28,
+      depth: 28,
+      height: 40,
+    });
+    expectTransformClose(restored?.transform, directPrimitive?.transform ?? []);
   });
 });
