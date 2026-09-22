@@ -1,6 +1,19 @@
 import { createLocalId } from "@/lib/localIds";
 import { threadFootprintPatch } from "@/lib/threadGeometry";
+import { MCP_SHAPE_SETTING_KEYS } from "@/lib/mcpShapeSettings";
 import type { WorkplaneShape } from "@/types/layerling";
+
+/** Aendert dieser Patch einen Bauwert des Koerpers - oder nur seinen Rahmen? */
+export function patchTouchesBodyParameters(patch: Partial<WorkplaneShape>) {
+  return (
+    MCP_SHAPE_SETTING_KEYS.some((key) => key in patch) ||
+    "width" in patch ||
+    "depth" in patch ||
+    "height" in patch ||
+    "size" in patch ||
+    "radius" in patch
+  );
+}
 
 export function normalizeDegrees(value: number) {
   return ((value % 360) + 360) % 360;
@@ -104,7 +117,7 @@ export function shapeTaperDimensions(shape: WorkplaneShape) {
  * die MCP-Bruecke nicht je ihre eigene fuehren.
  */
 export function shapeSupportsTaper(kind: WorkplaneShape["kind"]) {
-  return kind !== "gear" && kind !== "thread" && kind !== "spring" && kind !== "pyramid" && kind !== "ruler";
+  return kind !== "gear" && kind !== "thread" && kind !== "spring" && kind !== "pyramid" && kind !== "ruler" && kind !== "star" && kind !== "heart" && kind !== "crescent" && kind !== "slot" && kind !== "honeycomb";
 }
 
 /**
@@ -147,7 +160,7 @@ export function shapeTaperPatch(
 }
 
 export function shapeHasTaper(shape: WorkplaneShape) {
-  if (shape.kind === "gear" || shape.kind === "thread" || shape.kind === "spring") return false;
+  if (!shapeSupportsTaper(shape.kind)) return false;
   const width = shapeWidth(shape);
   const depth = shapeDepth(shape);
   const taper = shapeTaperDimensions(shape);
@@ -166,7 +179,7 @@ export function shapeOverallFootprintDimensions(shape: WorkplaneShape) {
 }
 
 export function shapeTaperScaleAt(shape: WorkplaneShape, normalizedHeight: number, axis: "width" | "depth" = "width") {
-  if (shape.kind === "gear") return 1;
+  if (!shapeSupportsTaper(shape.kind)) return 1;
   const taper = shapeTaperDimensions(shape);
   const base = axis === "width" ? shapeWidth(shape) : shapeDepth(shape);
   const bottom = axis === "width" ? taper.bottomWidth : taper.bottomDepth;
@@ -363,7 +376,7 @@ export function canonicalizeShape(shape: WorkplaneShape): WorkplaneShape {
   // A cylinder's cross-section must always stay circular - width is
   // authoritative, depth follows. This is the single enforcement point: every
   // creation, edit and project load runs through canonicalizeShape.
-  if (shape.kind === "cylinder" && next.width !== next.depth) {
+  if ((shape.kind === "cylinder" || shape.kind === "star") && next.width !== next.depth) {
     next.depth = next.width;
     next.size = next.width;
   }
@@ -452,6 +465,19 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.springTurns === b.springTurns &&
     a.springWire === b.springWire &&
     a.springQuality === b.springQuality &&
+    a.starPoints === b.starPoints &&
+    a.starInnerSize === b.starInnerSize &&
+    a.starOuterFillet === b.starOuterFillet &&
+    a.starInnerFillet === b.starInnerFillet &&
+    a.starQuality === b.starQuality &&
+    a.heartTipFillet === b.heartTipFillet &&
+    a.heartQuality === b.heartQuality &&
+    a.crescentThickness === b.crescentThickness &&
+    a.crescentTipFillet === b.crescentTipFillet &&
+    a.crescentQuality === b.crescentQuality &&
+    a.honeycombCellSize === b.honeycombCellSize &&
+    a.honeycombWallThickness === b.honeycombWallThickness &&
+    a.honeycombFrameWidth === b.honeycombFrameWidth &&
     a.text === b.text &&
     a.font === b.font &&
     a.importedMesh === b.importedMesh &&

@@ -23,7 +23,7 @@ function knownSchema(schema: unknown) {
 export const LYL_FORMAT_VERSION = 2;
 export const LYL_MINIMUM_READER_VERSION = 2;
 export const LYL_OLDEST_READABLE_FORMAT_VERSION = 1;
-export const LYL_CREATED_WITH_VERSION = "1.12.4";
+export const LYL_CREATED_WITH_VERSION = "1.13.0";
 export const LYL_MEDIA_TYPE = "application/vnd.layerling.project+zip";
 
 export const LYL_LIMITS = {
@@ -40,8 +40,8 @@ export const LYL_LIMITS = {
 } as const;
 
 const SHAPE_KINDS = new Set([
-  "box", "cylinder", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-  "halfSphere", "torus", "tube", "gear", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
+  "box", "cylinder", "slot", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
+  "halfSphere", "torus", "tube", "star", "heart", "crescent", "gear", "honeycomb", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
 ]);
 
 const FEATURE_TYPES = new Set([
@@ -1126,6 +1126,74 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
       if (!Number.isInteger(helixQuality) || helixQuality < 4 || helixQuality > 32) {
         throw new Error(`${label}.helixQuality is outside the supported range`);
       }
+    }
+  }
+  if (kind === "star") {
+    if (definition.starPoints !== undefined) {
+      const starPoints = finiteNumber(definition.starPoints, `${label}.starPoints`);
+      if (!Number.isInteger(starPoints) || starPoints < 3 || starPoints > 32) {
+        throw new Error(`${label}.starPoints is outside the supported range`);
+      }
+    }
+    if (definition.starInnerSize !== undefined) {
+      const starInnerSize = finiteNumber(definition.starInnerSize, `${label}.starInnerSize`);
+      if (starInnerSize <= 0 || starInnerSize > 1e6) throw new Error(`${label}.starInnerSize is outside the supported range`);
+    }
+    if (definition.starOuterFillet !== undefined) {
+      const starOuterFillet = finiteNumber(definition.starOuterFillet, `${label}.starOuterFillet`);
+      if (starOuterFillet < 0 || starOuterFillet > 1e6) throw new Error(`${label}.starOuterFillet is outside the supported range`);
+    }
+    if (definition.starInnerFillet !== undefined) {
+      const starInnerFillet = finiteNumber(definition.starInnerFillet, `${label}.starInnerFillet`);
+      if (starInnerFillet < 0 || starInnerFillet > 1e6) throw new Error(`${label}.starInnerFillet is outside the supported range`);
+    }
+    if (definition.starQuality !== undefined) {
+      const starQuality = finiteNumber(definition.starQuality, `${label}.starQuality`);
+      if (!Number.isInteger(starQuality) || starQuality < 4 || starQuality > 48) {
+        throw new Error(`${label}.starQuality is outside the supported range`);
+      }
+    }
+  }
+  if (kind === "heart") {
+    if (definition.heartTipFillet !== undefined) {
+      const heartTipFillet = finiteNumber(definition.heartTipFillet, `${label}.heartTipFillet`);
+      if (heartTipFillet < 0 || heartTipFillet > 1e6) throw new Error(`${label}.heartTipFillet is outside the supported range`);
+    }
+    if (definition.heartQuality !== undefined) {
+      const heartQuality = finiteNumber(definition.heartQuality, `${label}.heartQuality`);
+      if (!Number.isInteger(heartQuality) || heartQuality < 16 || heartQuality > 64) {
+        throw new Error(`${label}.heartQuality is outside the supported range`);
+      }
+    }
+  }
+  if (kind === "crescent") {
+    if (definition.crescentThickness !== undefined) {
+      const crescentThickness = finiteNumber(definition.crescentThickness, `${label}.crescentThickness`);
+      if (crescentThickness <= 0 || crescentThickness > 1e6) throw new Error(`${label}.crescentThickness is outside the supported range`);
+    }
+    if (definition.crescentTipFillet !== undefined) {
+      const crescentTipFillet = finiteNumber(definition.crescentTipFillet, `${label}.crescentTipFillet`);
+      if (crescentTipFillet < 0 || crescentTipFillet > 1e6) throw new Error(`${label}.crescentTipFillet is outside the supported range`);
+    }
+    if (definition.crescentQuality !== undefined) {
+      const crescentQuality = finiteNumber(definition.crescentQuality, `${label}.crescentQuality`);
+      if (!Number.isInteger(crescentQuality) || crescentQuality < 16 || crescentQuality > 64) {
+        throw new Error(`${label}.crescentQuality is outside the supported range`);
+      }
+    }
+  }
+  if (kind === "honeycomb") {
+    if (definition.honeycombCellSize !== undefined) {
+      const honeycombCellSize = finiteNumber(definition.honeycombCellSize, `${label}.honeycombCellSize`);
+      if (honeycombCellSize <= 0 || honeycombCellSize > 1e6) throw new Error(`${label}.honeycombCellSize is outside the supported range`);
+    }
+    if (definition.honeycombWallThickness !== undefined) {
+      const honeycombWallThickness = finiteNumber(definition.honeycombWallThickness, `${label}.honeycombWallThickness`);
+      if (honeycombWallThickness <= 0 || honeycombWallThickness > 1e6) throw new Error(`${label}.honeycombWallThickness is outside the supported range`);
+    }
+    if (definition.honeycombFrameWidth !== undefined) {
+      const honeycombFrameWidth = finiteNumber(definition.honeycombFrameWidth, `${label}.honeycombFrameWidth`);
+      if (honeycombFrameWidth < 0 || honeycombFrameWidth > 1e6) throw new Error(`${label}.honeycombFrameWidth is outside the supported range`);
     }
   }
   return id;

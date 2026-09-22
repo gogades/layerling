@@ -54,6 +54,46 @@ import {
   threadsPerInchToPitch,
   type ThreadSettings,
 } from "@/lib/threadGeometry";
+import {
+  DEFAULT_STAR_INNER_SIZE,
+  DEFAULT_STAR_INNER_FILLET,
+  DEFAULT_STAR_OUTER_FILLET,
+  DEFAULT_STAR_POINTS,
+  DEFAULT_STAR_QUALITY,
+  MIN_STAR_QUALITY,
+  MAX_STAR_QUALITY,
+  normalizeStarFillet,
+  normalizeStarInnerSize,
+  normalizeStarPoints,
+  normalizeStarQuality,
+  starMaxFilletRadii,
+} from "@/lib/starGeometry";
+import {
+  DEFAULT_HEART_TIP_FILLET,
+  DEFAULT_HEART_QUALITY,
+  MIN_HEART_QUALITY,
+  MAX_HEART_QUALITY,
+  normalizeHeartTipFillet,
+  normalizeHeartQuality,
+} from "@/lib/heartGeometry";
+import {
+  DEFAULT_CRESCENT_THICKNESS,
+  DEFAULT_CRESCENT_TIP_FILLET,
+  DEFAULT_CRESCENT_QUALITY,
+  MIN_CRESCENT_QUALITY,
+  MAX_CRESCENT_QUALITY,
+  normalizeCrescentThickness,
+  normalizeCrescentTipFillet,
+  normalizeCrescentQuality,
+} from "@/lib/crescentGeometry";
+import {
+  DEFAULT_HONEYCOMB_CELL_SIZE,
+  DEFAULT_HONEYCOMB_WALL_THICKNESS,
+  DEFAULT_HONEYCOMB_FRAME_WIDTH,
+  normalizeHoneycombCellSize,
+  normalizeHoneycombWallThickness,
+  normalizeHoneycombFrameWidth,
+} from "@/lib/honeycombGeometry";
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, measurementOptionLabel, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
@@ -192,7 +232,7 @@ function formatPropertyNumber(value: number, accuracy: MeasurementAccuracy, step
 }
 
 function propertyUsesLengthUnit(key: string) {
-  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire"].includes(key);
+  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth"].includes(key);
 }
 
 /**
@@ -305,6 +345,197 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
     return [
       ...roundSideProperties(shape, width, depth, onUpdate),
       { id: "diameter", label: t("prop.diameter"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setCylinderDiameter },
+      { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+    ];
+  }
+
+  if (shape.kind === "star") {
+    const starPoints = shape.starPoints ?? DEFAULT_STAR_POINTS;
+    const starInnerSize = shape.starInnerSize ?? DEFAULT_STAR_INNER_SIZE;
+    const starOuterFillet = shape.starOuterFillet ?? DEFAULT_STAR_OUTER_FILLET;
+    const starInnerFillet = shape.starInnerFillet ?? DEFAULT_STAR_INNER_FILLET;
+    const starQuality = shape.starQuality ?? DEFAULT_STAR_QUALITY;
+    const maxLimits = starMaxFilletRadii(width, starInnerSize, starPoints);
+    const outerFilletMax = Math.max(1, Math.min(40, Math.ceil(maxLimits.maxOuterRadius * 10) / 10));
+    const innerFilletMax = Math.max(1, Math.min(40, Math.ceil(maxLimits.maxInnerRadius * 10) / 10));
+    const setStarOuterSize = (value: number) => {
+      onUpdate({ width: value, depth: value, size: value }, { resizeAxis: "width" });
+    };
+    return [
+      {
+        id: "starPoints",
+        label: t("prop.starPoints"),
+        value: starPoints,
+        min: 3,
+        max: 32,
+        step: 1,
+        onChange: (value) => onUpdate({ starPoints: Math.round(value) }),
+      },
+      {
+        id: "starOuterSize",
+        label: t("prop.starOuterSize"),
+        value: width,
+        min: Math.max(MIN_SHAPE_SIZE, starInnerSize + 0.1),
+        max: 160,
+        onChange: setStarOuterSize,
+      },
+      {
+        id: "starInnerSize",
+        label: t("prop.starInnerSize"),
+        value: starInnerSize,
+        min: 0.1,
+        max: Math.max(0.1, width - 0.1),
+        step: 0.1,
+        onChange: (value) => onUpdate({ starInnerSize: value }),
+      },
+      {
+        id: "starOuterFillet",
+        label: t("prop.starOuterFillet"),
+        value: starOuterFillet,
+        min: 0,
+        max: outerFilletMax,
+        step: 0.05,
+        onChange: (value) => onUpdate({ starOuterFillet: value }),
+      },
+      {
+        id: "starInnerFillet",
+        label: t("prop.starInnerFillet"),
+        value: starInnerFillet,
+        min: 0,
+        max: innerFilletMax,
+        step: 0.05,
+        onChange: (value) => onUpdate({ starInnerFillet: value }),
+      },
+      {
+        id: "starQuality",
+        label: t("prop.quality"),
+        value: starQuality,
+        min: MIN_STAR_QUALITY,
+        max: MAX_STAR_QUALITY,
+        step: 2,
+        onChange: (value) => onUpdate({ starQuality: normalizeStarQuality(value) }),
+      },
+      {
+        id: "height",
+        label: t("prop.height"),
+        value: shape.height,
+        min: MIN_SHAPE_SIZE,
+        max: 160,
+        onChange: setHeight,
+      },
+    ];
+  }
+
+  if (shape.kind === "heart") {
+    const heartTipFillet = shape.heartTipFillet ?? DEFAULT_HEART_TIP_FILLET;
+    const heartQuality = shape.heartQuality ?? DEFAULT_HEART_QUALITY;
+    return [
+      {
+        id: "heartTipFillet",
+        label: t("prop.heartTipFillet"),
+        value: heartTipFillet,
+        min: 0,
+        max: 20,
+        step: 0.1,
+        onChange: (value) => onUpdate({ heartTipFillet: normalizeHeartTipFillet(value) }),
+      },
+      {
+        id: "heartQuality",
+        label: t("prop.quality"),
+        value: heartQuality,
+        min: MIN_HEART_QUALITY,
+        max: MAX_HEART_QUALITY,
+        step: 2,
+        onChange: (value) => onUpdate({ heartQuality: normalizeHeartQuality(value) }),
+      },
+      { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+    ];
+  }
+
+  if (shape.kind === "crescent") {
+    const crescentThickness = shape.crescentThickness ?? DEFAULT_CRESCENT_THICKNESS;
+    const crescentTipFillet = shape.crescentTipFillet ?? DEFAULT_CRESCENT_TIP_FILLET;
+    const crescentQuality = shape.crescentQuality ?? DEFAULT_CRESCENT_QUALITY;
+    const maxThickness = Math.max(2, width * 0.85);
+    return [
+      {
+        id: "crescentThickness",
+        label: t("prop.crescentThickness"),
+        value: crescentThickness,
+        min: 1,
+        max: maxThickness,
+        step: 0.1,
+        onChange: (value) => onUpdate({ crescentThickness: normalizeCrescentThickness(value, width) }),
+      },
+      {
+        id: "crescentTipFillet",
+        label: t("prop.crescentTipFillet"),
+        value: crescentTipFillet,
+        min: 0,
+        max: 8,
+        step: 0.05,
+        onChange: (value) => onUpdate({ crescentTipFillet: normalizeCrescentTipFillet(value) }),
+      },
+      {
+        id: "crescentQuality",
+        label: t("prop.quality"),
+        value: crescentQuality,
+        min: MIN_CRESCENT_QUALITY,
+        max: MAX_CRESCENT_QUALITY,
+        step: 2,
+        onChange: (value) => onUpdate({ crescentQuality: normalizeCrescentQuality(value) }),
+      },
+      { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
+      { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+    ];
+  }
+
+  if (shape.kind === "honeycomb") {
+    const honeycombCellSize = shape.honeycombCellSize ?? DEFAULT_HONEYCOMB_CELL_SIZE;
+    const honeycombWallThickness = shape.honeycombWallThickness ?? DEFAULT_HONEYCOMB_WALL_THICKNESS;
+    const honeycombFrameWidth = shape.honeycombFrameWidth ?? DEFAULT_HONEYCOMB_FRAME_WIDTH;
+    return [
+      {
+        id: "honeycombCellSize",
+        label: t("prop.honeycombCellSize"),
+        value: honeycombCellSize,
+        min: 3,
+        max: 25,
+        step: 0.5,
+        onChange: (value) => onUpdate({ honeycombCellSize: normalizeHoneycombCellSize(value) }),
+      },
+      {
+        id: "honeycombWallThickness",
+        label: t("prop.honeycombWallThickness"),
+        value: honeycombWallThickness,
+        min: 0.8,
+        max: 5,
+        step: 0.1,
+        onChange: (value) => onUpdate({ honeycombWallThickness: normalizeHoneycombWallThickness(value) }),
+      },
+      {
+        id: "honeycombFrameWidth",
+        label: t("prop.honeycombFrameWidth"),
+        value: honeycombFrameWidth,
+        min: 0,
+        max: 15,
+        step: 0.5,
+        onChange: (value) => onUpdate({ honeycombFrameWidth: normalizeHoneycombFrameWidth(value) }),
+      },
+      { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 200, onChange: setDepth },
+      { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 200, onChange: setWidth },
+      { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+    ];
+  }
+
+  if (shape.kind === "slot") {
+    return [
+      ...roundSideProperties(shape, Math.min(width, depth), Math.min(width, depth), onUpdate),
+      { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setDepth },
+      { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setWidth },
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
   }
@@ -1343,7 +1574,7 @@ function RangeProperty({
   onChange,
   onInteractionActiveChange,
 }: RangePropertyConfig & { workspace: WorkplaneWorkspaceSettings; disabled?: boolean; onInteractionActiveChange?: (active: boolean) => void }) {
-  const allowsAboveSliderMax = ["length", "width", "height"].includes(id) || id.endsWith("Length") || id.endsWith("Width");
+  const allowsAboveSliderMax = ["length", "width", "height", "starOuterSize", "starInnerSize", "crescentThickness", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth"].includes(id) || id.endsWith("Length") || id.endsWith("Width");
   const isLength = propertyUsesLengthUnit(id);
   const accuracy = workspace.accuracy;
   const actualValue = Math.max(min, Number.isFinite(value) ? value : min);

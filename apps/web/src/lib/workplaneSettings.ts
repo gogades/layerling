@@ -34,8 +34,8 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
 
 const snapGridOptions: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
 const customizableShapeKinds: ShapeKind[] = [
-  "box", "cylinder", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-  "halfSphere", "torus", "tube", "gear", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
+  "box", "cylinder", "slot", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
+  "halfSphere", "torus", "tube", "star", "heart", "crescent", "gear", "honeycomb", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
 ];
 
 function numberOrDefault(value: unknown, fallback: number) {
@@ -99,7 +99,7 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
     if (kind === "sphere" || kind === "halfSphere") {
       entry.steps = optionalShapeNumber(source.steps, fallbackEntry?.steps, 6, 64, true);
     }
-    if (kind === "cylinder" || kind === "ellipse" || kind === "cone" || kind === "tube" || kind === "ring") {
+    if (kind === "cylinder" || kind === "ellipse" || kind === "slot" || kind === "cone" || kind === "tube" || kind === "ring") {
       entry.sides = optionalShapeNumber(source.sides, fallbackEntry?.sides, 3, MAX_HIGH_RESOLUTION_SIDES, true);
     } else if (kind === "pyramid" || kind === "polygon") {
       entry.sides = optionalShapeNumber(source.sides, fallbackEntry?.sides, 3, 24, true);
@@ -116,6 +116,27 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
     }
     if (kind === "tube" || kind === "ring") {
       entry.bevel = optionalShapeNumber(source.bevel, fallbackEntry?.bevel, 0.5, 20);
+    }
+    if (kind === "star") {
+      entry.starPoints = optionalShapeNumber(source.starPoints, fallbackEntry?.starPoints, 3, 32, true);
+      entry.starInnerSize = optionalShapeNumber(source.starInnerSize, fallbackEntry?.starInnerSize, 0.1, MAX_CUSTOM_SHAPE_DIMENSION);
+      entry.starOuterFillet = optionalShapeNumber(source.starOuterFillet, fallbackEntry?.starOuterFillet, 0, MAX_CUSTOM_SHAPE_DIMENSION);
+      entry.starInnerFillet = optionalShapeNumber(source.starInnerFillet, fallbackEntry?.starInnerFillet, 0, MAX_CUSTOM_SHAPE_DIMENSION);
+      entry.starQuality = optionalShapeNumber(source.starQuality, fallbackEntry?.starQuality, 4, 48, true);
+    }
+    if (kind === "heart") {
+      entry.heartTipFillet = optionalShapeNumber(source.heartTipFillet, fallbackEntry?.heartTipFillet, 0, MAX_CUSTOM_SHAPE_DIMENSION);
+      entry.heartQuality = optionalShapeNumber(source.heartQuality, fallbackEntry?.heartQuality, 16, 64, true);
+    }
+    if (kind === "crescent") {
+      entry.crescentThickness = optionalShapeNumber(source.crescentThickness, fallbackEntry?.crescentThickness, 1, MAX_CUSTOM_SHAPE_DIMENSION);
+      entry.crescentTipFillet = optionalShapeNumber(source.crescentTipFillet, fallbackEntry?.crescentTipFillet, 0, MAX_CUSTOM_SHAPE_DIMENSION);
+      entry.crescentQuality = optionalShapeNumber(source.crescentQuality, fallbackEntry?.crescentQuality, 16, 64, true);
+    }
+    if (kind === "honeycomb") {
+      entry.honeycombCellSize = optionalShapeNumber(source.honeycombCellSize, fallbackEntry?.honeycombCellSize, 2, 100);
+      entry.honeycombWallThickness = optionalShapeNumber(source.honeycombWallThickness, fallbackEntry?.honeycombWallThickness, 0.4, 50);
+      entry.honeycombFrameWidth = optionalShapeNumber(source.honeycombFrameWidth, fallbackEntry?.honeycombFrameWidth, 0, 100);
     }
     if (kind === "text") {
       entry.text = optionalShapeText(source.text, fallbackEntry?.text, 24);

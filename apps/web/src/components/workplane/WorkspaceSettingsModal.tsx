@@ -98,7 +98,7 @@ const THREAD_PROFILE_OPTIONS: Array<{ value: ThreadProfile; label: MessageKey }>
   { value: "round", label: "thread.profileRound" },
 ];
 
-type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth";
+type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth" | "starPoints" | "starInnerSize" | "starOuterFillet" | "starInnerFillet" | "starQuality" | "heartTipFillet" | "heartQuality" | "crescentThickness" | "crescentTipFillet" | "crescentQuality" | "honeycombCellSize" | "honeycombWallThickness" | "honeycombFrameWidth";
 type ShapeSpecialField =
   | { type: "number"; key: ShapeSpecialNumberKey; label: string; defaultValue: number; min: number; max: number; step?: number; unit?: string }
   | { type: "select"; key: "font" | "gearType" | "threadRole" | "threadHead" | "threadHand" | "threadProfile"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
@@ -127,7 +127,7 @@ function specialFieldsForShape(
   const defaults = shapeAssetSpecialDefaults(kind, dimensions);
   // Ohne eigene Angabe folgt die Seitenzahl der Groesse; hier steht, was das
   // bei den Vorgabemassen ergibt. Eine eingetragene Zahl haelt sie fest.
-  if (kind === "cylinder" || kind === "ellipse") {
+  if (kind === "cylinder" || kind === "ellipse" || kind === "slot") {
     return [{
       type: "number",
       key: "sides",
@@ -224,6 +224,35 @@ function specialFieldsForShape(
       );
     }
     return fields;
+  }
+  if (kind === "star") {
+    return [
+      { type: "number", key: "starPoints", label: t("prop.starPoints"), defaultValue: defaults.starPoints ?? 5, min: 3, max: 32, step: 1 },
+      { type: "number", key: "starInnerSize", label: t("prop.starInnerSize"), defaultValue: defaults.starInnerSize ?? 20, min: 0.1, max: dimensions.width - 0.1, unit: "mm" },
+      { type: "number", key: "starOuterFillet", label: t("prop.starOuterFillet"), defaultValue: defaults.starOuterFillet ?? 0, min: 0, max: 40, unit: "mm" },
+      { type: "number", key: "starInnerFillet", label: t("prop.starInnerFillet"), defaultValue: defaults.starInnerFillet ?? 0, min: 0, max: 40, unit: "mm" },
+      { type: "number", key: "starQuality", label: t("prop.quality"), defaultValue: defaults.starQuality ?? 16, min: 4, max: 48, step: 2 },
+    ];
+  }
+  if (kind === "heart") {
+    return [
+      { type: "number", key: "heartTipFillet", label: t("prop.heartTipFillet"), defaultValue: defaults.heartTipFillet ?? 0, min: 0, max: 20, unit: "mm" },
+      { type: "number", key: "heartQuality", label: t("prop.quality"), defaultValue: defaults.heartQuality ?? 32, min: 16, max: 64, step: 2 },
+    ];
+  }
+  if (kind === "crescent") {
+    return [
+      { type: "number", key: "crescentThickness", label: t("prop.crescentThickness"), defaultValue: defaults.crescentThickness ?? 14, min: 1, max: Math.max(2, dimensions.width * 0.85), unit: "mm" },
+      { type: "number", key: "crescentTipFillet", label: t("prop.crescentTipFillet"), defaultValue: defaults.crescentTipFillet ?? 0.5, min: 0, max: 8, unit: "mm" },
+      { type: "number", key: "crescentQuality", label: t("prop.quality"), defaultValue: defaults.crescentQuality ?? 32, min: 16, max: 64, step: 2 },
+    ];
+  }
+  if (kind === "honeycomb") {
+    return [
+      { type: "number", key: "honeycombCellSize", label: t("prop.honeycombCellSize"), defaultValue: defaults.honeycombCellSize ?? 8, min: 3, max: 25, step: 0.5, unit: "mm" },
+      { type: "number", key: "honeycombWallThickness", label: t("prop.honeycombWallThickness"), defaultValue: defaults.honeycombWallThickness ?? 1.6, min: 0.8, max: 5, step: 0.1, unit: "mm" },
+      { type: "number", key: "honeycombFrameWidth", label: t("prop.honeycombFrameWidth"), defaultValue: defaults.honeycombFrameWidth ?? 3, min: 0, max: 15, step: 0.5, unit: "mm" },
+    ];
   }
   return [];
 }

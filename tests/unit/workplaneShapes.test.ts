@@ -24,6 +24,7 @@ import {
   shapeOverallFootprintDimensions,
   shapeTransformShouldRemainEditable,
   shapeWithParametricSource,
+  patchTouchesBodyParameters,
   shapeTaperDimensions,
   shapeTaperScaleAt,
   shapeWidth,
@@ -111,6 +112,14 @@ describe("workplane shape helpers", () => {
     expect(shapeHasTaper(gear)).toBe(false);
     expect(shapeTaperScaleAt(gear, 0.5, "width")).toBe(1);
     expect(shapeTaperScaleAt(gear, 0.5, "depth")).toBe(1);
+
+    const star = shape({ kind: "star", taperBottomWidth: 10, taperTopWidth: 30 });
+    expect(shapeHasTaper(star)).toBe(false);
+    expect(shapeTaperScaleAt(star, 0.5, "width")).toBe(1);
+
+    const pyramid = shape({ kind: "pyramid", taperBottomWidth: 10, taperTopWidth: 30 });
+    expect(shapeHasTaper(pyramid)).toBe(false);
+    expect(shapeTaperScaleAt(pyramid, 0.5, "width")).toBe(1);
   });
 
   it("treats a twisted or leaning extrusion as the same non-affine deformation category as taper", () => {
@@ -402,4 +411,24 @@ describe("workplane shape helpers", () => {
     expect(workplaneShapesEqual(a, a)).toBe(true);
     expect(workplaneShapesEqual(a, b)).toBe(false);
   });
+
+  it("erkennt Bauwert-Aenderungen wie Breite, Tiefe, Hoehe und Form-Parameter", () => {
+    expect(patchTouchesBodyParameters({ width: 36 })).toBe(true);
+    expect(patchTouchesBodyParameters({ depth: 10 })).toBe(true);
+    expect(patchTouchesBodyParameters({ height: 2 })).toBe(true);
+    expect(patchTouchesBodyParameters({ size: 36 })).toBe(true);
+    expect(patchTouchesBodyParameters({ radius: 5 })).toBe(true);
+    expect(patchTouchesBodyParameters({ sides: 64 })).toBe(true);
+    expect(patchTouchesBodyParameters({ teeth: 24 })).toBe(true);
+    expect(patchTouchesBodyParameters({ threadDiameter: 8 })).toBe(true);
+    expect(patchTouchesBodyParameters({ starPoints: 5 })).toBe(true);
+    expect(patchTouchesBodyParameters({ honeycombCellSize: 6 })).toBe(true);
+
+    // Reine Positionsaenderungen sind keine Bauwert-Aenderungen:
+    expect(patchTouchesBodyParameters({ x: 10, z: 20 })).toBe(false);
+    expect(patchTouchesBodyParameters({ elevation: 5 })).toBe(false);
+    expect(patchTouchesBodyParameters({ locked: true })).toBe(false);
+    expect(patchTouchesBodyParameters({ hidden: true })).toBe(false);
+  });
 });
+

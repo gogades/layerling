@@ -23,6 +23,11 @@ import { manifoldModuleSource } from "@/generated/manifoldModuleSource";
 import { manifoldWasmBase64 } from "@/generated/manifoldWasmBase64";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import { createGearGeometry } from "@/lib/gearGeometry";
+import { createStarGeometry } from "@/lib/starGeometry";
+import { createHeartGeometry } from "@/lib/heartGeometry";
+import { createCrescentGeometry } from "@/lib/crescentGeometry";
+import { createSlotGeometry } from "@/lib/slotGeometry";
+import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createPrismGeometry } from "@/lib/prismGeometry";
 import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { roundSideCount } from "@/lib/roundSideCount";
@@ -90,6 +95,7 @@ import {
   shapeTaperScaleAt,
   shapeWidth,
   shapeWithParametricSource,
+  patchTouchesBodyParameters,
   withHoleMode,
   workplaneShapesEqual,
 } from "@/lib/workplaneShapes";
@@ -2338,6 +2344,45 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
     case "tube":
       geometry = createBooleanHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, roundSideCount(shape.sides, width, depth));
       break;
+    case "star":
+      geometry = createStarGeometry({
+        width,
+        depth,
+        height,
+        starPoints: shape.starPoints,
+        starInnerSize: shape.starInnerSize,
+        starOuterFillet: shape.starOuterFillet,
+        starInnerFillet: shape.starInnerFillet,
+        starQuality: shape.starQuality,
+      });
+      break;
+    case "heart":
+      geometry = createHeartGeometry({
+        width,
+        depth,
+        height,
+        heartTipFillet: shape.heartTipFillet,
+        heartQuality: shape.heartQuality,
+      });
+      break;
+    case "crescent":
+      geometry = createCrescentGeometry({
+        width,
+        depth,
+        height,
+        crescentThickness: shape.crescentThickness,
+        crescentTipFillet: shape.crescentTipFillet,
+        crescentQuality: shape.crescentQuality,
+      });
+      break;
+    case "slot":
+      geometry = createSlotGeometry({
+        width,
+        depth,
+        height,
+        sides: shape.sides,
+      });
+      break;
     case "gear":
       geometry = createGearGeometry({
         width,
@@ -2350,6 +2395,16 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         gearType: shape.gearType,
         helixAngle: shape.helixAngle,
         helixQuality: shape.helixQuality,
+      });
+      break;
+    case "honeycomb":
+      geometry = createHoneycombGeometry({
+        width,
+        depth,
+        height,
+        honeycombCellSize: shape.honeycombCellSize,
+        honeycombWallThickness: shape.honeycombWallThickness,
+        honeycombFrameWidth: shape.honeycombFrameWidth,
       });
       break;
     case "thread":
@@ -2624,16 +2679,15 @@ function rebuiltParametricShape(shape: WorkplaneShape, patch: Partial<WorkplaneS
     ...bauwerte,
   });
   const gebacken = canonicalizeShape(bakeShapeTransformIntoMesh(canonicalizeShape({ ...urform, ...gesamt })));
-  // Wer nur einen Bauwert aendert, will den Koerper nicht verrueckt sehen.
-  // Wer dagegen dreht, bewegt ihn - dann gilt, was das Backen ausrechnet.
-  return drehtMit
-    ? gebacken
-    : canonicalizeShape({ ...gebacken, x: shape.x, z: shape.z, elevation: shape.elevation ?? 0 });
-}
-
-/** Aendert dieser Patch einen Bauwert des Koerpers - oder nur seinen Rahmen? */
-function patchTouchesBodyParameters(patch: Partial<WorkplaneShape>) {
-  return MCP_SHAPE_SETTING_KEYS.some((key) => key in patch);
+  const targetX = patch.x ?? (drehtMit ? gebacken.x : shape.x);
+  const targetZ = patch.z ?? (drehtMit ? gebacken.z : shape.z);
+  const targetElevation = patch.elevation ?? (drehtMit ? gebacken.elevation : (shape.elevation ?? 0));
+  return canonicalizeShape({
+    ...gebacken,
+    x: targetX,
+    z: targetZ,
+    elevation: targetElevation,
+  });
 }
 
 function bakeShapeTransformIntoMesh(shape: WorkplaneShape): WorkplaneShape {

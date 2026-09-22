@@ -29,5 +29,9 @@ export const MCP_SHAPE_SETTING_KEYS = [
   "threadClearance", "threadQuality", "threadHeadHeight", "threadChamfer",
   "threadHeadChamfer",
   "springTurns", "springWire", "springQuality",
+  "starPoints", "starInnerSize", "starOuterFillet", "starInnerFillet", "starQuality",
+  "heartTipFillet", "heartQuality",
+  "crescentThickness", "crescentTipFillet", "crescentQuality",
+  "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth",
   "text", "font",
 ] as const satisfies readonly (keyof WorkplaneShape)[];

@@ -47,12 +47,62 @@ import {
   normalizeSpringTurns,
   normalizeSpringWire,
 } from "@/lib/springGeometry";
+import {
+  DEFAULT_STAR_HEIGHT,
+  DEFAULT_STAR_INNER_FILLET,
+  DEFAULT_STAR_INNER_SIZE,
+  DEFAULT_STAR_OUTER_FILLET,
+  DEFAULT_STAR_OUTER_SIZE,
+  DEFAULT_STAR_POINTS,
+  DEFAULT_STAR_QUALITY,
+  normalizeStarFillet,
+  normalizeStarInnerSize,
+  normalizeStarPoints,
+  normalizeStarQuality,
+} from "@/lib/starGeometry";
+import {
+  DEFAULT_HEART_DEPTH,
+  DEFAULT_HEART_HEIGHT,
+  DEFAULT_HEART_QUALITY,
+  DEFAULT_HEART_TIP_FILLET,
+  DEFAULT_HEART_WIDTH,
+  normalizeHeartQuality,
+  normalizeHeartTipFillet,
+} from "@/lib/heartGeometry";
+import {
+  DEFAULT_CRESCENT_DEPTH,
+  DEFAULT_CRESCENT_HEIGHT,
+  DEFAULT_CRESCENT_QUALITY,
+  DEFAULT_CRESCENT_THICKNESS,
+  DEFAULT_CRESCENT_TIP_FILLET,
+  DEFAULT_CRESCENT_WIDTH,
+  normalizeCrescentQuality,
+  normalizeCrescentThickness,
+  normalizeCrescentTipFillet,
+} from "@/lib/crescentGeometry";
+import {
+  DEFAULT_SLOT_WIDTH,
+  DEFAULT_SLOT_DEPTH,
+  DEFAULT_SLOT_HEIGHT,
+} from "@/lib/slotGeometry";
+import {
+  DEFAULT_HONEYCOMB_WIDTH,
+  DEFAULT_HONEYCOMB_DEPTH,
+  DEFAULT_HONEYCOMB_HEIGHT,
+  DEFAULT_HONEYCOMB_CELL_SIZE,
+  DEFAULT_HONEYCOMB_WALL_THICKNESS,
+  DEFAULT_HONEYCOMB_FRAME_WIDTH,
+  normalizeHoneycombCellSize,
+  normalizeHoneycombWallThickness,
+  normalizeHoneycombFrameWidth,
+} from "@/lib/honeycombGeometry";
 import { t, type MessageKey } from "@/lib/i18n";
 import type { ShapeAsset, ShapeCustomization, ShapeKind, WorkplaneShape } from "@/types/layerling";
 
 const SHAPE_LABEL_KEYS: Record<string, MessageKey> = {
   box: "shape.box",
   cylinder: "shape.cylinder",
+  slot: "shape.slot",
   ellipse: "shape.ellipse",
   sphere: "shape.sphere",
   cone: "shape.cone",
@@ -63,7 +113,11 @@ const SHAPE_LABEL_KEYS: Record<string, MessageKey> = {
   "half-sphere": "shape.halfSphere",
   torus: "shape.torus",
   tube: "shape.tube",
+  star: "shape.star",
+  heart: "shape.heart",
+  crescent: "shape.crescent",
   gear: "shape.gear",
+  honeycomb: "shape.honeycomb",
   thread: "shape.thread",
   spring: "shape.spring",
   polygon: "shape.polygon",
@@ -75,6 +129,7 @@ export type ToolbarShapeAsset = ShapeAsset & { menuIcon: string };
 export const toolbarShapeAssets: ToolbarShapeAsset[] = [
   { id: "box", name: "Box", src: "assets/editor/shape-icons-gray/box.png", menuIcon: "assets/editor/shape-icons-gray/box.png", kind: "box", color: "#d41721" },
   { id: "cylinder", name: "Cylinder", src: "assets/editor/shape-icons-gray/cylinder.png", menuIcon: "assets/editor/shape-icons-gray/cylinder.png", kind: "cylinder", color: "#d97813" },
+  { id: "slot", name: "Capsule", src: "assets/editor/shape-icons-gray/slot.png", menuIcon: "assets/editor/shape-icons-gray/slot.png", kind: "slot", color: "#e67e22" },
   { id: "ellipse", name: "Ellipse", src: "assets/editor/shape-icons-gray/ellipse.png", menuIcon: "assets/editor/shape-icons-gray/ellipse.png", kind: "ellipse", color: "#e0a324" },
   { id: "polygon", name: "Polygon", src: "assets/editor/shape-icons-gray/polygon.png", menuIcon: "assets/editor/shape-icons-gray/polygon.png", kind: "polygon", color: "#5b5ce2" },
   { id: "sphere", name: "Sphere", src: "assets/editor/shape-icons-gray/sphere.png", menuIcon: "assets/editor/shape-icons-gray/sphere.png", kind: "sphere", color: "#0098c7" },
@@ -85,10 +140,14 @@ export const toolbarShapeAssets: ToolbarShapeAsset[] = [
   { id: "half-sphere", name: "Half Sphere", src: "assets/editor/shape-icons-gray/half-sphere.png", menuIcon: "assets/editor/shape-icons-gray/half-sphere.png", kind: "halfSphere", color: "#c9009a" },
   { id: "torus", name: "Torus", src: "assets/editor/shape-icons-gray/torus.png", menuIcon: "assets/editor/shape-icons-gray/torus.png", kind: "torus", color: "#0098c7" },
   { id: "tube", name: "Tube", src: "assets/editor/shape-icons-gray/tube.png", menuIcon: "assets/editor/shape-icons-gray/tube.png", kind: "tube", color: "#ce7013" },
+  { id: "star", name: "Star", src: "assets/editor/shape-icons-gray/star.png", menuIcon: "assets/editor/shape-icons-gray/star.png", kind: "star", color: "#f5a623" },
+  { id: "heart", name: "Heart", src: "assets/editor/shape-icons-gray/heart.png", menuIcon: "assets/editor/shape-icons-gray/heart.png", kind: "heart", color: "#e0245e" },
+  { id: "crescent", name: "Crescent", src: "assets/editor/shape-icons-gray/crescent.png", menuIcon: "assets/editor/shape-icons-gray/crescent.png", kind: "crescent", color: "#f5c518" },
   { id: "text", name: "Text", src: "assets/editor/shape-icons-gray/text.png", menuIcon: "assets/editor/shape-icons-gray/text.png", kind: "text", color: "#cf101b" },
   { id: "thread", name: "Thread", src: "assets/editor/shape-icons-gray/thread.png", menuIcon: "assets/editor/shape-icons-gray/thread.png", kind: "thread", color: "#8a98a6" },
   { id: "spring", name: "Spring", src: "assets/editor/shape-icons-gray/spring.png", menuIcon: "assets/editor/shape-icons-gray/spring.png", kind: "spring", color: "#18b99a" },
   { id: "gear", name: "Gear", src: "assets/editor/gear-types/spur.png", menuIcon: "assets/editor/gear-types/spur.png", kind: "gear", color: "#6f7f8d" },
+  { id: "honeycomb", name: "Honeycomb", src: "assets/editor/shape-icons-gray/honeycomb.png", menuIcon: "assets/editor/shape-icons-gray/honeycomb.png", kind: "honeycomb", color: "#0ea5e9" },
   { id: "ruler", name: "Ruler", src: "assets/editor/shape-icons-gray/ruler.png", menuIcon: "assets/editor/shape-icons-gray/ruler.png", kind: "ruler", color: "#f2e4b8" },
 ];
 
@@ -115,6 +174,21 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
   if (kind === "ruler") {
     return { width: 150, depth: RULER_DEPTH, height: RULER_HEIGHT };
   }
+  if (kind === "star") {
+    return { width: DEFAULT_STAR_OUTER_SIZE, depth: DEFAULT_STAR_OUTER_SIZE, height: DEFAULT_STAR_HEIGHT };
+  }
+  if (kind === "heart") {
+    return { width: DEFAULT_HEART_WIDTH, depth: DEFAULT_HEART_DEPTH, height: DEFAULT_HEART_HEIGHT };
+  }
+  if (kind === "crescent") {
+    return { width: DEFAULT_CRESCENT_WIDTH, depth: DEFAULT_CRESCENT_DEPTH, height: DEFAULT_CRESCENT_HEIGHT };
+  }
+  if (kind === "slot") {
+    return { width: DEFAULT_SLOT_WIDTH, depth: DEFAULT_SLOT_DEPTH, height: DEFAULT_SLOT_HEIGHT };
+  }
+  if (kind === "honeycomb") {
+    return { width: DEFAULT_HONEYCOMB_WIDTH, depth: DEFAULT_HONEYCOMB_DEPTH, height: DEFAULT_HONEYCOMB_HEIGHT };
+  }
   if (kind === "ellipse") {
     // Bewusst ungleiche Vorgabe, damit sich die Ellipse beim Einfuegen sofort
     // vom kreisrunden Zylinder unterscheidet.
@@ -132,7 +206,7 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
 
 export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAssetDefaultDimensions(kind)): ShapeCustomization {
   // Ohne Seitenzahl folgt sie der Groesse; eine eingetragene haelt sie fest.
-  if (kind === "cylinder" || kind === "ellipse") return {};
+  if (kind === "cylinder" || kind === "ellipse" || kind === "slot") return {};
   if (kind === "sphere") return { steps: 24 };
   if (kind === "halfSphere") return { steps: 32 };
   if (kind === "cone") return { topRadius: 0, baseRadius: dimensions.width / 2 };
@@ -140,6 +214,35 @@ export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAss
   if (kind === "polygon") return { sides: 6 };
   if (kind === "roundRoof") return { sides: 64 };
   if (kind === "tube" || kind === "ring") return { bevel: 4 };
+  if (kind === "star") {
+    return {
+      starPoints: DEFAULT_STAR_POINTS,
+      starInnerSize: DEFAULT_STAR_INNER_SIZE,
+      starOuterFillet: DEFAULT_STAR_OUTER_FILLET,
+      starInnerFillet: DEFAULT_STAR_INNER_FILLET,
+      starQuality: DEFAULT_STAR_QUALITY,
+    };
+  }
+  if (kind === "heart") {
+    return {
+      heartTipFillet: DEFAULT_HEART_TIP_FILLET,
+      heartQuality: DEFAULT_HEART_QUALITY,
+    };
+  }
+  if (kind === "crescent") {
+    return {
+      crescentThickness: DEFAULT_CRESCENT_THICKNESS,
+      crescentTipFillet: DEFAULT_CRESCENT_TIP_FILLET,
+      crescentQuality: DEFAULT_CRESCENT_QUALITY,
+    };
+  }
+  if (kind === "honeycomb") {
+    return {
+      honeycombCellSize: DEFAULT_HONEYCOMB_CELL_SIZE,
+      honeycombWallThickness: DEFAULT_HONEYCOMB_WALL_THICKNESS,
+      honeycombFrameWidth: DEFAULT_HONEYCOMB_FRAME_WIDTH,
+    };
+  }
   if (kind === "text") return { text: "TEXT", font: "Multilanguage", bevel: 0, segments: 0 };
   if (kind === "spring") {
     return {
@@ -234,6 +337,19 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
     springTurns: shape.springTurns,
     springWire: shape.springWire,
     springQuality: shape.springQuality,
+    starPoints: shape.starPoints,
+    starInnerSize: shape.starInnerSize,
+    starOuterFillet: shape.starOuterFillet,
+    starInnerFillet: shape.starInnerFillet,
+    starQuality: shape.starQuality,
+    heartTipFillet: shape.heartTipFillet,
+    heartQuality: shape.heartQuality,
+    crescentThickness: shape.crescentThickness,
+    crescentTipFillet: shape.crescentTipFillet,
+    crescentQuality: shape.crescentQuality,
+    honeycombCellSize: shape.honeycombCellSize,
+    honeycombWallThickness: shape.honeycombWallThickness,
+    honeycombFrameWidth: shape.honeycombFrameWidth,
     text: shape.text,
     font: shape.font,
     importedMesh: shape.importedMesh,
@@ -308,9 +424,9 @@ export function makeShapeFromAsset(
     text: asset.kind === "text" ? customization.text ?? "TEXT" : undefined,
     font: asset.kind === "text" ? customization.font ?? "Multilanguage" : undefined,
     steps: asset.kind === "box" ? 10 : asset.kind === "sphere" ? customization.steps ?? 24 : asset.kind === "halfSphere" ? customization.steps ?? 32 : undefined,
-    sides: asset.kind === "cylinder" || asset.kind === "ellipse" || asset.kind === "cone" || asset.kind === "tube" || asset.kind === "ring" ? customization.sides : asset.kind === "roundRoof" ? customization.sides ?? 64 : asset.kind === "pyramid" ? customization.sides ?? 4 : asset.kind === "polygon" ? customization.sides ?? 6 : undefined,
-    bevel: asset.kind === "cylinder" || asset.kind === "ellipse" ? 0 : asset.kind === "tube" || asset.kind === "ring" ? customization.bevel ?? 4 : asset.kind === "text" ? customization.bevel : undefined,
-    segments: asset.kind === "cylinder" || asset.kind === "ellipse" ? 1 : asset.kind === "text" ? customization.segments : undefined,
+    sides: asset.kind === "cylinder" || asset.kind === "ellipse" || asset.kind === "slot" || asset.kind === "cone" || asset.kind === "tube" || asset.kind === "ring" ? customization.sides : asset.kind === "roundRoof" ? customization.sides ?? 64 : asset.kind === "pyramid" ? customization.sides ?? 4 : asset.kind === "polygon" ? customization.sides ?? 6 : undefined,
+    bevel: asset.kind === "cylinder" || asset.kind === "ellipse" || asset.kind === "slot" ? 0 : asset.kind === "tube" || asset.kind === "ring" ? customization.bevel ?? 4 : asset.kind === "text" ? customization.bevel : undefined,
+    segments: asset.kind === "cylinder" || asset.kind === "ellipse" || asset.kind === "slot" ? 1 : asset.kind === "text" ? customization.segments : undefined,
     topRadius: asset.kind === "cone" ? customization.topRadius ?? 0 : undefined,
     baseRadius: asset.kind === "cone" ? customization.baseRadius ?? width / 2 : undefined,
     topWidth: asset.kind === "pyramid" ? normalizePyramidTop(customization.topWidth, width) : undefined,
@@ -338,6 +454,19 @@ export function makeShapeFromAsset(
     springTurns: asset.kind === "spring" ? normalizeSpringTurns(customization.springTurns ?? DEFAULT_SPRING_TURNS, Math.max(width, depth), height, customization.springWire) : undefined,
     springWire: asset.kind === "spring" ? normalizeSpringWire(customization.springWire ?? DEFAULT_SPRING_WIRE, Math.max(width, depth), height) : undefined,
     springQuality: asset.kind === "spring" ? normalizeSpringQuality(customization.springQuality ?? DEFAULT_SPRING_QUALITY) : undefined,
+    starPoints: asset.kind === "star" ? normalizeStarPoints(customization.starPoints ?? DEFAULT_STAR_POINTS) : undefined,
+    starInnerSize: asset.kind === "star" ? normalizeStarInnerSize(customization.starInnerSize ?? DEFAULT_STAR_INNER_SIZE, width) : undefined,
+    starOuterFillet: asset.kind === "star" ? normalizeStarFillet(customization.starOuterFillet ?? DEFAULT_STAR_OUTER_FILLET) : undefined,
+    starInnerFillet: asset.kind === "star" ? normalizeStarFillet(customization.starInnerFillet ?? DEFAULT_STAR_INNER_FILLET) : undefined,
+    starQuality: asset.kind === "star" ? normalizeStarQuality(customization.starQuality ?? DEFAULT_STAR_QUALITY) : undefined,
+    heartTipFillet: asset.kind === "heart" ? normalizeHeartTipFillet(customization.heartTipFillet ?? DEFAULT_HEART_TIP_FILLET) : undefined,
+    heartQuality: asset.kind === "heart" ? normalizeHeartQuality(customization.heartQuality ?? DEFAULT_HEART_QUALITY) : undefined,
+    crescentThickness: asset.kind === "crescent" ? normalizeCrescentThickness(customization.crescentThickness ?? DEFAULT_CRESCENT_THICKNESS, width) : undefined,
+    crescentTipFillet: asset.kind === "crescent" ? normalizeCrescentTipFillet(customization.crescentTipFillet ?? DEFAULT_CRESCENT_TIP_FILLET) : undefined,
+    crescentQuality: asset.kind === "crescent" ? normalizeCrescentQuality(customization.crescentQuality ?? DEFAULT_CRESCENT_QUALITY) : undefined,
+    honeycombCellSize: asset.kind === "honeycomb" ? normalizeHoneycombCellSize(customization.honeycombCellSize ?? DEFAULT_HONEYCOMB_CELL_SIZE) : undefined,
+    honeycombWallThickness: asset.kind === "honeycomb" ? normalizeHoneycombWallThickness(customization.honeycombWallThickness ?? DEFAULT_HONEYCOMB_WALL_THICKNESS) : undefined,
+    honeycombFrameWidth: asset.kind === "honeycomb" ? normalizeHoneycombFrameWidth(customization.honeycombFrameWidth ?? DEFAULT_HONEYCOMB_FRAME_WIDTH) : undefined,
     locked: false,
     hidden: false,
   };

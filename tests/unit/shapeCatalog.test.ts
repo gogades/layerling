@@ -3,11 +3,46 @@ import type { ShapeAsset } from "@/types/layerling";
 import { makeShapeFromAsset, sceneShape, toolbarShapeAssets } from "@/lib/shapeCatalog";
 
 describe("shape catalog", () => {
-  it("does not expose removed decorative shapes in the toolbar catalog", () => {
+  it("exposes slot between cylinder and ellipse in the toolbar catalog", () => {
     const kinds = toolbarShapeAssets.map((asset) => asset.kind);
 
-    expect(kinds).not.toContain("star");
-    expect(kinds).not.toContain("heart");
+    expect(kinds).toContain("slot");
+
+    const cylinderIndex = kinds.indexOf("cylinder");
+    const slotIndex = kinds.indexOf("slot");
+    const ellipseIndex = kinds.indexOf("ellipse");
+    expect(slotIndex).toBe(cylinderIndex + 1);
+    expect(ellipseIndex).toBe(slotIndex + 1);
+  });
+
+  it("exposes star, heart, and crescent between tube and text in the toolbar catalog", () => {
+    const kinds = toolbarShapeAssets.map((asset) => asset.kind);
+
+    expect(kinds).toContain("star");
+    expect(kinds).toContain("heart");
+    expect(kinds).toContain("crescent");
+
+    const tubeIndex = kinds.indexOf("tube");
+    const starIndex = kinds.indexOf("star");
+    const heartIndex = kinds.indexOf("heart");
+    const crescentIndex = kinds.indexOf("crescent");
+    const textIndex = kinds.indexOf("text");
+    expect(starIndex).toBe(tubeIndex + 1);
+    expect(heartIndex).toBe(starIndex + 1);
+    expect(crescentIndex).toBe(heartIndex + 1);
+    expect(textIndex).toBe(crescentIndex + 1);
+  });
+
+  it("exposes honeycomb between gear and ruler in the toolbar catalog", () => {
+    const kinds = toolbarShapeAssets.map((asset) => asset.kind);
+
+    expect(kinds).toContain("honeycomb");
+
+    const gearIndex = kinds.indexOf("gear");
+    const honeycombIndex = kinds.indexOf("honeycomb");
+    const rulerIndex = kinds.indexOf("ruler");
+    expect(honeycombIndex).toBe(gearIndex + 1);
+    expect(rulerIndex).toBe(honeycombIndex + 1);
   });
 
   it("creates placed shapes from toolbar assets", () => {
@@ -37,6 +72,11 @@ describe("shape catalog", () => {
     const text = makeShapeFromAsset({ id: "text", name: "Text", src: "text.png", kind: "text", color: "#cf101b" });
     const torus = makeShapeFromAsset({ id: "torus", name: "Torus", src: "torus.png", kind: "torus", color: "#0098c7" });
     const gear = makeShapeFromAsset({ id: "gear", name: "Gear", src: "gear.svg", kind: "gear", color: "#6f7f8d" });
+    const star = makeShapeFromAsset({ id: "star", name: "Star", src: "star.png", kind: "star", color: "#f5a623" });
+    const heart = makeShapeFromAsset({ id: "heart", name: "Heart", src: "heart.png", kind: "heart", color: "#e0245e" });
+    const crescent = makeShapeFromAsset({ id: "crescent", name: "Crescent", src: "crescent.png", kind: "crescent", color: "#f5c518" });
+    const slot = makeShapeFromAsset({ id: "slot", name: "Capsule", src: "slot.png", kind: "slot", color: "#e67e22" });
+    const honeycomb = makeShapeFromAsset({ id: "honeycomb", name: "Honeycomb", src: "honeycomb.png", kind: "honeycomb", color: "#0ea5e9" });
 
     expect(text).toMatchObject({ width: 86, depth: 28, height: 10, text: "TEXT", font: "Multilanguage" });
     expect(torus).toMatchObject({ size: 22, width: 22, depth: 22, height: 5 });
@@ -51,6 +91,48 @@ describe("shape catalog", () => {
       gearType: "spur",
       helixAngle: 22.5,
       helixQuality: 16,
+    });
+    expect(star).toMatchObject({
+      size: 40,
+      width: 40,
+      depth: 40,
+      height: 10,
+      starPoints: 5,
+      starInnerSize: 20,
+      starOuterFillet: 0,
+      starInnerFillet: 0,
+    });
+    expect(heart).toMatchObject({
+      size: 40,
+      width: 40,
+      depth: 40,
+      height: 10,
+      heartTipFillet: 0,
+      heartQuality: 32,
+    });
+    expect(crescent).toMatchObject({
+      size: 40,
+      width: 40,
+      depth: 40,
+      height: 10,
+      crescentThickness: 14,
+      crescentTipFillet: 0.5,
+      crescentQuality: 32,
+    });
+    expect(slot).toMatchObject({
+      size: 40,
+      width: 40,
+      depth: 20,
+      height: 20,
+    });
+    expect(honeycomb).toMatchObject({
+      size: 60,
+      width: 60,
+      depth: 60,
+      height: 3,
+      honeycombCellSize: 8,
+      honeycombWallThickness: 1.6,
+      honeycombFrameWidth: 3,
     });
   });
 
@@ -93,10 +175,16 @@ describe("shape catalog", () => {
       undefined,
       { gearType: "helical", teeth: 24, toothSize: 3, toothWidth: 2, centerHoleSize: 10, helixAngle: 30, helixQuality: 24 },
     );
+    const honeycomb = makeShapeFromAsset(
+      { id: "honeycomb", name: "Honeycomb", src: "honeycomb.png", kind: "honeycomb", color: "#0ea5e9" },
+      undefined,
+      { honeycombCellSize: 12, honeycombWallThickness: 2.5, honeycombFrameWidth: 5 },
+    );
 
     expect(cone).toMatchObject({ topRadius: 3, baseRadius: 18, sides: 48 });
     expect(text).toMatchObject({ text: "HELLO", font: "Serif", bevel: 2, segments: 6 });
     expect(gear).toMatchObject({ gearType: "helical", teeth: 24, toothSize: 3, toothWidth: 2, centerHoleSize: 10, helixAngle: 30, helixQuality: 24 });
+    expect(honeycomb).toMatchObject({ honeycombCellSize: 12, honeycombWallThickness: 2.5, honeycombFrameWidth: 5 });
   });
 
   it("creates canonical scene shapes with stable defaults", () => {

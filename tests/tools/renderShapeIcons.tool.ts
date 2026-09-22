@@ -6,6 +6,11 @@ import { BoxGeometry } from "three";
 import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
 import { createPrismGeometry } from "@/lib/prismGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
+import { createStarGeometry } from "@/lib/starGeometry";
+import { createHeartGeometry } from "@/lib/heartGeometry";
+import { createCrescentGeometry } from "@/lib/crescentGeometry";
+import { createSlotGeometry } from "@/lib/slotGeometry";
+import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 
 /*
@@ -295,6 +300,79 @@ describe("palette icons", () => {
         prism.computeVertexNormals();
         return prism;
       },
+    });
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/star.png",
+      height: 10,
+      lay: false,
+      azimuth: 25,
+      elevation: 32,
+      build: () => createStarGeometry({
+        width: 40,
+        depth: 40,
+        height: 10,
+        starPoints: 5,
+        starInnerSize: 20,
+        starOuterFillet: 0,
+        starInnerFillet: 0,
+      }),
+    });
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/heart.png",
+      height: 10,
+      lay: false,
+      azimuth: 25,
+      elevation: 32,
+      build: () => createHeartGeometry({
+        width: 40,
+        depth: 40,
+        height: 10,
+        heartTipFillet: 0,
+        heartQuality: 32,
+      }),
+    });
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/crescent.png",
+      height: 10,
+      lay: false,
+      azimuth: 25,
+      elevation: 32,
+      build: () => createCrescentGeometry({
+        width: 40,
+        depth: 40,
+        height: 10,
+        crescentThickness: 12,
+        crescentTipFillet: 0,
+        crescentQuality: 32,
+      }),
+    });
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/slot.png",
+      height: 16,
+      lay: false,
+      azimuth: 35,
+      elevation: 28,
+      build: () => createSlotGeometry({
+        width: 36,
+        depth: 18,
+        height: 16,
+        sides: 32,
+      }),
+    });
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/honeycomb.png",
+      height: 8,
+      lay: false,
+      azimuth: 25,
+      elevation: 32,
+      build: () => createHoneycombGeometry({
+        width: 36,
+        depth: 36,
+        height: 8,
+        honeycombCellSize: 8,
+        honeycombWallThickness: 2,
+        honeycombFrameWidth: 2.5,
+      }),
     });
   });
 });

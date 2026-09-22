@@ -29,6 +29,11 @@ import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { orthographicFramingZoom, perspectiveFramingDistance } from "@/lib/cameraFraming";
 import { createGearGeometry } from "@/lib/gearGeometry";
+import { createStarGeometry } from "@/lib/starGeometry";
+import { createHeartGeometry } from "@/lib/heartGeometry";
+import { createCrescentGeometry } from "@/lib/crescentGeometry";
+import { createSlotGeometry } from "@/lib/slotGeometry";
+import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
@@ -116,6 +121,7 @@ const BVH_PICKING_TRIANGLE_THRESHOLD = 512;
 const SHAPE_KINDS = new Set<ShapeAsset["kind"]>([
   "box",
   "cylinder",
+  "slot",
   "ellipse",
   "sphere",
   "sketch",
@@ -128,7 +134,11 @@ const SHAPE_KINDS = new Set<ShapeAsset["kind"]>([
   "halfSphere",
   "torus",
   "tube",
+  "star",
+  "heart",
+  "crescent",
   "gear",
+  "honeycomb",
   "thread",
   "spring",
   "ring",
@@ -991,6 +1001,19 @@ function tapeShapeTopologyKey(shape: WorkplaneShape): string {
     springWire: shape.springWire,
     springQuality: shape.springQuality,
     helixQuality: shape.helixQuality,
+    starPoints: shape.starPoints,
+    starInnerSize: shape.starInnerSize,
+    starOuterFillet: shape.starOuterFillet,
+    starInnerFillet: shape.starInnerFillet,
+    starQuality: shape.starQuality,
+    heartTipFillet: shape.heartTipFillet,
+    heartQuality: shape.heartQuality,
+    crescentThickness: shape.crescentThickness,
+    crescentTipFillet: shape.crescentTipFillet,
+    crescentQuality: shape.crescentQuality,
+    honeycombCellSize: shape.honeycombCellSize,
+    honeycombWallThickness: shape.honeycombWallThickness,
+    honeycombFrameWidth: shape.honeycombFrameWidth,
     text: shape.text,
     font: shape.font,
     mesh: [positions.length, positionSample],
@@ -1050,7 +1073,7 @@ function polygonSidesForShape(shape: WorkplaneShape) {
 }
 
 function shapeGeometrySignature(shape: WorkplaneShape): string {
-  const taper = shape.kind === "gear" || shape.kind === "thread" || shape.kind === "spring" || !shapeHasTaper(shape)
+  const taper = shape.kind === "gear" || shape.kind === "thread" || shape.kind === "spring" || shape.kind === "star" || shape.kind === "heart" || shape.kind === "crescent" || shape.kind === "slot" || shape.kind === "honeycomb" || !shapeHasTaper(shape)
     ? null
     : { ...shapeTaperDimensions(shape), baseWidth: shapeWidth(shape), baseDepth: shapeDepth(shape) };
   // Twist/lean reshape the mesh the same way taper does, so a change to
@@ -1149,6 +1172,19 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     springWire: shape.springWire,
     springQuality: shape.springQuality,
     helixQuality: shape.helixQuality,
+    starPoints: shape.starPoints,
+    starInnerSize: shape.starInnerSize,
+    starOuterFillet: shape.starOuterFillet,
+    starInnerFillet: shape.starInnerFillet,
+    starQuality: shape.starQuality,
+    heartTipFillet: shape.heartTipFillet,
+    heartQuality: shape.heartQuality,
+    crescentThickness: shape.crescentThickness,
+    crescentTipFillet: shape.crescentTipFillet,
+    crescentQuality: shape.crescentQuality,
+    honeycombCellSize: shape.honeycombCellSize,
+    honeycombWallThickness: shape.honeycombWallThickness,
+    honeycombFrameWidth: shape.honeycombFrameWidth,
     text: shape.text,
     font: shape.font,
   });
@@ -2948,7 +2984,7 @@ function resizeShapeFromFrameHandle(
   // A cylinder is always circular - every horizontal handle (side or corner)
   // drives the one shared diameter instead of stretching width and depth
   // independently into an ellipse.
-  if (shape.kind === "cylinder" && (signs.x || signs.z)) {
+  if ((shape.kind === "cylinder" || shape.kind === "star") && (signs.x || signs.z)) {
     const diameter = signs.x && signs.z ? (nextWidth + nextDepth) / 2 : signs.x ? nextWidth : nextDepth;
     nextWidth = diameter;
     nextDepth = diameter;
@@ -5026,7 +5062,7 @@ export function WorkplaneViewport({
         } else {
           // A cylinder is always circular - the diameter mark writes both
           // fields, the same as the inspector's diameter field does.
-          const patch: Partial<WorkplaneShape> = shape.kind === "cylinder"
+          const patch: Partial<WorkplaneShape> = shape.kind === "cylinder" || shape.kind === "star"
             ? { width: nextValue, depth: nextValue, size: nextValue }
             : { width: nextValue, size: resizedShapeSize(nextValue, shapeDepth(shape)) };
           if (shape.kind === "cone") {
@@ -5053,7 +5089,7 @@ export function WorkplaneViewport({
           // Defense in depth: the cylinder's dimension mark never offers this
           // axis (see makeFootprintDimensionMark above), but keep it circular
           // regardless of how the patch got here.
-          const patch: Partial<WorkplaneShape> = shape.kind === "cylinder"
+          const patch: Partial<WorkplaneShape> = shape.kind === "cylinder" || shape.kind === "star"
             ? { width: nextValue, depth: nextValue, size: nextValue }
             : { depth: nextValue, size: resizedShapeSize(shapeWidth(shape), nextValue) };
           onUpdateShape(id, patchWithResizeAnchor(shape, patch, edit.axis, lastResizeAnchorRef.current));
@@ -7300,17 +7336,17 @@ function rebuildWorkplane(
         theme,
         lineColor,
       ));
-    }
-    const labelPalette = workplaneGridPalette(theme, lineColor).major;
-    const label = createWorkplaneLabel(
-      workspace.width,
-      workspace.depth,
-      labelPalette.color,
-      muted ? labelPalette.opacity * 0.5 : labelPalette.opacity,
-      projectName,
-    );
-    if (label) {
-      group.add(label);
+      const labelPalette = workplaneGridPalette(theme, lineColor).major;
+      const label = createWorkplaneLabel(
+        workspace.width,
+        workspace.depth,
+        labelPalette.color,
+        muted ? labelPalette.opacity * 0.5 : labelPalette.opacity,
+        projectName,
+      );
+      if (label) {
+        group.add(label);
+      }
     }
     if (showMarker) {
       const markerMaterial = new THREE.MeshBasicMaterial({
@@ -8343,7 +8379,7 @@ function syncTransformOverlay(
   // handle shows that single mark instead of a separate width and depth line
   // (which used to appear together at a corner handle, and independently
   // editable at all, letting the two drift apart).
-  const isCircularFootprint = frame.singleShape?.kind === "cylinder";
+  const isCircularFootprint = frame.singleShape?.kind === "cylinder" || frame.singleShape?.kind === "star";
   const footprintDimensionMarks = Object.fromEntries(
     footprintHandleKeys.map((handleKey) => {
       if (isCircularFootprint) {
@@ -9249,6 +9285,14 @@ function createShapeObject(
       );
       break;
     }
+    case "slot":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createSlotGeometry({
+        width,
+        depth,
+        height,
+        sides: shape.sides,
+      })), material, shape);
+      break;
     case "sphere": {
       const { widthSegments, heightSegments } = sphereTessellation(shape.steps);
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => new THREE.SphereGeometry(1, widthSegments, heightSegments)), material, shape, undefined, undefined, new THREE.Vector3(width / 2, height / 2, depth / 2));
@@ -9284,6 +9328,37 @@ function createShapeObject(
     case "tube":
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createHollowCylinderGeometry(width, height, depth, shape.bevel ?? 4, roundSideCount(shape.sides, width, depth))), material, shape);
       break;
+    case "star":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createStarGeometry({
+        width,
+        depth,
+        height,
+        starPoints: shape.starPoints,
+        starInnerSize: shape.starInnerSize,
+        starOuterFillet: shape.starOuterFillet,
+        starInnerFillet: shape.starInnerFillet,
+        starQuality: shape.starQuality,
+      })), material, shape);
+      break;
+    case "heart":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createHeartGeometry({
+        width,
+        depth,
+        height,
+        heartTipFillet: shape.heartTipFillet,
+        heartQuality: shape.heartQuality,
+      })), material, shape);
+      break;
+    case "crescent":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createCrescentGeometry({
+        width,
+        depth,
+        height,
+        crescentThickness: shape.crescentThickness,
+        crescentTipFillet: shape.crescentTipFillet,
+        crescentQuality: shape.crescentQuality,
+      })), material, shape);
+      break;
     case "gear":
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createGearGeometry({
         width,
@@ -9296,6 +9371,16 @@ function createShapeObject(
         gearType: shape.gearType,
         helixAngle: shape.helixAngle,
         helixQuality: shape.helixQuality,
+      })), material, shape);
+      break;
+    case "honeycomb":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createHoneycombGeometry({
+        width,
+        depth,
+        height,
+        honeycombCellSize: shape.honeycombCellSize,
+        honeycombWallThickness: shape.honeycombWallThickness,
+        honeycombFrameWidth: shape.honeycombFrameWidth,
       })), material, shape);
       break;
     case "thread":
@@ -9590,7 +9675,7 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
   const complexEdges =
     shape.kind === "mesh" ||
     Boolean(shape.importedMesh) ||
-    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "gear", "wedge", "polygon"].includes(shape.kind);
+    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "star", "gear", "wedge", "polygon", "heart", "crescent", "slot", "honeycomb"].includes(shape.kind);
   const importedTriangleCount = shape.importedMesh?.triangleCount ?? 0;
   const skipHeavyImportedEdges = Boolean(shape.importedMesh) && importedTriangleCount > IMPORTED_SELECTED_EDGE_TRIANGLE_LIMIT;
   if ((group.userData.showEdges || complexEdges) && !skipHeavyImportedEdges) {

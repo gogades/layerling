@@ -18,9 +18,9 @@ export const editorTargetSchema = {
  * eine ausgezogene Skizze - beide stehen in keinem Katalog.
  */
 export const creatableShapeKinds = [
-  "box", "cube", "cylinder", "ellipse", "polygon", "sphere", "cone", "pyramid", "wedge",
-  "roundRoof", "halfSphere", "torus", "tube", "text", "thread", "spring", "gear",
-  "ruler", "sketch",
+  "box", "cube", "cylinder", "slot", "ellipse", "polygon", "sphere", "cone", "pyramid", "wedge",
+  "roundRoof", "halfSphere", "torus", "tube", "star", "heart", "crescent", "text", "thread", "spring", "gear",
+  "honeycomb", "ruler", "sketch",
 ];
 
 /**
@@ -30,7 +30,7 @@ export const creatableShapeKinds = [
  * geprueft wie in den Einstellungen; was daneben liegt, wird eingefangen.
  */
 export const shapeSettingSchema = {
-  sides: { type: "number", description: "Cylinder, cone, tube, polygon, pyramid, round roof. Left out on a round body, the side count follows the diameter." },
+  sides: { type: "number", description: "Cylinder, slot, cone, tube, polygon, pyramid, round roof. Left out on a round body, the side count follows the diameter." },
   steps: { type: "number", description: "Sphere and half sphere: how finely the surface is divided." },
   bevel: { type: "number", description: "Tube: wall thickness. Text: rounding of the lettering." },
   segments: { type: "number", description: "Text only: steps in the rounding." },
@@ -38,13 +38,13 @@ export const shapeSettingSchema = {
   baseRadius: { type: "number", description: "Cone only: radius at the base." },
   topWidth: { type: "number", description: "Pyramid only: width of the flat top. 0 runs to a point." },
   topDepth: { type: "number", description: "Pyramid only: depth of the flat top. 0 runs to a point." },
-  taperTopWidth: { type: "number", description: "Taper, on every shape except gear, thread, spring and pyramid: width of the top face. Setting one value of a face pins the other." },
-  taperTopDepth: { type: "number", description: "Taper, on every shape except gear, thread, spring and pyramid: depth of the top face." },
-  taperBottomWidth: { type: "number", description: "Taper, on every shape except gear, thread, spring and pyramid: width of the bottom face." },
-  taperBottomDepth: { type: "number", description: "Taper, on every shape except gear, thread, spring and pyramid: depth of the bottom face." },
-  extrudeTwist: { type: "number", description: "On every shape except gear, thread, spring, pyramid and ruler: rotates the top face relative to the base, in degrees, for a twisted extrusion." },
-  extrudeTopOffsetX: { type: "number", description: "On every shape except gear, thread, spring, pyramid and ruler: shifts the top face along the shape's own X axis, in mm, for a leaning extrusion." },
-  extrudeTopOffsetZ: { type: "number", description: "On every shape except gear, thread, spring, pyramid and ruler: shifts the top face along the shape's own Z axis, in mm, for a leaning extrusion." },
+  taperTopWidth: { type: "number", description: "Taper, on every shape except gear, thread, spring, star, heart, crescent, slot, honeycomb and pyramid: width of the top face. Setting one value of a face pins the other." },
+  taperTopDepth: { type: "number", description: "Taper, on every shape except gear, thread, spring, star, heart, crescent, slot, honeycomb and pyramid: depth of the top face." },
+  taperBottomWidth: { type: "number", description: "Taper, on every shape except gear, thread, spring, star, heart, crescent, slot, honeycomb and pyramid: width of the bottom face." },
+  taperBottomDepth: { type: "number", description: "Taper, on every shape except gear, thread, spring, star, heart, crescent, slot, honeycomb and pyramid: depth of the bottom face." },
+  extrudeTwist: { type: "number", description: "On every shape except gear, thread, spring, star, heart, crescent, slot, honeycomb, pyramid and ruler: rotates the top face relative to the base, in degrees, for a twisted extrusion." },
+  extrudeTopOffsetX: { type: "number", description: "On every shape except gear, thread, spring, star, heart, crescent, slot, honeycomb, pyramid and ruler: shifts the top face along the shape's own X axis, in mm, for a leaning extrusion." },
+  extrudeTopOffsetZ: { type: "number", description: "On every shape except gear, thread, spring, star, heart, crescent, slot, honeycomb, pyramid and ruler: shifts the top face along the shape's own Z axis, in mm, for a leaning extrusion." },
   teeth: { type: "number", description: "Gear only." },
   toothSize: { type: "number", description: "Gear only." },
   toothWidth: { type: "number", description: "Gear only." },
@@ -66,6 +66,19 @@ export const shapeSettingSchema = {
   springTurns: { type: "number", description: "Spring only." },
   springWire: { type: "number", description: "Spring only: thickness of the wire." },
   springQuality: { type: "number", description: "Spring only." },
+  starPoints: { type: "number", description: "Star only: number of points or rays (3 to 32)." },
+  starInnerSize: { type: "number", description: "Star only: diameter of the inner valleys in mm." },
+  starOuterFillet: { type: "number", description: "Star only: fillet radius at outer tips in mm." },
+  starInnerFillet: { type: "number", description: "Star only: fillet radius at inner valleys in mm." },
+  starQuality: { type: "number", description: "Star only: quality / segment count for fillet rounding (4 to 48)." },
+  heartTipFillet: { type: "number", description: "Heart only: fillet radius at the bottom tip in mm (0 to 20)." },
+  heartQuality: { type: "number", description: "Heart only: quality / segment count for lobe and tip rounding (16 to 64)." },
+  crescentThickness: { type: "number", description: "Crescent only: thickness at the crescent center in mm." },
+  crescentTipFillet: { type: "number", description: "Crescent only: fillet radius at horn tips in mm (0 to 8)." },
+  crescentQuality: { type: "number", description: "Crescent only: quality / segment count for arc and tip rounding (16 to 64)." },
+  honeycombCellSize: { type: "number", description: "Honeycomb only: cell diameter / distance across flats in mm (3 to 50)." },
+  honeycombWallThickness: { type: "number", description: "Honeycomb only: wall thickness between cells in mm (0.4 to 10)." },
+  honeycombFrameWidth: { type: "number", description: "Honeycomb only: solid frame border width around grid in mm (0 to 50)." },
   text: { type: "string", description: "Text only: the lettering itself." },
   font: { type: "string", description: "Text only." },
 };
@@ -118,7 +131,7 @@ export const tools = [
   },
   {
     name: "layerling_create_shape",
-    description: "Create any of Layerling's shapes: boxes, cylinders, polygons, spheres, cones, pyramids, wedges, roofs, tori, tubes, raised text, threads (rod, screw, nut, tapped hole), springs, gears, or a simple extruded sketch. Width, depth and height default to what the editor uses for that shape; everything a shape has beyond its size is optional and falls back to the same defaults as a shape placed by hand.",
+    description: "Create any of Layerling's shapes: boxes, cylinders, slots, polygons, spheres, cones, pyramids, wedges, roofs, tori, tubes, stars, hearts, crescents, honeycomb grids, raised text, threads (rod, screw, nut, tapped hole), springs, gears, or a simple extruded sketch. Width, depth and height default to what the editor uses for that shape; everything a shape has beyond its size is optional and falls back to the same defaults as a shape placed by hand.",
     inputSchema: {
       ...editorTargetSchema,
       required: ["kind"],
