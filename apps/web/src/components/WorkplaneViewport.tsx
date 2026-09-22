@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Crosshair, Cuboid, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Rotate3d, Ruler, RulerDimensionLine, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crosshair, Cuboid, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Rotate3d, Rows3, Ruler, RulerDimensionLine, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
 import * as THREE from "three";
 import { Brush, Evaluator, HOLLOW_INTERSECTION } from "three-bvh-csg";
@@ -38,7 +38,17 @@ import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
-import { cornerRulerDimensionMatchesFromCorner, cornerRulerTicks, pointAlongRuler, rulerDimensionMatch, type RulerDimensionField, type RulerDimensionMatch } from "@/lib/rulerDimensions";
+import {
+  computeCornerRulerRelativeCoordinates,
+  computeCornerRulerShift,
+  cornerRulerDimensionMatchesFromCorner,
+  cornerRulerTicks,
+  pointAlongRuler,
+  rulerDimensionMatch,
+  type CornerRulerMode,
+  type RulerDimensionField,
+  type RulerDimensionMatch,
+} from "@/lib/rulerDimensions";
 import { createMoveDimensionOverlay, type MoveDimensionAxis, type MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
 import { computeOriginAxisDistance, createOriginDimensionOverlay, type OriginDimensionOverlayData } from "@/lib/originDimensionLines";
 import {
@@ -2047,6 +2057,7 @@ type CornerRulerInstance = {
   rotation: number;
   armLengthX: number;
   armLengthZ: number;
+  mode?: CornerRulerMode;
 };
 
 type CornerRulerTickScreen = { x1: number; y1: number; x2: number; y2: number };
@@ -2055,6 +2066,7 @@ type CornerRulerNeighborLabel = { key: string; x: number; y: number; text: strin
 
 type CornerRulerOverlayItem = {
   id: string;
+  mode: CornerRulerMode;
   handleX: number;
   handleY: number;
   armXLine: { x1: number; y1: number; x2: number; y2: number };
@@ -2062,6 +2074,20 @@ type CornerRulerOverlayItem = {
   ticks: CornerRulerTickScreen[];
   labels: CornerRulerLabelScreen[];
   neighborLabels: CornerRulerNeighborLabel[];
+  selectedCoordinate?: {
+    shapeId: string;
+    xValue: number;
+    zValue: number;
+    elevationValue: number;
+    xLabel: { x: number; y: number; text: string };
+    zLabel: { x: number; y: number; text: string };
+    elevationLabel: { x: number; y: number; text: string };
+    xArrowLine: { x1: number; y1: number; x2: number; y2: number };
+    zArrowLine: { x1: number; y1: number; x2: number; y2: number };
+    elevationArrowLine: { x1: number; y1: number; x2: number; y2: number };
+    xGuideLine: { x1: number; y1: number; x2: number; y2: number };
+    zGuideLine: { x1: number; y1: number; x2: number; y2: number };
+  } | null;
 };
 
 type CornerRulerOverlayState = {
@@ -2088,15 +2114,16 @@ function cornerRulerNeighborLabel(
 
 /**
  * Projiziert jede platzierte Winkellineal-Instanz auf den Bildschirm: die
- * Ecke, die beiden Arm-Endpunkte, jeden Teilstrich (`cornerRulerTicks`) und
- * die automatische Bemassung benachbarter Formen an beiden Armen
- * (`cornerRulerDimensionMatchesFromCorner`, unveraendert wiederverwendet).
+ * Ecke, die beiden Arm-Endpunkte, jeden Teilstrich (`cornerRulerTicks`),
+ * die relative Bemaßung des ausgewählten Körpers (wie in Tinkercad) sowie
+ * die automatische Bemaßung weiterer Formen am Lineal.
  * Reine Bildschirm-Darstellung wie beim Massband - kein Three.js-Objekt.
  */
 function syncCornerRulerToolOverlay(
   state: ThreeState | null,
   rulers: CornerRulerInstance[],
   shapes: WorkplaneShape[],
+  selectedIds: string[],
   overlayRef: MutableRefObject<CornerRulerOverlayState | null>,
   setOverlay: Dispatch<SetStateAction<CornerRulerOverlayState | null>>,
   accuracy: MeasurementAccuracy,
@@ -2104,11 +2131,17 @@ function syncCornerRulerToolOverlay(
   const items: CornerRulerOverlayItem[] = [];
   if (state) {
     const topY = shapes.reduce((max, shape) => Math.max(max, (shape.elevation ?? 0) + shape.height), 0);
+    const selectedShape = selectedIds.length === 1
+      ? shapes.find((s) => s.id === selectedIds[0] && !s.hidden && !isNonSolidShapeKind(s.kind))
+      : null;
+
     rulers.forEach((ruler) => {
       const armWidth = CORNER_RULER_ARM_WIDTH;
+      const mode: CornerRulerMode = ruler.mode ?? "endpoint";
       const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, THREE.MathUtils.degToRad(ruler.rotation), 0, "XYZ"));
       const xAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(quaternion);
       const zAxis = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion);
+      const yAxis = new THREE.Vector3(0, 1, 0);
       const corner = new THREE.Vector3(ruler.x, ruler.elevation, ruler.z);
 
       const handleScreen = projectToScreen(corner, state);
@@ -2136,9 +2169,68 @@ function syncCornerRulerToolOverlay(
       buildTicks(xAxis, zAxis.clone().negate(), ruler.armLengthX);
       buildTicks(zAxis, xAxis.clone().negate(), ruler.armLengthZ);
 
+      let selectedCoordinate: CornerRulerOverlayItem["selectedCoordinate"] = null;
+      if (selectedShape) {
+        const bounds = projectShapeExtent(selectedShape, xAxis, yAxis, zAxis, corner);
+        const coords = computeCornerRulerRelativeCoordinates({
+          rulerCorner: { x: ruler.x, y: ruler.elevation, z: ruler.z },
+          rulerRotation: ruler.rotation,
+          mode,
+          bounds,
+        });
+
+        const xEndScreen = projectToScreen(new THREE.Vector3(coords.xEndpointOnAxis.x, coords.xEndpointOnAxis.y, coords.xEndpointOnAxis.z), state);
+        const zEndScreen = projectToScreen(new THREE.Vector3(coords.zEndpointOnAxis.x, coords.zEndpointOnAxis.y, coords.zEndpointOnAxis.z), state);
+        const xTargetScreen = projectToScreen(new THREE.Vector3(coords.xTargetPoint.x, coords.xTargetPoint.y, coords.xTargetPoint.z), state);
+        const zTargetScreen = projectToScreen(new THREE.Vector3(coords.zTargetPoint.x, coords.zTargetPoint.y, coords.zTargetPoint.z), state);
+        const elevBaseScreen = projectToScreen(new THREE.Vector3(coords.elevationBasePoint.x, coords.elevationBasePoint.y, coords.elevationBasePoint.z), state);
+        const elevTargetScreen = projectToScreen(new THREE.Vector3(coords.elevationTargetPoint.x, coords.elevationTargetPoint.y, coords.elevationTargetPoint.z), state);
+
+        const dxX = xEndScreen.x - handleScreen.x;
+        const dyX = xEndScreen.y - handleScreen.y;
+        const lenX = Math.hypot(dxX, dyX) || 1;
+        const normX = { x: -dyX / lenX, y: dxX / lenX };
+        const sideX = normX.y >= 0 ? 1 : -1;
+        const xLabelPos = {
+          x: (handleScreen.x + xEndScreen.x) / 2 + normX.x * 22 * sideX,
+          y: (handleScreen.y + xEndScreen.y) / 2 + normX.y * 22 * sideX,
+        };
+
+        const dxZ = zEndScreen.x - handleScreen.x;
+        const dyZ = zEndScreen.y - handleScreen.y;
+        const lenZ = Math.hypot(dxZ, dyZ) || 1;
+        const normZ = { x: -dyZ / lenZ, y: dxZ / lenZ };
+        const sideZ = normZ.x <= 0 ? 1 : -1;
+        const zLabelPos = {
+          x: (handleScreen.x + zEndScreen.x) / 2 + normZ.x * 22 * sideZ,
+          y: (handleScreen.y + zEndScreen.y) / 2 + normZ.y * 22 * sideZ,
+        };
+
+        const elevationLabelPos = {
+          x: (elevBaseScreen.x + elevTargetScreen.x) / 2 + 28,
+          y: (elevBaseScreen.y + elevTargetScreen.y) / 2,
+        };
+
+        selectedCoordinate = {
+          shapeId: selectedShape.id,
+          xValue: coords.x,
+          zValue: coords.z,
+          elevationValue: coords.elevation,
+          xLabel: { x: xLabelPos.x, y: xLabelPos.y, text: formatMeasure(coords.x, accuracy) },
+          zLabel: { x: zLabelPos.x, y: zLabelPos.y, text: formatMeasure(coords.z, accuracy) },
+          elevationLabel: { x: elevationLabelPos.x, y: elevationLabelPos.y, text: formatMeasure(coords.elevation, accuracy) },
+          xArrowLine: { x1: handleScreen.x, y1: handleScreen.y, x2: xEndScreen.x, y2: xEndScreen.y },
+          zArrowLine: { x1: handleScreen.x, y1: handleScreen.y, x2: zEndScreen.x, y2: zEndScreen.y },
+          elevationArrowLine: { x1: elevBaseScreen.x, y1: elevBaseScreen.y, x2: elevTargetScreen.x, y2: elevTargetScreen.y },
+          xGuideLine: { x1: xEndScreen.x, y1: xEndScreen.y, x2: xTargetScreen.x, y2: xTargetScreen.y },
+          zGuideLine: { x1: zEndScreen.x, y1: zEndScreen.y, x2: zTargetScreen.x, y2: zTargetScreen.y },
+        };
+      }
+
       const neighborLabels: CornerRulerNeighborLabel[] = [];
       shapes.forEach((candidate) => {
         if (isNonSolidShapeKind(candidate.kind) || candidate.hidden) return;
+        if (selectedShape && candidate.id === selectedShape.id) return;
         const { armX, armZ } = cornerRulerDimensionMatchesFromCorner(
           { x: ruler.x, z: ruler.z },
           ruler.rotation,
@@ -2174,6 +2266,7 @@ function syncCornerRulerToolOverlay(
 
       items.push({
         id: ruler.id,
+        mode,
         handleX: handleScreen.x,
         handleY: handleScreen.y,
         armXLine: { x1: handleScreen.x, y1: handleScreen.y, x2: armXEndScreen.x, y2: armXEndScreen.y },
@@ -2181,6 +2274,7 @@ function syncCornerRulerToolOverlay(
         ticks,
         labels,
         neighborLabels,
+        selectedCoordinate,
       });
     });
   }
@@ -2199,12 +2293,16 @@ function CornerRulerToolOverlay({
   onHandlePointerMove,
   onHandlePointerUp,
   onDelete,
+  onToggleMode,
+  onCoordinateClick,
 }: {
   overlay: CornerRulerOverlayState;
   onHandlePointerDown: (event: ReactPointerEvent<SVGCircleElement>, id: string) => void;
   onHandlePointerMove: (event: ReactPointerEvent<SVGCircleElement>, id: string) => void;
   onHandlePointerUp: (event: ReactPointerEvent<SVGCircleElement>, id: string) => void;
   onDelete: (id: string) => void;
+  onToggleMode: (id: string) => void;
+  onCoordinateClick: (rulerId: string, shapeId: string, axis: "x" | "z" | "elevation", value: number, x: number, y: number) => void;
 }) {
   if (overlay.items.length === 0) {
     return null;
@@ -2219,6 +2317,15 @@ function CornerRulerToolOverlay({
             {item.ticks.map((tick, index) => (
               <line key={index} className="corner-ruler-tick" x1={tick.x1} y1={tick.y1} x2={tick.x2} y2={tick.y2} />
             ))}
+            {item.selectedCoordinate ? (
+              <g className="ruler-coordinate-visuals">
+                <line className="ruler-coordinate-arrow" x1={item.selectedCoordinate.xArrowLine.x1} y1={item.selectedCoordinate.xArrowLine.y1} x2={item.selectedCoordinate.xArrowLine.x2} y2={item.selectedCoordinate.xArrowLine.y2} />
+                <line className="ruler-coordinate-arrow" x1={item.selectedCoordinate.zArrowLine.x1} y1={item.selectedCoordinate.zArrowLine.y1} x2={item.selectedCoordinate.zArrowLine.x2} y2={item.selectedCoordinate.zArrowLine.y2} />
+                <line className="ruler-coordinate-arrow" x1={item.selectedCoordinate.elevationArrowLine.x1} y1={item.selectedCoordinate.elevationArrowLine.y1} x2={item.selectedCoordinate.elevationArrowLine.x2} y2={item.selectedCoordinate.elevationArrowLine.y2} />
+                <line className="ruler-coordinate-guide" x1={item.selectedCoordinate.xGuideLine.x1} y1={item.selectedCoordinate.xGuideLine.y1} x2={item.selectedCoordinate.xGuideLine.x2} y2={item.selectedCoordinate.xGuideLine.y2} />
+                <line className="ruler-coordinate-guide" x1={item.selectedCoordinate.zGuideLine.x1} y1={item.selectedCoordinate.zGuideLine.y1} x2={item.selectedCoordinate.zGuideLine.x2} y2={item.selectedCoordinate.zGuideLine.y2} />
+              </g>
+            ) : null}
             <circle
               className="corner-ruler-handle"
               cx={item.handleX}
@@ -2244,10 +2351,62 @@ function CornerRulerToolOverlay({
               {label.text}
             </span>
           ))}
+          {item.selectedCoordinate ? (
+            <>
+              <button
+                type="button"
+                className="ruler-coordinate-badge"
+                style={{ left: item.selectedCoordinate.xLabel.x, top: item.selectedCoordinate.xLabel.y }}
+                aria-label={t("aria.rulerCoordinateX")}
+                title={t("ruler.coordinate.x")}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => onCoordinateClick(item.id, item.selectedCoordinate!.shapeId, "x", item.selectedCoordinate!.xValue, item.selectedCoordinate!.xLabel.x, item.selectedCoordinate!.xLabel.y)}
+              >
+                {item.selectedCoordinate.xLabel.text}
+              </button>
+              <button
+                type="button"
+                className="ruler-coordinate-badge"
+                style={{ left: item.selectedCoordinate.zLabel.x, top: item.selectedCoordinate.zLabel.y }}
+                aria-label={t("aria.rulerCoordinateZ")}
+                title={t("ruler.coordinate.z")}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => onCoordinateClick(item.id, item.selectedCoordinate!.shapeId, "z", item.selectedCoordinate!.zValue, item.selectedCoordinate!.zLabel.x, item.selectedCoordinate!.zLabel.y)}
+              >
+                {item.selectedCoordinate.zLabel.text}
+              </button>
+              <button
+                type="button"
+                className="ruler-coordinate-badge"
+                style={{ left: item.selectedCoordinate.elevationLabel.x, top: item.selectedCoordinate.elevationLabel.y }}
+                aria-label={t("aria.rulerCoordinateElevation")}
+                title={t("ruler.coordinate.elevation")}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => onCoordinateClick(item.id, item.selectedCoordinate!.shapeId, "elevation", item.selectedCoordinate!.elevationValue, item.selectedCoordinate!.elevationLabel.x, item.selectedCoordinate!.elevationLabel.y)}
+              >
+                {item.selectedCoordinate.elevationLabel.text}
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            className="corner-ruler-mode-toggle"
+            style={{ left: item.handleX - 16, top: item.handleY - 14 }}
+            aria-label={t("aria.toggleCornerRulerMode")}
+            title={item.mode === "midpoint" ? t("ruler.mode.midpoint") : t("ruler.mode.endpoint")}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onToggleMode(item.id)}
+          >
+            {item.mode === "midpoint" ? (
+              <Crosshair size={11} strokeWidth={2.5} aria-hidden="true" />
+            ) : (
+              <Rows3 size={11} strokeWidth={2.5} aria-hidden="true" />
+            )}
+          </button>
           <button
             type="button"
             className="corner-ruler-delete"
-            style={{ left: item.handleX + 14, top: item.handleY - 14 }}
+            style={{ left: item.handleX + 16, top: item.handleY - 14 }}
             aria-label={t("aria.deleteCornerRuler")}
             title={t("aria.deleteCornerRuler")}
             onPointerDown={(event) => event.stopPropagation()}
@@ -3353,6 +3512,7 @@ export function WorkplaneViewport({
   const [rulerDimensionEditing, setRulerDimensionEditing] = useState<{ shapeId: string; field: RulerDimensionField; x: number; y: number; value: string } | null>(null);
   const [rulerDuplicatePreview, setRulerDuplicatePreview] = useState<{ x: number; y: number; label: string } | null>(null);
   const [rulerDuplicateEditing, setRulerDuplicateEditing] = useState<{ rulerId: string; shapeId: string; baseAlong: number; x: number; y: number; value: string } | null>(null);
+  const [rulerCoordinateEditing, setRulerCoordinateEditing] = useState<{ rulerId: string; shapeId: string; axis: "x" | "z" | "elevation"; x: number; y: number; value: string } | null>(null);
   const [noteOverlay, setNoteOverlay] = useState<NoteOverlayState | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [moveDimensionOverlay, setMoveDimensionOverlay] = useState<MoveDimensionOverlayState | null>(null);
@@ -3746,7 +3906,7 @@ export function WorkplaneViewport({
       syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
       syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
       syncRulerDimensionOverlay(threeRef.current, shapes, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspaceRef.current.accuracy);
-      syncCornerRulerToolOverlay(threeRef.current, cornerRulerModelRef.current, shapes, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
+      syncCornerRulerToolOverlay(threeRef.current, cornerRulerModelRef.current, shapes, selectedIdsRef.current, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
       syncOriginDimensionOverlay(
         threeRef.current,
         originDimensionShapeFor(shapes),
@@ -3764,19 +3924,17 @@ export function WorkplaneViewport({
     alignReferenceShapesRef.current = alignReferenceShapes;
     if (threeRef.current) {
       syncAlignOverlay(threeRef.current, alignReferenceShapes, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
+      syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
       threeRef.current.needsRender = true;
     }
   }, [alignReferenceShapes]);
 
   useEffect(() => {
-    mirrorReferenceShapesRef.current = mirrorReferenceShapes;
-    if (threeRef.current) {
-      syncMirrorOverlay(threeRef.current, mirrorReferenceShapes, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
-      threeRef.current.needsRender = true;
-    }
-  }, [mirrorReferenceShapes]);
-
-  useEffect(() => {
+    alignModeRef.current = alignMode;
+    mirrorModeRef.current = mirrorMode;
+    tapeModeRef.current = tapeMode;
+    tapeDeleteModeRef.current = tapeDeleteMode;
+    tapeMoveModeRef.current = tapeMoveMode;
     const nextSelectedIdsKey = selectedIds.join("|");
     if (nextSelectedIdsKey !== selectedIdsKeyRef.current) {
       selectedIdsKeyRef.current = nextSelectedIdsKey;
@@ -3817,6 +3975,7 @@ export function WorkplaneViewport({
       );
       syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIds, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
       syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIds, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
+      syncCornerRulerToolOverlay(threeRef.current, cornerRulerModelRef.current, shapesRef.current, selectedIds, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
       syncOriginDimensionOverlay(
         threeRef.current,
         originDimensionShapeFor(shapesRef.current, selectedIds),
@@ -3987,7 +4146,7 @@ export function WorkplaneViewport({
       );
       syncTapeOverlay(threeRef.current, tapeModelRef.current, tapeOverlayRef, setTapeOverlay, workspace.accuracy);
       syncRulerDimensionOverlay(threeRef.current, shapesRef.current, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspace.accuracy);
-      syncCornerRulerToolOverlay(threeRef.current, cornerRulerModelRef.current, shapesRef.current, cornerRulerOverlayRef, setCornerRulerOverlay, workspace.accuracy);
+      syncCornerRulerToolOverlay(threeRef.current, cornerRulerModelRef.current, shapesRef.current, selectedIdsRef.current, cornerRulerOverlayRef, setCornerRulerOverlay, workspace.accuracy);
       syncNoteOverlay(threeRef.current, notesRef.current, notesVisibleRef.current, noteOverlayRef, setNoteOverlay);
       syncMoveDimensionWorldLines(threeRef.current, moveDimensionSessionRef.current, resolvedTheme);
       threeRef.current.needsRender = true;
@@ -4068,7 +4227,7 @@ export function WorkplaneViewport({
         syncMirrorOverlay(state, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
         syncTapeOverlay(state, tapeModelRef.current, tapeOverlayRef, setTapeOverlay, workspaceRef.current.accuracy);
         syncRulerDimensionOverlay(state, previewShapes, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspaceRef.current.accuracy);
-        syncCornerRulerToolOverlay(state, cornerRulerModelRef.current, previewShapes, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
+        syncCornerRulerToolOverlay(state, cornerRulerModelRef.current, previewShapes, selectedIdsRef.current, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
         syncNoteOverlay(state, notesRef.current, notesVisibleRef.current, noteOverlayRef, setNoteOverlay);
         syncMoveDimensionOverlay(
           state,
@@ -4978,8 +5137,11 @@ export function WorkplaneViewport({
 
   const beginDimensionEdit = useCallback((mark: DimensionMark) => {
     const id = selectedIdsRef.current[0];
-    if (id && (mark.axis === "width" || mark.axis === "depth" || mark.axis === "height")) {
+    const isCornerRulerMidpoint = cornerRulerModelRef.current[0]?.mode === "midpoint";
+    if (id && (mark.axis === "width" || mark.axis === "depth" || mark.axis === "height") && !isCornerRulerMidpoint) {
       rememberResizeAnchor(id, mark.axis === "height" ? "height" : "scale", mark.handleKey);
+    } else {
+      lastResizeAnchorRef.current = null;
     }
     setPinnedMeasureKey(mark.handleKey);
     setEditingDimension({ key: mark.key, axis: mark.axis, x: mark.labelX, y: mark.labelY, value: mark.label });
@@ -5049,13 +5211,14 @@ export function WorkplaneViewport({
       return;
     }
     if (Number.isFinite(value) && value > 0) {
+      const isCornerRulerMidpoint = cornerRulerModelRef.current[0]?.mode === "midpoint";
       const customLimit = workspaceRef.current.shapeCustomizations[shape.kind]?.maxDimension;
       const nextValue = Math.min(customLimit ?? Number.POSITIVE_INFINITY, Math.max(MIN_SHAPE_SIZE, value));
+      const anchor = isCornerRulerMidpoint ? null : lastResizeAnchorRef.current;
       if (edit.axis === "width") {
         const frame = selectionFrameForShapes([shape], [shape.id]);
         if (shapeHasTaper(shape) && frame) {
           const scaleX = nextValue / Math.max(MIN_SHAPE_SIZE, frame.width);
-          const anchor = lastResizeAnchorRef.current;
           const signs = anchor?.shapeId === shape.id ? resizeSignsForDimension(anchor.signs, "width") : { x: 0, z: 0 };
           const nextCenter = signs.x
             ? resizeCenterFromAnchor(frame, resizeAnchorPointForFrame(frame, signs), signs, nextValue, frame.depth)
@@ -5075,13 +5238,12 @@ export function WorkplaneViewport({
           if (shape.kind === "cone") {
             patch.baseRadius = nextValue / 2;
           }
-          onUpdateShape(id, patchWithResizeAnchor(shape, patch, edit.axis, lastResizeAnchorRef.current));
+          onUpdateShape(id, patchWithResizeAnchor(shape, patch, edit.axis, anchor));
         }
       } else if (edit.axis === "depth") {
         const frame = selectionFrameForShapes([shape], [shape.id]);
         if (shapeHasTaper(shape) && frame) {
           const scaleZ = nextValue / Math.max(MIN_SHAPE_SIZE, frame.depth);
-          const anchor = lastResizeAnchorRef.current;
           const signs = anchor?.shapeId === shape.id ? resizeSignsForDimension(anchor.signs, "depth") : { x: 0, z: 0 };
           const nextCenter = signs.z
             ? resizeCenterFromAnchor(frame, resizeAnchorPointForFrame(frame, signs), signs, frame.width, nextValue)
@@ -5099,10 +5261,18 @@ export function WorkplaneViewport({
           const patch: Partial<WorkplaneShape> = shape.kind === "cylinder" || shape.kind === "star"
             ? { width: nextValue, depth: nextValue, size: nextValue }
             : { depth: nextValue, size: resizedShapeSize(shapeWidth(shape), nextValue) };
-          onUpdateShape(id, patchWithResizeAnchor(shape, patch, edit.axis, lastResizeAnchorRef.current));
+          onUpdateShape(id, patchWithResizeAnchor(shape, patch, edit.axis, anchor));
         }
       } else {
-        onUpdateShape(id, patchWithResizeAnchor(shape, { height: nextValue }, edit.axis, lastResizeAnchorRef.current));
+        if (isCornerRulerMidpoint) {
+          const deltaY = (shape.height - nextValue) / 2;
+          onUpdateShape(id, {
+            height: nextValue,
+            elevation: cleanNearZero(clamp((shape.elevation ?? 0) + deltaY, MIN_ELEVATION, MAX_ELEVATION), 0.0005),
+          });
+        } else {
+          onUpdateShape(id, patchWithResizeAnchor(shape, { height: nextValue }, edit.axis, anchor));
+        }
       }
     }
     setEditingDimension(null);
@@ -5474,12 +5644,13 @@ export function WorkplaneViewport({
   const storeCornerRulerModel = useCallback((next: CornerRulerInstance[]) => {
     cornerRulerModelRef.current = next;
     if (threeRef.current) {
-      syncCornerRulerToolOverlay(threeRef.current, next, shapesRef.current, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
+      syncCornerRulerToolOverlay(threeRef.current, next, shapesRef.current, selectedIdsRef.current, cornerRulerOverlayRef, setCornerRulerOverlay, workspaceRef.current.accuracy);
       threeRef.current.needsRender = true;
     }
   }, []);
 
   const placeCornerRuler = useCallback((point: { x: number; z: number }) => {
+    const existingMode = cornerRulerModelRef.current[0]?.mode ?? "endpoint";
     const instance: CornerRulerInstance = {
       id: `corner-ruler-${++cornerRulerIdRef.current}`,
       x: point.x,
@@ -5488,9 +5659,80 @@ export function WorkplaneViewport({
       rotation: 90,
       armLengthX: CORNER_RULER_DEFAULT_ARM_X,
       armLengthZ: CORNER_RULER_DEFAULT_ARM_Z,
+      mode: existingMode,
     };
-    storeCornerRulerModel([...cornerRulerModelRef.current, instance]);
+    storeCornerRulerModel([instance]);
   }, [storeCornerRulerModel]);
+
+  const toggleCornerRulerMode = useCallback((id: string) => {
+    storeCornerRulerModel(
+      cornerRulerModelRef.current.map((ruler) => {
+        if (ruler.id !== id) return ruler;
+        const nextMode: CornerRulerMode = ruler.mode === "midpoint" ? "endpoint" : "midpoint";
+        return { ...ruler, mode: nextMode };
+      })
+    );
+  }, [storeCornerRulerModel]);
+
+  const beginRulerCoordinateEdit = useCallback((
+    rulerId: string,
+    shapeId: string,
+    axis: "x" | "z" | "elevation",
+    value: number,
+    x: number,
+    y: number,
+  ) => {
+    setRulerCoordinateEditing({
+      rulerId,
+      shapeId,
+      axis,
+      x,
+      y,
+      value: formatMeasure(value, workspaceRef.current.accuracy),
+    });
+  }, []);
+
+  const commitRulerCoordinateEdit = useCallback(() => {
+    const edit = rulerCoordinateEditing;
+    setRulerCoordinateEditing(null);
+    if (!edit) return;
+    const shape = shapesRef.current.find((entry) => entry.id === edit.shapeId);
+    const ruler = cornerRulerModelRef.current.find((entry) => entry.id === edit.rulerId);
+    const value = parseMeasurementInput(edit.value);
+    if (!shape || !ruler || !Number.isFinite(value)) return;
+
+    const rulerQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, THREE.MathUtils.degToRad(ruler.rotation), 0, "XYZ"));
+    const xAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(rulerQuat);
+    const zAxis = new THREE.Vector3(0, 0, 1).applyQuaternion(rulerQuat);
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const corner = new THREE.Vector3(ruler.x, ruler.elevation ?? 0, ruler.z);
+    const bounds = projectShapeExtent(shape, xAxis, yAxis, zAxis, corner);
+    const coords = computeCornerRulerRelativeCoordinates({
+      rulerCorner: { x: ruler.x, y: ruler.elevation, z: ruler.z },
+      rulerRotation: ruler.rotation,
+      mode: ruler.mode,
+      bounds,
+    });
+    const currentVal = edit.axis === "elevation" ? coords.elevation : edit.axis === "x" ? coords.x : coords.z;
+    const delta = value - currentVal;
+
+    if (edit.axis === "elevation") {
+      const targetElevation = (shape.elevation ?? 0) + delta;
+      onUpdateShape(edit.shapeId, {
+        elevation: cleanNearZero(clamp(targetElevation, MIN_ELEVATION, MAX_ELEVATION), 0.0005),
+      });
+      return;
+    }
+    const shift = computeCornerRulerShift(ruler.rotation, edit.axis, delta);
+    onUpdateShape(edit.shapeId, {
+      x: cleanNearZero(shape.x + shift.x, 0.0005),
+      z: cleanNearZero(shape.z + shift.z, 0.0005),
+    });
+  }, [onUpdateShape, rulerCoordinateEditing]);
+
+  const cancelRulerCoordinateEdit = useCallback(() => {
+    setRulerCoordinateEditing(null);
+  }, []);
 
   const removeCornerRuler = useCallback((id: string) => {
     storeCornerRulerModel(cornerRulerModelRef.current.filter((ruler) => ruler.id !== id));
@@ -6856,6 +7098,8 @@ export function WorkplaneViewport({
               onHandlePointerMove={handleCornerRulerHandlePointerMove}
               onHandlePointerUp={handleCornerRulerHandlePointerUp}
               onDelete={removeCornerRuler}
+              onToggleMode={toggleCornerRulerMode}
+              onCoordinateClick={beginRulerCoordinateEdit}
             />
           ) : null}
           {rulerDimensionEditing ? (
@@ -6889,6 +7133,23 @@ export function WorkplaneViewport({
               onKeyDown={(event) => {
                 if (event.key === "Enter") commitRulerDuplicateEdit();
                 if (event.key === "Escape") cancelRulerDuplicateEdit();
+              }}
+            />
+          ) : null}
+          {rulerCoordinateEditing ? (
+            <input
+              className="dimension-input ruler-coordinate-input"
+              style={{ "--overlay-x": `${rulerCoordinateEditing.x}px`, "--overlay-y": `${rulerCoordinateEditing.y}px` } as CSSProperties}
+              value={rulerCoordinateEditing.value}
+              autoFocus
+              inputMode="decimal"
+              onPointerDown={(event) => event.stopPropagation()}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setRulerCoordinateEditing((edit) => edit && { ...edit, value: event.target.value })}
+              onBlur={commitRulerCoordinateEdit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commitRulerCoordinateEdit();
+                if (event.key === "Escape") cancelRulerCoordinateEdit();
               }}
             />
           ) : null}

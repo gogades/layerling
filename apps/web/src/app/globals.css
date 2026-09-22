@@ -5529,6 +5529,111 @@ button {
   background: #fff0ee;
 }
 
+.corner-ruler-mode-toggle {
+  position: absolute;
+  z-index: 8;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #2e7d32;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(129, 199, 132, 0.9);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(46, 125, 50, 0.16);
+  pointer-events: all;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: all 0.15s ease;
+}
+
+.corner-ruler-mode-toggle:hover {
+  background: #e8f5e9;
+  border-color: #2e7d32;
+}
+
+.ruler-coordinate-arrow {
+  stroke: #4caf50;
+  stroke-width: 6;
+  stroke-opacity: 0.35;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.ruler-coordinate-guide {
+  stroke: #81c784;
+  stroke-width: 1.2;
+  stroke-dasharray: 4, 3;
+  stroke-opacity: 0.85;
+  pointer-events: none;
+}
+
+.ruler-coordinate-badge {
+  position: absolute;
+  z-index: 4;
+  min-width: 44px;
+  padding: 3px 8px;
+  color: #1b5e20;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1.5px solid #4caf50;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(46, 125, 50, 0.18);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  pointer-events: all;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.ruler-coordinate-badge:hover {
+  background: #e8f5e9;
+  border-color: #2e7d32;
+  box-shadow: 0 2px 6px rgba(46, 125, 50, 0.28);
+}
+
+.dimension-input.ruler-coordinate-input {
+  color: #1b5e20;
+  border: 2px solid #2e7d32;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.25);
+  background: #ffffff;
+}
+
+[data-theme="dark"] .corner-ruler-mode-toggle {
+  color: #81c784;
+  background: rgba(30, 40, 30, 0.95);
+  border-color: rgba(76, 175, 80, 0.5);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .corner-ruler-mode-toggle:hover {
+  background: rgba(46, 125, 50, 0.35);
+  border-color: #81c784;
+}
+
+[data-theme="dark"] .ruler-coordinate-badge {
+  color: #a5d6a7;
+  background: rgba(24, 32, 24, 0.95);
+  border-color: #66bb6a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .ruler-coordinate-badge:hover {
+  background: rgba(46, 125, 50, 0.4);
+  border-color: #a5d6a7;
+}
+
+[data-theme="dark"] .dimension-input.ruler-coordinate-input {
+  color: #a5d6a7;
+  border-color: #66bb6a;
+  background: #1e281e;
+  box-shadow: 0 0 0 3px rgba(102, 187, 106, 0.3);
+}
+
+
 .ruler-dimension-overlay {
   position: absolute;
   inset: 0;

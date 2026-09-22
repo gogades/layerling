@@ -168,3 +168,108 @@ export function cornerRulerTicks(length: number): CornerRulerTick[] {
   }
   return ticks;
 }
+
+export type CornerRulerMode = "endpoint" | "midpoint";
+
+export type CornerRulerCoordinateInput = {
+  rulerCorner: { x: number; y?: number; z: number };
+  rulerRotation: number;
+  mode?: CornerRulerMode;
+  bounds: {
+    min: { x: number; y: number; z: number };
+    max: { x: number; y: number; z: number };
+  };
+};
+
+export type CornerRulerRelativeCoordinates = {
+  mode: CornerRulerMode;
+  x: number;
+  z: number;
+  elevation: number;
+  rulerOriginWorld: { x: number; y: number; z: number };
+  axisXDirection: { x: number; y: number; z: number };
+  axisZDirection: { x: number; y: number; z: number };
+  xEndpointOnAxis: { x: number; y: number; z: number };
+  zEndpointOnAxis: { x: number; y: number; z: number };
+  xTargetPoint: { x: number; y: number; z: number };
+  zTargetPoint: { x: number; y: number; z: number };
+  elevationBasePoint: { x: number; y: number; z: number };
+  elevationTargetPoint: { x: number; y: number; z: number };
+};
+
+export function computeCornerRulerRelativeCoordinates(
+  input: CornerRulerCoordinateInput
+): CornerRulerRelativeCoordinates {
+  const mode: CornerRulerMode = input.mode === "midpoint" ? "midpoint" : "endpoint";
+  const rulerQuat = quaternionForShape({ rotation: input.rulerRotation });
+  const axisX = new THREE.Vector3(1, 0, 0).applyQuaternion(rulerQuat);
+  const axisZ = new THREE.Vector3(0, 0, 1).applyQuaternion(rulerQuat);
+  const axisY = new THREE.Vector3(0, 1, 0);
+
+  const rulerCorner = new THREE.Vector3(input.rulerCorner.x, input.rulerCorner.y ?? 0, input.rulerCorner.z);
+  const { min, max } = input.bounds;
+
+  let x: number;
+  let z: number;
+  let elevation: number;
+
+  if (mode === "midpoint") {
+    x = (min.x + max.x) / 2;
+    z = (min.z + max.z) / 2;
+    elevation = (min.y + max.y) / 2;
+  } else {
+    x = min.x;
+    z = min.z;
+    elevation = min.y;
+  }
+
+  const xEndpointOnAxis = rulerCorner.clone().addScaledVector(axisX, x);
+  const zEndpointOnAxis = rulerCorner.clone().addScaledVector(axisZ, z);
+
+  const xTargetPoint = rulerCorner
+    .clone()
+    .addScaledVector(axisX, x)
+    .addScaledVector(axisZ, z)
+    .addScaledVector(axisY, elevation);
+
+  const zTargetPoint = xTargetPoint.clone();
+
+  const elevationBasePoint = rulerCorner
+    .clone()
+    .addScaledVector(axisX, max.x)
+    .addScaledVector(axisZ, mode === "midpoint" ? z : min.z);
+
+  const elevationTargetPoint = elevationBasePoint
+    .clone()
+    .addScaledVector(axisY, elevation);
+
+  return {
+    mode,
+    x,
+    z,
+    elevation,
+    rulerOriginWorld: { x: rulerCorner.x, y: rulerCorner.y, z: rulerCorner.z },
+    axisXDirection: { x: axisX.x, y: axisX.y, z: axisX.z },
+    axisZDirection: { x: axisZ.x, y: axisZ.y, z: axisZ.z },
+    xEndpointOnAxis: { x: xEndpointOnAxis.x, y: xEndpointOnAxis.y, z: xEndpointOnAxis.z },
+    zEndpointOnAxis: { x: zEndpointOnAxis.x, y: zEndpointOnAxis.y, z: zEndpointOnAxis.z },
+    xTargetPoint: { x: xTargetPoint.x, y: xTargetPoint.y, z: xTargetPoint.z },
+    zTargetPoint: { x: zTargetPoint.x, y: zTargetPoint.y, z: zTargetPoint.z },
+    elevationBasePoint: { x: elevationBasePoint.x, y: elevationBasePoint.y, z: elevationBasePoint.z },
+    elevationTargetPoint: { x: elevationTargetPoint.x, y: elevationTargetPoint.y, z: elevationTargetPoint.z },
+  };
+}
+
+export function computeCornerRulerShift(
+  rulerRotation: number,
+  axis: "x" | "z",
+  delta: number
+): { x: number; z: number } {
+  const rulerQuat = quaternionForShape({ rotation: rulerRotation });
+  const dir = axis === "x"
+    ? new THREE.Vector3(1, 0, 0).applyQuaternion(rulerQuat)
+    : new THREE.Vector3(0, 0, 1).applyQuaternion(rulerQuat);
+  const shift = dir.multiplyScalar(delta);
+  return { x: shift.x, z: shift.z };
+}
+

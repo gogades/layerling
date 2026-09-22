@@ -4,6 +4,15 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.15.0
+
+- The **Corner Ruler** (`Winkellineal`) has been upgraded to full parity with Tinkercad:
+  - **Relative Coordinates & Visual Projections:** Selecting any object while a ruler is on the workplane now displays green relative coordinate badges along with directional arrows along the ruler's X, Z, and Elevation axes, connected via dashed projection guide lines. The blue object size dimension badges (width, depth, height) remain simultaneously visible and editable.
+  - **Direct Numeric Positioning:** Clicking any of the green coordinate badges (X, Z, or Elevation) opens an in-place numeric input. Entering a new value instantly translates the object to that exact relative coordinate along the ruler's axes.
+  - **Endpoint vs. Midpoint Measurement Mode:** A circular toggle button at the ruler origin switches between **Endpoint Mode** (measuring to the bounding box minimum corner/outer edges) and **Midpoint Mode** (measuring directly to the geometric center of the object).
+  - **Centered Symmetrical Resizing in Midpoint Mode:** When Midpoint Mode is active, editing an object's dimensions (e.g. changing the diameter of a cylinder or the width/depth of a box) preserves the object's center position—expanding or contracting symmetrically in all directions.
+  - **Single Ruler Semantics:** Placing a corner ruler replaces/relocates any existing ruler on the workplane, matching intuitive CAD behavior.
+
 ## 1.14.0
 
 - A new **Rounded Box** (`roundedBox`) shape joins the catalog directly next to the standard Box. Unlike other tools where resizing a rounded cube stretches corner fillets into distorted ellipses, Layerling preserves exact circular radii when changing width, depth, or height—only straight edge segments lengthen or shorten. Separate controls allow adjusting vertical corner fillets (`cornerFillet`) and top/bottom cap fillets (`topBottomFillet`) independently, alongside a quality/resolution slider. Top and bottom faces remain planar without faceting artifacts when top/bottom fillet is zero. Fully manifold, watertight, and compatible with CSG booleans, STEP, STL, and OBJ exports.

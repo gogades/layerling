@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { cornerRulerCorner, cornerRulerDimensionMatches, cornerRulerDimensionMatchesFromCorner, cornerRulerTicks, pointAlongRuler, rulerDimensionMatch, type CornerRulerPose, type RulerCandidatePose, type RulerPose } from "@/lib/rulerDimensions";
+import {
+  computeCornerRulerRelativeCoordinates,
+  computeCornerRulerShift,
+  cornerRulerCorner,
+  cornerRulerDimensionMatches,
+  cornerRulerDimensionMatchesFromCorner,
+  cornerRulerTicks,
+  pointAlongRuler,
+  rulerDimensionMatch,
+  type CornerRulerPose,
+  type RulerCandidatePose,
+  type RulerPose,
+} from "@/lib/rulerDimensions";
 
 function ruler(overrides: Partial<RulerPose> = {}): RulerPose {
   return { x: 0, z: 0, rotation: 0, length: 150, crossWidth: 25, ...overrides };
@@ -153,3 +165,80 @@ describe("cornerRulerTicks", () => {
     expect(ticks).toEqual([{ offset: 0, isTen: true, isFive: true }]);
   });
 });
+
+describe("computeCornerRulerRelativeCoordinates", () => {
+  const bounds = {
+    min: { x: 10, y: 5, z: 5 },
+    max: { x: 16.5, y: 15, z: 11.5 },
+  };
+
+  it("berechnet im Eckpunkt-Modus die minimale Ecke", () => {
+    const coords = computeCornerRulerRelativeCoordinates({
+      rulerCorner: { x: 0, y: 0, z: 0 },
+      rulerRotation: 0,
+      mode: "endpoint",
+      bounds,
+    });
+
+    expect(coords.x).toBeCloseTo(10, 6);
+    expect(coords.z).toBeCloseTo(5, 6);
+    expect(coords.elevation).toBeCloseTo(5, 6);
+    expect(coords.xEndpointOnAxis).toEqual({ x: 10, y: 0, z: 0 });
+    expect(coords.zEndpointOnAxis).toEqual({ x: 0, y: 0, z: 5 });
+  });
+
+  it("berechnet im Mittelpunkt-Modus das Zentrum", () => {
+    const coords = computeCornerRulerRelativeCoordinates({
+      rulerCorner: { x: 0, y: 0, z: 0 },
+      rulerRotation: 0,
+      mode: "midpoint",
+      bounds,
+    });
+
+    expect(coords.x).toBeCloseTo(13.25, 6);
+    expect(coords.z).toBeCloseTo(8.25, 6);
+    expect(coords.elevation).toBeCloseTo(10, 6);
+    expect(coords.xEndpointOnAxis).toEqual({ x: 13.25, y: 0, z: 0 });
+    expect(coords.zEndpointOnAxis).toEqual({ x: 0, y: 0, z: 8.25 });
+  });
+
+  it("folgt einer 90-Grad-Drehung des Lineals", () => {
+    const coords = computeCornerRulerRelativeCoordinates({
+      rulerCorner: { x: 20, y: 0, z: 30 },
+      rulerRotation: 90,
+      mode: "endpoint",
+      bounds,
+    });
+
+    expect(coords.x).toBeCloseTo(10, 6);
+    expect(coords.z).toBeCloseTo(5, 6);
+    // Bei 90 Grad zeigt axisX nach (0, 0, -1) und axisZ nach (1, 0, 0)
+    expect(coords.axisXDirection.x).toBeCloseTo(0, 5);
+    expect(coords.axisXDirection.z).toBeCloseTo(-1, 5);
+    expect(coords.axisZDirection.x).toBeCloseTo(1, 5);
+    expect(coords.axisZDirection.z).toBeCloseTo(0, 5);
+  });
+});
+
+describe("computeCornerRulerShift", () => {
+  it("verschiebt bei Drehung 0 entlang Welt-X bzw. Welt-Z", () => {
+    const shiftX = computeCornerRulerShift(0, "x", 15);
+    expect(shiftX.x).toBeCloseTo(15, 6);
+    expect(shiftX.z).toBeCloseTo(0, 6);
+
+    const shiftZ = computeCornerRulerShift(0, "z", -8);
+    expect(shiftZ.x).toBeCloseTo(0, 6);
+    expect(shiftZ.z).toBeCloseTo(-8, 6);
+  });
+
+  it("verschiebt bei Drehung 90 entlang der rotierten Achsen", () => {
+    const shiftX = computeCornerRulerShift(90, "x", 10);
+    expect(shiftX.x).toBeCloseTo(0, 5);
+    expect(shiftX.z).toBeCloseTo(-10, 5);
+
+    const shiftZ = computeCornerRulerShift(90, "z", 10);
+    expect(shiftZ.x).toBeCloseTo(10, 5);
+    expect(shiftZ.z).toBeCloseTo(0, 5);
+  });
+});
+
