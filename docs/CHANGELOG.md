@@ -6,7 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## 1.13.0
 
-- Six new parametric shapes are now available in the shape catalog: **Star** (configurable point count, outer/inner radius, outer/inner fillet), **Heart** (configurable length, width, height, tip fillet), **Crescent** (adjustable thickness and tip fillet), **Gear** (configurable tooth count, tooth size, tooth width, center hole), **Capsule** (stadium/slot body with adjustable width, length, height), and **Honeycomb** (parametric hexagonal grill with adjustable cell size, wall thickness, and outer frame width).
+- Five new parametric shapes are now available in the shape catalog: **Star** (configurable point count, outer/inner radius, outer/inner fillet), **Heart** (configurable length, width, height, tip fillet), **Crescent** (adjustable thickness and tip fillet), **Capsule** (stadium/slot body with adjustable width, length, height), and **Honeycomb** (parametric hexagonal grill with adjustable cell size, wall thickness, and outer frame width).
 
 - Toggling off the workplane grid in the workspace settings now also hides the workplane text label ("Arbeitsebene") for an entirely clean, uncluttered viewport view.
 
