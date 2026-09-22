@@ -600,6 +600,7 @@ export const MESSAGES_EN = {
   "thread.customSize": "Custom",
   "thread.systemMetric": "Metric",
   "shape.box": "Box",
+  "shape.roundedBox": "Rounded Box",
   "shape.cylinder": "Cylinder",
   "shape.slot": "Capsule",
   "shape.ellipse": "Ellipse",
@@ -675,6 +676,8 @@ export const MESSAGES_EN = {
   "prop.honeycombCellSize": "Cell size",
   "prop.honeycombWallThickness": "Wall thickness",
   "prop.honeycombFrameWidth": "Frame width",
+  "prop.cornerFillet": "Corner fillet",
+  "prop.topBottomFillet": "Top/bottom fillet",
 
   "panel.export": "Export",
   "panel.import": "Import",

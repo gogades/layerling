@@ -18,7 +18,7 @@ export const editorTargetSchema = {
  * eine ausgezogene Skizze - beide stehen in keinem Katalog.
  */
 export const creatableShapeKinds = [
-  "box", "cube", "cylinder", "slot", "ellipse", "polygon", "sphere", "cone", "pyramid", "wedge",
+  "box", "roundedBox", "cube", "cylinder", "slot", "ellipse", "polygon", "sphere", "cone", "pyramid", "wedge",
   "roundRoof", "halfSphere", "torus", "tube", "star", "heart", "crescent", "text", "thread", "spring", "gear",
   "honeycomb", "ruler", "sketch",
 ];
@@ -79,6 +79,9 @@ export const shapeSettingSchema = {
   honeycombCellSize: { type: "number", description: "Honeycomb only: cell diameter / distance across flats in mm (3 to 50)." },
   honeycombWallThickness: { type: "number", description: "Honeycomb only: wall thickness between cells in mm (0.4 to 10)." },
   honeycombFrameWidth: { type: "number", description: "Honeycomb only: solid frame border width around grid in mm (0 to 50)." },
+  cornerFillet: { type: "number", description: "Rounded box only: fillet radius of vertical corners in mm." },
+  topBottomFillet: { type: "number", description: "Rounded box only: fillet radius of top and bottom edges in mm." },
+  roundedBoxQuality: { type: "number", description: "Rounded box only: quality / segment count for fillet rounding (4 to 32)." },
   text: { type: "string", description: "Text only: the lettering itself." },
   font: { type: "string", description: "Text only." },
 };

@@ -223,31 +223,40 @@ describe("cadModifierUserErrorMessage", () => {
  * selbst) groeber neu abtasten als sie schon war.
  */
 describe("Vernetzungsfeinheit ueber mehrere Verrundungen hinweg", () => {
-  it("wird bei einem groesseren Radius grober, ohne ein Mindestmass", () => {
-    const erste = cadModifierBaseDeflection("standard", 1);
-    const zweite = cadModifierBaseDeflection("standard", 8);
-    expect(zweite.linear).toBeGreaterThan(erste.linear);
+  it("deckelt die lineare Durchbiegung bei grossen Radien strikt, damit keine groben Facetten entstehen", () => {
+    const gross = cadModifierBaseDeflection("standard", 10);
+    const sehrGross = cadModifierBaseDeflection("standard", 25);
+    expect(gross.linear).toBe(0.05);
+    expect(sehrGross.linear).toBe(0.05);
+    expect(cadModifierBaseDeflection("fine", 15).linear).toBe(0.025);
+    expect(cadModifierBaseDeflection("draft", 15).linear).toBe(0.12);
+  });
+
+  it("skaliert bei winzigen Radien feiner herunter, bleibt aber nach unten abgesichert", () => {
+    const winzig = cadModifierBaseDeflection("standard", 0.3);
+    expect(winzig.linear).toBeLessThan(0.05);
+    expect(winzig.linear).toBeGreaterThanOrEqual(0.01);
   });
 
   it("darf eine schon feinere Stelle nicht groeber ueberschreiben", () => {
-    const fein = cadModifierBaseDeflection("standard", 1);
+    const fein = cadModifierBaseDeflection("fine", 0.5);
     const grob = cadModifierTessellationDeflection("standard", 8, fein);
     expect(grob.linear).toBe(fein.linear);
     expect(grob.angular).toBe(fein.angular);
   });
 
   it("lässt eine tatsaechlich feinere neue Operation trotzdem gewinnen", () => {
-    const grob = cadModifierBaseDeflection("standard", 8);
-    const fein = cadModifierTessellationDeflection("fine", 1, grob);
-    expect(fein.linear).toBeLessThan(grob.linear);
+    const standard = cadModifierBaseDeflection("standard", 8);
+    const fine = cadModifierTessellationDeflection("fine", 1, standard);
+    expect(fine.linear).toBeLessThan(standard.linear);
   });
 
-  it("verhaelt sich ohne Vorgeschichte wie zuvor", () => {
+  it("verhaelt sich ohne Vorgeschichte wie die Basis-Durchbiegung", () => {
     expect(cadModifierTessellationDeflection("standard", 2)).toEqual(cadModifierBaseDeflection("standard", 2));
   });
 
-  it("gibt der ersten Extrusion einer Skizze eine feste, feine Vorgabe", () => {
-    expect(SKETCH_CAD_DEFLECTION.linear).toBeLessThan(cadModifierBaseDeflection("standard", 1).linear);
+  it("harmonisiert in der Standardvorgabe mit der feinen Skizzen-Tessellierung", () => {
+    expect(cadModifierBaseDeflection("standard", 5).linear).toBeLessThanOrEqual(SKETCH_CAD_DEFLECTION.linear);
   });
 });
 

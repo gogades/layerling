@@ -96,11 +96,23 @@ import {
   normalizeHoneycombWallThickness,
   normalizeHoneycombFrameWidth,
 } from "@/lib/honeycombGeometry";
+import {
+  DEFAULT_ROUNDED_BOX_WIDTH,
+  DEFAULT_ROUNDED_BOX_DEPTH,
+  DEFAULT_ROUNDED_BOX_HEIGHT,
+  DEFAULT_ROUNDED_BOX_CORNER_FILLET,
+  DEFAULT_ROUNDED_BOX_TOP_BOTTOM_FILLET,
+  DEFAULT_ROUNDED_BOX_QUALITY,
+  normalizeCornerFillet,
+  normalizeTopBottomFillet,
+  normalizeRoundedBoxQuality,
+} from "@/lib/roundedBoxGeometry";
 import { t, type MessageKey } from "@/lib/i18n";
 import type { ShapeAsset, ShapeCustomization, ShapeKind, WorkplaneShape } from "@/types/layerling";
 
 const SHAPE_LABEL_KEYS: Record<string, MessageKey> = {
   box: "shape.box",
+  roundedBox: "shape.roundedBox",
   cylinder: "shape.cylinder",
   slot: "shape.slot",
   ellipse: "shape.ellipse",
@@ -128,6 +140,7 @@ export type ToolbarShapeAsset = ShapeAsset & { menuIcon: string };
 
 export const toolbarShapeAssets: ToolbarShapeAsset[] = [
   { id: "box", name: "Box", src: "assets/editor/shape-icons-gray/box.png", menuIcon: "assets/editor/shape-icons-gray/box.png", kind: "box", color: "#d41721" },
+  { id: "roundedBox", name: "Rounded Box", src: "assets/editor/shape-icons-gray/roundedBox.png", menuIcon: "assets/editor/shape-icons-gray/roundedBox.png", kind: "roundedBox", color: "#e74c3c" },
   { id: "cylinder", name: "Cylinder", src: "assets/editor/shape-icons-gray/cylinder.png", menuIcon: "assets/editor/shape-icons-gray/cylinder.png", kind: "cylinder", color: "#d97813" },
   { id: "slot", name: "Capsule", src: "assets/editor/shape-icons-gray/slot.png", menuIcon: "assets/editor/shape-icons-gray/slot.png", kind: "slot", color: "#e67e22" },
   { id: "ellipse", name: "Ellipse", src: "assets/editor/shape-icons-gray/ellipse.png", menuIcon: "assets/editor/shape-icons-gray/ellipse.png", kind: "ellipse", color: "#e0a324" },
@@ -189,6 +202,9 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
   if (kind === "honeycomb") {
     return { width: DEFAULT_HONEYCOMB_WIDTH, depth: DEFAULT_HONEYCOMB_DEPTH, height: DEFAULT_HONEYCOMB_HEIGHT };
   }
+  if (kind === "roundedBox") {
+    return { width: DEFAULT_ROUNDED_BOX_WIDTH, depth: DEFAULT_ROUNDED_BOX_DEPTH, height: DEFAULT_ROUNDED_BOX_HEIGHT };
+  }
   if (kind === "ellipse") {
     // Bewusst ungleiche Vorgabe, damit sich die Ellipse beim Einfuegen sofort
     // vom kreisrunden Zylinder unterscheidet.
@@ -207,6 +223,13 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
 export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAssetDefaultDimensions(kind)): ShapeCustomization {
   // Ohne Seitenzahl folgt sie der Groesse; eine eingetragene haelt sie fest.
   if (kind === "cylinder" || kind === "ellipse" || kind === "slot") return {};
+  if (kind === "roundedBox") {
+    return {
+      cornerFillet: DEFAULT_ROUNDED_BOX_CORNER_FILLET,
+      topBottomFillet: DEFAULT_ROUNDED_BOX_TOP_BOTTOM_FILLET,
+      roundedBoxQuality: DEFAULT_ROUNDED_BOX_QUALITY,
+    };
+  }
   if (kind === "sphere") return { steps: 24 };
   if (kind === "halfSphere") return { steps: 32 };
   if (kind === "cone") return { topRadius: 0, baseRadius: dimensions.width / 2 };
@@ -350,6 +373,9 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
     honeycombCellSize: shape.honeycombCellSize,
     honeycombWallThickness: shape.honeycombWallThickness,
     honeycombFrameWidth: shape.honeycombFrameWidth,
+    cornerFillet: shape.cornerFillet,
+    topBottomFillet: shape.topBottomFillet,
+    roundedBoxQuality: shape.roundedBoxQuality,
     text: shape.text,
     font: shape.font,
     importedMesh: shape.importedMesh,
@@ -467,6 +493,9 @@ export function makeShapeFromAsset(
     honeycombCellSize: asset.kind === "honeycomb" ? normalizeHoneycombCellSize(customization.honeycombCellSize ?? DEFAULT_HONEYCOMB_CELL_SIZE) : undefined,
     honeycombWallThickness: asset.kind === "honeycomb" ? normalizeHoneycombWallThickness(customization.honeycombWallThickness ?? DEFAULT_HONEYCOMB_WALL_THICKNESS) : undefined,
     honeycombFrameWidth: asset.kind === "honeycomb" ? normalizeHoneycombFrameWidth(customization.honeycombFrameWidth ?? DEFAULT_HONEYCOMB_FRAME_WIDTH) : undefined,
+    cornerFillet: asset.kind === "roundedBox" ? normalizeCornerFillet(customization.cornerFillet ?? DEFAULT_ROUNDED_BOX_CORNER_FILLET, Math.min(width, depth) / 2) : undefined,
+    topBottomFillet: asset.kind === "roundedBox" ? normalizeTopBottomFillet(customization.topBottomFillet ?? DEFAULT_ROUNDED_BOX_TOP_BOTTOM_FILLET, height / 2) : undefined,
+    roundedBoxQuality: asset.kind === "roundedBox" ? normalizeRoundedBoxQuality(customization.roundedBoxQuality ?? DEFAULT_ROUNDED_BOX_QUALITY) : undefined,
     locked: false,
     hidden: false,
   };

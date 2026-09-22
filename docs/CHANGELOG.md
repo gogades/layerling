@@ -4,6 +4,12 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.14.0
+
+- A new **Rounded Box** (`roundedBox`) shape joins the catalog directly next to the standard Box. Unlike other tools where resizing a rounded cube stretches corner fillets into distorted ellipses, Layerling preserves exact circular radii when changing width, depth, or height—only straight edge segments lengthen or shorten. Separate controls allow adjusting vertical corner fillets (`cornerFillet`) and top/bottom cap fillets (`topBottomFillet`) independently, alongside a quality/resolution slider. Top and bottom faces remain planar without faceting artifacts when top/bottom fillet is zero. Fully manifold, watertight, and compatible with CSG booleans, STEP, STL, and OBJ exports.
+
+- The CAD edge modifier now strictly caps its adaptive chordal deflection (`linearDeflection`) at 0.05 mm (standard) and 0.025 mm (fine). Previously, the deflection formula scaled up with large radii or large bounding boxes, causing fillets of 10 mm or more to appear coarsely faceted compared to smaller adjacent fillets. Large fillets and chamfers now remain cleanly rounded and smooth across all models.
+
 ## 1.13.0
 
 - Five new parametric shapes are now available in the shape catalog: **Star** (configurable point count, outer/inner radius, outer/inner fillet), **Heart** (configurable length, width, height, tip fillet), **Crescent** (adjustable thickness and tip fillet), **Capsule** (stadium/slot body with adjustable width, length, height), and **Honeycomb** (parametric hexagonal grill with adjustable cell size, wall thickness, and outer frame width).

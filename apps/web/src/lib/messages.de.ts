@@ -599,6 +599,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "thread.customSize": "Frei",
   "thread.systemMetric": "Metrisch",
   "shape.box": "Quader",
+  "shape.roundedBox": "Abgerundeter Quader",
   "shape.cylinder": "Zylinder",
   "shape.slot": "Kapsel",
   "shape.ellipse": "Ellipse",
@@ -674,6 +675,8 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "prop.honeycombCellSize": "Wabengröße",
   "prop.honeycombWallThickness": "Stegbreite",
   "prop.honeycombFrameWidth": "Rahmenbreite",
+  "prop.cornerFillet": "Eckenverrundung",
+  "prop.topBottomFillet": "Kantenverrundung oben/unten",
 
   "panel.export": "Exportieren",
   "panel.import": "Importieren",

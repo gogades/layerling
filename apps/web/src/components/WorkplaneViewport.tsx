@@ -34,6 +34,7 @@ import { createHeartGeometry } from "@/lib/heartGeometry";
 import { createCrescentGeometry } from "@/lib/crescentGeometry";
 import { createSlotGeometry } from "@/lib/slotGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
+import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
@@ -1014,6 +1015,9 @@ function tapeShapeTopologyKey(shape: WorkplaneShape): string {
     honeycombCellSize: shape.honeycombCellSize,
     honeycombWallThickness: shape.honeycombWallThickness,
     honeycombFrameWidth: shape.honeycombFrameWidth,
+    cornerFillet: shape.cornerFillet,
+    topBottomFillet: shape.topBottomFillet,
+    roundedBoxQuality: shape.roundedBoxQuality,
     text: shape.text,
     font: shape.font,
     mesh: [positions.length, positionSample],
@@ -1073,7 +1077,7 @@ function polygonSidesForShape(shape: WorkplaneShape) {
 }
 
 function shapeGeometrySignature(shape: WorkplaneShape): string {
-  const taper = shape.kind === "gear" || shape.kind === "thread" || shape.kind === "spring" || shape.kind === "star" || shape.kind === "heart" || shape.kind === "crescent" || shape.kind === "slot" || shape.kind === "honeycomb" || !shapeHasTaper(shape)
+  const taper = shape.kind === "gear" || shape.kind === "thread" || shape.kind === "spring" || shape.kind === "star" || shape.kind === "heart" || shape.kind === "crescent" || shape.kind === "slot" || shape.kind === "honeycomb" || shape.kind === "roundedBox" || !shapeHasTaper(shape)
     ? null
     : { ...shapeTaperDimensions(shape), baseWidth: shapeWidth(shape), baseDepth: shapeDepth(shape) };
   // Twist/lean reshape the mesh the same way taper does, so a change to
@@ -1185,6 +1189,9 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     honeycombCellSize: shape.honeycombCellSize,
     honeycombWallThickness: shape.honeycombWallThickness,
     honeycombFrameWidth: shape.honeycombFrameWidth,
+    cornerFillet: shape.cornerFillet,
+    topBottomFillet: shape.topBottomFillet,
+    roundedBoxQuality: shape.roundedBoxQuality,
     text: shape.text,
     font: shape.font,
   });
@@ -9381,6 +9388,16 @@ function createShapeObject(
         honeycombCellSize: shape.honeycombCellSize,
         honeycombWallThickness: shape.honeycombWallThickness,
         honeycombFrameWidth: shape.honeycombFrameWidth,
+      })), material, shape);
+      break;
+    case "roundedBox":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createRoundedBoxGeometry({
+        width,
+        depth,
+        height,
+        cornerFillet: shape.cornerFillet,
+        topBottomFillet: shape.topBottomFillet,
+        roundedBoxQuality: shape.roundedBoxQuality,
       })), material, shape);
       break;
     case "thread":

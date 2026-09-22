@@ -33,5 +33,6 @@ export const MCP_SHAPE_SETTING_KEYS = [
   "heartTipFillet", "heartQuality",
   "crescentThickness", "crescentTipFillet", "crescentQuality",
   "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth",
+  "cornerFillet", "topBottomFillet", "roundedBoxQuality",
   "text", "font",
 ] as const satisfies readonly (keyof WorkplaneShape)[];

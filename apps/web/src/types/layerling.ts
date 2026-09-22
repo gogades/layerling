@@ -1,5 +1,6 @@
 export type ShapeKind =
   | "box"
+  | "roundedBox"
   | "cylinder"
   | "slot"
   | "ellipse"
@@ -58,6 +59,9 @@ export type ShapeCustomization = {
   depth?: number;
   height?: number;
   maxDimension?: number;
+  cornerFillet?: number;
+  topBottomFillet?: number;
+  roundedBoxQuality?: number;
   steps?: number;
   sides?: number;
   bevel?: number;
@@ -349,6 +353,9 @@ export type WorkplaneShape = {
   honeycombCellSize?: number;
   honeycombWallThickness?: number;
   honeycombFrameWidth?: number;
+  cornerFillet?: number;
+  topBottomFillet?: number;
+  roundedBoxQuality?: number;
   text?: string;
   font?: string;
   importedMesh?: {

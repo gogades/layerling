@@ -28,6 +28,7 @@ import { createHeartGeometry } from "@/lib/heartGeometry";
 import { createCrescentGeometry } from "@/lib/crescentGeometry";
 import { createSlotGeometry } from "@/lib/slotGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
+import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
 import { createPrismGeometry } from "@/lib/prismGeometry";
 import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { roundSideCount } from "@/lib/roundSideCount";
@@ -2405,6 +2406,16 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         honeycombCellSize: shape.honeycombCellSize,
         honeycombWallThickness: shape.honeycombWallThickness,
         honeycombFrameWidth: shape.honeycombFrameWidth,
+      });
+      break;
+    case "roundedBox":
+      geometry = createRoundedBoxGeometry({
+        width,
+        depth,
+        height,
+        cornerFillet: shape.cornerFillet,
+        topBottomFillet: shape.topBottomFillet,
+        roundedBoxQuality: shape.roundedBoxQuality,
       });
       break;
     case "thread":

@@ -23,7 +23,7 @@ function knownSchema(schema: unknown) {
 export const LYL_FORMAT_VERSION = 2;
 export const LYL_MINIMUM_READER_VERSION = 2;
 export const LYL_OLDEST_READABLE_FORMAT_VERSION = 1;
-export const LYL_CREATED_WITH_VERSION = "1.13.0";
+export const LYL_CREATED_WITH_VERSION = "1.14.0";
 export const LYL_MEDIA_TYPE = "application/vnd.layerling.project+zip";
 
 export const LYL_LIMITS = {
@@ -40,7 +40,7 @@ export const LYL_LIMITS = {
 } as const;
 
 const SHAPE_KINDS = new Set([
-  "box", "cylinder", "slot", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
+  "box", "roundedBox", "cylinder", "slot", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
   "halfSphere", "torus", "tube", "star", "heart", "crescent", "gear", "honeycomb", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
 ]);
 
@@ -1194,6 +1194,22 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
     if (definition.honeycombFrameWidth !== undefined) {
       const honeycombFrameWidth = finiteNumber(definition.honeycombFrameWidth, `${label}.honeycombFrameWidth`);
       if (honeycombFrameWidth < 0 || honeycombFrameWidth > 1e6) throw new Error(`${label}.honeycombFrameWidth is outside the supported range`);
+    }
+  }
+  if (kind === "roundedBox") {
+    if (definition.cornerFillet !== undefined) {
+      const cornerFillet = finiteNumber(definition.cornerFillet, `${label}.cornerFillet`);
+      if (cornerFillet < 0 || cornerFillet > 1e6) throw new Error(`${label}.cornerFillet is outside the supported range`);
+    }
+    if (definition.topBottomFillet !== undefined) {
+      const topBottomFillet = finiteNumber(definition.topBottomFillet, `${label}.topBottomFillet`);
+      if (topBottomFillet < 0 || topBottomFillet > 1e6) throw new Error(`${label}.topBottomFillet is outside the supported range`);
+    }
+    if (definition.roundedBoxQuality !== undefined) {
+      const roundedBoxQuality = finiteNumber(definition.roundedBoxQuality, `${label}.roundedBoxQuality`);
+      if (!Number.isInteger(roundedBoxQuality) || roundedBoxQuality < 4 || roundedBoxQuality > 64) {
+        throw new Error(`${label}.roundedBoxQuality is outside the supported range`);
+      }
     }
   }
   return id;

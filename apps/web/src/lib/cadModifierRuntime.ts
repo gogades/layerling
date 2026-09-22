@@ -11,11 +11,31 @@ export const CAD_MODIFIER_RUNTIME_BASE = "/occt";
  */
 export const SKETCH_CAD_DEFLECTION: CadModifierDeflection = { linear: 0.05, angular: 0.16 };
 
-/** How finely a single edge treatment tessellates the whole body, before any floor from earlier treatments. */
+/**
+ * How finely a single edge treatment tessellates the whole body, before any floor from earlier treatments.
+ * Linear deflection represents maximum allowable chordal deviation (sagitta).
+ * It is capped strictly so large radii never degenerate into coarse, flat facets (fixing the
+ * mesh coarseness reported when large radii run alongside small radii), while small radii
+ * scale down cleanly to resolve fine geometry.
+ */
 export function cadModifierBaseDeflection(quality: CadModifierQuality, amount: number): CadModifierDeflection {
-  if (quality === "draft") return { linear: Math.max(0.12, amount / 3), angular: 0.42 };
-  if (quality === "fine") return { linear: Math.max(0.025, amount / 12), angular: 0.1 };
-  return { linear: Math.max(0.055, amount / 7), angular: 0.2 };
+  const safeAmount = Math.max(0.01, Number.isFinite(amount) ? amount : 1);
+  if (quality === "draft") {
+    return {
+      linear: Math.min(0.12, Math.max(0.03, safeAmount / 10)),
+      angular: 0.35,
+    };
+  }
+  if (quality === "fine") {
+    return {
+      linear: Math.min(0.025, Math.max(0.005, safeAmount / 40)),
+      angular: 0.1,
+    };
+  }
+  return {
+    linear: Math.min(0.05, Math.max(0.01, safeAmount / 20)),
+    angular: 0.16,
+  };
 }
 
 /**

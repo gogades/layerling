@@ -11,6 +11,7 @@ import { createHeartGeometry } from "@/lib/heartGeometry";
 import { createCrescentGeometry } from "@/lib/crescentGeometry";
 import { createSlotGeometry } from "@/lib/slotGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
+import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 
 /*
@@ -372,6 +373,21 @@ describe("palette icons", () => {
         honeycombCellSize: 8,
         honeycombWallThickness: 2,
         honeycombFrameWidth: 2.5,
+      }),
+    });
+    render({
+      name: "apps/web/public/assets/editor/shape-icons-gray/roundedBox.png",
+      height: 20,
+      lay: false,
+      azimuth: 35,
+      elevation: 28,
+      build: () => createRoundedBoxGeometry({
+        width: 36,
+        depth: 28,
+        height: 20,
+        cornerFillet: 6,
+        topBottomFillet: 0,
+        roundedBoxQuality: 16,
       }),
     });
   });

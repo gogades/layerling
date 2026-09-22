@@ -3,6 +3,18 @@ import type { ShapeAsset } from "@/types/layerling";
 import { makeShapeFromAsset, sceneShape, toolbarShapeAssets } from "@/lib/shapeCatalog";
 
 describe("shape catalog", () => {
+  it("exposes roundedBox directly after box in the toolbar catalog", () => {
+    const kinds = toolbarShapeAssets.map((asset) => asset.kind);
+
+    expect(kinds).toContain("roundedBox");
+
+    const boxIndex = kinds.indexOf("box");
+    const roundedBoxIndex = kinds.indexOf("roundedBox");
+    const cylinderIndex = kinds.indexOf("cylinder");
+    expect(roundedBoxIndex).toBe(boxIndex + 1);
+    expect(cylinderIndex).toBe(roundedBoxIndex + 1);
+  });
+
   it("exposes slot between cylinder and ellipse in the toolbar catalog", () => {
     const kinds = toolbarShapeAssets.map((asset) => asset.kind);
 
@@ -77,6 +89,7 @@ describe("shape catalog", () => {
     const crescent = makeShapeFromAsset({ id: "crescent", name: "Crescent", src: "crescent.png", kind: "crescent", color: "#f5c518" });
     const slot = makeShapeFromAsset({ id: "slot", name: "Capsule", src: "slot.png", kind: "slot", color: "#e67e22" });
     const honeycomb = makeShapeFromAsset({ id: "honeycomb", name: "Honeycomb", src: "honeycomb.png", kind: "honeycomb", color: "#0ea5e9" });
+    const roundedBox = makeShapeFromAsset({ id: "roundedBox", name: "Rounded Box", src: "roundedBox.png", kind: "roundedBox", color: "#e74c3c" });
 
     expect(text).toMatchObject({ width: 86, depth: 28, height: 10, text: "TEXT", font: "Multilanguage" });
     expect(torus).toMatchObject({ size: 22, width: 22, depth: 22, height: 5 });
@@ -134,6 +147,15 @@ describe("shape catalog", () => {
       honeycombWallThickness: 1.6,
       honeycombFrameWidth: 3,
     });
+    expect(roundedBox).toMatchObject({
+      size: 40,
+      width: 40,
+      depth: 30,
+      height: 20,
+      cornerFillet: 5,
+      topBottomFillet: 0,
+      roundedBoxQuality: 8,
+    });
   });
 
   it("applies only explicitly customized creation dimensions", () => {
@@ -180,11 +202,17 @@ describe("shape catalog", () => {
       undefined,
       { honeycombCellSize: 12, honeycombWallThickness: 2.5, honeycombFrameWidth: 5 },
     );
+    const roundedBox = makeShapeFromAsset(
+      { id: "roundedBox", name: "Rounded Box", src: "roundedBox.png", kind: "roundedBox", color: "#e74c3c" },
+      undefined,
+      { cornerFillet: 8, topBottomFillet: 3, roundedBoxQuality: 16 },
+    );
 
     expect(cone).toMatchObject({ topRadius: 3, baseRadius: 18, sides: 48 });
     expect(text).toMatchObject({ text: "HELLO", font: "Serif", bevel: 2, segments: 6 });
     expect(gear).toMatchObject({ gearType: "helical", teeth: 24, toothSize: 3, toothWidth: 2, centerHoleSize: 10, helixAngle: 30, helixQuality: 24 });
     expect(honeycomb).toMatchObject({ honeycombCellSize: 12, honeycombWallThickness: 2.5, honeycombFrameWidth: 5 });
+    expect(roundedBox).toMatchObject({ cornerFillet: 8, topBottomFillet: 3, roundedBoxQuality: 16 });
   });
 
   it("creates canonical scene shapes with stable defaults", () => {

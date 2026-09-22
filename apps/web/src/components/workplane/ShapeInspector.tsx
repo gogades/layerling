@@ -94,6 +94,16 @@ import {
   normalizeHoneycombWallThickness,
   normalizeHoneycombFrameWidth,
 } from "@/lib/honeycombGeometry";
+import {
+  DEFAULT_ROUNDED_BOX_CORNER_FILLET,
+  DEFAULT_ROUNDED_BOX_TOP_BOTTOM_FILLET,
+  DEFAULT_ROUNDED_BOX_QUALITY,
+  MIN_ROUNDED_BOX_QUALITY,
+  MAX_ROUNDED_BOX_QUALITY,
+  normalizeCornerFillet,
+  normalizeTopBottomFillet,
+  normalizeRoundedBoxQuality,
+} from "@/lib/roundedBoxGeometry";
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, measurementOptionLabel, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
@@ -232,7 +242,7 @@ function formatPropertyNumber(value: number, accuracy: MeasurementAccuracy, step
 }
 
 function propertyUsesLengthUnit(key: string) {
-  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth"].includes(key);
+  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet"].includes(key);
 }
 
 /**
@@ -524,6 +534,47 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         max: 15,
         step: 0.5,
         onChange: (value) => onUpdate({ honeycombFrameWidth: normalizeHoneycombFrameWidth(value) }),
+      },
+      { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 200, onChange: setDepth },
+      { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 200, onChange: setWidth },
+      { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
+    ];
+  }
+
+  if (shape.kind === "roundedBox") {
+    const cornerFillet = shape.cornerFillet ?? DEFAULT_ROUNDED_BOX_CORNER_FILLET;
+    const topBottomFillet = shape.topBottomFillet ?? DEFAULT_ROUNDED_BOX_TOP_BOTTOM_FILLET;
+    const roundedBoxQuality = shape.roundedBoxQuality ?? DEFAULT_ROUNDED_BOX_QUALITY;
+    const maxCornerFillet = Math.max(1, Math.min(width, depth) / 2);
+    const maxTopBottomFillet = Math.max(1, shape.height / 2);
+
+    return [
+      {
+        id: "cornerFillet",
+        label: t("prop.cornerFillet"),
+        value: cornerFillet,
+        min: 0,
+        max: maxCornerFillet,
+        step: 0.1,
+        onChange: (value) => onUpdate({ cornerFillet: normalizeCornerFillet(value, Math.min(width, depth) / 2) }),
+      },
+      {
+        id: "topBottomFillet",
+        label: t("prop.topBottomFillet"),
+        value: topBottomFillet,
+        min: 0,
+        max: maxTopBottomFillet,
+        step: 0.1,
+        onChange: (value) => onUpdate({ topBottomFillet: normalizeTopBottomFillet(value, shape.height / 2) }),
+      },
+      {
+        id: "roundedBoxQuality",
+        label: t("prop.quality"),
+        value: roundedBoxQuality,
+        min: MIN_ROUNDED_BOX_QUALITY,
+        max: MAX_ROUNDED_BOX_QUALITY,
+        step: 1,
+        onChange: (value) => onUpdate({ roundedBoxQuality: normalizeRoundedBoxQuality(value) }),
       },
       { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 200, onChange: setDepth },
       { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 200, onChange: setWidth },
