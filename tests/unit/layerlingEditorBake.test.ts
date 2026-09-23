@@ -126,6 +126,50 @@ function coneShape(overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
   };
 }
 
+function sphereShape(overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
+  return {
+    id: "sphere-shape",
+    name: "Sphere",
+    kind: "sphere",
+    color: "#0098c7",
+    x: 0,
+    z: 0,
+    elevation: 0,
+    size: 20,
+    width: 20,
+    depth: 20,
+    height: 20,
+    rotation: 0,
+    rotationX: 0,
+    rotationZ: 0,
+    locked: false,
+    hidden: false,
+    ...overrides,
+  };
+}
+
+function torusShape(overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
+  return {
+    id: "torus-shape",
+    name: "Torus",
+    kind: "torus",
+    color: "#d97813",
+    x: 0,
+    z: 0,
+    elevation: 0,
+    size: 30,
+    width: 30,
+    depth: 30,
+    height: 10,
+    rotation: 0,
+    rotationX: 0,
+    rotationZ: 0,
+    locked: false,
+    hidden: false,
+    ...overrides,
+  };
+}
+
 describe("Layerling transform baking", () => {
   it("preserves exact BREP and rebases CAD display edges after wheel rotation", () => {
     const shape = treatedMeshShape({ rotationZ: 90 });
@@ -438,5 +482,140 @@ describe("Layerling transform baking", () => {
       height: 40,
     });
     expectTransformClose(restored?.transform, directPrimitive?.transform ?? []);
+  });
+
+  it("extracts an analytic sphere primitive for uniform spheres and skips non-uniform ones", () => {
+    const uniform = sphereShape();
+    const primitive = cadModifierPrimitiveForAnalyticShape(uniform);
+    expect(primitive).toMatchObject({
+      kind: "sphere",
+      radius: 10,
+      width: 20,
+      depth: 20,
+      height: 20,
+    });
+
+    const nonUniform = sphereShape({ width: 20, depth: 20, height: 25 });
+    expect(cadModifierPrimitiveForAnalyticShape(nonUniform)).toBeNull();
+  });
+
+  it("extracts an analytic torus primitive for circular tori and skips elliptical ones", () => {
+    const circular = torusShape();
+    const primitive = cadModifierPrimitiveForAnalyticShape(circular);
+    expect(primitive).toMatchObject({
+      kind: "torus",
+      majorRadius: 10,
+      minorRadius: 5,
+      width: 30,
+      depth: 30,
+      height: 10,
+    });
+
+    const elliptical = torusShape({ width: 30, depth: 35 });
+    expect(cadModifierPrimitiveForAnalyticShape(elliptical)).toBeNull();
+  });
+
+  it("preserves an analytic sphere primitive through transform baking", () => {
+    const shape = sphereShape({
+      x: 10,
+      elevation: 5,
+      rotation: 45,
+    });
+    const directPrimitive = cadModifierPrimitiveForAnalyticShape(shape);
+    expect(directPrimitive?.kind).toBe("sphere");
+
+    const baked = bakeCadMetadataForShapeTransform(shape, {
+      centerX: 10,
+      minY: 5,
+      centerZ: 0,
+      width: 20,
+      depth: 20,
+      height: 20,
+      yawDegrees: 45,
+    });
+
+    expect(baked.cadPrimitiveFrame).toMatchObject({
+      kind: "sphere",
+      radius: 10,
+      width: 20,
+      depth: 20,
+      height: 20,
+    });
+
+    const bakedShape: WorkplaneShape = {
+      ...shape,
+      ...baked,
+      kind: "mesh",
+      importedMesh: {
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        baseWidth: 20,
+        baseDepth: 20,
+        baseHeight: 20,
+        triangleCount: 1,
+        sourceFormat: "json",
+      },
+    };
+
+    const restored = cadModifierPrimitiveForBakedShape(bakedShape);
+    expect(restored).toMatchObject({
+      kind: "sphere",
+      radius: 10,
+      width: 20,
+      depth: 20,
+      height: 20,
+    });
+  });
+
+  it("preserves an analytic torus primitive through transform baking", () => {
+    const shape = torusShape({
+      x: 5,
+      elevation: 2,
+      rotation: 15,
+    });
+    const directPrimitive = cadModifierPrimitiveForAnalyticShape(shape);
+    expect(directPrimitive?.kind).toBe("torus");
+
+    const baked = bakeCadMetadataForShapeTransform(shape, {
+      centerX: 5,
+      minY: 2,
+      centerZ: 0,
+      width: 30,
+      depth: 30,
+      height: 10,
+      yawDegrees: 15,
+    });
+
+    expect(baked.cadPrimitiveFrame).toMatchObject({
+      kind: "torus",
+      majorRadius: 10,
+      minorRadius: 5,
+      width: 30,
+      depth: 30,
+      height: 10,
+    });
+
+    const bakedShape: WorkplaneShape = {
+      ...shape,
+      ...baked,
+      kind: "mesh",
+      importedMesh: {
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+        baseWidth: 30,
+        baseDepth: 30,
+        baseHeight: 10,
+        triangleCount: 1,
+        sourceFormat: "json",
+      },
+    };
+
+    const restored = cadModifierPrimitiveForBakedShape(bakedShape);
+    expect(restored).toMatchObject({
+      kind: "torus",
+      majorRadius: 10,
+      minorRadius: 5,
+      width: 30,
+      depth: 30,
+      height: 10,
+    });
   });
 });

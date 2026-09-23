@@ -11,6 +11,7 @@ export const KEYBOARD_NUDGE_COARSE_FACTOR = 5;
 export const MIN_CUSTOM_SHAPE_DIMENSION = 0.01;
 export const MAX_CUSTOM_SHAPE_DIMENSION = 2000;
 export const MAX_HIGH_RESOLUTION_SIDES = 512;
+export const MAX_HIGH_RESOLUTION_STEPS = 256;
 
 export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   width: 200,
@@ -97,7 +98,7 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
       maxDimension: optionalShapeDimension(source.maxDimension, fallbackEntry?.maxDimension),
     };
     if (kind === "sphere" || kind === "halfSphere") {
-      entry.steps = optionalShapeNumber(source.steps, fallbackEntry?.steps, 6, 64, true);
+      entry.steps = optionalShapeNumber(source.steps, fallbackEntry?.steps, 6, MAX_HIGH_RESOLUTION_STEPS, true);
     }
     if (kind === "cylinder" || kind === "ellipse" || kind === "slot" || kind === "cone" || kind === "tube" || kind === "ring") {
       entry.sides = optionalShapeNumber(source.sides, fallbackEntry?.sides, 3, MAX_HIGH_RESOLUTION_SIDES, true);

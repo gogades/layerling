@@ -207,6 +207,21 @@ function reconstructPrimitiveSolid(cad: OcctKernel, primitive: CadModifierPrimit
     const raw = cad.makeCone(baseRadius, topRadius, height);
     solid = cad.transform(raw, ROTATE_Z_TO_Y);
     cad.release(raw);
+  } else if (primitive.kind === "sphere") {
+    const radius = primitive.radius;
+    if (!Number.isFinite(radius) || radius <= 0) {
+      throw new Error("The selected primitive has invalid dimensions");
+    }
+    solid = cad.makeSphere(radius);
+  } else if (primitive.kind === "torus") {
+    const majorRadius = primitive.majorRadius;
+    const minorRadius = primitive.minorRadius;
+    if (![majorRadius, minorRadius].every(Number.isFinite) || majorRadius <= 0 || minorRadius <= 0) {
+      throw new Error("The selected primitive has invalid dimensions");
+    }
+    const raw = cad.makeTorus(majorRadius, minorRadius);
+    solid = cad.transform(raw, ROTATE_Z_TO_Y);
+    cad.release(raw);
   } else {
     throw new Error(`Unsupported CAD primitive: ${(primitive as { kind: string }).kind}`);
   }

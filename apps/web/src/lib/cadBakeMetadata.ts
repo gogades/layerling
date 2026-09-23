@@ -122,6 +122,68 @@ export function cadModifierPrimitiveForAnalyticShape(shape: WorkplaneShape): Cad
     };
   }
 
+  if (shape.kind === "sphere") {
+    if (Math.abs(width - depth) > 1e-4 || Math.abs(depth - height) > 1e-4) {
+      return null;
+    }
+    const radius = width / 2;
+    if (!Number.isFinite(radius) || radius <= 0) {
+      return null;
+    }
+    const centeredMatrix = new THREE.Matrix4()
+      .makeTranslation(shape.x, (shape.elevation ?? 0) + centerY, shape.z)
+      .multiply(new THREE.Matrix4().makeRotationFromEuler(
+        new THREE.Euler(
+          THREE.MathUtils.degToRad(shape.rotationX ?? 0),
+          THREE.MathUtils.degToRad(shape.rotation ?? 0),
+          THREE.MathUtils.degToRad(shape.rotationZ ?? 0),
+          "XYZ",
+        ),
+      ))
+      .multiply(new THREE.Matrix4().makeScale(mirrorSign(shape.mirrorX), mirrorSign(shape.mirrorY), mirrorSign(shape.mirrorZ)));
+    const centeredTransform = cadTransformFromMatrix(centeredMatrix);
+    return {
+      kind: "sphere",
+      radius,
+      width,
+      depth,
+      height,
+      transform: isIdentityCadTransform(centeredTransform) ? undefined : centeredTransform,
+    };
+  }
+
+  if (shape.kind === "torus") {
+    if (Math.abs(width - depth) > 1e-4) {
+      return null;
+    }
+    const tubeRadius = height / 2;
+    const majorRadius = width / 2 - tubeRadius;
+    if (!Number.isFinite(tubeRadius) || tubeRadius <= 0 || !Number.isFinite(majorRadius) || majorRadius <= 0) {
+      return null;
+    }
+    const centeredMatrix = new THREE.Matrix4()
+      .makeTranslation(shape.x, (shape.elevation ?? 0) + centerY, shape.z)
+      .multiply(new THREE.Matrix4().makeRotationFromEuler(
+        new THREE.Euler(
+          THREE.MathUtils.degToRad(shape.rotationX ?? 0),
+          THREE.MathUtils.degToRad(shape.rotation ?? 0),
+          THREE.MathUtils.degToRad(shape.rotationZ ?? 0),
+          "XYZ",
+        ),
+      ))
+      .multiply(new THREE.Matrix4().makeScale(mirrorSign(shape.mirrorX), mirrorSign(shape.mirrorY), mirrorSign(shape.mirrorZ)));
+    const centeredTransform = cadTransformFromMatrix(centeredMatrix);
+    return {
+      kind: "torus",
+      majorRadius,
+      minorRadius: tubeRadius,
+      width,
+      depth,
+      height,
+      transform: isIdentityCadTransform(centeredTransform) ? undefined : centeredTransform,
+    };
+  }
+
   return null;
 }
 
@@ -133,7 +195,7 @@ export function cadModifierPrimitiveForAnalyticBox(shape: WorkplaneShape): CadMo
 export function cadModifierPrimitiveForBakedShape(shape: WorkplaneShape): CadModifierPrimitivePart | null {
   const primitive = shape.cadPrimitiveFrame;
   const frame = primitive?.frame;
-  if (!primitive || (primitive.kind !== "box" && primitive.kind !== "cylinder" && primitive.kind !== "cone") || !frame) {
+  if (!primitive || (primitive.kind !== "box" && primitive.kind !== "cylinder" && primitive.kind !== "cone" && primitive.kind !== "sphere" && primitive.kind !== "torus") || !frame) {
     return null;
   }
 
@@ -205,6 +267,32 @@ export function cadModifierPrimitiveForBakedShape(shape: WorkplaneShape): CadMod
       kind: "cone",
       baseRadius,
       topRadius,
+      width: primitive.width,
+      depth: primitive.depth,
+      height: primitive.height,
+      transform: finalTransform,
+    };
+  }
+
+  if (primitive.kind === "sphere") {
+    const radius = primitive.radius ?? primitive.width / 2;
+    return {
+      kind: "sphere",
+      radius,
+      width: primitive.width,
+      depth: primitive.depth,
+      height: primitive.height,
+      transform: finalTransform,
+    };
+  }
+
+  if (primitive.kind === "torus") {
+    const tubeRadius = primitive.minorRadius ?? primitive.height / 2;
+    const majorRadius = primitive.majorRadius ?? (primitive.width / 2 - tubeRadius);
+    return {
+      kind: "torus",
+      majorRadius,
+      minorRadius: tubeRadius,
       width: primitive.width,
       depth: primitive.depth,
       height: primitive.height,
@@ -329,6 +417,8 @@ function bakeCadPrimitiveFrameForShapeTransform(shape: WorkplaneShape, frame: Ba
     height: primitive.height,
     ...(primitive.kind === "cylinder" ? { radius: primitive.radius } : {}),
     ...(primitive.kind === "cone" ? { baseRadius: primitive.baseRadius, topRadius: primitive.topRadius } : {}),
+    ...(primitive.kind === "sphere" ? { radius: primitive.radius } : {}),
+    ...(primitive.kind === "torus" ? { majorRadius: primitive.majorRadius, minorRadius: primitive.minorRadius } : {}),
     frame: {
       x: frame.centerX,
       z: frame.centerZ,

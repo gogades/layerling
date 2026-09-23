@@ -41,6 +41,23 @@ export type CadModifierPrimitivePart =
       depth: number;
       height: number;
       transform?: number[];
+    }
+  | {
+      kind: "sphere";
+      radius: number;
+      width: number;
+      depth: number;
+      height: number;
+      transform?: number[];
+    }
+  | {
+      kind: "torus";
+      majorRadius: number;
+      minorRadius: number;
+      width: number;
+      depth: number;
+      height: number;
+      transform?: number[];
     };
 
 export type CadModifierMeshPart = {

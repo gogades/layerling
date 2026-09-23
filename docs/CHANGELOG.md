@@ -4,6 +4,15 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.16.1
+
+- **High-Resolution Spheres & Half-Spheres:** The facet resolution slider (`steps`) for both Spheres (`Kugel`) and Half-Spheres (`Halbkugel`) now extends up to 256 steps (512 radial segments) instead of the previous 64-step ceiling. This allows creating ultra-smooth spherical surfaces for high-detail 3D printing and rendering, both via workspace defaults and the per-shape inspector.
+
+- **Analytic B-Rep Spheres and Tori for CAD Edge Treatments:**
+  - The OpenCascade CAD modifier now reconstructs exact mathematical solids for Spheres (`makeSphere`) and Tori (`makeTorus`) instead of falling back to tessellated surface meshes.
+  - Spheres and circular tori retain their analytic representation through shape baking and grouping. When combined with other primitives (boxes, cylinders, cones, tori, spheres), OpenCascade performs true B-Rep boolean fusion (`cad.fuse`) and cutting (`cad.cut`).
+  - This enables seamless, clean, artifact-free edge filleting and chamfering along intersection seams between spheres, tori, and adjacent bodies without triangulation seam artifacts.
+
 ## 1.15.0
 
 - The **Corner Ruler** (`Winkellineal`) has been upgraded to full parity with Tinkercad:
