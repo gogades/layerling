@@ -11495,7 +11495,7 @@ function TopActionPanel({
           >
             <ToolbarImportIcon />
             <strong>{t("import.dropZone")}</strong>
-            <span>or click to choose from your computer</span>
+            <span>{t("import.dropZoneHint")}</span>
           </button>
         </div>
       ) : null}

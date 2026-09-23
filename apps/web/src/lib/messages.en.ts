@@ -720,7 +720,8 @@ export const MESSAGES_EN = {
   "import.openProject": "Open layerling design",
   "import.openProjectHint": "Restore a layerling design (.lyl - or an older .skf) as a new local design",
   "import.divider": "or add geometry",
-  "import.dropZone": "Drop STL, OBJ, STEP, or SVG files",
+  "import.dropZone": "Drop STL, OBJ, 3MF, STEP, or SVG files",
+  "import.dropZoneHint": "or click to choose from your computer",
 
   "view.cube": "View orientation cube",
   "view.top": "Top view",

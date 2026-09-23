@@ -719,7 +719,8 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "import.openProject": "layerling-Entwurf öffnen",
   "import.openProjectHint": "Ein layerling-Entwurf (.lyl - oder eine ältere .skf) als neuen lokalen Entwurf wiederherstellen",
   "import.divider": "oder Geometrie hinzufügen",
-  "import.dropZone": "STL-, OBJ-, STEP- oder SVG-Dateien hier ablegen",
+  "import.dropZone": "STL-, OBJ-, 3MF-, STEP- oder SVG-Dateien hier ablegen",
+  "import.dropZoneHint": "oder hier klicken, um eine Datei auszuwählen",
 
   "view.cube": "Ansichtswürfel",
   "view.top": "Ansicht von oben",
