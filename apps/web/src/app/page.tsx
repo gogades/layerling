@@ -1758,7 +1758,7 @@ export default function Home() {
         className="hidden-file-input"
         type="file"
         multiple
-        accept=".lyl,.skf,.stl,.obj,.step,.stp,.svg,image/svg+xml"
+        accept=".lyl,.skf,.stl,.obj,.3mf,.step,.stp,.svg,image/svg+xml"
         onChange={(event) => {
           const files = event.currentTarget.files ? Array.from(event.currentTarget.files) : [];
           if (files.length) {

@@ -10529,7 +10529,7 @@ export function LayerlingEditor({
         className="hidden-file-input"
         type="file"
         multiple
-        accept=".stl,.obj,.step,.stp,.svg,image/svg+xml"
+        accept=".stl,.obj,.3mf,.step,.stp,.svg,image/svg+xml"
         onChange={(event) => {
           if (event.currentTarget.files) {
             selectFiles(event.currentTarget.files);
