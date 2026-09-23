@@ -19,7 +19,7 @@ export const editorTargetSchema = {
  */
 export const creatableShapeKinds = [
   "box", "roundedBox", "cube", "cylinder", "slot", "ellipse", "polygon", "sphere", "cone", "pyramid", "wedge",
-  "roundRoof", "halfSphere", "torus", "tube", "star", "heart", "crescent", "text", "thread", "spring", "gear",
+  "roundRoof", "halfSphere", "torus", "tube", "bentTube", "star", "heart", "crescent", "text", "thread", "spring", "gear",
   "honeycomb", "ruler", "sketch",
 ];
 
@@ -82,6 +82,26 @@ export const shapeSettingSchema = {
   cornerFillet: { type: "number", description: "Rounded box only: fillet radius of vertical corners in mm." },
   topBottomFillet: { type: "number", description: "Rounded box only: fillet radius of top and bottom edges in mm." },
   roundedBoxQuality: { type: "number", description: "Rounded box only: quality / segment count for fillet rounding (4 to 32)." },
+  bentTubeProfile: { type: "string", enum: ["round", "square", "hexagon", "octagon"], description: "Bent tube only: outer cross-section." },
+  bentTubeInnerProfile: { type: "string", enum: ["none", "round", "square", "hexagon", "octagon"], description: "Bent tube only: inner cross-section; \"none\" makes a solid tube." },
+  bentTubeSize: { type: "number", description: "Bent tube only: outer diameter of a round tube, width across flats of a polygonal one, in mm (1 to 500)." },
+  bentTubeWall: { type: "number", description: "Bent tube only: wall thickness in mm. With different inner and outer profiles it is the thinnest point of the wall." },
+  bentTubeQuality: { type: "number", description: "Bent tube only: sides of a round profile and fineness of the bends (12 to 96)." },
+  bentTubeSegments: {
+    type: "array",
+    maxItems: 12,
+    items: {
+      type: "object",
+      properties: {
+        length: { type: "number", description: "Straight run before the bend, in mm (0 to 1000)." },
+        bendAngle: { type: "number", description: "Bend after the straight run, in degrees (-180 to 180); 0 means no bend." },
+        bendRadius: { type: "number", description: "Centre-line radius of the bend in mm; at least half the outer size (corner distance for polygons) plus 0.1." },
+        roll: { type: "number", description: "Turns the plane of this bend about the running direction, relative to the previous bend, in degrees." },
+      },
+      required: ["length", "bendAngle", "bendRadius", "roll"],
+    },
+    description: "Bent tube only: the chain of segments, each a straight run followed by an arc bend. The tube starts along +X; roll 0 bends within the workplane, roll 90 bends upward. layerling_read_scene reports this list as JSON text, which is accepted here as well.",
+  },
   text: { type: "string", description: "Text only: the lettering itself." },
   font: { type: "string", description: "Text only." },
 };

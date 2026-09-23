@@ -1,6 +1,7 @@
 import { createLocalId } from "@/lib/localIds";
 import { threadFootprintPatch } from "@/lib/threadGeometry";
 import { MCP_SHAPE_SETTING_KEYS } from "@/lib/mcpShapeSettings";
+import { bentTubeSegmentsEqual } from "@/lib/bentTubeGeometry";
 import type { WorkplaneShape } from "@/types/layerling";
 
 /** Aendert dieser Patch einen Bauwert des Koerpers - oder nur seinen Rahmen? */
@@ -117,7 +118,7 @@ export function shapeTaperDimensions(shape: WorkplaneShape) {
  * die MCP-Bruecke nicht je ihre eigene fuehren.
  */
 export function shapeSupportsTaper(kind: WorkplaneShape["kind"]) {
-  return kind !== "gear" && kind !== "thread" && kind !== "spring" && kind !== "pyramid" && kind !== "ruler" && kind !== "star" && kind !== "heart" && kind !== "crescent" && kind !== "slot" && kind !== "honeycomb" && kind !== "roundedBox";
+  return kind !== "gear" && kind !== "thread" && kind !== "spring" && kind !== "pyramid" && kind !== "ruler" && kind !== "star" && kind !== "heart" && kind !== "crescent" && kind !== "slot" && kind !== "honeycomb" && kind !== "roundedBox" && kind !== "bentTube";
 }
 
 /**
@@ -481,6 +482,12 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.cornerFillet === b.cornerFillet &&
     a.topBottomFillet === b.topBottomFillet &&
     a.roundedBoxQuality === b.roundedBoxQuality &&
+    a.bentTubeProfile === b.bentTubeProfile &&
+    a.bentTubeInnerProfile === b.bentTubeInnerProfile &&
+    a.bentTubeSize === b.bentTubeSize &&
+    a.bentTubeWall === b.bentTubeWall &&
+    a.bentTubeQuality === b.bentTubeQuality &&
+    bentTubeSegmentsEqual(a.bentTubeSegments, b.bentTubeSegments) &&
     a.text === b.text &&
     a.font === b.font &&
     a.importedMesh === b.importedMesh &&

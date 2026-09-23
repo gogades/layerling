@@ -13,6 +13,7 @@ import { createSlotGeometry } from "@/lib/slotGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
+import { bentTubeNaturalDimensions, createBentTubeGeometry } from "@/lib/bentTubeGeometry";
 
 /*
  * Zeichnet die Symbole fuer die Formenliste aus genau der Geometrie, die der
@@ -390,5 +391,27 @@ describe("palette icons", () => {
         roundedBoxQuality: 16,
       }),
     });
+    {
+      const fields = {
+        bentTubeProfile: "round" as const,
+        bentTubeInnerProfile: "round" as const,
+        bentTubeSize: 10,
+        bentTubeWall: 2,
+        bentTubeQuality: 32,
+        bentTubeSegments: [
+          { length: 18, bendAngle: 90, bendRadius: 14, roll: 0 },
+          { length: 18, bendAngle: 0, bendRadius: 14, roll: 0 },
+        ],
+      };
+      const natural = bentTubeNaturalDimensions(fields);
+      render({
+        name: "apps/web/public/assets/editor/shape-icons-gray/bentTube.png",
+        height: natural.height,
+        lay: false,
+        azimuth: 35,
+        elevation: 28,
+        build: () => createBentTubeGeometry({ ...fields, ...natural }),
+      });
+    }
   });
 });

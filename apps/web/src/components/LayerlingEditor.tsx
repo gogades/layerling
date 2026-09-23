@@ -29,6 +29,7 @@ import { createCrescentGeometry } from "@/lib/crescentGeometry";
 import { createSlotGeometry } from "@/lib/slotGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
+import { bentTubeNaturalDimensions, createBentTubeGeometry, normalizedBentTubeFields } from "@/lib/bentTubeGeometry";
 import { createPrismGeometry } from "@/lib/prismGeometry";
 import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { roundSideCount } from "@/lib/roundSideCount";
@@ -2407,6 +2408,19 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         honeycombCellSize: shape.honeycombCellSize,
         honeycombWallThickness: shape.honeycombWallThickness,
         honeycombFrameWidth: shape.honeycombFrameWidth,
+      });
+      break;
+    case "bentTube":
+      geometry = createBentTubeGeometry({
+        width,
+        depth,
+        height,
+        bentTubeProfile: shape.bentTubeProfile,
+        bentTubeInnerProfile: shape.bentTubeInnerProfile,
+        bentTubeSize: shape.bentTubeSize,
+        bentTubeWall: shape.bentTubeWall,
+        bentTubeQuality: shape.bentTubeQuality,
+        bentTubeSegments: shape.bentTubeSegments,
       });
       break;
     case "roundedBox":
@@ -5636,6 +5650,10 @@ function mcpShapeSettings(shape: WorkplaneShape): Record<string, string | number
     const value = shape[key];
     if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
       settings[key] = value;
+    } else if (key === "bentTubeSegments" && Array.isArray(value)) {
+      // Eine Liste passt nicht in die flache Auskunft; als Text geht sie
+      // hinaus und wird so auch wieder angenommen.
+      settings[key] = JSON.stringify(value);
     }
   });
   // Steht keine Seitenzahl im Objekt, folgt sie der Groesse. Dann gehoert hier
@@ -5726,6 +5744,41 @@ function mcpOptionalNumber(value: unknown) {
  * Entwurf liesse sich nicht mehr sichern. Die Masse bleiben aussen vor, die
  * gehen ihren eigenen Weg.
  */
+/**
+ * Die Segmente eines gebogenen Rohrs kommen als Liste - oder als der Text, den
+ * `layerling_read_scene` fuer sie ausgibt. Beides wird angenommen, damit ein
+ * gelesener Wert unveraendert zurueckgeschickt werden kann.
+ */
+function mcpBentTubeSegments(value: unknown): unknown[] | undefined {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const MCP_BENT_TUBE_KEYS = ["bentTubeProfile", "bentTubeInnerProfile", "bentTubeSize", "bentTubeWall", "bentTubeQuality", "bentTubeSegments"] as const;
+
+/**
+ * Ein gebogenes Rohr bekommt seinen Rahmen aus Profil und Segmenten. Nur wer
+ * Breite, Tiefe oder Hoehe ausdruecklich angibt, dehnt es darauf.
+ */
+function mcpBentTubePatch(shape: WorkplaneShape, params: Record<string, unknown>): Partial<WorkplaneShape> {
+  const segments = mcpBentTubeSegments(params.bentTubeSegments);
+  const fields = normalizedBentTubeFields({
+    ...shape,
+    bentTubeSegments: (segments as WorkplaneShape["bentTubeSegments"]) ?? shape.bentTubeSegments,
+  });
+  const natural = bentTubeNaturalDimensions(fields);
+  const width = mcpOptionalNumber(params.width ?? params.size) ?? natural.width;
+  const depth = mcpOptionalNumber(params.depth ?? params.size) ?? natural.depth;
+  const height = mcpOptionalNumber(params.height ?? params.size) ?? natural.height;
+  return { ...fields, width, depth, height, size: Math.max(width, depth) };
+}
+
 function mcpShapeCustomization(kind: ShapeKind, params: Record<string, unknown>): ShapeCustomization {
   const entry = normalizeShapeCustomizations({ [kind]: params })[kind] ?? {};
   const { width: _width, depth: _depth, height: _height, maxDimension: _maxDimension, ...settings } = entry;
@@ -8879,6 +8932,9 @@ export function LayerlingEditor({
           }
           shape = { ...shape, ...mcpTaperPatch(shape, params, shapeDimensionLimit(workspaceSettingsRef.current, shape.kind, DEFAULT_TAPER_DIMENSION_MAX)) };
           shape = { ...shape, ...mcpExtrudeDeformPatch(shape, params) };
+          if (shape.kind === "bentTube") {
+            shape = { ...shape, ...mcpBentTubePatch(shape, params) };
+          }
         } else {
           throw new Error(`MCP create_shape does not know a shape called "${rawKind}"`);
         }
@@ -8984,6 +9040,17 @@ export function LayerlingEditor({
         // umbaut - erst Breite und Tiefe anwenden, dann die Kanten darauf.
         Object.assign(patch, mcpTaperPatch({ ...target, ...patch }, params, shapeDimensionLimit(workspaceSettingsRef.current, target.kind, DEFAULT_TAPER_DIMENSION_MAX)));
         Object.assign(patch, mcpExtrudeDeformPatch({ ...target, ...patch }, params));
+        if (target.kind === "bentTube" && MCP_BENT_TUBE_KEYS.some((key) => params[key] !== undefined)) {
+          const withSettings = { ...target, ...patch };
+          const requested = {
+            width: typeof params.width === "number" ? params.width : undefined,
+            depth: typeof params.depth === "number" ? params.depth : undefined,
+            height: typeof params.height === "number" ? params.height : undefined,
+            size: typeof params.size === "number" ? params.size : undefined,
+            bentTubeSegments: params.bentTubeSegments,
+          };
+          Object.assign(patch, mcpBentTubePatch(withSettings, requested));
+        }
         if (target.kind === "thread") {
           // Der Durchmesser zieht den Platzbedarf mit - sonst macht die
           // Vereinheitlichung die Aenderung gleich wieder rueckgaengig. Und ein

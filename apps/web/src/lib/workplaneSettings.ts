@@ -36,7 +36,7 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
 const snapGridOptions: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
 const customizableShapeKinds: ShapeKind[] = [
   "box", "roundedBox", "cylinder", "slot", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-  "halfSphere", "torus", "tube", "star", "heart", "crescent", "gear", "honeycomb", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
+  "halfSphere", "torus", "tube", "bentTube", "star", "heart", "crescent", "gear", "honeycomb", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
 ];
 
 function numberOrDefault(value: unknown, fallback: number) {
@@ -143,6 +143,22 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
       entry.cornerFillet = optionalShapeNumber(source.cornerFillet, fallbackEntry?.cornerFillet, 0, MAX_CUSTOM_SHAPE_DIMENSION / 2);
       entry.topBottomFillet = optionalShapeNumber(source.topBottomFillet, fallbackEntry?.topBottomFillet, 0, MAX_CUSTOM_SHAPE_DIMENSION / 2);
       entry.roundedBoxQuality = optionalShapeNumber(source.roundedBoxQuality, fallbackEntry?.roundedBoxQuality, 4, 32, true);
+    }
+    if (kind === "bentTube") {
+      const profiles = ["round", "square", "hexagon", "octagon"];
+      entry.bentTubeProfile = source.bentTubeProfile === undefined
+        ? fallbackEntry?.bentTubeProfile
+        : profiles.includes(source.bentTubeProfile)
+          ? source.bentTubeProfile
+          : fallbackEntry?.bentTubeProfile;
+      entry.bentTubeInnerProfile = source.bentTubeInnerProfile === undefined
+        ? fallbackEntry?.bentTubeInnerProfile
+        : source.bentTubeInnerProfile === "none" || profiles.includes(source.bentTubeInnerProfile)
+          ? source.bentTubeInnerProfile
+          : fallbackEntry?.bentTubeInnerProfile;
+      entry.bentTubeSize = optionalShapeNumber(source.bentTubeSize, fallbackEntry?.bentTubeSize, 1, 500);
+      entry.bentTubeWall = optionalShapeNumber(source.bentTubeWall, fallbackEntry?.bentTubeWall, 0.2, 250);
+      entry.bentTubeQuality = optionalShapeNumber(source.bentTubeQuality, fallbackEntry?.bentTubeQuality, 12, 96, true);
     }
     if (kind === "text") {
       entry.text = optionalShapeText(source.text, fallbackEntry?.text, 24);

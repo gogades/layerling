@@ -6411,6 +6411,26 @@ button {
   cursor: default;
 }
 
+.shape-inspector .bent-tube-segment-actions {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.shape-inspector .bent-tube-segment-actions .inspector-action-button {
+  flex: 1 1 0;
+  width: auto;
+  margin: 0;
+}
+
+.shape-inspector .bent-tube-warning {
+  margin: 0 0 8px;
+  color: #a3521a;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .property-card {
   margin: 0 10px 10px;
   padding: 0 14px 18px;
@@ -8808,6 +8828,10 @@ html[data-theme="dark"] .edge-modifier-history-item strong {
 }
 
 html[data-theme="dark"] .edge-modifier-history-warning {
+  color: #f3a452;
+}
+
+html[data-theme="dark"] .shape-inspector .bent-tube-warning {
   color: #f3a452;
 }
 

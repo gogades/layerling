@@ -15,6 +15,7 @@ export type ShapeKind =
   | "halfSphere"
   | "torus"
   | "tube"
+  | "bentTube"
   | "star"
   | "heart"
   | "crescent"
@@ -28,6 +29,23 @@ export type ShapeKind =
   | "icosahedron"
   | "ruler"
   | "mesh";
+
+/** Cross-section of a bent tube; the inner one may also be "none" for a solid tube. */
+export type BentTubeProfile = "round" | "square" | "hexagon" | "octagon";
+export type BentTubeInnerProfile = BentTubeProfile | "none";
+
+/**
+ * One link of a bent tube: a straight run of `length`, then a circular bend of
+ * `bendAngle` degrees around a centre line radius of `bendRadius`. `roll`
+ * turns the plane of this bend about the running direction, in degrees,
+ * relative to the previous bend.
+ */
+export type BentTubeSegment = {
+  length: number;
+  bendAngle: number;
+  bendRadius: number;
+  roll: number;
+};
 
 export type ShapeAsset = {
   id: string;
@@ -104,6 +122,11 @@ export type ShapeCustomization = {
   honeycombCellSize?: number;
   honeycombWallThickness?: number;
   honeycombFrameWidth?: number;
+  bentTubeProfile?: BentTubeProfile;
+  bentTubeInnerProfile?: BentTubeInnerProfile;
+  bentTubeSize?: number;
+  bentTubeWall?: number;
+  bentTubeQuality?: number;
   text?: string;
   font?: string;
 };
@@ -358,6 +381,12 @@ export type WorkplaneShape = {
   cornerFillet?: number;
   topBottomFillet?: number;
   roundedBoxQuality?: number;
+  bentTubeProfile?: BentTubeProfile;
+  bentTubeInnerProfile?: BentTubeInnerProfile;
+  bentTubeSize?: number;
+  bentTubeWall?: number;
+  bentTubeQuality?: number;
+  bentTubeSegments?: BentTubeSegment[];
   text?: string;
   font?: string;
   importedMesh?: {
