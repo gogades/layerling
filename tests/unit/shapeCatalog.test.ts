@@ -27,6 +27,13 @@ describe("shape catalog", () => {
     expect(ellipseIndex).toBe(slotIndex + 1);
   });
 
+  it("exposes bentTube directly after tube in the toolbar catalog", () => {
+    const kinds = toolbarShapeAssets.map((asset) => asset.kind);
+
+    expect(kinds).toContain("bentTube");
+    expect(kinds.indexOf("bentTube")).toBe(kinds.indexOf("tube") + 1);
+  });
+
   it("exposes star, heart, and crescent between tube and text in the toolbar catalog", () => {
     const kinds = toolbarShapeAssets.map((asset) => asset.kind);
 
@@ -34,7 +41,8 @@ describe("shape catalog", () => {
     expect(kinds).toContain("heart");
     expect(kinds).toContain("crescent");
 
-    const tubeIndex = kinds.indexOf("tube");
+    // The bent tube sits between the straight tube and the star.
+    const tubeIndex = kinds.indexOf("bentTube");
     const starIndex = kinds.indexOf("star");
     const heartIndex = kinds.indexOf("heart");
     const crescentIndex = kinds.indexOf("crescent");

@@ -41,7 +41,7 @@ export const LYL_LIMITS = {
 
 const SHAPE_KINDS = new Set([
   "box", "roundedBox", "cylinder", "slot", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-  "halfSphere", "torus", "tube", "star", "heart", "crescent", "gear", "honeycomb", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
+  "halfSphere", "torus", "tube", "bentTube", "star", "heart", "crescent", "gear", "honeycomb", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
 ]);
 
 const FEATURE_TYPES = new Set([
@@ -991,6 +991,50 @@ function validateSketchProfile(value: unknown, label: string) {
   });
 }
 
+const BENT_TUBE_PROFILE_VALUES = new Set(["round", "square", "hexagon", "octagon"]);
+
+/**
+ * Missing values are allowed - the geometry falls back to its defaults. A value
+ * the geometry could not interpret is not: the same ranges the editor clamps to.
+ */
+function validateBentTubeDefinition(definition: Record<string, unknown>, label: string) {
+  if (definition.bentTubeProfile !== undefined && !BENT_TUBE_PROFILE_VALUES.has(definition.bentTubeProfile as string)) {
+    throw new Error(`${label}.bentTubeProfile is invalid`);
+  }
+  if (definition.bentTubeInnerProfile !== undefined && definition.bentTubeInnerProfile !== "none" && !BENT_TUBE_PROFILE_VALUES.has(definition.bentTubeInnerProfile as string)) {
+    throw new Error(`${label}.bentTubeInnerProfile is invalid`);
+  }
+  if (definition.bentTubeSize !== undefined) {
+    const size = finiteNumber(definition.bentTubeSize, `${label}.bentTubeSize`);
+    if (size <= 0 || size > 1e6) throw new Error(`${label}.bentTubeSize is outside the supported range`);
+  }
+  if (definition.bentTubeWall !== undefined) {
+    const wall = finiteNumber(definition.bentTubeWall, `${label}.bentTubeWall`);
+    if (wall < 0 || wall > 1e6) throw new Error(`${label}.bentTubeWall is outside the supported range`);
+  }
+  if (definition.bentTubeQuality !== undefined) {
+    const quality = finiteNumber(definition.bentTubeQuality, `${label}.bentTubeQuality`);
+    if (!Number.isInteger(quality) || quality < 4 || quality > 256) throw new Error(`${label}.bentTubeQuality is outside the supported range`);
+  }
+  if (definition.bentTubeSegments !== undefined) {
+    if (!Array.isArray(definition.bentTubeSegments)) throw new Error(`${label}.bentTubeSegments must be an array`);
+    const segments = definition.bentTubeSegments as unknown[];
+    if (segments.length < 1 || segments.length > 64) throw new Error(`${label}.bentTubeSegments has an unsupported number of segments`);
+    segments.forEach((raw, index) => {
+      const segmentLabel = `${label}.bentTubeSegments[${index}]`;
+      const segment = objectRecord(raw, segmentLabel);
+      const length = finiteNumber(segment.length, `${segmentLabel}.length`);
+      const bendAngle = finiteNumber(segment.bendAngle, `${segmentLabel}.bendAngle`);
+      const bendRadius = finiteNumber(segment.bendRadius, `${segmentLabel}.bendRadius`);
+      const roll = finiteNumber(segment.roll, `${segmentLabel}.roll`);
+      if (length < 0 || length > 1e6) throw new Error(`${segmentLabel}.length is outside the supported range`);
+      if (Math.abs(bendAngle) > 360) throw new Error(`${segmentLabel}.bendAngle is outside the supported range`);
+      if (bendRadius <= 0 || bendRadius > 1e6) throw new Error(`${segmentLabel}.bendRadius is outside the supported range`);
+      if (Math.abs(roll) > 360) throw new Error(`${segmentLabel}.roll is outside the supported range`);
+    });
+  }
+}
+
 function validateShapeDefinition(definition: Record<string, unknown>, label: string) {
   const id = stringValue(definition.id, `${label}.id`);
   stringValue(definition.name, `${label}.name`);
@@ -1195,6 +1239,14 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
       const honeycombFrameWidth = finiteNumber(definition.honeycombFrameWidth, `${label}.honeycombFrameWidth`);
       if (honeycombFrameWidth < 0 || honeycombFrameWidth > 1e6) throw new Error(`${label}.honeycombFrameWidth is outside the supported range`);
     }
+  }
+  // A rotated bent tube is stored baked as a mesh but keeps its parameters,
+  // so they are checked for either form.
+  const parametricKind = definition.parametricSource && typeof definition.parametricSource === "object"
+    ? (definition.parametricSource as Record<string, unknown>).kind
+    : undefined;
+  if (kind === "bentTube" || parametricKind === "bentTube") {
+    validateBentTubeDefinition(definition, label);
   }
   if (kind === "roundedBox") {
     if (definition.cornerFillet !== undefined) {

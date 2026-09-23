@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, LockKeyhole, LockKeyholeOpen, Split } from "lucide-react";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { ToolbarHideSelectedIcon } from "@/components/icons";
 import {
   DEFAULT_GEAR_HELIX_ANGLE,
@@ -104,6 +104,19 @@ import {
   normalizeTopBottomFillet,
   normalizeRoundedBoxQuality,
 } from "@/lib/roundedBoxGeometry";
+import {
+  MAX_BENT_TUBE_BEND_ANGLE,
+  MAX_BENT_TUBE_QUALITY,
+  MAX_BENT_TUBE_ROLL,
+  MAX_BENT_TUBE_SEGMENTS,
+  MIN_BENT_TUBE_QUALITY,
+  MIN_BENT_TUBE_SIZE,
+  bentTubeParameterPatch,
+  bentTubeSelfIntersects,
+  bentTubeWallLimits,
+  minBentTubeBendRadius,
+  normalizedBentTubeFields,
+} from "@/lib/bentTubeGeometry";
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, measurementOptionLabel, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
@@ -123,7 +136,7 @@ import {
 } from "@/lib/springGeometry";
 import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
 import { DEFAULT_TAPER_DIMENSION_MAX, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, shapeDimensionLimit } from "@/lib/workplaneSettings";
-import type { GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { BentTubeInnerProfile, BentTubeProfile, GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 
 const GRID_SIZES: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
@@ -164,6 +177,12 @@ const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: MessageKey }> = [
   { value: "spur", label: "gear.spur" },
   { value: "helical", label: "gear.helical" },
   { value: "bevel", label: "gear.bevel" },
+];
+const BENT_TUBE_PROFILE_OPTIONS: Array<{ value: BentTubeProfile; label: MessageKey }> = [
+  { value: "round", label: "bentTube.profileRound" },
+  { value: "square", label: "bentTube.profileSquare" },
+  { value: "hexagon", label: "bentTube.profileHexagon" },
+  { value: "octagon", label: "bentTube.profileOctagon" },
 ];
 const THREAD_ROLE_OPTIONS: Array<{ value: ThreadRole; label: MessageKey }> = [
   { value: "rod", label: "thread.rod" },
@@ -242,7 +261,7 @@ function formatPropertyNumber(value: number, accuracy: MeasurementAccuracy, step
 }
 
 function propertyUsesLengthUnit(key: string) {
-  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet"].includes(key);
+  return ["radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet", "bentTubeSize", "bentTubeWall", "bentTubeSegmentLength", "bentTubeBendRadius"].includes(key);
 }
 
 /**
@@ -539,6 +558,61 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
       { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 200, onChange: setWidth },
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
     ];
+  }
+
+  if (shape.kind === "bentTube") {
+    const fields = normalizedBentTubeFields(shape);
+    const wallLimits = bentTubeWallLimits(fields.bentTubeProfile, fields.bentTubeInnerProfile, fields.bentTubeSize, fields.bentTubeQuality);
+    const update = (changes: Partial<WorkplaneShape>) => onUpdate(bentTubeParameterPatch(shape, changes));
+    const profileOptions = BENT_TUBE_PROFILE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) }));
+    const properties: ShapePropertyConfig[] = [
+      {
+        type: "select",
+        id: "bentTubeProfile",
+        label: t("prop.bentTubeProfile"),
+        value: fields.bentTubeProfile,
+        options: profileOptions,
+        onChange: (value) => update({ bentTubeProfile: value as BentTubeProfile }),
+      },
+      {
+        type: "select",
+        id: "bentTubeInnerProfile",
+        label: t("prop.bentTubeInnerProfile"),
+        value: fields.bentTubeInnerProfile,
+        options: [{ value: "none", label: t("bentTube.innerNone") }, ...profileOptions],
+        onChange: (value) => update({ bentTubeInnerProfile: value as BentTubeInnerProfile }),
+      },
+      {
+        id: "bentTubeSize",
+        label: t("prop.bentTubeSize"),
+        value: fields.bentTubeSize,
+        min: MIN_BENT_TUBE_SIZE,
+        max: 100,
+        step: 0.5,
+        onChange: (value) => update({ bentTubeSize: value }),
+      },
+    ];
+    if (fields.bentTubeInnerProfile !== "none") {
+      properties.push({
+        id: "bentTubeWall",
+        label: t("prop.bentTubeWall"),
+        value: fields.bentTubeWall,
+        min: wallLimits.min,
+        max: wallLimits.max,
+        step: 0.1,
+        onChange: (value) => update({ bentTubeWall: value }),
+      });
+    }
+    properties.push({
+      id: "bentTubeQuality",
+      label: t("prop.quality"),
+      value: fields.bentTubeQuality,
+      min: MIN_BENT_TUBE_QUALITY,
+      max: MAX_BENT_TUBE_QUALITY,
+      step: 4,
+      onChange: (value) => update({ bentTubeQuality: value }),
+    });
+    return properties;
   }
 
   if (shape.kind === "roundedBox") {
@@ -1446,6 +1520,15 @@ export function ShapeInspector({
           </div>
         ) : null}
       </div>
+      {shape.kind === "bentTube" ? (
+        <BentTubeSegmentsCard
+          shape={shape}
+          workspace={workspace}
+          locked={locked}
+          onUpdate={onUpdate}
+          onInteractionActiveChange={onInteractionActiveChange}
+        />
+      ) : null}
       {!shapeIgnoresTaper ? (
         <div className={`property-card ${taperOpen ? "" : "collapsed"}`}>
           <button
@@ -1550,6 +1633,137 @@ export function ShapeInspector({
   );
 }
 
+/**
+ * The chain of segments of a bent tube. One segment is edited at a time; the
+ * sliders are the same range rows as everywhere else, so a drag shows a live
+ * preview and ends in a single undo step.
+ */
+function BentTubeSegmentsCard({
+  shape,
+  workspace,
+  locked,
+  onUpdate,
+  onInteractionActiveChange,
+}: {
+  shape: WorkplaneShape;
+  workspace: WorkplaneWorkspaceSettings;
+  locked: boolean;
+  onUpdate: ShapeInspectorUpdate;
+  onInteractionActiveChange?: (active: boolean) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [selected, setSelected] = useState(0);
+  const fields = normalizedBentTubeFields(shape);
+  const segments = fields.bentTubeSegments;
+  const index = Math.min(selected, segments.length - 1);
+  const segment = segments[index];
+  const minRadius = minBentTubeBendRadius(fields.bentTubeProfile, fields.bentTubeSize, fields.bentTubeQuality);
+  const selfIntersectionKey = JSON.stringify([fields.bentTubeProfile, fields.bentTubeSize, fields.bentTubeQuality, segments]);
+  const selfIntersects = useMemo(() => {
+    const [bentTubeProfile, bentTubeSize, bentTubeQuality, bentTubeSegments] = JSON.parse(selfIntersectionKey);
+    return bentTubeSelfIntersects({ bentTubeProfile, bentTubeSize, bentTubeQuality, bentTubeSegments });
+  }, [selfIntersectionKey]);
+
+  useEffect(() => setSelected(0), [shape.id]);
+
+  const writeSegments = (next: typeof segments) => onUpdate(bentTubeParameterPatch(shape, { bentTubeSegments: next }));
+  const changeSegment = (changes: Partial<(typeof segments)[number]>) => {
+    writeSegments(segments.map((entry, position) => (position === index ? { ...entry, ...changes } : entry)));
+  };
+  const properties: ShapePropertyConfig[] = [
+    {
+      type: "select",
+      id: "bentTubeSegment",
+      label: t("prop.bentTubeSegment"),
+      value: String(index),
+      options: segments.map((_entry, position) => ({ value: String(position), label: t("bentTube.segmentNumber", { number: position + 1 }) })),
+      onChange: (value) => setSelected(Number(value)),
+    },
+    {
+      id: "bentTubeSegmentLength",
+      label: t("prop.bentTubeSegmentLength"),
+      value: segment.length,
+      min: 0,
+      max: 200,
+      step: 0.5,
+      onChange: (value) => changeSegment({ length: value }),
+    },
+    {
+      id: "bentTubeBendAngle",
+      label: t("prop.bentTubeBendAngle"),
+      value: segment.bendAngle,
+      min: -MAX_BENT_TUBE_BEND_ANGLE,
+      max: MAX_BENT_TUBE_BEND_ANGLE,
+      step: 1,
+      onChange: (value) => changeSegment({ bendAngle: value }),
+    },
+    {
+      id: "bentTubeBendRadius",
+      label: t("prop.bentTubeBendRadius"),
+      value: segment.bendRadius,
+      min: minRadius,
+      max: Math.max(100, minRadius + 50),
+      step: 0.5,
+      onChange: (value) => changeSegment({ bendRadius: value }),
+    },
+    {
+      id: "bentTubeRoll",
+      label: t("prop.bentTubeRoll"),
+      value: segment.roll,
+      min: -MAX_BENT_TUBE_ROLL,
+      max: MAX_BENT_TUBE_ROLL,
+      step: 1,
+      onChange: (value) => changeSegment({ roll: value }),
+    },
+  ];
+
+  return (
+    <div className={`property-card ${open ? "" : "collapsed"}`}>
+      <button
+        className="property-card-header"
+        type="button"
+        aria-expanded={open}
+        aria-controls={`bent-tube-segments-${shape.id}`}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>{t("inspector.bentTubeSegments")}</span>
+        <ChevronUp className={open ? "" : "collapsed"} size={25} strokeWidth={2.8} />
+      </button>
+      {open ? (
+        <div className="property-list" id={`bent-tube-segments-${shape.id}`}>
+          <ShapePropertyRows properties={properties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
+          <div className="bent-tube-segment-actions">
+            <button
+              className="inspector-action-button"
+              type="button"
+              disabled={locked || segments.length >= MAX_BENT_TUBE_SEGMENTS}
+              onClick={() => {
+                const added = { length: 20, bendAngle: 0, bendRadius: segment.bendRadius, roll: 0 };
+                writeSegments([...segments.slice(0, index + 1), added, ...segments.slice(index + 1)]);
+                setSelected(index + 1);
+              }}
+            >
+              {t("bentTube.addSegment")}
+            </button>
+            <button
+              className="inspector-action-button"
+              type="button"
+              disabled={locked || segments.length <= 1}
+              onClick={() => {
+                writeSegments(segments.filter((_entry, position) => position !== index));
+                setSelected(Math.max(0, index - 1));
+              }}
+            >
+              {t("bentTube.removeSegment")}
+            </button>
+          </div>
+          {selfIntersects ? <p className="bent-tube-warning" role="status">{t("bentTube.selfIntersects")}</p> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ShapePropertyRows({
   properties,
   workspace,
@@ -1625,7 +1839,7 @@ function RangeProperty({
   onChange,
   onInteractionActiveChange,
 }: RangePropertyConfig & { workspace: WorkplaneWorkspaceSettings; disabled?: boolean; onInteractionActiveChange?: (active: boolean) => void }) {
-  const allowsAboveSliderMax = ["length", "width", "height", "starOuterSize", "starInnerSize", "crescentThickness", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth"].includes(id) || id.endsWith("Length") || id.endsWith("Width");
+  const allowsAboveSliderMax = ["length", "width", "height", "starOuterSize", "starInnerSize", "crescentThickness", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "bentTubeSize", "bentTubeBendRadius"].includes(id) || id.endsWith("Length") || id.endsWith("Width");
   const isLength = propertyUsesLengthUnit(id);
   const accuracy = workspace.accuracy;
   const actualValue = Math.max(min, Number.isFinite(value) ? value : min);

@@ -107,6 +107,15 @@ import {
   normalizeTopBottomFillet,
   normalizeRoundedBoxQuality,
 } from "@/lib/roundedBoxGeometry";
+import {
+  bentTubeNaturalDimensions,
+  DEFAULT_BENT_TUBE_INNER_PROFILE,
+  DEFAULT_BENT_TUBE_PROFILE,
+  DEFAULT_BENT_TUBE_QUALITY,
+  DEFAULT_BENT_TUBE_SIZE,
+  DEFAULT_BENT_TUBE_WALL,
+  normalizedBentTubeFields,
+} from "@/lib/bentTubeGeometry";
 import { t, type MessageKey } from "@/lib/i18n";
 import type { ShapeAsset, ShapeCustomization, ShapeKind, WorkplaneShape } from "@/types/layerling";
 
@@ -125,6 +134,7 @@ const SHAPE_LABEL_KEYS: Record<string, MessageKey> = {
   "half-sphere": "shape.halfSphere",
   torus: "shape.torus",
   tube: "shape.tube",
+  bentTube: "shape.bentTube",
   star: "shape.star",
   heart: "shape.heart",
   crescent: "shape.crescent",
@@ -153,6 +163,7 @@ export const toolbarShapeAssets: ToolbarShapeAsset[] = [
   { id: "half-sphere", name: "Half Sphere", src: "assets/editor/shape-icons-gray/half-sphere.png", menuIcon: "assets/editor/shape-icons-gray/half-sphere.png", kind: "halfSphere", color: "#c9009a" },
   { id: "torus", name: "Torus", src: "assets/editor/shape-icons-gray/torus.png", menuIcon: "assets/editor/shape-icons-gray/torus.png", kind: "torus", color: "#0098c7" },
   { id: "tube", name: "Tube", src: "assets/editor/shape-icons-gray/tube.png", menuIcon: "assets/editor/shape-icons-gray/tube.png", kind: "tube", color: "#ce7013" },
+  { id: "bentTube", name: "Bent Tube", src: "assets/editor/shape-icons-gray/bentTube.png", menuIcon: "assets/editor/shape-icons-gray/bentTube.png", kind: "bentTube", color: "#b5651d" },
   { id: "star", name: "Star", src: "assets/editor/shape-icons-gray/star.png", menuIcon: "assets/editor/shape-icons-gray/star.png", kind: "star", color: "#f5a623" },
   { id: "heart", name: "Heart", src: "assets/editor/shape-icons-gray/heart.png", menuIcon: "assets/editor/shape-icons-gray/heart.png", kind: "heart", color: "#e0245e" },
   { id: "crescent", name: "Crescent", src: "assets/editor/shape-icons-gray/crescent.png", menuIcon: "assets/editor/shape-icons-gray/crescent.png", kind: "crescent", color: "#f5c518" },
@@ -202,6 +213,11 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
   if (kind === "honeycomb") {
     return { width: DEFAULT_HONEYCOMB_WIDTH, depth: DEFAULT_HONEYCOMB_DEPTH, height: DEFAULT_HONEYCOMB_HEIGHT };
   }
+  if (kind === "bentTube") {
+    // Die Groesse ergibt sich aus Profil und Segmenten, nicht umgekehrt.
+    const natural = bentTubeNaturalDimensions({});
+    return { width: natural.width, depth: natural.depth, height: natural.height };
+  }
   if (kind === "roundedBox") {
     return { width: DEFAULT_ROUNDED_BOX_WIDTH, depth: DEFAULT_ROUNDED_BOX_DEPTH, height: DEFAULT_ROUNDED_BOX_HEIGHT };
   }
@@ -228,6 +244,15 @@ export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAss
       cornerFillet: DEFAULT_ROUNDED_BOX_CORNER_FILLET,
       topBottomFillet: DEFAULT_ROUNDED_BOX_TOP_BOTTOM_FILLET,
       roundedBoxQuality: DEFAULT_ROUNDED_BOX_QUALITY,
+    };
+  }
+  if (kind === "bentTube") {
+    return {
+      bentTubeProfile: DEFAULT_BENT_TUBE_PROFILE,
+      bentTubeInnerProfile: DEFAULT_BENT_TUBE_INNER_PROFILE,
+      bentTubeSize: DEFAULT_BENT_TUBE_SIZE,
+      bentTubeWall: DEFAULT_BENT_TUBE_WALL,
+      bentTubeQuality: DEFAULT_BENT_TUBE_QUALITY,
     };
   }
   if (kind === "sphere") return { steps: 24 };
@@ -376,6 +401,12 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
     cornerFillet: shape.cornerFillet,
     topBottomFillet: shape.topBottomFillet,
     roundedBoxQuality: shape.roundedBoxQuality,
+    bentTubeProfile: shape.bentTubeProfile,
+    bentTubeInnerProfile: shape.bentTubeInnerProfile,
+    bentTubeSize: shape.bentTubeSize,
+    bentTubeWall: shape.bentTubeWall,
+    bentTubeQuality: shape.bentTubeQuality,
+    bentTubeSegments: shape.bentTubeSegments,
     text: shape.text,
     font: shape.font,
     importedMesh: shape.importedMesh,
@@ -419,12 +450,22 @@ export function makeShapeFromAsset(
     threadHeadChamfer: customization.threadHeadChamfer,
   }) : null;
   const threadFootprint = threadDefaults ? threadNaturalFootprint(threadDefaults) : null;
-  const width = threadFootprint?.width ?? customization.width ?? defaults.width;
+  // Ein gebogenes Rohr bekommt seinen Rahmen aus Profil und Segmenten. Ein
+  // vorgegebenes Mass wuerde es nur verzerren.
+  const bentTube = asset.kind === "bentTube" ? normalizedBentTubeFields({
+    bentTubeProfile: customization.bentTubeProfile,
+    bentTubeInnerProfile: customization.bentTubeInnerProfile,
+    bentTubeSize: customization.bentTubeSize,
+    bentTubeWall: customization.bentTubeWall,
+    bentTubeQuality: customization.bentTubeQuality,
+  }) : null;
+  const bentTubeFootprint = bentTube ? bentTubeNaturalDimensions(bentTube) : null;
+  const width = bentTubeFootprint?.width ?? threadFootprint?.width ?? customization.width ?? defaults.width;
   // A cylinder is always circular - depth follows width here too, so it never
   // snaps between insert and first render (canonicalizeShape enforces this
   // again afterwards as the actual safety net).
-  const depth = asset.kind === "cylinder" ? width : threadFootprint?.depth ?? customization.depth ?? defaults.depth;
-  const height = customization.height ?? (threadDefaults ? threadNaturalHeight(threadDefaults) : defaults.height);
+  const depth = asset.kind === "cylinder" ? width : bentTubeFootprint?.depth ?? threadFootprint?.depth ?? customization.depth ?? defaults.depth;
+  const height = bentTubeFootprint?.height ?? customization.height ?? (threadDefaults ? threadNaturalHeight(threadDefaults) : defaults.height);
   const size = Math.max(width, depth);
   const gearTeeth = asset.kind === "gear" ? normalizeGearTeeth(customization.teeth ?? DEFAULT_GEAR_TEETH) : undefined;
   const gearToothSize = asset.kind === "gear" ? normalizeGearToothSize(customization.toothSize ?? DEFAULT_GEAR_TOOTH_SIZE, width, depth) : undefined;
@@ -496,6 +537,7 @@ export function makeShapeFromAsset(
     cornerFillet: asset.kind === "roundedBox" ? normalizeCornerFillet(customization.cornerFillet ?? DEFAULT_ROUNDED_BOX_CORNER_FILLET, Math.min(width, depth) / 2) : undefined,
     topBottomFillet: asset.kind === "roundedBox" ? normalizeTopBottomFillet(customization.topBottomFillet ?? DEFAULT_ROUNDED_BOX_TOP_BOTTOM_FILLET, height / 2) : undefined,
     roundedBoxQuality: asset.kind === "roundedBox" ? normalizeRoundedBoxQuality(customization.roundedBoxQuality ?? DEFAULT_ROUNDED_BOX_QUALITY) : undefined,
+    ...(bentTube ?? {}),
     locked: false,
     hidden: false,
   };

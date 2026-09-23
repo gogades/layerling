@@ -35,6 +35,7 @@ import { createCrescentGeometry } from "@/lib/crescentGeometry";
 import { createSlotGeometry } from "@/lib/slotGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
+import { createBentTubeGeometry } from "@/lib/bentTubeGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
@@ -145,6 +146,7 @@ const SHAPE_KINDS = new Set<ShapeAsset["kind"]>([
   "halfSphere",
   "torus",
   "tube",
+  "bentTube",
   "star",
   "heart",
   "crescent",
@@ -1028,6 +1030,12 @@ function tapeShapeTopologyKey(shape: WorkplaneShape): string {
     cornerFillet: shape.cornerFillet,
     topBottomFillet: shape.topBottomFillet,
     roundedBoxQuality: shape.roundedBoxQuality,
+    bentTubeProfile: shape.bentTubeProfile,
+    bentTubeInnerProfile: shape.bentTubeInnerProfile,
+    bentTubeSize: shape.bentTubeSize,
+    bentTubeWall: shape.bentTubeWall,
+    bentTubeQuality: shape.bentTubeQuality,
+    bentTubeSegments: shape.bentTubeSegments,
     text: shape.text,
     font: shape.font,
     mesh: [positions.length, positionSample],
@@ -1087,7 +1095,7 @@ function polygonSidesForShape(shape: WorkplaneShape) {
 }
 
 function shapeGeometrySignature(shape: WorkplaneShape): string {
-  const taper = shape.kind === "gear" || shape.kind === "thread" || shape.kind === "spring" || shape.kind === "star" || shape.kind === "heart" || shape.kind === "crescent" || shape.kind === "slot" || shape.kind === "honeycomb" || shape.kind === "roundedBox" || !shapeHasTaper(shape)
+  const taper = shape.kind === "gear" || shape.kind === "thread" || shape.kind === "spring" || shape.kind === "star" || shape.kind === "heart" || shape.kind === "crescent" || shape.kind === "slot" || shape.kind === "honeycomb" || shape.kind === "roundedBox" || shape.kind === "bentTube" || !shapeHasTaper(shape)
     ? null
     : { ...shapeTaperDimensions(shape), baseWidth: shapeWidth(shape), baseDepth: shapeDepth(shape) };
   // Twist/lean reshape the mesh the same way taper does, so a change to
@@ -1202,6 +1210,12 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     cornerFillet: shape.cornerFillet,
     topBottomFillet: shape.topBottomFillet,
     roundedBoxQuality: shape.roundedBoxQuality,
+    bentTubeProfile: shape.bentTubeProfile,
+    bentTubeInnerProfile: shape.bentTubeInnerProfile,
+    bentTubeSize: shape.bentTubeSize,
+    bentTubeWall: shape.bentTubeWall,
+    bentTubeQuality: shape.bentTubeQuality,
+    bentTubeSegments: shape.bentTubeSegments,
     text: shape.text,
     font: shape.font,
   });
@@ -9649,6 +9663,19 @@ function createShapeObject(
         honeycombCellSize: shape.honeycombCellSize,
         honeycombWallThickness: shape.honeycombWallThickness,
         honeycombFrameWidth: shape.honeycombFrameWidth,
+      })), material, shape);
+      break;
+    case "bentTube":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createBentTubeGeometry({
+        width,
+        depth,
+        height,
+        bentTubeProfile: shape.bentTubeProfile,
+        bentTubeInnerProfile: shape.bentTubeInnerProfile,
+        bentTubeSize: shape.bentTubeSize,
+        bentTubeWall: shape.bentTubeWall,
+        bentTubeQuality: shape.bentTubeQuality,
+        bentTubeSegments: shape.bentTubeSegments,
       })), material, shape);
       break;
     case "roundedBox":

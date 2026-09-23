@@ -41,12 +41,23 @@ import {
   MIN_ROUNDED_BOX_QUALITY,
   MAX_ROUNDED_BOX_QUALITY,
 } from "@/lib/roundedBoxGeometry";
+import {
+  DEFAULT_BENT_TUBE_INNER_PROFILE,
+  DEFAULT_BENT_TUBE_PROFILE,
+  DEFAULT_BENT_TUBE_QUALITY,
+  DEFAULT_BENT_TUBE_SIZE,
+  DEFAULT_BENT_TUBE_WALL,
+  MAX_BENT_TUBE_QUALITY,
+  MIN_BENT_TUBE_QUALITY,
+  MIN_BENT_TUBE_SIZE,
+  MIN_BENT_TUBE_WALL,
+} from "@/lib/bentTubeGeometry";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { DEFAULT_WORKPLANE_WORKSPACE, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_CUSTOM_SHAPE_DIMENSION } from "@/lib/workplaneSettings";
-import type { GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { BentTubeProfile, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
@@ -105,10 +116,17 @@ const THREAD_PROFILE_OPTIONS: Array<{ value: ThreadProfile; label: MessageKey }>
   { value: "round", label: "thread.profileRound" },
 ];
 
-type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth" | "starPoints" | "starInnerSize" | "starOuterFillet" | "starInnerFillet" | "starQuality" | "heartTipFillet" | "heartQuality" | "crescentThickness" | "crescentTipFillet" | "crescentQuality" | "honeycombCellSize" | "honeycombWallThickness" | "honeycombFrameWidth" | "cornerFillet" | "topBottomFillet" | "roundedBoxQuality";
+const BENT_TUBE_PROFILE_OPTIONS: Array<{ value: BentTubeProfile; label: MessageKey }> = [
+  { value: "round", label: "bentTube.profileRound" },
+  { value: "square", label: "bentTube.profileSquare" },
+  { value: "hexagon", label: "bentTube.profileHexagon" },
+  { value: "octagon", label: "bentTube.profileOctagon" },
+];
+
+type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth" | "starPoints" | "starInnerSize" | "starOuterFillet" | "starInnerFillet" | "starQuality" | "heartTipFillet" | "heartQuality" | "crescentThickness" | "crescentTipFillet" | "crescentQuality" | "honeycombCellSize" | "honeycombWallThickness" | "honeycombFrameWidth" | "cornerFillet" | "topBottomFillet" | "roundedBoxQuality" | "bentTubeSize" | "bentTubeWall" | "bentTubeQuality";
 type ShapeSpecialField =
   | { type: "number"; key: ShapeSpecialNumberKey; label: string; defaultValue: number; min: number; max: number; step?: number; unit?: string }
-  | { type: "select"; key: "font" | "gearType" | "threadRole" | "threadHead" | "threadHand" | "threadProfile"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
+  | { type: "select"; key: "font" | "gearType" | "threadRole" | "threadHead" | "threadHand" | "threadProfile" | "bentTubeProfile" | "bentTubeInnerProfile"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
   | { type: "text"; key: "text"; label: string; defaultValue: string; maxLength: number };
 
 function clamp(value: number, min: number, max: number) {
@@ -261,6 +279,16 @@ function specialFieldsForShape(
       { type: "number", key: "honeycombFrameWidth", label: t("prop.honeycombFrameWidth"), defaultValue: defaults.honeycombFrameWidth ?? 3, min: 0, max: 15, step: 0.5, unit: "mm" },
     ];
   }
+  if (kind === "bentTube") {
+    const profileOptions = BENT_TUBE_PROFILE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) }));
+    return [
+      { type: "select", key: "bentTubeProfile", label: t("prop.bentTubeProfile"), defaultValue: defaults.bentTubeProfile ?? DEFAULT_BENT_TUBE_PROFILE, options: profileOptions },
+      { type: "select", key: "bentTubeInnerProfile", label: t("prop.bentTubeInnerProfile"), defaultValue: defaults.bentTubeInnerProfile ?? DEFAULT_BENT_TUBE_INNER_PROFILE, options: [{ value: "none", label: t("bentTube.innerNone") }, ...profileOptions] },
+      { type: "number", key: "bentTubeSize", label: t("prop.bentTubeSize"), defaultValue: defaults.bentTubeSize ?? DEFAULT_BENT_TUBE_SIZE, min: MIN_BENT_TUBE_SIZE, max: 100, step: 0.5, unit: "mm" },
+      { type: "number", key: "bentTubeWall", label: t("prop.bentTubeWall"), defaultValue: defaults.bentTubeWall ?? DEFAULT_BENT_TUBE_WALL, min: MIN_BENT_TUBE_WALL, max: 20, step: 0.1, unit: "mm" },
+      { type: "number", key: "bentTubeQuality", label: t("prop.quality"), defaultValue: defaults.bentTubeQuality ?? DEFAULT_BENT_TUBE_QUALITY, min: MIN_BENT_TUBE_QUALITY, max: MAX_BENT_TUBE_QUALITY, step: 4 },
+    ];
+  }
   if (kind === "roundedBox") {
     return [
       { type: "number", key: "cornerFillet", label: t("prop.cornerFillet"), defaultValue: defaults.cornerFillet ?? DEFAULT_ROUNDED_BOX_CORNER_FILLET, min: 0, max: Math.max(1, Math.min(dimensions.width, dimensions.depth) / 2), step: 0.1, unit: "mm" },
@@ -337,7 +365,10 @@ export function WorkspaceSettingsModal({
   // Breite und Tiefe eines Gewindes folgen dem Durchmesser; nur die Hoehe
   // laesst sich sinnvoll vorgeben. Ein Zylinder ist immer kreisrund, daher
   // nur ein Durchmesser- (= Breiten-)Feld statt Breite und Tiefe getrennt.
-  const selectedShapeDimensionKeys: Array<"width" | "depth" | "height"> = selectedShapeKind === "thread"
+  // Ein gebogenes Rohr bekommt seinen Rahmen ganz aus Profil und Segmenten.
+  const selectedShapeDimensionKeys: Array<"width" | "depth" | "height"> = selectedShapeKind === "bentTube"
+    ? []
+    : selectedShapeKind === "thread"
     ? ["height"]
     : selectedShapeKind === "cylinder"
       ? ["width", "height"]
