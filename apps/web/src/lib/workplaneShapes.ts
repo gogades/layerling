@@ -36,8 +36,8 @@ export function cleanNearZero(value: number, epsilon = 0.005) {
   return Math.abs(value) < epsilon ? 0 : value;
 }
 
-export function shapeTransformShouldRemainEditable(shape: WorkplaneShape) {
-  return shape.kind === "text" || Boolean(shape.groupedShapes?.length);
+export function shapeTransformShouldRemainEditable(_shape: WorkplaneShape) {
+  return true;
 }
 
 /**

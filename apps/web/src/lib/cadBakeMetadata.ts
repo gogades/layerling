@@ -123,7 +123,7 @@ export function cadModifierPrimitiveForAnalyticShape(shape: WorkplaneShape): Cad
   }
 
   if (shape.kind === "sphere") {
-    if (Math.abs(width - depth) > 1e-4 || Math.abs(depth - height) > 1e-4) {
+    if (Math.abs(width - depth) > 0.05 || Math.abs(depth - height) > 0.05) {
       return null;
     }
     const radius = width / 2;

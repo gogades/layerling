@@ -82,6 +82,7 @@ describe("shape catalog", () => {
 
   it("uses shape-specific defaults for text and round profiles", () => {
     const text = makeShapeFromAsset({ id: "text", name: "Text", src: "text.png", kind: "text", color: "#cf101b" });
+    const sphere = makeShapeFromAsset({ id: "sphere", name: "Sphere", src: "sphere.png", kind: "sphere", color: "#0098c7" });
     const torus = makeShapeFromAsset({ id: "torus", name: "Torus", src: "torus.png", kind: "torus", color: "#0098c7" });
     const gear = makeShapeFromAsset({ id: "gear", name: "Gear", src: "gear.svg", kind: "gear", color: "#6f7f8d" });
     const star = makeShapeFromAsset({ id: "star", name: "Star", src: "star.png", kind: "star", color: "#f5a623" });
@@ -92,6 +93,7 @@ describe("shape catalog", () => {
     const roundedBox = makeShapeFromAsset({ id: "roundedBox", name: "Rounded Box", src: "roundedBox.png", kind: "roundedBox", color: "#e74c3c" });
 
     expect(text).toMatchObject({ width: 86, depth: 28, height: 10, text: "TEXT", font: "Multilanguage" });
+    expect(sphere).toMatchObject({ size: 22, width: 22, depth: 22, height: 22 });
     expect(torus).toMatchObject({ size: 22, width: 22, depth: 22, height: 5 });
     expect(gear).toMatchObject({
       size: 30,

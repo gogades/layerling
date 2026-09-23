@@ -212,7 +212,7 @@ describe("workplane shape helpers", () => {
     });
 
     expect(shapeTransformShouldRemainEditable(group)).toBe(true);
-    expect(shapeTransformShouldRemainEditable(shape({ rotation: 45 }))).toBe(false);
+    expect(shapeTransformShouldRemainEditable(shape({ rotation: 45 }))).toBe(true);
     expect(canonicalizeShape(group)).toMatchObject({
       rotation: 45,
       groupedBaseWidth: 20,
@@ -429,6 +429,23 @@ describe("workplane shape helpers", () => {
     expect(patchTouchesBodyParameters({ elevation: 5 })).toBe(false);
     expect(patchTouchesBodyParameters({ locked: true })).toBe(false);
     expect(patchTouchesBodyParameters({ hidden: true })).toBe(false);
+  });
+
+  it("keeps rotated shapes like wedge editable without swapping dimensions", () => {
+    const wedge = shape({
+      kind: "wedge",
+      width: 30,
+      depth: 10,
+      height: 20,
+      rotation: 90,
+    });
+    expect(shapeTransformShouldRemainEditable(wedge)).toBe(true);
+    const canonical = canonicalizeShape(wedge);
+    expect(canonical.kind).toBe("wedge");
+    expect(canonical.rotation).toBe(90);
+    expect(canonical.width).toBe(30);
+    expect(canonical.depth).toBe(10);
+    expect(canonical.height).toBe(20);
   });
 });
 

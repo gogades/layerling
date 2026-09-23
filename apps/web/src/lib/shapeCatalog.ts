@@ -216,7 +216,7 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
   return {
     width: kind === "text" ? 86 : size,
     depth: kind === "text" ? 28 : size,
-    height: kind === "gear" ? 6 : kind === "text" ? 10 : kind === "roundRoof" ? 10 : kind === "halfSphere" ? 11 : flatProfile ? 5 : 20,
+    height: kind === "sphere" ? size : kind === "gear" ? 6 : kind === "text" ? 10 : kind === "roundRoof" ? 10 : kind === "halfSphere" ? 11 : flatProfile ? 5 : 20,
   };
 }
 

@@ -10962,7 +10962,7 @@ function SecondaryToolbar({
                     className="shape-menu-item"
                     key={shape.id}
                     type="button"
-                    draggable={false}
+                    draggable
                     onClick={() => {
                       if (suppressNextShapeClickRef.current) {
                         suppressNextShapeClickRef.current = false;
@@ -11015,6 +11015,7 @@ function SecondaryToolbar({
                       event.dataTransfer.effectAllowed = "copy";
                       event.dataTransfer.setData("application/x-layerling-shape", JSON.stringify(shape));
                     }}
+                    onDragEnd={() => setShapesOpen(false)}
                   >
                     <img src={shape.menuIcon} alt="" draggable={false} />
                     <span>{shapeAssetMenuLabel(shape)}</span>
