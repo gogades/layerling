@@ -8,6 +8,7 @@ import { useAppUpdate } from "@/lib/useAppUpdate";
 import { sharedProjectSaveTarget } from "@/lib/sharedProjectTarget";
 import { storeFolderNameProblem, suggestStoreFolderName } from "@/lib/storeFolderName";
 import { LayerlingEditor, importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg } from "@/components/LayerlingEditor";
+import { importedShapeFrom3mf } from "@/lib/threemfImport";
 import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, notesForHistoryIndex, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { detectLanguage, setLanguage, t, type Language } from "@/lib/i18n";
@@ -1567,6 +1568,7 @@ export default function Home() {
         const isObj = sourceFormat === "obj";
         const isSvg = sourceFormat === "svg";
         const isStep = sourceFormat === "step";
+        const is3mf = sourceFormat === "3mf";
         if (!sourceFormat || (!isSvg && !isStep && !importExtensionSupported(file.name))) {
           failures.push({ fileName: file.name, reason: "Unsupported file type" });
           continue;
@@ -1582,7 +1584,9 @@ export default function Home() {
               ? importedShapeFromObj(file.name, new TextDecoder().decode(bytes))
               : isSvg
                 ? importedShapeFromSvg(file.name, new TextDecoder().decode(bytes))
-                : importedShapeFromStl(file.name, buffer);
+                : is3mf
+                  ? importedShapeFrom3mf(file.name, buffer)
+                  : importedShapeFromStl(file.name, buffer);
           const asset = await projectAssetFromBytes(file.name, sourceFormat, bytes, file.type);
           importedShapes.push(attachProjectAsset(parsedShape, asset.id));
           importedAssets.push(asset);

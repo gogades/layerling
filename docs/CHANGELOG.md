@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.16.2
+
+- **3MF Import:** Layerling now accepts `.3mf` files via drag-and-drop and the file picker (alongside STL, OBJ, STEP, and SVG). 3MF is the native format of PrusaSlicer, OrcaSlicer, Bambu Studio, and Cura, so models can be brought in directly from those workflows without an intermediate STL export. The importer unpacks the ZIP archive, parses the XML model file, resolves multi-mesh assemblies and component references (including per-item transform matrices), and applies the standard Z-up → Y-up coordinate transform. Imported shapes are stored as project assets and round-trip correctly when saved to and reopened from a `.lyl` project file.
+
 ## 1.16.1
 
 - **High-Resolution Spheres & Half-Spheres:** The facet resolution slider (`steps`) for both Spheres (`Kugel`) and Half-Spheres (`Halbkugel`) now extends up to 256 steps (512 radial segments) instead of the previous 64-step ceiling. This allows creating ultra-smooth spherical surfaces for high-detail 3D printing and rendering, both via workspace defaults and the per-shape inspector.

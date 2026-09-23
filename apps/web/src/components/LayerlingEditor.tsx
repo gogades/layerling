@@ -130,6 +130,7 @@ import { meshBounds, overlappingExportClusters } from "@/lib/exportUnion";
 import { rotateSketchPoints, selectedClosedSketchPoints } from "@/lib/sketchRotation";
 import { PROJECT_THUMBNAIL_IDLE_MS, projectThumbnailSceneChanged, type ProjectThumbnailSceneKey } from "@/lib/projectThumbnail";
 import { importedShapeFromObj } from "@/lib/objImport";
+import { importedShapeFrom3mf } from "@/lib/threemfImport";
 import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceFormatForFileName } from "@/lib/projectAssets";
 import { findSketchOutlineIntersection } from "@/lib/sketchProfileValidation";
 import { addLineIntersectionPoints, splitSketchSegment } from "@/lib/sketchPointRefinement";
@@ -9862,6 +9863,7 @@ export function LayerlingEditor({
       const isStep = sourceFormat === "step";
       const isObj = sourceFormat === "obj";
       const isSvg = sourceFormat === "svg";
+      const is3mf = sourceFormat === "3mf";
       if (!sourceFormat || (!isStep && !isSvg && !importExtensionSupported(file.name))) {
         failures.push({ fileName: file.name, reason: "Unsupported file type" });
         continue;
@@ -9884,6 +9886,8 @@ export function LayerlingEditor({
           nextShape = importedShapeFromObj(file.name, new TextDecoder().decode(bytes));
         } else if (isSvg) {
           nextShape = importedShapeFromSvg(file.name, new TextDecoder().decode(bytes));
+        } else if (is3mf) {
+          nextShape = importedShapeFrom3mf(file.name, buffer);
         } else {
           nextShape = importedShapeFromStl(file.name, buffer);
         }
