@@ -25,6 +25,7 @@
     "icons:shapes": "vitest run --config tests/vitest.tools.config.ts tests/tools/renderShapeIcons.tool.ts",
     "icons:brand": "vitest run --config tests/vitest.tools.config.ts tests/tools/renderBrandIcons.tool.ts",
     "icons:social": "node scripts/render-social-card.mjs",
+    "theme:graphite": "node scripts/generate-graphite-theme.mjs",
     "ci": "npm run typecheck && npm run test",
     "mcp:layerling": "node scripts/layerling-mcp-server.mjs"
   },

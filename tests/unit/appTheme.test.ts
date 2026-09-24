@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   APP_THEME_STORAGE_KEY,
+  applyAppTheme,
+  appThemePalette,
+  GRAPHITE_STYLESHEET_HREF,
+  GRAPHITE_STYLESHEET_ID,
   normalizeAppThemePreference,
   readStoredAppTheme,
   resolveAppTheme,
@@ -29,5 +33,40 @@ describe("application theme preference", () => {
     expect(readStoredAppTheme(storage)).toBe("dark");
     values.set(APP_THEME_STORAGE_KEY, "neon");
     expect(readStoredAppTheme(storage)).toBe("system");
+  });
+
+  it("offers graphite as a dark theme with a neutral palette", () => {
+    expect(normalizeAppThemePreference("graphite")).toBe("graphite");
+    expect(resolveAppTheme("graphite", false)).toBe("dark");
+    expect(resolveAppTheme("graphite", true)).toBe("dark");
+    expect(appThemePalette("graphite")).toBe("graphite");
+    expect(appThemePalette("dark")).toBe("default");
+    expect(appThemePalette("system")).toBe("default");
+  });
+
+  it("links the graphite stylesheet only once graphite is chosen, and only once", () => {
+    const appended: Array<{ id: string; rel: string; href: string }> = [];
+    const root = { dataset: {} as Record<string, string>, style: {} as Record<string, string> };
+    const fakeDocument = {
+      documentElement: root,
+      head: { appendChild: (node: { id: string; rel: string; href: string }) => appended.push(node) },
+      createElement: () => ({ id: "", rel: "", href: "" }),
+      getElementById: (id: string) => appended.find((node) => node.id === id) ?? null,
+    };
+    vi.stubGlobal("document", fakeDocument);
+    try {
+      applyAppTheme("dark", false);
+      expect(appended).toHaveLength(0);
+      expect(root.dataset.palette).toBeUndefined();
+      applyAppTheme("graphite", false);
+      applyAppTheme("graphite", true);
+      expect(appended).toEqual([{ id: GRAPHITE_STYLESHEET_ID, rel: "stylesheet", href: GRAPHITE_STYLESHEET_HREF }]);
+      expect(root.dataset).toMatchObject({ theme: "dark", palette: "graphite" });
+      applyAppTheme("light", false);
+      expect(root.dataset.palette).toBeUndefined();
+      expect(root.dataset.theme).toBe("light");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -796,6 +796,7 @@ export const MESSAGES_EN = {
   "workspace.themeSystem": "System",
   "workspace.themeLight": "Light",
   "workspace.themeDark": "Dark",
+  "workspace.themeGraphite": "Graphite (neutral dark)",
   "workspace.showProjectName": "Show design name in toolbar",
   "workspace.showMoveDimensions": "Show movement dimensions",
   "workspace.showOriginDimensions": "Show origin distances",

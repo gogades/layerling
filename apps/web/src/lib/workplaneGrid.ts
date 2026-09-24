@@ -1,4 +1,4 @@
-import type { ResolvedAppTheme } from "@/lib/appTheme";
+import type { AppThemePalette, ResolvedAppTheme } from "@/lib/appTheme";
 
 const WORKPLANE_BOUNDARY_EPSILON = 0.0001;
 
@@ -87,6 +87,7 @@ export type WorkplaneThemePalette = {
 export function workplaneGridPalette(
   theme: ResolvedAppTheme = "light",
   configuredColor: string = DEFAULT_WORKPLANE_GRID_COLOR,
+  palette: AppThemePalette = "default",
 ): WorkplaneGridPalette {
   if (configuredColor.toLowerCase() !== DEFAULT_WORKPLANE_GRID_COLOR) {
     return {
@@ -94,6 +95,15 @@ export function workplaneGridPalette(
       major: { color: configuredColor, opacity: theme === "dark" ? 0.7 : 0.68 },
       axis: { color: configuredColor, opacity: 0.94 },
       border: { color: configuredColor, opacity: 0.9 },
+    };
+  }
+  if (theme === "dark" && palette === "graphite") {
+    // Light grey lines on a neutral ground, no yellow cast.
+    return {
+      minor: { color: "#8c8c8c", opacity: 0.45 },
+      major: { color: "#b4b4b4", opacity: 0.7 },
+      axis: { color: "#dcdcdc", opacity: 0.92 },
+      border: { color: "#c8c8c8", opacity: 0.88 },
     };
   }
   if (theme === "dark") {
@@ -116,7 +126,15 @@ export function workplaneThemePalette(
   theme: ResolvedAppTheme,
   configuredBackground: string,
   configuredGridColor: string = DEFAULT_WORKPLANE_GRID_COLOR,
+  palette: AppThemePalette = "default",
 ): WorkplaneThemePalette {
+  if (theme === "dark" && palette === "graphite") {
+    return {
+      sceneBackground: "#1e1e1e",
+      surface: { color: "#343434", opacity: 0.9 },
+      grid: workplaneGridPalette("dark", configuredGridColor, "graphite"),
+    };
+  }
   return theme === "dark"
     ? {
         sceneBackground: "#141210",
