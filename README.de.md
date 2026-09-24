@@ -92,7 +92,7 @@ Am schnellsten geht es mit der gehosteten Fassung. Nichts zu installieren, nicht
 **https://layerling.com/**
 
 Der Rest dieser Seite handelt davon, eine eigene Instanz zu betreiben: auf deinem Rechner oder auf einem Rechner in der
-Werkstatt, den alle im Browser öffnen. Der Weg dorthin steht unter [An layerling arbeiten](#an-layerling-arbeiten).
+Werkstatt, den alle im Browser öffnen. Für einen containerisierten Produktionsserver siehe [Docker](#docker); zum Entwickeln am Quelltext [An layerling arbeiten](#an-layerling-arbeiten).
 
 Woher die App auch ausgeliefert wird: Die Entwürfe verlassen den Browser nicht, in dem sie entstanden sind. Exporte laden
 direkt auf den Rechner der jeweiligen Person.
@@ -241,6 +241,38 @@ Die lokale MCP-Brücke für die Editor-Automatisierung starten:
 ```bash
 npm run mcp:layerling
 ```
+
+### Docker
+
+Wer layerling ohne Node.js auf dem Rechner betreiben will, nutzt [`Dockerfile`](docker/Dockerfile) und [`compose.yaml`](docker/compose.yaml). Die App lauscht auf Port **3000**.
+
+Voraussetzung ist [Docker](https://docs.docker.com/get-docker/) mit Compose (`docker compose` oder das eigenständige Kommando `docker-compose`).
+
+Im Projektordner:
+
+```bash
+docker compose -f docker/compose.yml up --build
+```
+
+Mit dem älteren Compose-Binary:
+
+```bash
+docker-compose -f docker/compose.yml up --build
+```
+
+Öffnen:
+
+```text
+http://127.0.0.1:3000/
+```
+
+Mit `Strg+C` im Terminal stoppt der Container. Im Hintergrund startest du mit `-d` bei `up`; beenden mit `docker compose -f docker/compose.yml down` (bzw. `docker-compose -f docker/compose.yml down`).
+
+Nach einem Update per `git pull` das Image neu bauen: `docker compose -f docker/compose.yml up --build` (bzw. `docker-compose -f docker/compose.yml up --build`).
+
+Das Image startet `next start` im Produktionsmodus – zum Selbsthosten im Browser, nicht als Ersatz für `npm run dev` beim Entwickeln oder für den [layerling-MCP-Skill](#layerling-mcp-skill) (MCP ist in Produktions-Builds abgeschaltet).
+
+Für einen gemeinsamen Projektordner im Netz ein beschreibbares Verzeichnis einbinden und in `compose.yaml` `LAYERLING_SHARED_PROJECTS_DIR` setzen (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
 
 ## Mitmachen
 
