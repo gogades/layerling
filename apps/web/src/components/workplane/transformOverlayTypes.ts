@@ -217,13 +217,6 @@ export type TransformOverlayState = {
   handles: Array<{ key: string; className: string; kind: TransformHandleKind; x: number; y: number; title: string; angle?: number }>;
   rotateHandles: Array<{ key: string; className: string; x: number; y: number; plane: RotationPlaneBasis }>;
   dimensions: Record<string, DimensionMark[]>;
-  /**
-   * Handle keys whose dimension marks stay on screen for a single selected
-   * shape even without hovering a handle first - width, depth and height (or
-   * just diameter and height for a cylinder), each on whichever side of the
-   * shape currently faces the camera. Empty for a multi-shape selection.
-   */
-  alwaysVisibleDimensionKeys: string[];
   rotationWheel: RotationWheelView | null;
   rotationWheels: Record<RotationAxis, RotationWheelView>;
   rotationPlaneCenters: Record<RotationAxis, { x: number; y: number; z: number }>;
