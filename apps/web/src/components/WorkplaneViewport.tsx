@@ -109,6 +109,8 @@ const MAX_GRID_BLOCK_SIZE = 200;
 const WORKSPACE_DEFAULTS_STORAGE_PREFIX = "layerling.workspaceDefault.";
 const MOVE_DIMENSIONS_ENABLED_STORAGE_KEY = "layerling.editor.moveDimensionsEnabled";
 const ORIGIN_DIMENSIONS_ENABLED_STORAGE_KEY = "layerling.editor.originDimensionsEnabled";
+/** Light-blue chrome for origin-distance lines, matching `.origin-dimension-value`. */
+const ORIGIN_DIMENSION_LINE_COLOR = { light: "#6ec4e8", dark: "#8fd4f0" } as const;
 /** Kreuzbreite und Vorgabe-Armlaengen des Winkellineal-Werkzeugs - kein Formen-Katalog-Eintrag mehr, siehe layerling-lineal.md. */
 const CORNER_RULER_ARM_WIDTH = 12;
 const CORNER_RULER_DEFAULT_ARM_X = 100;
@@ -2454,7 +2456,7 @@ function syncOriginDimensionWorldLines(state: ThreeState, frame: OriginDimension
   }
 
   const origin = frame.origin;
-  const solidColor = theme === "dark" ? "#f1f8fc" : "#111a21";
+  const solidColor = ORIGIN_DIMENSION_LINE_COLOR[theme];
   const solidPoints: number[] = [];
 
   const addSegment = (points: number[], start: THREE.Vector3, end: THREE.Vector3) => {

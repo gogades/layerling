@@ -5201,10 +5201,14 @@ button {
   pointer-events: none;
 }
 
-.origin-dimension-value {
+.dimension-label.origin-dimension-value {
   pointer-events: none;
   cursor: default;
   opacity: 0.92;
+  background: rgba(236, 248, 253, 0.94);
+  border: 1px solid rgba(110, 196, 232, 0.75);
+  color: #2b88b0;
+  box-shadow: 0 1px 4px rgba(40, 110, 150, 0.12);
 }
 
 /* --- Notizen ---------------------------------------------------------------
@@ -8323,6 +8327,13 @@ html[data-theme="dark"] .move-dimension-guides marker path {
 
 html[data-theme="dark"] .move-dimension-projection {
   stroke: rgba(242, 231, 220, 0.38);
+}
+
+html[data-theme="dark"] .dimension-label.origin-dimension-value {
+  background: rgba(16, 36, 48, 0.92);
+  border: 1px solid rgba(143, 212, 240, 0.5);
+  color: #8fd4f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
 }
 
 html[data-theme="dark"] body,
