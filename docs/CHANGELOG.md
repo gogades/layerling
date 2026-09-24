@@ -9,6 +9,7 @@ code still carries it - so a lower number further down is older, not newer.
 - **MCP server:** JSON-RPC notifications (e.g. `notifications/cancelled`) no longer receive an invalid error reply.
 - **Windows quickstart:** When run via `irm … | iex`, an error no longer closes the PowerShell window before the message can be read.
 - **Project thumbnails:** The server-side thumbnail folder is now capped at 256 MB; the oldest thumbnails are removed beyond that, so the unauthenticated route can no longer fill the disk.
+- **Docker support:** Official Docker setup with [`Dockerfile`](docker/Dockerfile) and [`compose.yml`](docker/compose.yml) for hosting a private Layerling instance on a PC, NAS, or home server without Node.js. Contributed by @gogades.
 
 ## 1.17.0
 

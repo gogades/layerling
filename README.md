@@ -238,35 +238,45 @@ npm run mcp:layerling
 
 ### Docker
 
-To run a production build without installing Node.js on the host, use the included [`Dockerfile`](docker/Dockerfile) and [`compose.yml`](docker/compose.yml). The app listens on port **3000**.
+To run layerling without installing Node.js on your computer, NAS (Synology, Unraid, etc.), or home server, use the included [`Dockerfile`](docker/Dockerfile) and [`compose.yml`](docker/compose.yml). The app listens on port **3000**.
 
-You need [Docker](https://docs.docker.com/get-docker/) with Compose (`docker compose`, or the standalone `docker-compose` command).
+#### 1. Prerequisites
+* **Windows / macOS:** Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+* **Linux / NAS:** Docker and Compose (`docker compose` or standalone `docker-compose`).
 
-From the project folder:
+#### 2. Download
+* Either download the repository as a ZIP ([Code -> Download ZIP](https://github.com/henmedia/layerling/archive/refs/heads/main.zip)) and extract it,
+* or clone it using Git:
+  ```bash
+  git clone https://github.com/henmedia/layerling.git
+  cd layerling
+  ```
+
+#### 3. Start
+In the project directory, open your terminal (e.g. PowerShell on Windows) and run:
 
 ```bash
-docker compose -f docker/compose.yml up --build
+docker compose -f docker/compose.yml up -d --build
 ```
+*(With the older standalone binary: `docker-compose -f docker/compose.yml up -d --build`)*
 
-If your installation uses the older Compose binary:
+Docker will build the image and run the container in the background (`-d`). The initial build takes about 2–3 minutes.
 
-```bash
-docker-compose -f docker/compose.yml up --build
-```
+#### 4. Open in Browser
+* On the same computer: **`http://localhost:3000/`** (or `http://127.0.0.1:3000/`)
+* From other devices on your local network: **`http://<YOUR-SERVER-IP>:3000/`**
 
-Open:
+All CAD operations and project data remain 100% local to your browser.
 
-```text
-http://127.0.0.1:3000/
-```
+#### Common Commands
+* **Stop:** `docker compose -f docker/compose.yml down`
+* **Restart:** `docker compose -f docker/compose.yml up -d`
+* **Update (after pulling new code or extracting a new ZIP):**
+  ```bash
+  docker compose -f docker/compose.yml up -d --build
+  ```
 
-Press `Ctrl+C` in the terminal to stop the container. To run in the background, add `-d` to the `up` command; stop it with `docker compose -f docker/compose.yml down` (or `docker-compose -f docker/compose.yml down`).
-
-After pulling new changes, rebuild with `docker compose -f docker/compose.yml up --build` (or `docker-compose -f docker/compose.yml up --build`) so the image picks up the update.
-
-This image runs `next start` in production mode. It is meant for hosting your own copy in a browser; it is not a substitute for `npm run dev` when you are changing code or using the [layerling MCP Skill](#layerling-mcp-skill) (MCP is disabled in production builds).
-
-To offer a shared project folder over the network, mount a writable directory and set `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` (see [Shared Designs on a Network](#shared-designs-on-a-network)).
+*Note:* This image runs `next start` in production mode (MCP bridge is disabled in production builds). To mount a shared network project folder, bind a writable directory and configure `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` (see [Shared Designs on a Network](#shared-designs-on-a-network)).
 
 ## Contributing
 
