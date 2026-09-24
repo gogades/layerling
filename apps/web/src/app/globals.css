@@ -5868,9 +5868,10 @@ button {
   position: absolute;
   left: 0;
   top: 0;
-  /* Same layer as .transform-handle: both must stay clickable above the
-     rotate handle, whose hit area is larger than its glyph. */
-  z-index: 5;
+  /* Dimension labels and inputs must always be at the top, above the transform
+     handles. Both must also stay clickable above the rotate handle, whose
+     hit area is larger than its glyph. */
+  z-index: 10;
   min-width: 43px;
   padding: 5px 7px;
   border-radius: 3px;
@@ -5892,7 +5893,7 @@ button {
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 9;
+  z-index: 10;
   width: 64px;
   padding: 4px 6px;
   border-radius: 3px;
@@ -6013,7 +6014,7 @@ button {
     background: var(--hover-accent-color);
     border-color: var(--hover-accent-border-color);
 }
-  
+
 .transform-handle.height-lift {
   border: 0;
   width: 0;
