@@ -936,6 +936,105 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   border-color: #b35f07;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel {
+  color: #424242;
+  background: rgba(252, 252, 252, 0.98);
+  border: 1px solid #cbcbcb;
+  box-shadow: 0 14px 38px rgba(56, 56, 56, 0.2);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel:focus-visible {
+  outline: 2px solid #d07313;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-header {
+  border-bottom: 1px solid #e4e4e4;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-header span {
+  color: #6e6e6e;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-header button {
+  color: #5c5c5c;
+  background: transparent;
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-header button:hover {
+  background: #eeeeee;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-target {
+  color: #5c5c5c;
+  background: #f3f3f3;
+  border: 1px solid #e2e2e2;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-axis-control {
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-axis-control legend,
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-position-control > span > strong {
+  color: #515151;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-axis-control button {
+  color: #515151;
+  background: #f8f8f8;
+  border: 1px solid #c8c8c8;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-axis-control button.active {
+  color: #fff;
+  background: #cc7011;
+  border-color: #b35f07;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-position-value input {
+  color: #3f3f3f;
+  background: white;
+  border: 1px solid #adadad;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-position-value small {
+  color: #5c5c5c;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-position-control > input[type="range"] {
+  accent-color: #d07313;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-help {
+  color: #656565;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-error {
+  color: #9f2730;
+  background: #fff0f1;
+  border: 1px solid #efc4c8;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-footer {
+  border-top: 1px solid #e4e4e4;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-footer button {
+  border: 1px solid #c8c8c8;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-footer .secondary {
+  color: #535353;
+  background: white;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .split-panel-footer .primary {
+  color: white;
+  background: #cc7011;
+  border-color: #b35f07;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-mode-content {
   background: #f6f6f6;
   border-top: 1px solid #dcdcdc;
@@ -3818,6 +3917,7 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .shape-menu-dropdown,
 html[data-theme="dark"]:where([data-palette="graphite"]) .visibility-dropdown,
 html[data-theme="dark"]:where([data-palette="graphite"]) .top-action-panel,
 html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-panel,
+html[data-theme="dark"]:where([data-palette="graphite"]) .split-panel,
 html[data-theme="dark"]:where([data-palette="graphite"]) .camera-controls,
 html[data-theme="dark"]:where([data-palette="graphite"]) .tape-tool-popover,
 html[data-theme="dark"]:where([data-palette="graphite"]) .snap-menu {
@@ -3863,7 +3963,10 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .top-action-body .impor
 html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-target,
 html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-quick-actions button,
 html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-footer .secondary,
-html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-field select {
+html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-field select,
+html[data-theme="dark"]:where([data-palette="graphite"]) .split-axis-control button,
+html[data-theme="dark"]:where([data-palette="graphite"]) .split-position-value input,
+html[data-theme="dark"]:where([data-palette="graphite"]) .split-panel-footer .secondary {
   color: #cbcbcb;
   background: #2d2d2d;
   border-color: #4d4d4d;
@@ -3874,10 +3977,24 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-history-
   border-color: #434343;
 }
 
-html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-error {
+html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-error,
+html[data-theme="dark"]:where([data-palette="graphite"]) .split-panel-error {
   color: #ff9da5;
   background: rgba(85, 23, 30, 0.85);
   border-color: #9f3842;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .split-panel-target {
+  color: #bfbfbf;
+  background: #252525;
+  border-color: #434343;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .split-axis-control button.active,
+html[data-theme="dark"]:where([data-palette="graphite"]) .split-panel-footer .primary {
+  color: #fff;
+  background: #cc7011;
+  border-color: #d07313;
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-history-actions button {

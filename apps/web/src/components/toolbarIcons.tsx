@@ -208,6 +208,18 @@ export function ToolbarMirrorIcon(props: IconProps) {
   );
 }
 
+export function ToolbarSplitIcon(props: IconProps) {
+  return (
+    <ToolbarVectorIcon {...props}>
+      <path d="m11 17 13-7 13 7-13 7-13-7Z" {...SOLID} />
+      <path d="m11 17 13-7 13 7-13 7-13-7Z" />
+      <path d="m11 31 13 7 13-7" />
+      <path d="M8 24h32" strokeDasharray="5 4" />
+      <path d="M11 17v4m26-4v4M11 27v4m26-4v4" />
+    </ToolbarVectorIcon>
+  );
+}
+
 export function ToolbarChamferIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>

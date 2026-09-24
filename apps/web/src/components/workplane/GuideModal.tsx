@@ -42,7 +42,7 @@ function guideSections(sharedStore: boolean): GuideSection[] {
     },
     {
       title: "guide.group.solid",
-      lines: ["guide.solid.modes", "guide.solid.group", "guide.solid.intersect"],
+      lines: ["guide.solid.modes", "guide.solid.group", "guide.solid.intersect", "guide.solid.split"],
     },
     {
       title: "guide.group.edges",

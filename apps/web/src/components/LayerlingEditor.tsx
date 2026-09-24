@@ -58,6 +58,7 @@ import {
   ToolbarFilletIcon,
   ToolbarMirrorIcon,
   ToolbarNoteIcon,
+  ToolbarSplitIcon,
   ToolbarPasteIcon,
   ToolbarRedoIcon,
   ToolbarSnapGridIcon,
@@ -71,6 +72,9 @@ import {
 import { WorkplaneViewport } from "./WorkplaneViewport";
 import { SketchWorkspace, type SketchMeasurement, type SketchPrimitive, type SketchSelection, type SketchTool } from "./SketchWorkspace";
 import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
+import { SplitPanel } from "./workplane/SplitPanel";
+import { unionSplitManifoldComponents } from "@/lib/manifoldSplit";
+import { modelSplitPlane, splitPlaneIntersectsPoints, splitShapeFromWorldPositions, type ModelSplitPlane } from "@/lib/modelSplit";
 import { GuideModal } from "./workplane/GuideModal";
 import { ShortcutsModal } from "./workplane/ShortcutsModal";
 import {
@@ -203,6 +207,17 @@ type EdgeModifierSession = {
   error: string | null;
   preview: WorkplaneShape | null;
   componentPreviews: EdgeModifierComponentPreview[];
+};
+
+type SplitSession = {
+  targetIds: string[];
+  axis: AlignAxis;
+  rotation: number;
+  position: number;
+  pivot: [number, number, number];
+  sourceFingerprint: string;
+  busy: boolean;
+  error: string | null;
 };
 
 type EdgeModifierComponentPreview = {
@@ -4543,6 +4558,61 @@ function shapesToManifoldUnion(runtime: ManifoldToplevel, shapes: WorkplaneShape
   return union.status() === "NoError" && union.numTri() > 0 ? union : null;
 }
 
+async function splitShapeByPlane(shape: WorkplaneShape, plane: Pick<ModelSplitPlane, "axis" | "normal" | "position">) {
+  const created: ManifoldSolid[] = [];
+  try {
+    const runtime = await getManifoldRuntime();
+    let solid = shapeToManifoldSolid(runtime, shape, created);
+    if (!solid || solid.status() !== "NoError" || solid.numTri() < 1) {
+      return { parts: null, error: t("split.error.notClosed", { status: solid?.status() ?? "empty" }) };
+    }
+    created.push(solid);
+    const normalized = unionSplitManifoldComponents(runtime, solid);
+    created.push(...normalized.created);
+    if (!normalized.solid) {
+      return { parts: null, error: t("split.error.overlapping") };
+    }
+    solid = normalized.solid;
+    const [positive, negative] = solid.splitByPlane(plane.normal, plane.position);
+    created.push(positive, negative);
+    if (
+      positive.status() !== "NoError" || negative.status() !== "NoError"
+      || positive.numTri() < 1 || negative.numTri() < 1
+    ) {
+      return { parts: null, error: t("split.error.emptyHalf") };
+    }
+
+    const positiveMesh = positive.getMesh();
+    const negativeMesh = negative.getMesh();
+    try {
+      const label = plane.axis.toUpperCase();
+      const positiveShape = splitShapeFromWorldPositions(
+        shape,
+        manifoldMeshToPositions(positiveMesh),
+        createLocalId(`${shape.id}-split-positive`),
+        `${shape.name} (${label}+)`,
+      );
+      const negativeShape = splitShapeFromWorldPositions(
+        shape,
+        manifoldMeshToPositions(negativeMesh),
+        createLocalId(`${shape.id}-split-negative`),
+        `${shape.name} (${label}-)`,
+      );
+      return positiveShape && negativeShape
+        ? { parts: [canonicalizeShape(positiveShape), canonicalizeShape(negativeShape)] as [WorkplaneShape, WorkplaneShape] }
+        : { parts: null, error: t("split.error.store") };
+    } finally {
+      disposeManifold(positiveMesh);
+      disposeManifold(negativeMesh);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    return { parts: null, error: message ? t("split.error.kernel", { message }) : t("split.error.kernelUnknown") };
+  } finally {
+    Array.from(new Set(created)).forEach(disposeManifold);
+  }
+}
+
 function manifoldMeshToPositions(mesh: InstanceType<ManifoldToplevel["Mesh"]>) {
   const positions: number[] = [];
   const numProp = mesh.numProp;
@@ -6038,6 +6108,7 @@ export function LayerlingEditor({
   const [alignAnchorId, setAlignAnchorId] = useState<string | null>(null);
   const [alignPreview, setAlignPreview] = useState<{ axis: AlignAxis; target: AlignTarget } | null>(null);
   const [mirrorMode, setMirrorMode] = useState(false);
+  const [splitSession, setSplitSession] = useState<SplitSession | null>(null);
   const [mirrorPreviewAxis, setMirrorPreviewAxis] = useState<AlignAxis | null>(null);
   const [activeMode, setActiveMode] = useState("3D Design");
   const editorLanguage = useLanguage();
@@ -6076,6 +6147,9 @@ export function LayerlingEditor({
   const projectFileInputRef = useRef<HTMLInputElement | null>(null);
   const sketchImageInputRef = useRef<HTMLInputElement | null>(null);
   const booleanAutomationRunRef = useRef<string | null>(null);
+  const splitRunRef = useRef(0);
+  const splitProjectIdRef = useRef(projectId ?? null);
+  splitProjectIdRef.current = projectId ?? null;
   const projectHydratingRef = useRef(false);
   const projectInteractionActiveRef = useRef(false);
   const pendingProjectShapesRef = useRef<WorkplaneShape[] | null>(null);
@@ -6498,6 +6572,20 @@ export function LayerlingEditor({
   const selectedShapes = useMemo(() => shapes.filter((shape) => selectedIds.includes(shape.id)), [selectedIds, shapes]);
   const selectedShape = selectedShapes.at(-1) ?? null;
   const hasSelection = selectedShapes.length > 0;
+  const canSplitSelection = useMemo(
+    () => selectedShapes.length > 0 && selectedShapes.every((shape) => !shape.locked && !shape.hole && !shape.hidden && !isNonSolidShapeKind(shape.kind)),
+    [selectedShapes],
+  );
+  const splitTargetKey = splitSession?.targetIds.join("\0") ?? "";
+  const splitTargetShapes = useMemo(
+    () => splitSession ? shapes.filter((shape) => splitSession.targetIds.includes(shape.id)) : [],
+    [shapes, splitTargetKey],
+  );
+  const splitTargetPoints = useMemo(() => splitTargetShapes.flatMap((shape) => meshForShape(shape).vertices), [splitTargetShapes]);
+  const splitPlane = useMemo(
+    () => splitSession ? modelSplitPlane(splitTargetPoints, splitSession.axis, splitSession.position, splitSession.rotation) : null,
+    [splitSession?.axis, splitSession?.position, splitSession?.rotation, splitTargetPoints],
+  );
   const modifierAvailableEdgeIds = useMemo(
     () => edgeModifier ? edgeModifier.edges.filter((edge) => selectableCadModifierEdge(edge, edgeModifier.sharpAngle)).map((edge) => edge.id) : [],
     [edgeModifier?.edges, edgeModifier?.sharpAngle],
@@ -6680,6 +6768,18 @@ export function LayerlingEditor({
       setMirrorPreviewAxis(null);
     }
   }, [alignAnchorId, selectedIds, selectedShapes.length]);
+
+  useEffect(() => {
+    if (!splitSession) return;
+    const sameTargets = splitSession.targetIds.length === selectedIds.length
+      && splitSession.targetIds.every((id) => selectedIds.includes(id))
+      && splitTargetShapes.length === splitSession.targetIds.length;
+    const sceneUnchanged = projectShapesFingerprint(shapes) === splitSession.sourceFingerprint;
+    if (sameTargets && sceneUnchanged) return;
+    splitRunRef.current += 1;
+    setSplitSession(null);
+    setNotice(t("status.splitCancelledChanged"));
+  }, [selectedIds, shapes, splitSession, splitTargetShapes.length]);
 
   const syncProjectShapes = useCallback(
     (nextShapes: WorkplaneShape[], force = false) => {
@@ -7975,6 +8075,8 @@ export function LayerlingEditor({
       if (next) {
         setMirrorMode(false);
         setMirrorPreviewAxis(null);
+        splitRunRef.current += 1;
+        setSplitSession(null);
       }
       setNotice(next ? t("status.alignStart") : t("status.alignCancelled"));
       return next;
@@ -8041,6 +8143,8 @@ export function LayerlingEditor({
         setAlignMode(false);
         setAlignAnchorId(null);
         setAlignPreview(null);
+        splitRunRef.current += 1;
+        setSplitSession(null);
       }
       setNotice(next ? t("status.mirrorStart") : t("status.mirrorCancelled"));
       return next;
@@ -8073,6 +8177,177 @@ export function LayerlingEditor({
   const clearMirrorPreview = useCallback(() => {
     setMirrorPreviewAxis(null);
   }, []);
+
+  const cancelSplit = useCallback(() => {
+    splitRunRef.current += 1;
+    setSplitSession(null);
+    setNotice(t("status.splitCancelled"));
+  }, []);
+
+  const toggleSplitMode = useCallback(() => {
+    if (splitSession) {
+      cancelSplit();
+      return;
+    }
+    if (!canSplitSelection) {
+      setNotice(t("status.splitSelectSolids"));
+      return;
+    }
+    const targetPoints = selectedShapes.flatMap((shape) => meshForShape(shape).vertices);
+    const plane = modelSplitPlane(targetPoints, "y");
+    if (!plane) {
+      setNotice(t("status.splitNoGeometry"));
+      return;
+    }
+    invalidateCadModifierSession();
+    splitRunRef.current += 1;
+    setAlignMode(false);
+    setAlignAnchorId(null);
+    setAlignPreview(null);
+    setMirrorMode(false);
+    setMirrorPreviewAxis(null);
+    setWorkplaneMode(false);
+    setNoteMode(false);
+    setSplitSession({
+      targetIds: selectedShapes.map((shape) => shape.id),
+      axis: plane.axis,
+      rotation: 0,
+      position: plane.position,
+      pivot: plane.origin,
+      sourceFingerprint: projectShapesFingerprint(shapesRef.current),
+      busy: false,
+      error: null,
+    });
+    setNotice(t("status.splitReady"));
+  }, [cancelSplit, canSplitSelection, invalidateCadModifierSession, selectedShapes, splitSession]);
+
+  const changeSplitAxis = useCallback((axis: AlignAxis) => {
+    const plane = modelSplitPlane(splitTargetPoints, axis);
+    if (!plane) return;
+    setSplitSession((current) => current && !current.busy ? {
+      ...current,
+      axis,
+      rotation: 0,
+      position: plane.position,
+      pivot: plane.origin,
+      error: null,
+    } : current);
+  }, [splitTargetPoints]);
+
+  const changeSplitPosition = useCallback((position: number) => {
+    setSplitSession((current) => {
+      if (!current || current.busy) return current;
+      const plane = modelSplitPlane(splitTargetPoints, current.axis, position, current.rotation);
+      return plane ? { ...current, position: plane.position, pivot: plane.origin, error: null } : current;
+    });
+  }, [splitTargetPoints]);
+
+  const changeSplitRotation = useCallback((rotation: number) => {
+    const nextRotation = Math.max(-180, Math.min(180, rotation));
+    setSplitSession((current) => {
+      if (!current || current.busy) return current;
+      const centeredPlane = modelSplitPlane(splitTargetPoints, current.axis, undefined, nextRotation);
+      if (!centeredPlane) return current;
+      const position = centeredPlane.normal[0] * current.pivot[0]
+        + centeredPlane.normal[1] * current.pivot[1]
+        + centeredPlane.normal[2] * current.pivot[2];
+      const plane = modelSplitPlane(splitTargetPoints, current.axis, position, nextRotation);
+      return plane ? { ...current, rotation: nextRotation, position: plane.position, error: null } : current;
+    });
+  }, [splitTargetPoints]);
+
+  const applySplit = useCallback(async () => {
+    const session = splitSession;
+    const plane = splitPlane;
+    if (!session || !plane || session.busy) return;
+    const sourceProjectId = splitProjectIdRef.current;
+    const sourceContextIsCurrent = () => {
+      const currentSelection = selectedIdsRef.current;
+      return splitProjectIdRef.current === sourceProjectId
+        && currentSelection.length === session.targetIds.length
+        && session.targetIds.every((id) => currentSelection.includes(id))
+        && projectShapesFingerprint(shapesRef.current) === session.sourceFingerprint;
+    };
+    if (!sourceContextIsCurrent()) {
+      splitRunRef.current += 1;
+      setSplitSession(null);
+      setNotice(t("status.splitCancelledChanged"));
+      return;
+    }
+
+    const runId = splitRunRef.current + 1;
+    splitRunRef.current = runId;
+    setSplitSession({ ...session, busy: true, error: null });
+    const replacements = new Map<string, WorkplaneShape[]>();
+    let splitCount = 0;
+    for (const shape of splitTargetShapes) {
+      const points = meshForShape(shape).vertices;
+      if (!splitPlaneIntersectsPoints(points, plane.normal, plane.position)) continue;
+      const result = await splitShapeByPlane(shape, plane);
+      if (splitRunRef.current !== runId) return;
+      if (!sourceContextIsCurrent()) {
+        splitRunRef.current += 1;
+        setSplitSession(null);
+        setNotice(t("status.splitCancelledProcessing"));
+        return;
+      }
+      if (!result.parts) {
+        setSplitSession((current) => current ? {
+          ...current,
+          busy: false,
+          error: t("split.error.failed", { name: shape.name, detail: result.error ?? t("split.error.failedDefault") }),
+        } : current);
+        setNotice(t("status.splitFailed", { name: shape.name }));
+        return;
+      }
+      replacements.set(shape.id, result.parts);
+      splitCount += 1;
+    }
+
+    if (splitRunRef.current !== runId) return;
+    if (!sourceContextIsCurrent()) {
+      splitRunRef.current += 1;
+      setSplitSession(null);
+      setNotice(t("status.splitCancelledProcessing"));
+      return;
+    }
+    if (splitCount === 0) {
+      setSplitSession((current) => current ? { ...current, busy: false, error: t("split.error.movePlane") } : current);
+      setNotice(t("status.splitMissed"));
+      return;
+    }
+
+    const nextShapes = shapesRef.current.flatMap((shape) => replacements.get(shape.id) ?? [shape]);
+    const nextSelection = [...replacements.values()].flat().map((shape) => shape.id);
+    setSplitSession(null);
+    commitShapes(
+      nextShapes,
+      nextSelection,
+      splitCount === 1
+        ? t("status.splitOne", { count: nextSelection.length })
+        : t("status.splitMany", { count: splitCount, bodies: nextSelection.length }),
+    );
+  }, [commitShapes, splitPlane, splitSession, splitTargetShapes]);
+
+  useEffect(() => {
+    if (!splitSession) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        cancelSplit();
+        return;
+      }
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (event.key === "Enter" && !target?.closest("input, select, textarea, button, [contenteditable='true']")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void applySplit();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [applySplit, cancelSplit, splitSession]);
 
   const postCadModifierRequest = useCallback((request: CadModifierWorkerPayload, transfer: Transferable[] = []) => {
     const worker = cadModifierWorkerRef.current ?? cadModifierWorkerRestartRef.current();
@@ -8179,6 +8454,8 @@ export function LayerlingEditor({
     cadModifierSourcePartsRef.current = sourceParts;
     setAlignMode(false);
     setMirrorMode(false);
+    splitRunRef.current += 1;
+    setSplitSession(null);
     setEdgeModifier({
       kind,
       edges: [],
@@ -10111,6 +10388,10 @@ export function LayerlingEditor({
       const key = event.key.toLowerCase();
       const shortcut = event.ctrlKey || event.metaKey;
 
+      if (splitSession) {
+        return;
+      }
+
       if (sketchActive && toolbarMode === "sketch") {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -10304,6 +10585,7 @@ export function LayerlingEditor({
     sketchMeasurement,
     sketchSelection,
     sketchUndo,
+    splitSession,
     setSelectionHoleMode,
     showHidden,
     toggleHidden,
@@ -10328,8 +10610,8 @@ export function LayerlingEditor({
           setTopPanel(null);
           setMenuOpen(false);
         }}
-        canUndo={!projectInteractionActive && (historyIndex > 0 || Boolean(edgeModifier))}
-        canRedo={!projectInteractionActive && historyIndex < history.length - 1}
+        canUndo={!splitSession && !projectInteractionActive && (historyIndex > 0 || Boolean(edgeModifier))}
+        canRedo={!splitSession && !projectInteractionActive && historyIndex < history.length - 1}
         canGroup={selectedShapes.length > 1 && selectedShapes.every((shape) => !shape.locked && !isNonSolidShapeKind(shape.kind))}
         canIntersect={selectedShapes.some((shape) => !shape.locked && !shape.hole && !isNonSolidShapeKind(shape.kind)) && selectedShapes.some((shape) => !shape.locked && Boolean(shape.hole) && !isNonSolidShapeKind(shape.kind))}
         canUngroup={selectedShapes.some((shape) => Boolean(shape.groupedShapes?.length))}
@@ -10342,6 +10624,8 @@ export function LayerlingEditor({
         canEdgeModify={selectedShapes.length === 1 && Boolean(selectedShape && !selectedShape.locked && !selectedShape.hole && !isNonSolidShapeKind(selectedShape.kind))}
         edgeModifierKind={edgeModifier?.kind ?? null}
         mirrorMode={mirrorMode}
+        canSplit={canSplitSelection}
+        splitMode={Boolean(splitSession)}
         sketchActive={sketchActive}
         sketchOperation={sketchOperation}
         sketchTool={sketchTool}
@@ -10375,6 +10659,7 @@ export function LayerlingEditor({
         onIntersect={intersectSelected}
         onFillet={() => edgeModifier?.kind === "fillet" ? cancelEdgeModifier() : startEdgeModifier("fillet")}
         onMirror={toggleMirrorMode}
+        onSplit={toggleSplitMode}
         onPaste={pasteShape}
         onRedo={redo}
         onSnap={snapSelected}
@@ -10455,6 +10740,8 @@ export function LayerlingEditor({
           alignReferenceShapes={shapes}
           mirrorMode={mirrorMode}
           mirrorReferenceShapes={shapes}
+          splitActive={Boolean(splitSession)}
+          splitPlane={splitPlane}
           placementWorkplane={placementWorkplane}
           workplaneMode={workplaneMode}
           initialSnap={snapGrid}
@@ -10501,6 +10788,24 @@ export function LayerlingEditor({
         )}
       </div>
       <AppFooter variant="editor" version={LYL_CREATED_WITH_VERSION} />
+      {splitSession && splitPlane ? (
+        <SplitPanel
+          axis={splitSession.axis}
+          rotation={splitSession.rotation}
+          position={splitPlane.position}
+          min={splitPlane.min}
+          max={splitPlane.max}
+          targetCount={splitTargetShapes.length}
+          workspace={workspaceSettings}
+          busy={splitSession.busy}
+          error={splitSession.error}
+          onAxisChange={changeSplitAxis}
+          onRotationChange={changeSplitRotation}
+          onPositionChange={changeSplitPosition}
+          onApply={() => void applySplit()}
+          onCancel={cancelSplit}
+        />
+      ) : null}
       {edgeModifier ? (
         <EdgeModifierPanel
           kind={edgeModifier.kind}
@@ -10682,6 +10987,8 @@ function SecondaryToolbar({
   hiddenShapeCount,
   selectionHidden,
   mirrorMode,
+  canSplit,
+  splitMode,
   sketchActive,
   sketchOperation,
   sketchTool,
@@ -10709,6 +11016,7 @@ function SecondaryToolbar({
   onIntersect,
   onFillet,
   onMirror,
+  onSplit,
   onPaste,
   onRedo,
   onSnap,
@@ -10745,6 +11053,8 @@ function SecondaryToolbar({
   hiddenShapeCount: number;
   selectionHidden: boolean;
   mirrorMode: boolean;
+  canSplit: boolean;
+  splitMode: boolean;
   sketchActive: boolean;
   sketchOperation: SketchOperation;
   sketchTool: SketchTool;
@@ -10772,6 +11082,7 @@ function SecondaryToolbar({
   onIntersect: () => void;
   onFillet: () => void;
   onMirror: () => void;
+  onSplit: () => void;
   onPaste: () => void;
   onRedo: () => void;
   onSnap: () => void;
@@ -10953,6 +11264,7 @@ function SecondaryToolbar({
   const modifyTools = [
     { id: "align", label: t("editor.tool.align"), icon: ToolbarAlignIcon, action: onAlign, enabled: canAlign, active: alignMode },
     { id: "mirror", label: t("editor.tool.mirror"), icon: ToolbarMirrorIcon, action: onMirror, enabled: hasSelection, active: mirrorMode },
+    { id: "split", label: t("editor.tool.split"), icon: ToolbarSplitIcon, action: onSplit, enabled: splitMode || canSplit, active: splitMode },
     { id: "snap", label: t("editor.tool.snapToGrid"), icon: ToolbarSnapGridIcon, action: onSnap, enabled: hasSelection },
     { id: "chamfer", label: t("editor.tool.chamfer"), icon: ToolbarChamferIcon, action: onChamfer, enabled: canEdgeModify, active: edgeModifierKind === "chamfer" },
     { id: "fillet", label: t("editor.tool.fillet"), icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify, active: edgeModifierKind === "fillet" },

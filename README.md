@@ -59,6 +59,7 @@ And the parts you already have keep working: import an STL and build around it.
 - **Threads that fit** - threaded rods, screws with a socket, countersunk or hex head, hex nuts, and tapped holes. M2 to M12 and UNC/UNF from #4 to one inch are one pick away, or set your own diameter and pitch, left-hand as well; an inch size asks for threads per inch instead of millimetres. The ends take a chamfer, and a tapped hole is a cutter: drop it into a part, group, and the hole comes out threaded.
 - **Solid and hole workflow** - turn shapes into cutters and group them into final geometry.
 - **Boolean Intersection** - keep only the geometry where selected solid and hole shapes overlap.
+- **Slice / Split** - cut a solid with a plane and get two closed bodies back. Rotate the plane for an angled cut.
 - **Chamfer and fillet** - break or round any edge of a solid, and remove the treatment again later.
 - **Bring your own models** - import an STL and build around it.
 - **Projects as files** - save a whole project, history, sketches and groups included, as a `.lyl` file and carry on elsewhere. Older `.skf` files from earlier versions still open; saving then writes a `.lyl` beside them.

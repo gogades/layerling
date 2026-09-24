@@ -59,6 +59,7 @@ Und was du schon hast, funktioniert weiter: STL importieren und darum herum baue
 - **Gewinde, die passen** – Gewindestangen, Schrauben mit Zylinder-, Senk- oder Sechskantkopf, Sechskantmuttern und Gewindelöcher. M2 bis M12 liegen bereit, dazu UNC und UNF von #4 bis ein Zoll; Durchmesser und Steigung lassen sich auch frei wählen, Linksgewinde ebenso. Bei einer Zollgröße fragt das Feld nach Gängen je Zoll statt nach Millimetern. Die Enden bekommen auf Wunsch eine Fase, und das Gewindeloch ist eine Aussparung: in ein Teil ziehen, gruppieren, fertig.
 - **Körper und Aussparung** – Formen zu Schneidwerkzeugen erklären und zur fertigen Geometrie gruppieren.
 - **Boolesche Schnittmenge** – nur das behalten, wo sich ausgewählte Körper und Aussparungen überlappen.
+- **Schneiden / Teilen** – einen Körper mit einer Ebene durchschneiden und zwei geschlossene Körper zurückbekommen. Die Ebene lässt sich für einen schrägen Schnitt drehen.
 - **Chamfer und Fillet** – jede Kante eines Körpers brechen oder verrunden und später wieder freigeben.
 - **Eigene Modelle mitbringen** – STL importieren und darum herum konstruieren.
 - **Projekte als Datei** – ein ganzes Projekt samt Verlauf, Skizzen und Gruppen als `.lyl` sichern und anderswo weiterbauen. Ältere `.skf`-Dateien aus früheren Fassungen öffnen sich weiterhin; gespeichert wird dann als `.lyl` daneben.

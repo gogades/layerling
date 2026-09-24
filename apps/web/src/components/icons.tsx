@@ -109,6 +109,7 @@ export {
   ToolbarKeyboardIcon,
   ToolbarMirrorIcon,
   ToolbarNoteIcon,
+  ToolbarSplitIcon,
   ToolbarPasteIcon,
   ToolbarRedoIcon,
   ToolbarSettingsIcon,
