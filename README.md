@@ -238,7 +238,7 @@ npm run mcp:layerling
 
 ### Docker
 
-To run a production build without installing Node.js on the host, use the included [`Dockerfile`](docker/Dockerfile) and [`compose.yaml`](docker/compose.yaml). The app listens on port **3000**.
+To run a production build without installing Node.js on the host, use the included [`Dockerfile`](docker/Dockerfile) and [`compose.yml`](docker/compose.yml). The app listens on port **3000**.
 
 You need [Docker](https://docs.docker.com/get-docker/) with Compose (`docker compose`, or the standalone `docker-compose` command).
 
@@ -266,7 +266,7 @@ After pulling new changes, rebuild with `docker compose -f docker/compose.yml up
 
 This image runs `next start` in production mode. It is meant for hosting your own copy in a browser; it is not a substitute for `npm run dev` when you are changing code or using the [layerling MCP Skill](#layerling-mcp-skill) (MCP is disabled in production builds).
 
-To offer a shared project folder over the network, mount a writable directory and set `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yaml` (see [Shared Designs on a Network](#shared-designs-on-a-network)).
+To offer a shared project folder over the network, mount a writable directory and set `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` (see [Shared Designs on a Network](#shared-designs-on-a-network)).
 
 ## Contributing
 

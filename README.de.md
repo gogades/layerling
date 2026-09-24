@@ -244,7 +244,7 @@ npm run mcp:layerling
 
 ### Docker
 
-Wer layerling ohne Node.js auf dem Rechner betreiben will, nutzt [`Dockerfile`](docker/Dockerfile) und [`compose.yaml`](docker/compose.yaml). Die App lauscht auf Port **3000**.
+Wer layerling ohne Node.js auf dem Rechner betreiben will, nutzt [`Dockerfile`](docker/Dockerfile) und [`compose.yml`](docker/compose.yml). Die App lauscht auf Port **3000**.
 
 Voraussetzung ist [Docker](https://docs.docker.com/get-docker/) mit Compose (`docker compose` oder das eigenständige Kommando `docker-compose`).
 
@@ -272,7 +272,7 @@ Nach einem Update per `git pull` das Image neu bauen: `docker compose -f docker/
 
 Das Image startet `next start` im Produktionsmodus – zum Selbsthosten im Browser, nicht als Ersatz für `npm run dev` beim Entwickeln oder für den [layerling-MCP-Skill](#layerling-mcp-skill) (MCP ist in Produktions-Builds abgeschaltet).
 
-Für einen gemeinsamen Projektordner im Netz ein beschreibbares Verzeichnis einbinden und in `compose.yaml` `LAYERLING_SHARED_PROJECTS_DIR` setzen (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
+Für einen gemeinsamen Projektordner im Netz ein beschreibbares Verzeichnis einbinden und in `compose.yml` `LAYERLING_SHARED_PROJECTS_DIR` setzen (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
 
 ## Mitmachen
 

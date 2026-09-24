@@ -28,6 +28,6 @@ COPY --from=builder /app/apps/web/.next ./apps/web/.next
 COPY --from=builder /app/apps/web/public ./apps/web/public
 
 USER nextjs
-EXPOSE 4000
+EXPOSE 3000
 
 CMD ["npm", "start"]
