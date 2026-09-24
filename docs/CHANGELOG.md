@@ -4,6 +4,22 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.17.1
+
+- **MCP server:** JSON-RPC notifications (e.g. `notifications/cancelled`) no longer receive an invalid error reply.
+- **Windows quickstart:** When run via `irm … | iex`, an error no longer closes the PowerShell window before the message can be read.
+- **Project thumbnails:** The server-side thumbnail folder is now capped at 256 MB; the oldest thumbnails are removed beyond that, so the unauthenticated route can no longer fill the disk.
+
+## 1.17.0
+
+- **Bent Tube:** A new catalog shape (`bentTube`) lets you model bent pipes and tubes directly in Layerling. It consists of up to 12 segments, each with a straight length, bend radius, bend angle, and roll angle. Four cross-section profiles are available for the outer wall — Round, Square, Hexagon, and Octagon — and the same options apply to the inner channel, or it can be left solid. Wall thickness is adjustable. The minimum bend radius is enforced automatically so the mesh can never fold into itself, and a warning is shown in the inspector when a chain of segments runs back into itself. Parameters are live-editable with slider preview, and the shape integrates fully with drag & drop, workspace defaults, MCP, and project saving. Contributed by @plazmabokor.
+
+## 1.16.3
+
+- **Rotated shape editing:** Rotating a parametric shape (box, wedge, cone, etc.) no longer bakes it into a plain mesh. The shape keeps its kind and all editable parameters across any rotation. Resize handles and dimension inputs now act on the shape's own local axes rather than the world bounding box, so dragging the depth handle of a wedge that has been turned 90° changes its depth — not its width. The selection frame aligns with the shape's local axes as well.
+- **Drag & drop from the shape menu:** Shapes can now be dragged from the catalog panel and dropped anywhere on the workplane. Previously, a `draggable={false}` attribute on the menu buttons prevented the browser from starting a drag, even though the viewport already had a drop handler. The menu now closes automatically when a drag begins.
+- **Default sphere dimensions:** A newly inserted sphere is now exactly 22 × 22 × 22 mm (matching its catalog size). A mismatch between the stored height (20 mm) and the catalog width/depth (22 mm) caused the sphere to miss the analytic B-Rep path in the CAD modifier, which in turn made fillets and chamfers on sphere–torus intersections produce deformed meshes instead of clean curves.
+
 ## 1.16.2
 
 - **3MF Import:** Layerling now accepts `.3mf` files via drag-and-drop and the file picker (alongside STL, OBJ, STEP, and SVG). 3MF is the native format of PrusaSlicer, OrcaSlicer, Bambu Studio, and Cura, so models can be brought in directly from those workflows without an intermediate STL export. The importer unpacks the ZIP archive, parses the XML model file, resolves multi-mesh assemblies and component references (including per-item transform matrices), and applies the standard Z-up → Y-up coordinate transform. Imported shapes are stored as project assets and round-trip correctly when saved to and reopened from a `.lyl` project file.
