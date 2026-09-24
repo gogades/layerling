@@ -23,7 +23,7 @@ import { MoveDimensionOverlay } from "@/components/workplane/MoveDimensionOverla
 import { OriginDimensionOverlay } from "@/components/workplane/OriginDimensionOverlay";
 import { ShapeInspector, SnapGridControl, type ShapeInspectorUpdateOptions } from "@/components/workplane/ShapeInspector";
 import { WorkspaceSettingsModal } from "@/components/workplane/WorkspaceSettingsModal";
-import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
+import { appThemePalette, type AppThemePalette, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { cadModifierPrimitiveForBakedShape, cadTransformFromMatrix, cadTransformToMatrix } from "@/lib/cadBakeMetadata";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
@@ -329,6 +329,8 @@ type ShapeRenderRecord = {
 };
 
 type ThreeState = {
+  /** Colour set on top of light/dark; only the canvas reads it. */
+  palette?: AppThemePalette;
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
@@ -3646,6 +3648,8 @@ export function WorkplaneViewport({
 
   const resolvedThemeRef = useRef(resolvedTheme);
   resolvedThemeRef.current = resolvedTheme;
+  const themePaletteRef = useRef(appThemePalette(themePreference));
+  themePaletteRef.current = appThemePalette(themePreference);
 
   const clearMoveDimensions = useCallback(() => {
     moveDimensionSessionRef.current = null;
@@ -4143,6 +4147,7 @@ export function WorkplaneViewport({
     // The plane label carries the project name, so a rename has to redraw it.
     projectNameRef.current = projectName;
     workspaceRef.current = workspace;
+    if (threeRef.current) threeRef.current.palette = appThemePalette(themePreference);
     rebuildWorkplane(threeRef.current, workspace, resolvedTheme, placementWorkplane, projectName);
     rebuildSelectionHelpers(threeRef.current, shapesRef.current, renderSelectionIds(), placementWorkplane);
     if (threeRef.current) {
@@ -4165,7 +4170,7 @@ export function WorkplaneViewport({
       syncMoveDimensionWorldLines(threeRef.current, moveDimensionSessionRef.current, resolvedTheme);
       threeRef.current.needsRender = true;
     }
-  }, [language, placementWorkplane, projectName, resolvedTheme, workspace]);
+  }, [language, placementWorkplane, projectName, resolvedTheme, themePreference, workspace]);
 
   useEffect(() => {
     setSelectionHelpersVisible(threeRef.current, !workplaneMode && activeTransformKind !== "rotate");
@@ -4178,6 +4183,7 @@ export function WorkplaneViewport({
     }
 
     const state = createThreeScene(host);
+    state.palette = themePaletteRef.current;
     threeRef.current = state;
     rebuildWorkplane(state, workspaceRef.current, resolvedThemeRef.current, placementWorkplaneRef.current, projectNameRef.current);
     window.layerlingCaptureCanvas = () => {
@@ -7579,7 +7585,7 @@ function rebuildWorkplane(
     return;
   }
 
-  const palette = workplaneThemePalette(theme, workspace.background, workspace.gridColor);
+  const palette = workplaneThemePalette(theme, workspace.background, workspace.gridColor, state.palette);
   disposeChildren(state.workplaneLayer);
   state.scene.background = new THREE.Color(palette.sceneBackground);
   state.renderer.shadowMap.enabled = workspace.showShadows;
@@ -7617,8 +7623,9 @@ function rebuildWorkplane(
         workspace.gridBlockSize,
         theme,
         lineColor,
+        state.palette,
       ));
-      const labelPalette = workplaneGridPalette(theme, lineColor).major;
+      const labelPalette = workplaneGridPalette(theme, lineColor, state.palette).major;
       const label = createWorkplaneLabel(
         workspace.width,
         workspace.depth,
@@ -7835,9 +7842,10 @@ function createGridLines(
   blockSize = DEFAULT_WORKSPACE.gridBlockSize,
   theme: ResolvedAppTheme = "light",
   gridColor = DEFAULT_WORKSPACE.gridColor,
+  paletteName: AppThemePalette = "default",
 ) {
   const group = new THREE.Group();
-  const palette = workplaneThemePalette(theme, DEFAULT_WORKSPACE.background, gridColor).grid;
+  const palette = workplaneThemePalette(theme, DEFAULT_WORKSPACE.background, gridColor, paletteName).grid;
   const minor = new THREE.LineBasicMaterial({ ...palette.minor, transparent: true, depthWrite: false });
   const major = new THREE.LineBasicMaterial({ ...palette.major, transparent: true, depthWrite: false });
   const axis = new THREE.LineBasicMaterial({ ...palette.axis, transparent: true, depthWrite: false });

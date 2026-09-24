@@ -4,17 +4,29 @@ export const APP_THEME_OPTIONS = [
   { value: "system", label: "System" },
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
+  { value: "graphite", label: "Graphite" },
 ] as const;
 
 export type AppThemePreference = (typeof APP_THEME_OPTIONS)[number]["value"];
-export type ResolvedAppTheme = Exclude<AppThemePreference, "system">;
+/**
+ * Graphite is the dark theme with neutral grey surfaces instead of the warm
+ * brown ones. It resolves to "dark", so everything that only asks light or
+ * dark keeps working; the palette on top only swaps colours.
+ */
+export type ResolvedAppTheme = "light" | "dark";
+export type AppThemePalette = "default" | "graphite";
+
+export function appThemePalette(preference: AppThemePreference): AppThemePalette {
+  return preference === "graphite" ? "graphite" : "default";
+}
 
 export function normalizeAppThemePreference(value: unknown): AppThemePreference {
-  return value === "light" || value === "dark" || value === "system" ? value : "system";
+  return value === "light" || value === "dark" || value === "graphite" || value === "system" ? value : "system";
 }
 
 export function resolveAppTheme(preference: AppThemePreference, prefersDark: boolean): ResolvedAppTheme {
-  return preference === "system" ? (prefersDark ? "dark" : "light") : preference;
+  if (preference === "system") return prefersDark ? "dark" : "light";
+  return preference === "graphite" ? "dark" : preference;
 }
 
 export function readStoredAppTheme(storage: Pick<Storage, "getItem"> | null | undefined): AppThemePreference {
@@ -47,5 +59,27 @@ export function applyAppTheme(preference: AppThemePreference, prefersDark?: bool
   );
   const resolved = resolveAppTheme(preference, systemPrefersDark);
   document.documentElement.dataset.theme = resolved;
+  const palette = appThemePalette(preference);
+  if (palette === "default") delete document.documentElement.dataset.palette;
+  else document.documentElement.dataset.palette = palette;
   document.documentElement.style.colorScheme = resolved;
+  if (palette === "graphite") ensureGraphiteStylesheet();
+}
+
+export const GRAPHITE_STYLESHEET_ID = "layerling-graphite-theme";
+export const GRAPHITE_STYLESHEET_HREF = "assets/theme/graphite-theme.css";
+
+/**
+ * Graphite's colours live in a generated stylesheet that is only fetched once
+ * someone picks the theme. It goes last in <head> so it follows globals.css;
+ * its rules only match while data-palette="graphite" is set, so it can stay
+ * when the theme is switched away again.
+ */
+function ensureGraphiteStylesheet() {
+  if (document.getElementById(GRAPHITE_STYLESHEET_ID)) return;
+  const link = document.createElement("link");
+  link.id = GRAPHITE_STYLESHEET_ID;
+  link.rel = "stylesheet";
+  link.href = GRAPHITE_STYLESHEET_HREF;
+  document.head.appendChild(link);
 }

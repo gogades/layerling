@@ -82,6 +82,7 @@ const THEME_LABEL_KEYS: Record<AppThemePreference, MessageKey> = {
   system: "workspace.themeSystem",
   light: "workspace.themeLight",
   dark: "workspace.themeDark",
+  graphite: "workspace.themeGraphite",
 };
 
 function gridBlockPresetLabel(preset: string) {

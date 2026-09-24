@@ -55,4 +55,18 @@ describe("workplane grid geometry", () => {
     expect(palette.minor.opacity).toBeLessThan(palette.major.opacity);
     expect(palette.major.opacity).toBeLessThan(palette.axis.opacity);
   });
+
+  it("draws the graphite canvas in neutral greys and keeps a custom grid colour", () => {
+    const graphite = workplaneThemePalette("dark", "#f8fbfc", undefined, "graphite");
+    const dark = workplaneThemePalette("dark", "#f8fbfc");
+    const neutral = (hex: string) => hex.slice(1, 3) === hex.slice(3, 5) && hex.slice(3, 5) === hex.slice(5, 7);
+    [graphite.sceneBackground, graphite.surface.color, graphite.grid.minor.color, graphite.grid.major.color, graphite.grid.axis.color, graphite.grid.border.color]
+      .forEach((color) => expect(neutral(color)).toBe(true));
+    expect(graphite.grid.minor.color).not.toBe(dark.grid.minor.color);
+    expect(graphite.grid.minor.opacity).toBeLessThan(graphite.grid.major.opacity);
+    expect(graphite.grid.major.opacity).toBeLessThan(graphite.grid.axis.opacity);
+    expect(workplaneGridPalette("dark", "#c23b72", "graphite").minor.color).toBe("#c23b72");
+    // Light mode ignores the palette.
+    expect(workplaneThemePalette("light", "#f8fbfc", undefined, "graphite")).toEqual(workplaneThemePalette("light", "#f8fbfc"));
+  });
 });
