@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.17.2
+
+- **Graphite theme:** A fourth theme option next to System, Light, and Dark — the dark theme with neutral grey surfaces, text, and workplane grid instead of the brown/beige ones. Orange accents are unchanged. The palette is generated from the same colour declarations as the other themes, so it always stays in sync, and its stylesheet is only loaded once Graphite is actually selected. Contributed by @plazmabokor.
+
 ## 1.17.1
 
 - **MCP server:** JSON-RPC notifications (e.g. `notifications/cancelled`) no longer receive an invalid error reply.
