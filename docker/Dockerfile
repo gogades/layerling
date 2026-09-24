@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
 WORKDIR /app
 
 FROM base AS deps
@@ -15,11 +15,11 @@ RUN npm run build
 
 FROM base AS runner
 ENV NODE_ENV=production
-ENV PORT=4000
+ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-RUN groupadd --system --gid 1001 nodejs \
-  && useradd --system --uid 1001 --gid nodejs nextjs
+RUN groupadd --system --gid 999 nodejs \
+  && useradd --system --uid 999 --gid nodejs nextjs
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force

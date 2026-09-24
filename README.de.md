@@ -140,38 +140,6 @@ cd layerling
 Kein Git? Auf der GitHub-Seite den grünen Knopf **Code** drücken, **Download ZIP** wählen, entpacken und im entpackten
 Ordner ein Terminal öffnen.
 
-### Docker
-
-Wer layerling ohne Node.js auf dem Rechner betreiben will, nutzt [`Dockerfile`](Dockerfile) und [`compose.yaml`](compose.yaml). Die App lauscht auf Port **4000** (nicht 3000 wie bei `npm run dev`).
-
-Voraussetzung ist [Docker](https://docs.docker.com/get-docker/) mit Compose (`docker compose` oder das eigenständige Kommando `docker-compose`).
-
-Im Projektordner:
-
-```bash
-docker compose up --build
-```
-
-Mit dem älteren Compose-Binary:
-
-```bash
-docker-compose up --build
-```
-
-Öffnen:
-
-```text
-http://127.0.0.1:4000/
-```
-
-Mit `Strg+C` im Terminal stoppt der Container. Im Hintergrund startest du mit `-d` bei `up`; beenden mit `docker compose down` (bzw. `docker-compose down`).
-
-Nach einem Update per `git pull` das Image neu bauen: `docker compose up --build` (bzw. `docker-compose up --build`).
-
-Das Image startet `next start` im Produktionsmodus – zum Selbsthosten im Browser, nicht als Ersatz für `npm run dev` beim Entwickeln oder für den [layerling-MCP-Skill](#layerling-mcp-skill) (MCP ist in Produktions-Builds abgeschaltet).
-
-Für einen gemeinsamen Projektordner im Netz ein beschreibbares Verzeichnis einbinden und in `compose.yaml` `LAYERLING_SHARED_PROJECTS_DIR` setzen (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
-
 ## An layerling arbeiten
 
 Diesen Weg nimmst du, wenn du den Quelltext ändern willst.
@@ -273,6 +241,38 @@ Die lokale MCP-Brücke für die Editor-Automatisierung starten:
 ```bash
 npm run mcp:layerling
 ```
+
+### Docker
+
+Wer layerling ohne Node.js auf dem Rechner betreiben will, nutzt [`Dockerfile`](docker/Dockerfile) und [`compose.yaml`](docker/compose.yaml). Die App lauscht auf Port **3000**.
+
+Voraussetzung ist [Docker](https://docs.docker.com/get-docker/) mit Compose (`docker compose` oder das eigenständige Kommando `docker-compose`).
+
+Im Projektordner:
+
+```bash
+docker compose -f docker/compose.yml up --build
+```
+
+Mit dem älteren Compose-Binary:
+
+```bash
+docker-compose -f docker/compose.yml up --build
+```
+
+Öffnen:
+
+```text
+http://127.0.0.1:3000/
+```
+
+Mit `Strg+C` im Terminal stoppt der Container. Im Hintergrund startest du mit `-d` bei `up`; beenden mit `docker compose -f docker/compose.yml down` (bzw. `docker-compose -f docker/compose.yml down`).
+
+Nach einem Update per `git pull` das Image neu bauen: `docker compose -f docker/compose.yml up --build` (bzw. `docker-compose -f docker/compose.yml up --build`).
+
+Das Image startet `next start` im Produktionsmodus – zum Selbsthosten im Browser, nicht als Ersatz für `npm run dev` beim Entwickeln oder für den [layerling-MCP-Skill](#layerling-mcp-skill) (MCP ist in Produktions-Builds abgeschaltet).
+
+Für einen gemeinsamen Projektordner im Netz ein beschreibbares Verzeichnis einbinden und in `compose.yaml` `LAYERLING_SHARED_PROJECTS_DIR` setzen (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
 
 ## Mitmachen
 
