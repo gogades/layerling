@@ -323,6 +323,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "shortcuts.hole": "Auswahl zur Aussparung machen",
   "shortcuts.solid": "Auswahl wieder zum Körper machen",
   "shortcuts.mirror": "Spiegelmodus",
+  "shortcuts.split": "Auswahl schneiden / teilen",
   "shortcuts.note": "Notiz setzen",
   "shortcuts.dropToWorkplane": "Auswahl auf die Arbeitsebene absetzen",
   "shortcuts.nudge": "Um einen Rasterschritt bewegen",

@@ -10388,6 +10388,12 @@ export function LayerlingEditor({
       const key = event.key.toLowerCase();
       const shortcut = event.ctrlKey || event.metaKey;
 
+      if (!shortcut && !event.altKey && key === "c" && hasSelection) {
+        event.preventDefault();
+        toggleSplitMode();
+        return;
+      }
+
       if (splitSession) {
         return;
       }
@@ -10590,6 +10596,7 @@ export function LayerlingEditor({
     showHidden,
     toggleHidden,
     toggleMirrorMode,
+    toggleSplitMode,
     toggleLocked,
     toggleSelectedSketchImageLock,
     toolbarMode,
