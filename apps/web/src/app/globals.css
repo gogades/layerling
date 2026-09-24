@@ -407,6 +407,9 @@ input:where([type='button'], [type='reset'], [type='submit']),
   --editor-toolbar-tools-height: 76px;
   --editor-footer-height: 30px;
 
+--hover-accent-color: #dc3f36;
+--hover-accent-border-color: #ffffff;
+
   /* Filament palette: the eight spool colours the whole interface draws from.
      Object colours in the scene and the tool group keys come from this one set. */
   --filament-coral: #ff5a47;
@@ -5098,11 +5101,11 @@ button {
   inset: 0;
   z-index: 1;
   touch-action: none;
-  cursor: grab;
+  cursor: default;
 }
 
 .three-workplane-host:active {
-  cursor: grabbing;
+  cursor: default;
 }
 
 .workplane-wrap.placing-workplane .three-workplane-host,
@@ -5185,7 +5188,6 @@ button {
 
 .move-dimension-overlay.active .move-dimension-value {
   pointer-events: none;
-  cursor: default;
 }
 
 .move-dimension-input {
@@ -5199,10 +5201,14 @@ button {
   pointer-events: none;
 }
 
-.origin-dimension-value {
+.dimension-label.origin-dimension-value {
   pointer-events: none;
   cursor: default;
   opacity: 0.92;
+  background: rgba(236, 248, 253, 0.94);
+  border: 1px solid rgba(110, 196, 232, 0.75);
+  color: #2b88b0;
+  box-shadow: 0 1px 4px rgba(40, 110, 150, 0.12);
 }
 
 /* --- Notizen ---------------------------------------------------------------
@@ -5396,14 +5402,14 @@ button {
 }
 
 .tape-overlay.delete-mode .tape-segment-group:hover .tape-segment {
-  stroke: #dc3f36;
+  stroke: var(--hover-accent-color);
   stroke-width: 3;
   filter: drop-shadow(0 0 2px rgba(220, 63, 54, 0.3));
 }
 
 .tape-overlay.delete-mode .tape-point:hover {
   fill: #fff0ee;
-  stroke: #dc3f36;
+  stroke: var(--hover-accent-color);
   filter: drop-shadow(0 0 3px rgba(220, 63, 54, 0.36));
 }
 
@@ -5713,6 +5719,10 @@ button {
   pointer-events: none;
 }
 
+.transform-overlay :is(.transform-handle, .rotate-handle, .rotation-protractor-plane, .rotation-edit) {
+  cursor: inherit;
+}
+
 .transform-guides {
   position: absolute;
   inset: 0;
@@ -5862,9 +5872,10 @@ button {
   position: absolute;
   left: 0;
   top: 0;
-  /* Same layer as .transform-handle: both must stay clickable above the
-     rotate handle, whose hit area is larger than its glyph. */
-  z-index: 5;
+  /* Dimension labels and inputs must always be at the top, above the transform
+     handles. Both must also stay clickable above the rotate handle, whose
+     hit area is larger than its glyph. */
+  z-index: 10;
   min-width: 43px;
   padding: 5px 7px;
   border-radius: 3px;
@@ -5886,7 +5897,7 @@ button {
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 9;
+  z-index: 10;
   width: 64px;
   padding: 4px 6px;
   border-radius: 3px;
@@ -5975,7 +5986,6 @@ button {
   height: 6px;
   padding: 0;
   pointer-events: auto;
-  cursor: nwse-resize;
   transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%);
   will-change: transform;
 }
@@ -5992,22 +6002,21 @@ button {
 .transform-handle.height-top,
 .transform-handle.height-mid,
 .transform-handle.height-lift {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   background: #f5f2ec;
 }
 
 .transform-handle.edge,
 .transform-handle.dark {
-  width: 6px;
-  height: 6px;
+  width: 9px;
+  height: 9px;
   background: #433629;
 }
 
-.transform-handle.height-top,
-.transform-handle.height-mid,
-.transform-handle.height-lift {
-  cursor: ns-resize;
+.transform-handle:not(.height-lift):hover {
+    background: var(--hover-accent-color);
+    border-color: var(--hover-accent-border-color);
 }
 
 .transform-handle.height-lift {
@@ -6026,6 +6035,15 @@ button {
   border-top: 13px solid #433629;
 }
 
+.transform-handle.height-lift:hover {
+  border-bottom-color: var(--hover-accent-color);
+}
+
+.transform-handle.height-lift.lower:hover {
+  border-bottom-color: transparent;
+  border-top-color: var(--hover-accent-color);
+}
+
 .rotate-handle {
   z-index: 3;
   /* Was 52px around a 26px glyph, so half the grab area was invisible and
@@ -6037,13 +6055,12 @@ button {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  cursor: grab;
   opacity: 1;
   transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%);
 }
 
 .rotate-handle:hover {
-  color: rgba(70, 59, 47, 0.86);
+  color: var(--hover-accent-color);
 }
 
 .rotate-handle-icon,
@@ -8312,6 +8329,13 @@ html[data-theme="dark"] .move-dimension-projection {
   stroke: rgba(242, 231, 220, 0.38);
 }
 
+html[data-theme="dark"] .dimension-label.origin-dimension-value {
+  background: rgba(16, 36, 48, 0.92);
+  border: 1px solid rgba(143, 212, 240, 0.5);
+  color: #8fd4f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
 html[data-theme="dark"] body,
 html[data-theme="dark"] .dashboard-shell,
 html[data-theme="dark"] .layerling-editor,
@@ -8937,9 +8961,29 @@ html[data-theme="dark"] .transform-guides #dimension-arrow path {
   fill: rgba(244, 233, 222, 0.94);
 }
 
-html[data-theme="dark"] .rotate-handle,
-html[data-theme="dark"] .rotate-handle:hover {
+html[data-theme="dark"] .rotate-handle {
   color: #ffffff;
+}
+
+html[data-theme="dark"] .rotate-handle:hover {
+  color: var(--hover-accent-color);
+}
+
+html[data-theme="dark"] .transform-handle.height-lift {
+  border-bottom-color: #ffffff;
+}
+
+html[data-theme="dark"] .transform-handle.height-lift.lower {
+  border-top-color: #ffffff;
+}
+
+html[data-theme="dark"] .transform-handle.height-lift:hover {
+  border-bottom-color: var(--hover-accent-color);
+}
+
+html[data-theme="dark"] .transform-handle.height-lift.lower:hover {
+  border-bottom-color: transparent;
+  border-top-color: var(--hover-accent-color);
 }
 
 html[data-theme="dark"] .inspector-snap-dock {

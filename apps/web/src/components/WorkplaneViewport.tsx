@@ -109,6 +109,8 @@ const MAX_GRID_BLOCK_SIZE = 200;
 const WORKSPACE_DEFAULTS_STORAGE_PREFIX = "layerling.workspaceDefault.";
 const MOVE_DIMENSIONS_ENABLED_STORAGE_KEY = "layerling.editor.moveDimensionsEnabled";
 const ORIGIN_DIMENSIONS_ENABLED_STORAGE_KEY = "layerling.editor.originDimensionsEnabled";
+/** Light-blue chrome for origin-distance lines, matching `.origin-dimension-value`. */
+const ORIGIN_DIMENSION_LINE_COLOR = { light: "#6ec4e8", dark: "#8fd4f0" } as const;
 /** Kreuzbreite und Vorgabe-Armlaengen des Winkellineal-Werkzeugs - kein Formen-Katalog-Eintrag mehr, siehe layerling-lineal.md. */
 const CORNER_RULER_ARM_WIDTH = 12;
 const CORNER_RULER_DEFAULT_ARM_X = 100;
@@ -121,6 +123,8 @@ const MIN_SHAPE_SIZE = 0.01;
 const CUT_PREVIEW_PADDING = 0.01;
 const MIN_ELEVATION = -180;
 const MAX_ELEVATION = 220;
+/** World-space offset from the height handle to the lift handle, as a fraction of selection height. */
+const LIFT_HANDLE_HEIGHT_OFFSET_FRACTION = 0.30;
 const CAMERA_MIN_TARGET_Y = -70;
 const CAMERA_MAX_TARGET_Y = 120;
 const ROTATION_PROTRACTOR_OUTER_RADIUS = 94;
@@ -2452,7 +2456,7 @@ function syncOriginDimensionWorldLines(state: ThreeState, frame: OriginDimension
   }
 
   const origin = frame.origin;
-  const solidColor = theme === "dark" ? "#f1f8fc" : "#111a21";
+  const solidColor = ORIGIN_DIMENSION_LINE_COLOR[theme];
   const solidPoints: number[] = [];
 
   const addSegment = (points: number[], start: THREE.Vector3, end: THREE.Vector3) => {
@@ -4731,7 +4735,7 @@ export function WorkplaneViewport({
       const state = threeRef.current;
       const yBounds = selectionWorldYBounds(frame);
       const handlesLowerSide = handleKey === "bottom-height" || handleKey === "lower-shape";
-      const liftOffset = kind === "lift" ? Math.max(2, frame.height * 0.08) * (handlesLowerSide ? -1 : 1) : 0;
+      const liftOffset = kind === "lift" ? Math.max(2, frame.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION) * (handlesLowerSide ? -1 : 1) : 0;
       const overlay = transformOverlayRef.current;
       const wheel = kind === "rotate" ? (overlay?.rotationWheels[rotationAxis] ?? overlay?.rotationWheel ?? undefined) : undefined;
       const rotationPlane = kind === "rotate" ? overlay?.rotationPlanes[rotationAxis] : undefined;
@@ -5954,7 +5958,7 @@ export function WorkplaneViewport({
         }
         const yBounds = selectionWorldYBounds(frame);
         const handlesLowerSide = handle.handleKey === "bottom-height" || handle.handleKey === "lower-shape";
-        const liftOffset = handle.kind === "lift" ? Math.max(2, frame.height * 0.08) * (handlesLowerSide ? -1 : 1) : 0;
+        const liftOffset = handle.kind === "lift" ? Math.max(2, frame.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION) * (handlesLowerSide ? -1 : 1) : 0;
         const overlay = transformOverlayRef.current;
         const rotationAxis = rotationAxisForHandle(handle.handleKey);
         const resizeHandleKey = handle.handleKey;
@@ -8603,7 +8607,7 @@ function syncTransformOverlay(
   ], theme);
   const lowerCenterWorld = framePoint(frame, 0, frame.min.y, 0);
   const upperCenterWorld = framePoint(frame, 0, frame.max.y, 0);
-  const liftOffset = Math.max(2, frame.height * 0.08);
+  const liftOffset = Math.max(2, frame.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION);
   const liftHandle = (showLowerHandles ? lowerCenterWorld : upperCenterWorld)
     .clone()
     .addScaledVector(yFootAxis, showLowerHandles ? -liftOffset : liftOffset);
