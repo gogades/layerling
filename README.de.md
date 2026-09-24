@@ -130,6 +130,48 @@ npm run dev
 
 und dann selbst `http://127.0.0.1:3000/` öffnen. `Strg+C` in diesem Fenster beendet layerling so oder so wieder.
 
+### Docker
+
+Wer layerling ohne Node.js auf dem Rechner, NAS (Synology, Unraid etc.) oder Server betreiben will, kann das offizielle Docker-Setup mit [`Dockerfile`](docker/Dockerfile) und [`compose.yml`](docker/compose.yml) nutzen. Die App lauscht auf Port **3000**.
+
+#### 1. Voraussetzung
+* **Windows / macOS:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) installieren und starten.
+* **Linux / NAS:** Docker und Compose (`docker compose` oder `docker-compose`).
+
+#### 2. Herunterladen
+* Entweder das Repository als ZIP herunterladen ([Code -> Download ZIP](https://github.com/henmedia/layerling/archive/refs/heads/main.zip)) und entpacken,
+* oder per Git klonen:
+  ```bash
+  git clone https://github.com/henmedia/layerling.git
+  cd layerling
+  ```
+
+#### 3. Starten
+Im Projektordner im Terminal (z. B. PowerShell unter Windows):
+
+```bash
+docker compose -f docker/compose.yml up -d --build
+```
+*(Mit älterem Compose-Binary: `docker-compose -f docker/compose.yml up -d --build`)*
+
+Docker baut das Image und startet den Container im Hintergrund (`-d`). Beim ersten Mal dauert der Build 2–3 Minuten.
+
+#### 4. Im Browser öffnen
+* Auf demselben Rechner: **`http://localhost:3000/`** (oder `http://127.0.0.1:3000/`)
+* Von anderen Geräten im Heimnetz: **`http://<IP-DEINES-SERVERS>:3000/`**
+
+Alle 3D-Berechnungen und Entwürfe laufen wie gewohnt zu 100 % lokal im Browser.
+
+#### Befehle im Alltag
+* **Stoppen:** `docker compose -f docker/compose.yml down`
+* **Wieder starten:** `docker compose -f docker/compose.yml up -d`
+* **Aktualisieren (nach neuem Stand per `git pull` oder neuem ZIP):**
+  ```bash
+  docker compose -f docker/compose.yml up -d --build
+  ```
+
+*Hinweis:* Das Image führt `next start` im Produktionsmodus aus (ohne MCP-Brücke). Für einen gemeinsamen Projektordner im Netz ein beschreibbares Verzeichnis einbinden und in `compose.yml` `LAYERLING_SHARED_PROJECTS_DIR` setzen (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
+
 ### Dateien holen
 
 ```bash
@@ -241,48 +283,6 @@ Die lokale MCP-Brücke für die Editor-Automatisierung starten:
 ```bash
 npm run mcp:layerling
 ```
-
-### Docker
-
-Wer layerling ohne Node.js auf dem Rechner, NAS (Synology, Unraid etc.) oder Server betreiben will, kann das offizielle Docker-Setup mit [`Dockerfile`](docker/Dockerfile) und [`compose.yml`](docker/compose.yml) nutzen. Die App lauscht auf Port **3000**.
-
-#### 1. Voraussetzung
-* **Windows / macOS:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) installieren und starten.
-* **Linux / NAS:** Docker und Compose (`docker compose` oder `docker-compose`).
-
-#### 2. Herunterladen
-* Entweder das Repository als ZIP herunterladen ([Code -> Download ZIP](https://github.com/henmedia/layerling/archive/refs/heads/main.zip)) und entpacken,
-* oder per Git klonen:
-  ```bash
-  git clone https://github.com/henmedia/layerling.git
-  cd layerling
-  ```
-
-#### 3. Starten
-Im Projektordner im Terminal (z. B. PowerShell unter Windows):
-
-```bash
-docker compose -f docker/compose.yml up -d --build
-```
-*(Mit älterem Compose-Binary: `docker-compose -f docker/compose.yml up -d --build`)*
-
-Docker baut das Image und startet den Container im Hintergrund (`-d`). Beim ersten Mal dauert der Build 2–3 Minuten.
-
-#### 4. Im Browser öffnen
-* Auf demselben Rechner: **`http://localhost:3000/`** (oder `http://127.0.0.1:3000/`)
-* Von anderen Geräten im Heimnetz: **`http://<IP-DEINES-SERVERS>:3000/`**
-
-Alle 3D-Berechnungen und Entwürfe laufen wie gewohnt zu 100 % lokal im Browser.
-
-#### Befehle im Alltag
-* **Stoppen:** `docker compose -f docker/compose.yml down`
-* **Wieder starten:** `docker compose -f docker/compose.yml up -d`
-* **Aktualisieren (nach neuem Stand per `git pull` oder neuem ZIP):**
-  ```bash
-  docker compose -f docker/compose.yml up -d --build
-  ```
-
-*Hinweis:* Das Image führt `next start` im Produktionsmodus aus (ohne MCP-Brücke). Für einen gemeinsamen Projektordner im Netz ein beschreibbares Verzeichnis einbinden und in `compose.yml` `LAYERLING_SHARED_PROJECTS_DIR` setzen (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
 
 ## Mitmachen
 

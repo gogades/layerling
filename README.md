@@ -127,6 +127,48 @@ npm run dev
 
 then open `http://127.0.0.1:3000/` yourself. `Ctrl+C` in that window stops it either way.
 
+### Docker
+
+To run layerling without installing Node.js on your computer, NAS (Synology, Unraid, etc.), or home server, use the included [`Dockerfile`](docker/Dockerfile) and [`compose.yml`](docker/compose.yml). The app listens on port **3000**.
+
+#### 1. Prerequisites
+* **Windows / macOS:** Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+* **Linux / NAS:** Docker and Compose (`docker compose` or standalone `docker-compose`).
+
+#### 2. Download
+* Either download the repository as a ZIP ([Code -> Download ZIP](https://github.com/henmedia/layerling/archive/refs/heads/main.zip)) and extract it,
+* or clone it using Git:
+  ```bash
+  git clone https://github.com/henmedia/layerling.git
+  cd layerling
+  ```
+
+#### 3. Start
+In the project directory, open your terminal (e.g. PowerShell on Windows) and run:
+
+```bash
+docker compose -f docker/compose.yml up -d --build
+```
+*(With the older standalone binary: `docker-compose -f docker/compose.yml up -d --build`)*
+
+Docker will build the image and run the container in the background (`-d`). The initial build takes about 2–3 minutes.
+
+#### 4. Open in Browser
+* On the same computer: **`http://localhost:3000/`** (or `http://127.0.0.1:3000/`)
+* From other devices on your local network: **`http://<YOUR-SERVER-IP>:3000/`**
+
+All CAD operations and project data remain 100% local to your browser.
+
+#### Common Commands
+* **Stop:** `docker compose -f docker/compose.yml down`
+* **Restart:** `docker compose -f docker/compose.yml up -d`
+* **Update (after pulling new code or extracting a new ZIP):**
+  ```bash
+  docker compose -f docker/compose.yml up -d --build
+  ```
+
+*Note:* This image runs `next start` in production mode (MCP bridge is disabled in production builds). To mount a shared network project folder, bind a writable directory and configure `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` (see [Shared Designs on a Network](#shared-designs-on-a-network)).
+
 ### Get the Files
 
 ```bash
@@ -235,48 +277,6 @@ Start the local layerling MCP bridge for editor automation:
 ```bash
 npm run mcp:layerling
 ```
-
-### Docker
-
-To run layerling without installing Node.js on your computer, NAS (Synology, Unraid, etc.), or home server, use the included [`Dockerfile`](docker/Dockerfile) and [`compose.yml`](docker/compose.yml). The app listens on port **3000**.
-
-#### 1. Prerequisites
-* **Windows / macOS:** Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/).
-* **Linux / NAS:** Docker and Compose (`docker compose` or standalone `docker-compose`).
-
-#### 2. Download
-* Either download the repository as a ZIP ([Code -> Download ZIP](https://github.com/henmedia/layerling/archive/refs/heads/main.zip)) and extract it,
-* or clone it using Git:
-  ```bash
-  git clone https://github.com/henmedia/layerling.git
-  cd layerling
-  ```
-
-#### 3. Start
-In the project directory, open your terminal (e.g. PowerShell on Windows) and run:
-
-```bash
-docker compose -f docker/compose.yml up -d --build
-```
-*(With the older standalone binary: `docker-compose -f docker/compose.yml up -d --build`)*
-
-Docker will build the image and run the container in the background (`-d`). The initial build takes about 2–3 minutes.
-
-#### 4. Open in Browser
-* On the same computer: **`http://localhost:3000/`** (or `http://127.0.0.1:3000/`)
-* From other devices on your local network: **`http://<YOUR-SERVER-IP>:3000/`**
-
-All CAD operations and project data remain 100% local to your browser.
-
-#### Common Commands
-* **Stop:** `docker compose -f docker/compose.yml down`
-* **Restart:** `docker compose -f docker/compose.yml up -d`
-* **Update (after pulling new code or extracting a new ZIP):**
-  ```bash
-  docker compose -f docker/compose.yml up -d --build
-  ```
-
-*Note:* This image runs `next start` in production mode (MCP bridge is disabled in production builds). To mount a shared network project folder, bind a writable directory and configure `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` (see [Shared Designs on a Network](#shared-designs-on-a-network)).
 
 ## Contributing
 
