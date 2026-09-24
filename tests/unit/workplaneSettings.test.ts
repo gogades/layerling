@@ -62,6 +62,10 @@ describe("workplane settings helpers", () => {
     expect(normalizeWorkspaceSettings({ historyLimit: 9000 }).historyLimit).toBe(5000);
     expect(normalizeWorkspaceSettings({ historyLimit: "invalid" }).historyLimit).toBe(100);
     expect(normalizeWorkspaceSettings({ gridColor: "not-a-color" }).gridColor).toBe(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
+    expect(DEFAULT_WORKPLANE_WORKSPACE.dimensionsAlwaysVisible).toBe(true);
+    expect(normalizeWorkspaceSettings({}).dimensionsAlwaysVisible).toBe(true);
+    expect(normalizeWorkspaceSettings({ dimensionsAlwaysVisible: false }).dimensionsAlwaysVisible).toBe(false);
+    expect(normalizeWorkspaceSettings({ dimensionsAlwaysVisible: "yes" }).dimensionsAlwaysVisible).toBe(true);
   });
 
   it("keeps app limits until a shape receives an explicit customization", () => {

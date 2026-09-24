@@ -805,6 +805,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "workspace.showProjectName": "Entwurfsnamen in der Werkzeugleiste zeigen",
   "workspace.showMoveDimensions": "Maße beim Verschieben zeigen",
   "workspace.showOriginDimensions": "Abstände zum Nullpunkt zeigen",
+  "workspace.dimensionsAlwaysVisible": "Maße immer sichtbar",
   "workspace.selectBeforeMoving": "Erst auswählen, dann verschieben",
   "workspace.showShadows": "Schatten zeigen",
   "workspace.showGrid": "Gitter zeigen",

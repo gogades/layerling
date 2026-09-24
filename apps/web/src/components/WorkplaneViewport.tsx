@@ -3910,6 +3910,7 @@ export function WorkplaneViewport({
         false,
         placementWorkplaneRef.current,
         resolvedThemeRef.current,
+        workspaceRef.current.dimensionsAlwaysVisible,
       );
       syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
       syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
@@ -3980,6 +3981,7 @@ export function WorkplaneViewport({
         false,
         placementWorkplaneRef.current,
         resolvedThemeRef.current,
+        workspaceRef.current.dimensionsAlwaysVisible,
       );
       syncAlignOverlay(threeRef.current, alignReferenceShapesRef.current, selectedIds, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
       syncMirrorOverlay(threeRef.current, mirrorReferenceShapesRef.current, selectedIds, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
@@ -4107,6 +4109,7 @@ export function WorkplaneViewport({
         false,
         placementWorkplaneRef.current,
         resolvedThemeRef.current,
+        workspaceRef.current.dimensionsAlwaysVisible,
       );
     }
     setSelectionHelpersVisible(state, !workplaneMode && transformRef.current?.kind !== "rotate");
@@ -4152,6 +4155,7 @@ export function WorkplaneViewport({
         false,
         placementWorkplaneRef.current,
         resolvedThemeRef.current,
+        workspace.dimensionsAlwaysVisible,
       );
       syncTapeOverlay(threeRef.current, tapeModelRef.current, tapeOverlayRef, setTapeOverlay, workspace.accuracy);
       syncRulerDimensionOverlay(threeRef.current, shapesRef.current, rulerDimensionOverlayRef, setRulerDimensionOverlay, workspace.accuracy);
@@ -4232,6 +4236,7 @@ export function WorkplaneViewport({
           false,
           placementWorkplaneRef.current,
           resolvedThemeRef.current,
+          workspaceRef.current.dimensionsAlwaysVisible,
         );
         syncAlignOverlay(state, alignReferenceShapesRef.current, selectedIdsRef.current, alignModeRef.current, alignAnchorIdRef.current, alignHandlesRef.current, alignOverlayRef, setAlignOverlay);
         syncMirrorOverlay(state, mirrorReferenceShapesRef.current, selectedIdsRef.current, mirrorModeRef.current, mirrorOverlayRef, setMirrorOverlay);
@@ -6315,6 +6320,7 @@ export function WorkplaneViewport({
           true,
           placementWorkplaneRef.current,
           resolvedThemeRef.current,
+          workspaceRef.current.dimensionsAlwaysVisible,
         );
         syncCutPreviewOverlays(threeRef.current, previewShapes);
         syncMoveDimensionOverlay(
@@ -8521,6 +8527,7 @@ function syncTransformOverlay(
   updateDomImmediately = false,
   workplane: PlacementWorkplane = horizontalPlacementWorkplane(),
   theme: ResolvedAppTheme = "light",
+  dimensionsAlwaysVisible = true,
 ) {
   if (selectedIds.length < 1) {
     syncTransformGuideWorldLines(state, null, theme);
@@ -8815,13 +8822,12 @@ function syncTransformOverlay(
   ].filter((handle): handle is NonNullable<typeof handle> => Boolean(handle)) : [];
 
   // Which mid-edge handle sits on the side of the shape currently facing the
-  // camera - same sign convention as showLowerHandles above, so the always-on
-  // dimension labels for a lone selection land on a readable, visible face
-  // instead of potentially behind the shape.
+  // camera - same sign convention as showLowerHandles above, so always-visible
+  // dimension labels for a lone selection land on a readable, visible face.
   const cameraView = state.camera.position.clone().sub(frame.center);
   const widthMidHandleKey = cameraView.dot(xFootAxis) >= 0 ? "right-mid" : "left-mid";
   const depthMidHandleKey = cameraView.dot(zFootAxis) >= 0 ? "near-mid" : "far-mid";
-  const alwaysVisibleDimensionKeys = frame.singleShape
+  const alwaysVisibleDimensionKeys = dimensionsAlwaysVisible && frame.singleShape
     ? isCircularFootprint
       ? [widthMidHandleKey, heightHandleKey]
       : [widthMidHandleKey, depthMidHandleKey, heightHandleKey]

@@ -63,9 +63,9 @@ export function TransformOverlay({
   onCommitRotationEdit,
   onCancelRotationEdit,
 }: TransformOverlayProps) {
-  // With no handle hovered or pinned, a lone selection still shows its width,
-  // depth and height (diameter and height for a cylinder) so they can be read
-  // and edited without hovering first - see alwaysVisibleDimensionKeys.
+  // With no handle hovered or pinned, a lone selection shows the marks listed
+  // in alwaysVisibleDimensionKeys. That list is filled when "Dimensions always
+  // visible" is on, so the marks appear as soon as the shape is selected.
   const marks = measureKey
     ? (box.dimensions[measureKey] ?? [])
     : box.alwaysVisibleDimensionKeys.flatMap((key) => box.dimensions[key] ?? []);
