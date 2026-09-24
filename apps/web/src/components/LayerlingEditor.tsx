@@ -10272,6 +10272,9 @@ export function LayerlingEditor({
       } else if (key === "m") {
         event.preventDefault();
         toggleMirrorMode();
+      } else if (key === "l") {
+        event.preventDefault();
+        toggleAlignMode();
       } else if (key === "n") {
         event.preventDefault();
         toggleNoteTool();
@@ -10306,6 +10309,7 @@ export function LayerlingEditor({
     sketchUndo,
     setSelectionHoleMode,
     showHidden,
+    toggleAlignMode,
     toggleHidden,
     toggleMirrorMode,
     toggleLocked,

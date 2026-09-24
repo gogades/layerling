@@ -322,6 +322,7 @@ export const MESSAGES_EN = {
   "shortcuts.hole": "Turn the selection into a hole",
   "shortcuts.solid": "Turn the selection back into a solid",
   "shortcuts.mirror": "Mirror mode",
+  "shortcuts.align": "Align mode",
   "shortcuts.note": "Place a note",
   "shortcuts.dropToWorkplane": "Drop the selection onto the workplane",
   "shortcuts.nudge": "Move by one grid step",
