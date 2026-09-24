@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.17.3
+
+- **Handles and cursor:** The cursor stays a pointer while using resize, lift, and rotate handles instead of constantly switching type. Handles now change colour on hover. Origin lines and labels get their own colour so they read apart from movement and dimension lines. Rotate and lift handle colours are tuned for the Dark and Graphite themes. Contributed by @gogades.
+
 ## 1.17.2
 
 - **Graphite theme:** A fourth theme option next to System, Light, and Dark — the dark theme with neutral grey surfaces, text, and workplane grid instead of the brown/beige ones. Orange accents are unchanged. The palette is generated from the same colour declarations as the other themes, so it always stays in sync, and its stylesheet is only loaded once Graphite is actually selected. Contributed by @plazmabokor.
