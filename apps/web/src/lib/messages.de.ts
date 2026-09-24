@@ -800,6 +800,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "workspace.showOriginDimensions": "Abstände zum Nullpunkt zeigen",
   "workspace.selectBeforeMoving": "Erst auswählen, dann verschieben",
   "workspace.showShadows": "Schatten zeigen",
+  "workspace.startOrthographicView": "Mit orthografischer Ansicht starten",
   "workspace.showGrid": "Gitter zeigen",
   "workspace.cruise": "Neue Formen im Flug platzieren",
   "workspace.zoomSpeed": "Zoomgeschwindigkeit",

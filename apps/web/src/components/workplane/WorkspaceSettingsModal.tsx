@@ -56,7 +56,7 @@ import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
-import { DEFAULT_WORKPLANE_WORKSPACE, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_CUSTOM_SHAPE_DIMENSION } from "@/lib/workplaneSettings";
+import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_CUSTOM_SHAPE_DIMENSION, normalizeSnapGrid, normalizeWorkspaceSettings, storedWorkspaceDefault } from "@/lib/workplaneSettings";
 import type { BentTubeProfile, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 
@@ -327,7 +327,7 @@ export function WorkspaceSettingsModal({
   onMoveDimensionsEnabledChange: (enabled: boolean) => void;
   onOriginDimensionsEnabledChange: (enabled: boolean) => void;
   onShowProjectNameInToolbarChange?: (show: boolean) => void;
-  onMakeDefault: () => void;
+  onMakeDefault: (saved: ReturnType<typeof storedWorkspaceDefault>) => void;
   onClose: () => void;
 }) {
   const [defaultSaved, setDefaultSaved] = useState(false);
@@ -560,6 +560,11 @@ export function WorkspaceSettingsModal({
                     onChange={(selectBeforeMove) => patchWorkspace({ selectBeforeMove })}
                   />
                   <WorkspaceToggle label={t("workspace.showShadows")} checked={workspace.showShadows} onChange={(showShadows) => patchWorkspace({ showShadows })} />
+                  <WorkspaceToggle
+                    label={t("workspace.startOrthographicView")}
+                    checked={workspace.startOrthographicView}
+                    onChange={(startOrthographicView) => patchWorkspace({ startOrthographicView })}
+                  />
                   <WorkspaceToggle
                     label={t("workspace.cruise")}
                     checked={workspace.cruiseShapes}
@@ -899,7 +904,10 @@ export function WorkspaceSettingsModal({
               <button
                 className="make-default-button"
                 onClick={() => {
-                  onMakeDefault();
+                  onMakeDefault(storedWorkspaceDefault(
+                    normalizeWorkspaceSettings(workspace),
+                    normalizeSnapGrid(snap, DEFAULT_SNAP_GRID),
+                  ));
                   setDefaultSaved(true);
                 }}
               >

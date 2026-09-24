@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits } from "@/lib/measurementUnits";
-import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
+import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, NEW_DESIGN_WORKSPACE_DEFAULT_KEY, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, readStoredWorkspaceDefault, shapeDimensionLimit, storedWorkspaceDefault, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, writeStoredWorkspaceDefault } from "@/lib/workplaneSettings";
 import { toolbarShapeAssets } from "@/lib/shapeCatalog";
 
 describe("workplane settings helpers", () => {
@@ -32,6 +32,7 @@ describe("workplane settings helpers", () => {
           background: "#123456",
           showShadows: false,
           showGrid: false,
+          startOrthographicView: true,
           cruiseShapes: false,
           selectBeforeMove: true,
           zoomSpeed: Infinity,
@@ -50,6 +51,7 @@ describe("workplane settings helpers", () => {
       background: "#123456",
       showShadows: false,
       showGrid: false,
+      startOrthographicView: true,
       cruiseShapes: false,
       selectBeforeMove: true,
       units: "Bricks",
@@ -180,6 +182,23 @@ describe("workplane settings helpers", () => {
     expect(kept?.springTurns).toBe(9);
     expect(kept?.springWire).toBe(2);
     expect(kept?.springQuality).toBe(96);
+  });
+
+  it("stores workspace defaults including the orthographic start preference", () => {
+    const storage = new Map<string, string>();
+    const browserStorage = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+    };
+    const saved = storedWorkspaceDefault(
+      { ...DEFAULT_WORKPLANE_WORKSPACE, startOrthographicView: true, width: 320 },
+      "2.0 mm",
+    );
+
+    writeStoredWorkspaceDefault(browserStorage, NEW_DESIGN_WORKSPACE_DEFAULT_KEY, saved);
+    expect(readStoredWorkspaceDefault(browserStorage, NEW_DESIGN_WORKSPACE_DEFAULT_KEY)).toEqual(saved);
   });
 
   it("blocks the previous project's workspace while a new project hydrates", () => {

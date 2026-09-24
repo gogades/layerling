@@ -67,7 +67,7 @@ import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import { roundSideCount } from "@/lib/roundSideCount";
 import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
-import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
+import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, NEW_DESIGN_WORKSPACE_DEFAULT_KEY, normalizeSnapGrid, normalizeWorkspaceSettings, readStoredWorkspaceDefault, shapeDimensionLimit, snapGridStep as snapStep, storedWorkspaceDefault, type StoredWorkspaceDefault, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, writeStoredWorkspaceDefault } from "@/lib/workplaneSettings";
 import { interiorWorkplaneGridCoordinates, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
@@ -106,7 +106,6 @@ const WORKPLANE_WIDTH = 200;
 const WORKPLANE_DEPTH = 140;
 const MIN_GRID_BLOCK_SIZE = 1;
 const MAX_GRID_BLOCK_SIZE = 200;
-const WORKSPACE_DEFAULTS_STORAGE_PREFIX = "layerling.workspaceDefault.";
 const MOVE_DIMENSIONS_ENABLED_STORAGE_KEY = "layerling.editor.moveDimensionsEnabled";
 const ORIGIN_DIMENSIONS_ENABLED_STORAGE_KEY = "layerling.editor.originDimensionsEnabled";
 /** Kreuzbreite und Vorgabe-Armlaengen des Winkellineal-Werkzeugs - kein Formen-Katalog-Eintrag mehr, siehe layerling-lineal.md. */
@@ -288,21 +287,7 @@ function readSavedWorkspaceDefault(key: string | null) {
   if (!key || typeof window === "undefined") {
     return null;
   }
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(`${WORKSPACE_DEFAULTS_STORAGE_PREFIX}${key}`) ?? "null") as {
-      workspace?: unknown;
-      snap?: unknown;
-    } | null;
-    if (!parsed) {
-      return null;
-    }
-    return {
-      workspace: normalizeWorkspaceSettings(parsed.workspace),
-      snap: normalizeSnapGrid(parsed.snap, DEFAULT_SNAP_GRID),
-    };
-  } catch {
-    return null;
-  }
+  return readStoredWorkspaceDefault(window.localStorage, key);
 }
 
 function readMoveDimensionsEnabled() {
@@ -3517,7 +3502,9 @@ export function WorkplaneViewport({
   const [tapeToolsOpen, setTapeToolsOpen] = useState(false);
   const [cameraControlsCollapsed, setCameraControlsCollapsed] = useState(false);
   const language = useLanguage();
-  const [orthographicView, setOrthographicView] = useState(false);
+  const [orthographicView, setOrthographicView] = useState(
+    () => normalizeWorkspaceSettings(initialWorkspace).startOrthographicView,
+  );
   const [tapeModel, setTapeModel] = useState<TapeModel>({ points: [], segments: [], startPointId: null, hover: null });
   const [tapeOverlay, setTapeOverlay] = useState<TapeOverlayState | null>(null);
   const [rulerDimensionOverlay, setRulerDimensionOverlay] = useState<RulerDimensionOverlayState | null>(null);
@@ -3870,22 +3857,24 @@ export function WorkplaneViewport({
     setSnap(value);
   }, []);
 
-  const makeWorkspaceDefault = useCallback(() => {
-    const normalizedWorkspace = normalizeWorkspaceSettings(workspace);
-    const normalizedSnap = normalizeSnapGrid(snap, DEFAULT_SNAP_GRID);
+  const makeWorkspaceDefault = useCallback((payload?: StoredWorkspaceDefault) => {
+    const saved = storedWorkspaceDefault(payload?.workspace ?? workspaceRef.current, payload?.snap ?? snap);
     const key = workspaceSettingsKeyRef.current;
-    if (key) {
+    if (typeof window !== "undefined") {
       try {
-        window.localStorage.setItem(
-          `${WORKSPACE_DEFAULTS_STORAGE_PREFIX}${key}`,
-          JSON.stringify({ workspace: normalizedWorkspace, snap: normalizedSnap }),
-        );
+        if (key) {
+          writeStoredWorkspaceDefault(window.localStorage, key, saved);
+        }
+        writeStoredWorkspaceDefault(window.localStorage, NEW_DESIGN_WORKSPACE_DEFAULT_KEY, saved);
       } catch {
         // Project persistence below is still attempted if browser storage is unavailable.
       }
     }
-    onWorkspaceSettingsChange?.({ workspace: normalizedWorkspace, snap: normalizedSnap });
-  }, [onWorkspaceSettingsChange, snap, workspace]);
+    setWorkspace(saved.workspace);
+    workspaceRef.current = saved.workspace;
+    setOrthographicView(saved.workspace.startOrthographicView);
+    onWorkspaceSettingsChange?.({ workspace: saved.workspace, snap: saved.snap });
+  }, [onWorkspaceSettingsChange, snap]);
 
   useEffect(() => {
     const openWorkspaceSettings = () => setSettingsOpen(true);
@@ -4312,6 +4301,20 @@ export function WorkplaneViewport({
       threeRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const state = threeRef.current;
+    if (!state) {
+      return;
+    }
+    const wantOrthographic = workspace.startOrthographicView;
+    const isOrthographic = state.camera instanceof THREE.OrthographicCamera;
+    if (wantOrthographic !== isOrthographic) {
+      setCameraProjection(state, wantOrthographic);
+      syncViewCube(state, viewCubeRef.current);
+    }
+    setOrthographicView(wantOrthographic);
+  }, [workspace.startOrthographicView]);
 
   useEffect(() => {
     const state = threeRef.current;
@@ -7455,6 +7458,14 @@ function updateOrthographicFrustum(camera: THREE.OrthographicCamera, aspect: num
   camera.top = halfHeight;
   camera.bottom = -halfHeight;
   camera.updateProjectionMatrix();
+}
+
+function setCameraProjection(state: ThreeState, orthographic: boolean) {
+  const isOrthographic = state.camera instanceof THREE.OrthographicCamera;
+  if (orthographic === isOrthographic) {
+    return;
+  }
+  toggleCameraProjection(state);
 }
 
 function toggleCameraProjection(state: ThreeState) {

@@ -26,7 +26,7 @@ import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceF
 import { hydrateProjectShapeState, reconcileLoadedProjectShapeCacheEntry, type ImportedMeshResource } from "@/lib/projectShapePersistence";
 import { exportLylProject, importLylProject, LYL_CREATED_WITH_VERSION, LYL_MEDIA_TYPE } from "@/lib/lylProject";
 import { importExtensionSupported } from "@/lib/importExtensions";
-import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
+import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, NEW_DESIGN_WORKSPACE_DEFAULT_KEY, normalizeSnapGrid, normalizeWorkspaceSettings, readStoredWorkspaceDefault, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import type { GridSize, ProjectAsset, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 type AppView = "dashboard" | "editor";
@@ -632,8 +632,20 @@ function mergeProjectsForStorage(projects: DashboardProject[]) {
   return projects.map((project) => projectForStorage(mergeProjectForStorage(project, storedById.get(project.id))));
 }
 
+function newProjectWorkspaceDefaults() {
+  if (typeof window === "undefined") {
+    return { workspace: DEFAULT_WORKPLANE_WORKSPACE, snapGrid: DEFAULT_SNAP_GRID };
+  }
+  const saved = readStoredWorkspaceDefault(window.localStorage, NEW_DESIGN_WORKSPACE_DEFAULT_KEY);
+  if (!saved) {
+    return { workspace: DEFAULT_WORKPLANE_WORKSPACE, snapGrid: DEFAULT_SNAP_GRID };
+  }
+  return { workspace: saved.workspace, snapGrid: saved.snap };
+}
+
 function newProject(name: string, index: number, shapeCount = 0): DashboardProject {
   const now = Date.now();
+  const { workspace, snapGrid } = newProjectWorkspaceDefaults();
   return {
     id: createLocalId("project"),
     name,
@@ -642,8 +654,8 @@ function newProject(name: string, index: number, shapeCount = 0): DashboardProje
     shapes: shapeCount,
     accent: PROJECT_ACCENTS[index % PROJECT_ACCENTS.length],
     revision: now,
-    workspace: DEFAULT_WORKPLANE_WORKSPACE,
-    snapGrid: DEFAULT_SNAP_GRID,
+    workspace,
+    snapGrid,
     placementElevation: 0,
     placementWorkplane: horizontalPlacementWorkplane(),
     sketchPlacementWorkplane: horizontalPlacementWorkplane(),

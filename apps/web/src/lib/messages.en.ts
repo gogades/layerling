@@ -801,6 +801,7 @@ export const MESSAGES_EN = {
   "workspace.showOriginDimensions": "Show origin distances",
   "workspace.selectBeforeMoving": "Select before moving",
   "workspace.showShadows": "Show shadows",
+  "workspace.startOrthographicView": "Start with Orthographic view",
   "workspace.showGrid": "Show grid",
   "workspace.cruise": "Cruise when adding new shapes",
   "workspace.zoomSpeed": "Zoom speed",

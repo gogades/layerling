@@ -143,6 +143,7 @@ export type WorkplaneWorkspaceSettings = {
   background: string;
   showShadows: boolean;
   showGrid: boolean;
+  startOrthographicView: boolean;
   cruiseShapes: boolean;
   selectBeforeMove: boolean;
   zoomSpeed: number;

@@ -23,6 +23,7 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   background: "#fbf8f0",
   showShadows: true,
   showGrid: true,
+  startOrthographicView: false,
   cruiseShapes: true,
   selectBeforeMove: false,
   zoomSpeed: 5,
@@ -287,6 +288,7 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     background: migratedLegacyColor(stringOrDefault(candidate.background, fallback.background), LEGACY_BACKGROUND, fallback.background),
     showShadows: booleanOrDefault(candidate.showShadows, fallback.showShadows),
     showGrid: booleanOrDefault(candidate.showGrid, fallback.showGrid),
+    startOrthographicView: booleanOrDefault(candidate.startOrthographicView, fallback.startOrthographicView),
     cruiseShapes: booleanOrDefault(candidate.cruiseShapes, fallback.cruiseShapes),
     selectBeforeMove: booleanOrDefault(candidate.selectBeforeMove, fallback.selectBeforeMove),
     zoomSpeed: numberOrDefault(candidate.zoomSpeed, fallback.zoomSpeed),
@@ -314,4 +316,52 @@ export function workspaceHydrationSyncDecision(pendingFingerprint: string | null
     shouldSync: false,
     pendingFingerprint: currentFingerprint === pendingFingerprint ? null : pendingFingerprint,
   };
+}
+
+export const WORKSPACE_DEFAULT_STORAGE_KEY_PREFIX = "layerling.workspaceDefault.";
+/** Saved defaults for newly created designs (see “Make default” in workspace settings). */
+export const NEW_DESIGN_WORKSPACE_DEFAULT_KEY = "local-workplane";
+
+export type StoredWorkspaceDefault = {
+  workspace: WorkplaneWorkspaceSettings;
+  snap: GridSize;
+};
+
+export function storedWorkspaceDefault(
+  workspace: WorkplaneWorkspaceSettings,
+  snap: GridSize,
+): StoredWorkspaceDefault {
+  return {
+    workspace: normalizeWorkspaceSettings(workspace),
+    snap: normalizeSnapGrid(snap, DEFAULT_SNAP_GRID),
+  };
+}
+
+export function readStoredWorkspaceDefault(storage: Pick<Storage, "getItem">, key: string): StoredWorkspaceDefault | null {
+  try {
+    const parsed = JSON.parse(storage.getItem(`${WORKSPACE_DEFAULT_STORAGE_KEY_PREFIX}${key}`) ?? "null") as {
+      workspace?: unknown;
+      snap?: unknown;
+    } | null;
+    if (!parsed) {
+      return null;
+    }
+    return storedWorkspaceDefault(
+      normalizeWorkspaceSettings(parsed.workspace),
+      normalizeSnapGrid(parsed.snap, DEFAULT_SNAP_GRID),
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function writeStoredWorkspaceDefault(
+  storage: Pick<Storage, "setItem">,
+  key: string,
+  value: StoredWorkspaceDefault,
+): void {
+  storage.setItem(
+    `${WORKSPACE_DEFAULT_STORAGE_KEY_PREFIX}${key}`,
+    JSON.stringify(storedWorkspaceDefault(value.workspace, value.snap)),
+  );
 }
