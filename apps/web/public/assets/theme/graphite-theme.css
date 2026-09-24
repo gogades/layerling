@@ -76,6 +76,8 @@
   --editor-toolbar-height: 120px;
   --editor-toolbar-tools-height: 76px;
   --editor-footer-height: 30px;
+  --hover-accent-color: #dc3f36;
+  --hover-accent-border-color: #ffffff;
   --filament-coral: #ff5a47;
   --filament-amber: #ff9e2c;
   --filament-sun: #ffc93c;
@@ -2110,6 +2112,13 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   fill: #3a3a3a;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .dimension-label.origin-dimension-value {
+  background: rgba(236, 248, 253, 0.94);
+  border: 1px solid rgba(110, 196, 232, 0.75);
+  color: #2b88b0;
+  box-shadow: 0 1px 4px rgba(40, 110, 150, 0.12);
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .note-pin {
   border: 2px solid var(--panel);
   background: var(--primary);
@@ -2176,13 +2185,13 @@ html:where([data-theme="dark"][data-palette="graphite"]),
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .tape-overlay.delete-mode .tape-segment-group:hover .tape-segment {
-  stroke: #dc3f36;
+  stroke: var(--hover-accent-color);
   filter: drop-shadow(0 0 2px rgba(220, 63, 54, 0.3));
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .tape-overlay.delete-mode .tape-point:hover {
   fill: #fff0ee;
-  stroke: #dc3f36;
+  stroke: var(--hover-accent-color);
   filter: drop-shadow(0 0 3px rgba(220, 63, 54, 0.36));
 }
 
@@ -2474,6 +2483,11 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   background: #3a3a3a;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .transform-handle:not(.height-lift):hover {
+  background: var(--hover-accent-color);
+  border-color: var(--hover-accent-border-color);
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .transform-handle.height-lift {
   border: 0;
   background: transparent;
@@ -2488,6 +2502,15 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   border-top: 13px solid #3a3a3a;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .transform-handle.height-lift:hover {
+  border-bottom-color: var(--hover-accent-color);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .transform-handle.height-lift.lower:hover {
+  border-bottom-color: transparent;
+  border-top-color: var(--hover-accent-color);
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .rotate-handle {
   color: rgba(62, 62, 62, 0.6);
   background: transparent;
@@ -2496,7 +2519,7 @@ html:where([data-theme="dark"][data-palette="graphite"]),
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .rotate-handle:hover {
-  color: rgba(62, 62, 62, 0.86);
+  color: var(--hover-accent-color);
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .rotate-handle-icon svg {
@@ -3395,6 +3418,13 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .move-dimension-project
   stroke: rgba(231, 231, 231, 0.38);
 }
 
+html[data-theme="dark"]:where([data-palette="graphite"]) .dimension-label.origin-dimension-value {
+  background: rgba(16, 36, 48, 0.92);
+  border: 1px solid rgba(143, 212, 240, 0.5);
+  color: #8fd4f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
 html[data-theme="dark"]:where([data-palette="graphite"]) body,
 html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-shell,
 html[data-theme="dark"]:where([data-palette="graphite"]) .layerling-editor,
@@ -4012,9 +4042,29 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .transform-guides #dime
   fill: rgba(233, 233, 233, 0.94);
 }
 
-html[data-theme="dark"]:where([data-palette="graphite"]) .rotate-handle,
-html[data-theme="dark"]:where([data-palette="graphite"]) .rotate-handle:hover {
+html[data-theme="dark"]:where([data-palette="graphite"]) .rotate-handle {
   color: #ffffff;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .rotate-handle:hover {
+  color: var(--hover-accent-color);
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .transform-handle.height-lift {
+  border-bottom-color: #ffffff;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .transform-handle.height-lift.lower {
+  border-top-color: #ffffff;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .transform-handle.height-lift:hover {
+  border-bottom-color: var(--hover-accent-color);
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .transform-handle.height-lift.lower:hover {
+  border-bottom-color: transparent;
+  border-top-color: var(--hover-accent-color);
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .inspector-snap-dock {

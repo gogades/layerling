@@ -8961,9 +8961,29 @@ html[data-theme="dark"] .transform-guides #dimension-arrow path {
   fill: rgba(244, 233, 222, 0.94);
 }
 
-html[data-theme="dark"] .rotate-handle,
-html[data-theme="dark"] .rotate-handle:hover {
+html[data-theme="dark"] .rotate-handle {
   color: #ffffff;
+}
+
+html[data-theme="dark"] .rotate-handle:hover {
+  color: var(--hover-accent-color);
+}
+
+html[data-theme="dark"] .transform-handle.height-lift {
+  border-bottom-color: #ffffff;
+}
+
+html[data-theme="dark"] .transform-handle.height-lift.lower {
+  border-top-color: #ffffff;
+}
+
+html[data-theme="dark"] .transform-handle.height-lift:hover {
+  border-bottom-color: var(--hover-accent-color);
+}
+
+html[data-theme="dark"] .transform-handle.height-lift.lower:hover {
+  border-bottom-color: transparent;
+  border-top-color: var(--hover-accent-color);
 }
 
 html[data-theme="dark"] .inspector-snap-dock {
