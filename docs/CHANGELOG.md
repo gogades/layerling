@@ -4,6 +4,12 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.18.1
+
+- **Printer presets & build plate warnings:** The workspace settings now offer 54 common FDM 3D printer presets grouped by vendor (Bambu Lab, Prusa, Creality, Elegoo, Anycubic, Qidi, Sovol, Flashforge, Artillery, Anker, Voron) sourced directly from OrcaSlicer's profile definitions. Selecting a printer automatically sets the workplane size, displays the model and build volume (e.g. "Bambu Lab A1 / 256 × 256 × 256 mm") in the corner of the workplane, and warns when objects overhang the build plate in real-time or during STL/3MF/OBJ export.
+- **Persistent workspace defaults ("Make default"):** Workspace and snap settings saved via "Make default" are now stored in global browser storage (`layerling.workspaceDefault.global`) and reliably applied to all newly created designs. Fixes #28.
+- **Configurable dimension visibility:** Added a workplane setting to choose whether dimension lines and values for selected objects remain always visible or only appear while hovering over a transform handle. Contributed by @gogades in #27.
+
 ## 1.18.0
 
 - **Hollowing tool (Körper aushöhlen):** A new Hollow tool next to chamfer and fillet turns any solid body into walls of uniform thickness, grown inward so exterior dimensions are preserved. Choose which side stays open: top, bottom, top and bottom (frame), or completely closed around a sealed cavity. Fully supports parametric re-editing, MCP automation (`layerling_hollow_object`), and localized feedback in German and English.
