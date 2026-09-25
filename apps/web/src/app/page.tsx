@@ -31,7 +31,7 @@ import { attachProjectAsset, dedupeProjectAssets, projectAssetFromBytes, sourceF
 import { hydrateProjectShapeState, reconcileLoadedProjectShapeCacheEntry, type ImportedMeshResource } from "@/lib/projectShapePersistence";
 import { exportLylProject, importLylProject, LYL_CREATED_WITH_VERSION, LYL_MEDIA_TYPE } from "@/lib/lylProject";
 import { importExtensionSupported } from "@/lib/importExtensions";
-import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
+import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, readWorkspaceDefault, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import type { GridSize, ProjectAsset, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 type AppView = "dashboard" | "editor";
@@ -663,6 +663,7 @@ function mergeProjectsForStorage(projects: DashboardProject[]) {
 
 function newProject(name: string, index: number, shapeCount = 0): DashboardProject {
   const now = Date.now();
+  const savedDefault = readWorkspaceDefault();
   return {
     id: createLocalId("project"),
     name,
@@ -671,8 +672,8 @@ function newProject(name: string, index: number, shapeCount = 0): DashboardProje
     shapes: shapeCount,
     accent: PROJECT_ACCENTS[index % PROJECT_ACCENTS.length],
     revision: now,
-    workspace: DEFAULT_WORKPLANE_WORKSPACE,
-    snapGrid: DEFAULT_SNAP_GRID,
+    workspace: savedDefault?.workspace ?? DEFAULT_WORKPLANE_WORKSPACE,
+    snapGrid: savedDefault?.snap ?? DEFAULT_SNAP_GRID,
     placementElevation: 0,
     placementWorkplane: horizontalPlacementWorkplane(),
     sketchPlacementWorkplane: horizontalPlacementWorkplane(),
