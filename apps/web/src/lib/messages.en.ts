@@ -807,7 +807,6 @@ export const MESSAGES_EN = {
   "camera.moveMeasurement": "Move measurement points",
   "camera.deleteMeasurement": "Delete measurement part",
   "camera.shortcut": "{label} ({keys})",
-  "workplane.label": "Workplane",
   "workspace.title": "Workspace settings",
   "workspace.close": "Close settings",
   "workspace.sections": "Workspace settings sections",
