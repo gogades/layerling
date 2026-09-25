@@ -43,7 +43,7 @@ Du wirst alles wiedererkennen: die Platte, die Formen, Körper und Aussparung (d
 - **Chamfer und Fillet.** Kante auswählen und brechen oder verrunden – das, wonach am häufigsten gefragt wird, sobald ein gedrucktes Teil fertig aussehen oder irgendwo hineinpassen soll. Angewandte Kanten bleiben umkehrbar: Du nimmst sie jederzeit wieder weg.
 - **Echte Geometrie darunter.** layerling führt exakte CAD-Körper mit, nicht nur ein Dreiecksnetz. Eine verrundete Kante bleibt deshalb eine verrundete Kante. Exportiert wird STL, 3MF oder OBJ für den Slicer – oder STEP, wenn der Entwurf später in einem richtigen CAD weiterleben soll.
 
-Und was du schon hast, funktioniert weiter: STL importieren und darum herum bauen.
+Und was du schon hast, funktioniert weiter: STL, OBJ, 3MF, STEP oder SVG importieren und darum herum bauen.
 
 > **Eine KI kann mitbauen.** layerling bringt einen MCP-Server mit. Ein KI-Client wie Codex oder Claude sieht damit einen
 > offenen Editor-Tab und arbeitet darin: Formen anlegen, Maße ändern, gruppieren, schneiden, Kanten verrunden, die Szene
@@ -61,7 +61,7 @@ Und was du schon hast, funktioniert weiter: STL importieren und darum herum baue
 - **Boolesche Schnittmenge** – nur das behalten, wo sich ausgewählte Körper und Aussparungen überlappen.
 - **Chamfer und Fillet** – jede Kante eines Körpers brechen oder verrunden und später wieder freigeben.
 - **Aushöhlen** – aus einem Körper Wände gleicher Stärke machen, oben, unten, beidseitig offen oder geschlossen – für Dosen, Becher und Gehäuse.
-- **Eigene Modelle mitbringen** – STL importieren und darum herum konstruieren.
+- **Eigene Modelle mitbringen** – STL, OBJ, 3MF, STEP oder SVG importieren und darum herum konstruieren.
 - **Projekte als Datei** – ein ganzes Projekt samt Verlauf, Skizzen und Gruppen als `.lyl` sichern und anderswo weiterbauen. Ältere `.skf`-Dateien aus früheren Fassungen öffnen sich weiterhin; gespeichert wird dann als `.lyl` daneben.
 - **Exportieren, was dein Slicer will** – STL, 3MF mit Namen und Farben oder OBJ, für die Auswahl oder die ganze Szene, dazu STEP, wenn der Entwurf in ein vollwertiges CAD weiterreisen soll.
 - **Perspektivisch oder gerade von vorn** – zwischen normaler und orthografischer Ansicht wechseln, über den Würfelknopf neben den Zoomtasten oder mit **O**. Blickrichtung und Ausschnitt bleiben erhalten.
@@ -339,8 +339,8 @@ Bauen `NEXT_PUBLIC_SOURCE_CODE_URL` auf die öffentliche Adresse des Quelltextes
 
 layerling bringt einen lokalen MCP-Server für KI-Clients mit, die MCP-Werkzeuge unterstützen. Ein Agent kann damit einen
 laufenden lokalen Editor-Tab untersuchen und steuern: offene Editoren auflisten, die Szene lesen, Objekte anlegen, ändern
-und auswählen, Teile gruppieren, schneiden und trennen, CAD-Kanten-IDs auflisten, Chamfer oder Fillet anwenden, Fehler
-einsehen und Bilder des Ansichtsfensters aufnehmen.
+und auswählen, Teile gruppieren, schneiden und trennen, CAD-Kanten-IDs auflisten, Chamfer oder Fillet anwenden, Körper aushöhlen,
+Fehler einsehen und Bilder des Ansichtsfensters aufnehmen.
 
 Das ist nur für die lokale Entwicklung gedacht. Starte layerling mit `npm run dev`; in Produktions-Builds und beim statischen Hosting
 ist die MCP-Route abgeschaltet.
@@ -424,5 +424,5 @@ Use the layerling MCP tools to list open editors, inspect the scene, and modify 
 ```
 
 Die wichtigsten Werkzeugnamen sind `layerling_list_editors`, `layerling_read_scene`, `layerling_list_objects`,
-`layerling_create_shape`, `layerling_update_object`, `layerling_list_edges`, `layerling_apply_edge_treatment` und
-`layerling_capture_image`.
+`layerling_create_shape`, `layerling_update_object`, `layerling_list_edges`, `layerling_apply_edge_treatment`,
+`layerling_hollow_object` und `layerling_capture_image`.

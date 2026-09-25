@@ -43,7 +43,7 @@ You will recognise everything: the plate, the shapes, solids and holes, group an
 - **Chamfer and fillet.** Pick an edge and break it or round it - the one thing people ask for most once a printed part has to feel finished or slot into something. Applied edges stay reversible: take them off again whenever you like.
 - **Real geometry underneath.** layerling keeps exact CAD shapes, not just a mesh, so a rounded edge stays a rounded edge. Export STL, 3MF or OBJ for the slicer, or STEP if you want to carry the design into a full CAD program later.
 
-And the parts you already have keep working: import an STL and build around it.
+And the parts you already have keep working: import an STL, OBJ, 3MF, STEP or SVG file and build around it.
 
 > **An AI can build along with you.** layerling ships an MCP server. An AI client such as Codex or Claude sees an open
 > editor tab and works in it: add shapes, change measurements, group, cut, round edges, read the scene back, take pictures
@@ -61,7 +61,7 @@ And the parts you already have keep working: import an STL and build around it.
 - **Boolean Intersection** - keep only the geometry where selected solid and hole shapes overlap.
 - **Chamfer and fillet** - break or round any edge of a solid, and remove the treatment again later.
 - **Hollowing** - turn a body into walls of one thickness, open on top, bottom, both or closed - for boxes, cups and cases.
-- **Bring your own models** - import an STL and build around it.
+- **Bring your own models** - import an STL, OBJ, 3MF, STEP or SVG file and build around it.
 - **Projects as files** - save a whole project, history, sketches and groups included, as a `.lyl` file and carry on elsewhere. Older `.skf` files from earlier versions still open; saving then writes a `.lyl` beside them.
 - **Export what your slicer wants** - STL, 3MF with names and colors, or OBJ, for the selection or the whole scene, plus STEP if the design should travel on into a full CAD program.
 - **Perspective or straight-on** - switch between the normal view and a flat, orthographic one with the cube button beside the zoom controls, or by pressing **O**. Your viewing direction and framing are kept.
@@ -327,7 +327,7 @@ offer them the corresponding source code. The dashboard carries a **Source** lin
 
 ## layerling MCP Skill
 
-layerling includes a local MCP server for AI clients that support MCP tools. It lets an agent inspect and control a live local editor tab: list open editors, read the scene, create/update/select objects, group/cut/separate parts, list CAD edge ids, apply chamfer or fillet, inspect errors, and capture viewport images.
+layerling includes a local MCP server for AI clients that support MCP tools. It lets an agent inspect and control a live local editor tab: list open editors, read the scene, create/update/select objects, group/cut/separate parts, list CAD edge ids, apply chamfer or fillet, hollow a body, inspect errors, and capture viewport images.
 
 This is for local development only. Run layerling with `npm run dev`; the MCP route is disabled in production builds and static hosting.
 
@@ -402,4 +402,4 @@ After restarting Claude Desktop, ask:
 Use the layerling MCP tools to list open editors, inspect the scene, and modify the selected object.
 ```
 
-The main tool names are `layerling_list_editors`, `layerling_read_scene`, `layerling_list_objects`, `layerling_create_shape`, `layerling_update_object`, `layerling_list_edges`, `layerling_apply_edge_treatment`, and `layerling_capture_image`.
+The main tool names are `layerling_list_editors`, `layerling_read_scene`, `layerling_list_objects`, `layerling_create_shape`, `layerling_update_object`, `layerling_list_edges`, `layerling_apply_edge_treatment`, `layerling_hollow_object`, and `layerling_capture_image`.
