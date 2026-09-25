@@ -54,12 +54,13 @@ And the parts you already have keep working: import an STL and build around it.
 
 - **Nothing to sign up for** - no account, no login, no layerling cloud. Designs live in your own browser, with thumbnails so you recognise them again.
 - **Drivable by an AI** - an MCP server is included: an AI client builds in the open editor while you watch every step and step in whenever you want. Local, with nothing leaving the browser.
-- **A real build plate** - grid, snapping, handles for moving, resizing and rotating, and a panel with the exact numbers when you need them.
+- **A real build plate** - grid, snapping, handles for moving, resizing and rotating, and a panel with the exact numbers when you need them. Pick one of 54 common printers and the plate takes its size, with a warning when a body reaches past the edge.
 - **Primitive shape library** - boxes, cylinders, spheres, cones, pyramids, wedges, text, roofs, half spheres, torus shapes, tubes, polygon prisms from three to twenty-four sides, coil springs, and more.
 - **Threads that fit** - threaded rods, screws with a socket, countersunk or hex head, hex nuts, and tapped holes. M2 to M12 and UNC/UNF from #4 to one inch are one pick away, or set your own diameter and pitch, left-hand as well; an inch size asks for threads per inch instead of millimetres. The ends take a chamfer, and a tapped hole is a cutter: drop it into a part, group, and the hole comes out threaded.
 - **Solid and hole workflow** - turn shapes into cutters and group them into final geometry.
 - **Boolean Intersection** - keep only the geometry where selected solid and hole shapes overlap.
 - **Chamfer and fillet** - break or round any edge of a solid, and remove the treatment again later.
+- **Hollowing** - turn a body into walls of one thickness, open on top, bottom, both or closed - for boxes, cups and cases.
 - **Bring your own models** - import an STL and build around it.
 - **Projects as files** - save a whole project, history, sketches and groups included, as a `.lyl` file and carry on elsewhere. Older `.skf` files from earlier versions still open; saving then writes a `.lyl` beside them.
 - **Export what your slicer wants** - STL, 3MF with names and colors, or OBJ, for the selection or the whole scene, plus STEP if the design should travel on into a full CAD program.

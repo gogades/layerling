@@ -54,12 +54,13 @@ Und was du schon hast, funktioniert weiter: STL importieren und darum herum baue
 
 - **Nichts anzumelden** – kein Konto, kein Login, keine layerling-Cloud. Entwürfe liegen in deinem eigenen Browser, mit Vorschaubildern, an denen du sie wiedererkennst.
 - **Von einer KI steuerbar** – ein MCP-Server liegt bei: Ein KI-Client baut im offenen Editor mit, du siehst jeden Schritt und greifst jederzeit ein. Lokal, ohne dass etwas aus dem Browser abfließt.
-- **Eine echte Bauplatte** – Raster, Einrasten, Griffe zum Verschieben, Skalieren und Drehen, und ein Feld mit den genauen Zahlen, wenn du sie brauchst.
+- **Eine echte Bauplatte** – Raster, Einrasten, Griffe zum Verschieben, Skalieren und Drehen, und ein Feld mit den genauen Zahlen, wenn du sie brauchst. Wähl einen von 54 gängigen Druckern, dann bekommt die Platte seine Größe, mit Warnung, wenn ein Körper übersteht.
 - **Grundformen-Bibliothek** – Quader, Zylinder, Kugeln, Kegel, Pyramiden, Keile, Text, Dächer, Halbkugeln, Tori, Röhren, Mehrkante von drei bis vierundzwanzig Seiten, Federn und mehr.
 - **Gewinde, die passen** – Gewindestangen, Schrauben mit Zylinder-, Senk- oder Sechskantkopf, Sechskantmuttern und Gewindelöcher. M2 bis M12 liegen bereit, dazu UNC und UNF von #4 bis ein Zoll; Durchmesser und Steigung lassen sich auch frei wählen, Linksgewinde ebenso. Bei einer Zollgröße fragt das Feld nach Gängen je Zoll statt nach Millimetern. Die Enden bekommen auf Wunsch eine Fase, und das Gewindeloch ist eine Aussparung: in ein Teil ziehen, gruppieren, fertig.
 - **Körper und Aussparung** – Formen zu Schneidwerkzeugen erklären und zur fertigen Geometrie gruppieren.
 - **Boolesche Schnittmenge** – nur das behalten, wo sich ausgewählte Körper und Aussparungen überlappen.
 - **Chamfer und Fillet** – jede Kante eines Körpers brechen oder verrunden und später wieder freigeben.
+- **Aushöhlen** – aus einem Körper Wände gleicher Stärke machen, oben, unten, beidseitig offen oder geschlossen – für Dosen, Becher und Gehäuse.
 - **Eigene Modelle mitbringen** – STL importieren und darum herum konstruieren.
 - **Projekte als Datei** – ein ganzes Projekt samt Verlauf, Skizzen und Gruppen als `.lyl` sichern und anderswo weiterbauen. Ältere `.skf`-Dateien aus früheren Fassungen öffnen sich weiterhin; gespeichert wird dann als `.lyl` daneben.
 - **Exportieren, was dein Slicer will** – STL, 3MF mit Namen und Farben oder OBJ, für die Auswahl oder die ganze Szene, dazu STEP, wenn der Entwurf in ein vollwertiges CAD weiterreisen soll.

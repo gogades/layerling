@@ -2993,6 +2993,23 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   color: #595959;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .workspace-row,
+:where(html[data-theme="dark"][data-palette="graphite"]) .workspace-toggle,
+:where(html[data-theme="dark"][data-palette="graphite"]) .workspace-printer-info {
+  color: #595959;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .bed-overhang-warning {
+  color: #8a3b00;
+  background: #f2f2f2;
+  border: 1px solid #f0a45a;
+  box-shadow: 0 6px 18px rgba(49, 49, 49, 0.14);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .bed-overhang-warning svg {
+  color: #d86a00;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .workspace-toggle {
   border-bottom: 1px solid #e8e8e8;
 }
@@ -3954,6 +3971,16 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-field se
   color: #cbcbcb;
   background: #2d2d2d;
   border-color: #4d4d4d;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .workspace-printer-info {
+  color: #909090;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .bed-overhang-warning {
+  color: #ffc78a;
+  background: #2b2b2b;
+  border-color: #a8601f;
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .shell-opening-options button {

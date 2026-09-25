@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Circle as CircleIcon, CloudUpload, Download, Eye, EyeOff, FolderOpen, Hexagon as HexagonIcon, Pencil, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
+import { AlertTriangle, Check, Circle as CircleIcon, CloudUpload, Download, Eye, EyeOff, FolderOpen, Hexagon as HexagonIcon, Pencil, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
 import type manifoldModule from "manifold-3d";
 import type { ManifoldToplevel } from "manifold-3d";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -65,6 +65,7 @@ import { WorkplaneViewport } from "./WorkplaneViewport";
 import { SketchWorkspace, type SketchMeasurement, type SketchPrimitive, type SketchSelection, type SketchTool } from "./SketchWorkspace";
 import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
 import { ShellPanel } from "./workplane/ShellPanel";
+import { bedOverhangs, printerPresetById, type BedOverhang } from "@/lib/printBed";
 import { GuideModal } from "./workplane/GuideModal";
 import { ShortcutsModal } from "./workplane/ShortcutsModal";
 import {
@@ -1573,6 +1574,17 @@ function cadModifierComponentPreviews(sourceParts: WorkplaneShape[], components:
     });
   });
   return previews;
+}
+
+function bedOverhangMessage(overhangs: BedOverhang[], printer: string) {
+  if (overhangs.length > 1) return t("status.bedOverhangMany", { count: overhangs.length, printer });
+  const [overhang] = overhangs;
+  const mm = (value: number) => Number(value.toFixed(1));
+  const sides = (["left", "right", "back", "front"] as const)
+    .filter((side) => overhang[side] > 0.01)
+    .map((side) => t(`bed.side.${side}`, { mm: mm(overhang[side]) }))
+    .join(", ");
+  return t("status.bedOverhangOne", { name: overhang.shape.name, printer, sides });
 }
 
 function edgeTreatmentLabel(feature: NonNullable<WorkplaneShape["edgeTreatments"]>[number]) {
@@ -5995,6 +6007,12 @@ export function LayerlingEditor({
       : Number.isFinite(initialPlacementElevation) ? initialPlacementElevation : 0;
   });
   const [workspaceSettings, setWorkspaceSettings] = useState<WorkplaneWorkspaceSettings>(() => normalizeWorkspaceSettings(initialWorkspace));
+  const bedPrinter = printerPresetById(workspaceSettings.printer);
+  const overhangs = useMemo(
+    () => bedPrinter ? bedOverhangs(shapes, bedPrinter.width, bedPrinter.depth) : [],
+    [bedPrinter, shapes],
+  );
+  const overhangWarning = bedPrinter && overhangs.length > 0 ? bedOverhangMessage(overhangs, `${bedPrinter.vendor} ${bedPrinter.model}`) : null;
   const [snapGrid, setSnapGrid] = useState<GridSize>(() => normalizeSnapGrid(initialSnap));
   const [workplaneMode, setWorkplaneMode] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -9667,12 +9685,14 @@ export function LayerlingEditor({
         } else {
           await downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(fertig), "text/plain");
         }
+        const exportOverhangs = bedPrinter ? bedOverhangs(exportable, bedPrinter.width, bedPrinter.depth) : [];
         if (gescheitert > 0) setNotice(t("status.exportUnionFailed"), true);
+        else if (bedPrinter && exportOverhangs.length > 0) setNotice(bedOverhangMessage(exportOverhangs, `${bedPrinter.vendor} ${bedPrinter.model}`), true);
         else if (verschmolzen > 0) setNotice(t("status.exportUnioned", { count: verschmolzen, label }));
         else finishNotice(label);
       })
       .catch((error: unknown) => failNotice(label, error));
-  }, [hasSelection, projectName, selectedShapes, shapes]);
+  }, [bedPrinter, hasSelection, projectName, selectedShapes, shapes]);
 
   const exportStepDesign = useCallback(async (exportName: string) => {
     if (stepExporting) {
@@ -10611,6 +10631,12 @@ export function LayerlingEditor({
         )}
       </div>
       <AppFooter variant="editor" version={LYL_CREATED_WITH_VERSION} />
+      {overhangWarning ? (
+        <div className="bed-overhang-warning" role="status">
+          <AlertTriangle size={16} aria-hidden="true" />
+          <span>{overhangWarning}</span>
+        </div>
+      ) : null}
       {shellTool && selectedShape ? (
         <ShellPanel
           targetName={selectedShape.name}

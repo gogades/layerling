@@ -57,6 +57,7 @@ import {
   type PlacementPoint,
   type PlacementWorkplane,
 } from "@/lib/placementWorkplane";
+import { printerPresetById } from "@/lib/printBed";
 import { groundFootprintForFrame, liftGeometryForFrame, type SelectionFrame } from "@/lib/liftGeometry";
 import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import { roundSideCount } from "@/lib/roundSideCount";
@@ -7619,6 +7620,22 @@ function rebuildWorkplane(
       if (label) {
         group.add(label);
       }
+      // Only on the real plate, and hidden together with the design name.
+      const printer = muted ? null : printerPresetById(workspace.printer);
+      if (printer) {
+        const printerLabel = createWorkplaneLabel(
+          workspace.width,
+          workspace.depth,
+          labelPalette.color,
+          labelPalette.opacity,
+          `${printer.width} × ${printer.depth} × ${printer.height} mm`,
+          { title: `${printer.vendor} ${printer.model}`, align: "right" },
+        );
+        if (printerLabel) {
+          printerLabel.name = "WorkplanePrinterLabel";
+          group.add(printerLabel);
+        }
+      }
     }
     if (showMarker) {
       const markerMaterial = new THREE.MeshBasicMaterial({
@@ -7755,7 +7772,14 @@ const WORKPLANE_LABEL_FONT_STACK = '"Avenir Next", Avenir, "Helvetica Neue", Ari
  * Drawn into a canvas rather than built from glyph geometry: it is a single
  * static string that never needs to be a solid, and a texture costs one quad.
  */
-function createWorkplaneLabel(width: number, depth: number, color: string, opacity: number, subtitle = "") {
+function createWorkplaneLabel(
+  width: number,
+  depth: number,
+  color: string,
+  opacity: number,
+  subtitle = "",
+  { title = t("workplane.label"), align = "left" }: { title?: string; align?: "left" | "right" } = {},
+) {
   const layout = workplaneLabelLayout(width, depth);
   if (layout.width <= 0 || layout.height <= 0) {
     return null;
@@ -7772,23 +7796,24 @@ function createWorkplaneLabel(width: number, depth: number, color: string, opaci
   context.fillStyle = color;
   // Set against the left edge and low in the texture, so the caption keeps to
   // the corner of the plane instead of floating in the middle of empty texture.
-  context.textAlign = "left";
+  context.textAlign = align;
   context.textBaseline = "middle";
-  const textLeft = canvas.width * 0.015;
-  const textWidth = canvas.width - textLeft * 2;
+  const textInset = canvas.width * 0.015;
+  const textLeft = align === "right" ? canvas.width - textInset : textInset;
+  const textWidth = canvas.width - textInset * 2;
   const caption = subtitle.trim();
   if (caption) {
     // Two lines: the plane's name, and underneath it, smaller, the project it
     // belongs to - so a screenshot of the scene says what it shows.
     context.font = `600 ${Math.round(canvas.height * 0.46)}px ${WORKPLANE_LABEL_FONT_STACK}`;
-    context.fillText(t("workplane.label"), textLeft, canvas.height * 0.4, textWidth);
+    context.fillText(title, textLeft, canvas.height * 0.4, textWidth);
     context.font = `500 ${Math.round(canvas.height * 0.26)}px ${WORKPLANE_LABEL_FONT_STACK}`;
     context.globalAlpha = 0.78;
     context.fillText(caption, textLeft, canvas.height * 0.82, textWidth);
     context.globalAlpha = 1;
   } else {
     context.font = `600 ${Math.round(canvas.height * 0.68)}px ${WORKPLANE_LABEL_FONT_STACK}`;
-    context.fillText(t("workplane.label"), textLeft, canvas.height * 0.57, textWidth);
+    context.fillText(title, textLeft, canvas.height * 0.57, textWidth);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -7814,7 +7839,8 @@ function createWorkplaneLabel(width: number, depth: number, color: string, opaci
   // Lies flat, reading along +x with its top towards the far edge, which is
   // upright from the default camera, and tucked into the near left corner.
   label.rotation.x = -Math.PI / 2;
-  label.position.set(layout.lateralOffset, WORKPLANE_LINE_ELEVATION + 0.01, layout.depthOffset);
+  // The printer sits in the near right corner, mirrored from the design name.
+  label.position.set(align === "right" ? -layout.lateralOffset : layout.lateralOffset, WORKPLANE_LINE_ELEVATION + 0.01, layout.depthOffset);
   label.renderOrder = 2;
   return label;
 }
