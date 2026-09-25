@@ -292,6 +292,26 @@ describe("layerling .lyl project packages", () => {
     expect(restored.shapes[0]).toMatchObject({ width: 30, x: 0 });
   });
 
+  it("reopens a project that holds an imported 3MF source", async () => {
+    const asset = await projectAssetFromBytes("plate.3mf", "3mf", strToU8("PK 3mf source"));
+    const importedMesh: NonNullable<WorkplaneShape["importedMesh"]> = {
+      positions: [0, 0, 0, 1, 0, 0, 0, 1, 0],
+      baseWidth: 1,
+      baseDepth: 1,
+      baseHeight: 1,
+      triangleCount: 1,
+      sourceFormat: "3mf",
+      assetId: asset.id,
+    };
+    const exported = await exportLylProject(input([shape("mesh", "plate", { importedMesh })], { assets: [asset] }));
+    const restored = await importLylProject(exported, {
+      sourceImporter: async () => ({ ...importedMesh, assetId: undefined }),
+    });
+
+    expect(restored.assets.map((entry) => entry.sourceFormat)).toContain("3mf");
+    expect(restored.shapes).toHaveLength(1);
+  });
+
   it("stores one original source asset for repeated imported instances and regenerates it once", async () => {
     const sourceBytes = strToU8("solid source");
     const asset = await projectAssetFromBytes("shared.stl", "stl", sourceBytes);

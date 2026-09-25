@@ -1339,7 +1339,7 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
     if (bytes.byteLength !== asset.byteLength) throw new Error(`Asset '${asset.path}' has an invalid size`);
     const hash = await sha256Hex(bytes);
     if (hash !== asset.sha256) throw new Error(`Asset '${asset.path}' failed its integrity check`);
-    if (asset.kind === "source" && !["stl", "obj", "svg", "step"].includes(asset.sourceFormat ?? "")) {
+    if (asset.kind === "source" && !["stl", "obj", "svg", "step", "3mf"].includes(asset.sourceFormat ?? "")) {
       throw new Error(`Source asset '${id}' has an unknown source format`);
     }
     assetById.set(id, asset);
