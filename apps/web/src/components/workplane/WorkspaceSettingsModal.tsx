@@ -539,7 +539,7 @@ export function WorkspaceSettingsModal({
                       ))}
                     </select>
                   </label>
-                  <p className="workspace-global-note">{t("workspace.themeNote")}</p>
+                  <hr className="workspace-divider" />
                   <WorkspaceToggle
                     label={t("workspace.showProjectName")}
                     checked={showProjectNameInToolbar}

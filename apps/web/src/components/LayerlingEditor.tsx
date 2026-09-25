@@ -138,6 +138,7 @@ import { addLineIntersectionPoints, splitSketchSegment } from "@/lib/sketchPoint
 import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketchRevolveSettings, type SketchRevolveMesh } from "@/lib/sketchRevolve";
 import { AppFooter } from "@/components/AppFooter";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { exportLylProject, LYL_CREATED_WITH_VERSION, LYL_MEDIA_TYPE } from "@/lib/lylProject";
 import { makeShapeFromAsset, sceneShape, shapeAssetLabel, shapeAssetMenuLabel, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { importExtensionSupported } from "@/lib/importExtensions";
@@ -11440,7 +11441,10 @@ function SecondaryToolbar({
             </label>
           </div>
         ) : null}
-        <LanguageSwitch />
+        <div className="toolbar-title-row-actions">
+          <ThemeSwitch />
+          <LanguageSwitch />
+        </div>
       </div>
     </div>
   );

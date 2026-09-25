@@ -83,3 +83,43 @@ function ensureGraphiteStylesheet() {
   link.href = GRAPHITE_STYLESHEET_HREF;
   document.head.appendChild(link);
 }
+
+const themeListeners = new Set<() => void>();
+let currentThemePreference: AppThemePreference =
+  typeof window !== "undefined" ? readStoredAppTheme(window.localStorage) : "system";
+
+if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const handleMediaChange = () => {
+    if (currentThemePreference === "system") {
+      applyAppTheme("system", media.matches);
+      themeListeners.forEach((listener) => listener());
+    }
+  };
+  if (typeof media.addEventListener === "function") {
+    media.addEventListener("change", handleMediaChange);
+  } else if (typeof (media as unknown as { addListener?: (cb: () => void) => void }).addListener === "function") {
+    (media as unknown as { addListener: (cb: () => void) => void }).addListener(handleMediaChange);
+  }
+}
+
+export function subscribeToAppTheme(listener: () => void) {
+  themeListeners.add(listener);
+  return () => {
+    themeListeners.delete(listener);
+  };
+}
+
+export function getAppThemePreference(): AppThemePreference {
+  return currentThemePreference;
+}
+
+export function setAppTheme(preference: AppThemePreference, persist = true) {
+  currentThemePreference = preference;
+  if (persist && typeof window !== "undefined") {
+    storeAppTheme(window.localStorage, preference);
+  }
+  applyAppTheme(preference);
+  themeListeners.forEach((listener) => listener());
+}
+

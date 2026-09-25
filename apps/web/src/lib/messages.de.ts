@@ -11,6 +11,11 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "common.rename": "Umbenennen",
   "common.duplicate": "Duplizieren",
   "common.language": "Sprache",
+  "common.theme": "Farbschema",
+  "theme.short.system": "System",
+  "theme.short.light": "Hell",
+  "theme.short.dark": "Dunkel",
+  "theme.short.graphite": "Graphit",
 
   "aria.originDimensions": "Abstände zum Nullpunkt",
   "aria.moveDimensions": "Maße beim Verschieben",

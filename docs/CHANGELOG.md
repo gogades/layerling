@@ -4,6 +4,13 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.17.4
+
+- **Theme switcher in topbar & editor:** Quick theme switching (System, Light, Dark, Graphite) is now available directly in the topbar on the home dashboard and in the editor toolbar title row, placed alongside the language switcher with a dedicated palette icon. Switching is instant and synchronized across all views without requiring a page reload. In the workspace settings dialog, the appearance section has been streamlined with a divider line replacing the note.
+- **Align keyboard shortcut:** Pressing `L` now activates the Align tool when one or more shapes are selected on the workplane. Contributed by @plazmabokor in #21.
+- **Rotated shape elevation fix:** Elevating rotated shapes with the lift handle now maintains proper alignment along the workplane normal without unintended lateral displacement. Fixes #19.
+- **Docker development & compatibility:** Added `compose.dev.yml` for live-reload Docker development, added `:z` volume label for SELinux and Podman support, and opted out of Next.js telemetry by default. Contributed by @gogades in #20.
+
 ## 1.17.3
 
 - **Handles and cursor:** The cursor stays a pointer while using resize, lift, and rotate handles instead of constantly switching type. Handles now change colour on hover. Origin lines and labels get their own colour so they read apart from movement and dimension lines. Rotate and lift handle colours are tuned for the Dark and Graphite themes. Contributed by @gogades.

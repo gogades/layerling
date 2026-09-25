@@ -4,12 +4,13 @@ import { Clock3, Copy, EllipsisVertical, FileUp, FolderInput, FolderKanban, Fold
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { AppFooter } from "@/components/AppFooter";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { useAppUpdate } from "@/lib/useAppUpdate";
 import { sharedProjectSaveTarget } from "@/lib/sharedProjectTarget";
 import { storeFolderNameProblem, suggestStoreFolderName } from "@/lib/storeFolderName";
 import { LayerlingEditor, importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg } from "@/components/LayerlingEditor";
 import { importedShapeFrom3mf } from "@/lib/threemfImport";
-import { applyAppTheme, readStoredAppTheme, resolveAppTheme, storeAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
+import { applyAppTheme, getAppThemePreference, readStoredAppTheme, resolveAppTheme, setAppTheme, storeAppTheme, subscribeToAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, notesForHistoryIndex, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { detectLanguage, setLanguage, t, type Language } from "@/lib/i18n";
 import { duplicateName, type DuplicateNamePatterns } from "@/lib/duplicateName";
@@ -775,10 +776,10 @@ export default function Home() {
     // Left behind by the retired Challenges tutorials; nothing reads it now.
     window.localStorage.removeItem("layerling.activeChallengeTutorial");
     const storedTheme = readStoredAppTheme(window.localStorage);
+    setAppTheme(storedTheme, false);
     setThemePreference(storedTheme);
     const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     setResolvedTheme(resolveAppTheme(storedTheme, systemPrefersDark));
-    applyAppTheme(storedTheme, systemPrefersDark);
     const { projects: storedProjects, legacyShapes } = readStoredProjects();
     setProjects(storedProjects);
     if (Object.keys(legacyShapes).length > 0) {
@@ -805,6 +806,17 @@ export default function Home() {
     }
     setMounted(true);
   }, [startEditorTransition]);
+
+  useEffect(() => {
+    return subscribeToAppTheme(() => {
+      const nextPref = getAppThemePreference();
+      setThemePreference(nextPref);
+      const systemPrefersDark = typeof window !== "undefined" && typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        : false;
+      setResolvedTheme(resolveAppTheme(nextPref, systemPrefersDark));
+    });
+  }, []);
 
   useEffect(() => {
     if (!mounted) return;
@@ -1842,7 +1854,7 @@ export default function Home() {
             sharedProjectsEnabled={sharedProjectsEnabled}
             themePreference={themePreference}
             resolvedTheme={resolvedTheme}
-            onThemePreferenceChange={setThemePreference}
+            onThemePreferenceChange={setAppTheme}
           />
         </div>
       ) : null}
@@ -2147,9 +2159,10 @@ function Dashboard({
           <Search size={18} strokeWidth={2.4} />
           <input value={query} onChange={(event) => onQueryChange(event.currentTarget.value)} placeholder={t("dashboard.searchPlaceholder")} aria-label={t("dashboard.searchLabel")} />
         </div>
-        {/* Oben rechts, wo Webseiten ihre Sprachwahl haben. Die dritte Spalte
-            der Kopfzeile war bisher leer. */}
-        <LanguageSwitch />
+        <div className="dashboard-topbar-actions">
+          <ThemeSwitch />
+          <LanguageSwitch />
+        </div>
       </header>
 
       <div className="dashboard-layout">

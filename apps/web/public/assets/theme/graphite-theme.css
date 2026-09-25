@@ -228,6 +228,46 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   color: #aaaaaa;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-switch-button {
+  color: #676767;
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-switch-button:hover,
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-switch-button:focus-visible,
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-switch-button.active {
+  color: #414141;
+  background: #e1e1e1;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-dropdown-menu {
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
+  box-shadow: 0 8px 24px rgba(44, 44, 44, 0.12), 0 2px 6px rgba(44, 44, 44, 0.06);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-dropdown-item {
+  color: #555555;
+  background: transparent;
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-dropdown-item:hover,
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-dropdown-item:focus-visible {
+  color: #2d2d2d;
+  background: #ebebeb;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-dropdown-item.active {
+  color: #cf710f;
+  background: #f3f3f3;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .theme-check {
+  color: #cf710f;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .language-switch button {
   color: #676767;
 }
@@ -3068,6 +3108,11 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   color: #595959;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .workspace-divider {
+  border: 0;
+  border-top: 1px solid #e8e8e8;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .workspace-dimensions label {
   color: #595959;
 }
@@ -4591,6 +4636,46 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .language-switch button
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .language-switch svg {
   border-color: rgba(235, 235, 235, 0.3);
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .workspace-divider {
+  border-top-color: #353535;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-switch-button {
+  color: #7f7f7f;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-switch-button:hover,
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-switch-button:focus-visible,
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-switch-button.active {
+  color: #ebebeb;
+  background: #333333;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-dropdown-menu {
+  background: #212121;
+  border-color: #3b3b3b;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-dropdown-item {
+  color: #b3b3b3;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-dropdown-item:hover,
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-dropdown-item:focus-visible {
+  color: #ededed;
+  background: #2e2e2e;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-dropdown-item.active {
+  color: #f3a452;
+  background: #292929;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .theme-check {
+  color: #f3a452;
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section-tools,

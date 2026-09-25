@@ -1005,24 +1005,157 @@ button {
   font-weight: 700;
 }
 
+.dashboard-topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-self: end;
+  gap: 8px;
+}
+
 .dashboard-topbar .language-switch {
   justify-self: end;
 }
 
-/* Im Editor ans rechte Ende der Titelzeile, mit etwas Luft zum Rand. */
-.toolbar-title-row .language-switch {
+.toolbar-title-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 14px 7px auto;
   align-self: center;
+}
+
+.dashboard-topbar-actions .language-switch,
+.dashboard-topbar-actions .theme-switch,
+.toolbar-title-row-actions .language-switch,
+.toolbar-title-row-actions .theme-switch {
+  margin: 0;
+}
+
+/* Theme-Umschalter neben der Sprachwahl */
+.theme-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.theme-switch-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  color: #8a7560;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.theme-switch-button:hover,
+.theme-switch-button:focus-visible,
+.theme-switch-button.active {
+  color: #573f26;
+  background: #f0e4d2;
+}
+
+.theme-switch-icon {
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.theme-switch-label {
+  line-height: 1;
+}
+
+.theme-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 140ms ease;
+}
+
+.theme-chevron.open {
+  transform: rotate(180deg);
+}
+
+.theme-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  padding: 5px;
+  background: #ffffff;
+  border: 1px solid #e5dacd;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(74, 40, 5, 0.12), 0 2px 6px rgba(74, 40, 5, 0.06);
+}
+
+.theme-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  color: #6d543b;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.theme-dropdown-item:hover,
+.theme-dropdown-item:focus-visible {
+  color: #3b2816;
+  background: #f5ece0;
+}
+
+.theme-dropdown-item.active {
+  color: #cf710f;
+  background: #faf4eb;
+  font-weight: 750;
+}
+
+.theme-item-label {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.theme-check {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: #cf710f;
 }
 
 .language-switch button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 7px;
+  height: 27px;
+  box-sizing: border-box;
+  padding: 0 7px;
   color: #8a7560;
   border-radius: 6px;
   font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -7440,6 +7573,12 @@ button {
   line-height: 1.45;
 }
 
+.workspace-divider {
+  border: 0;
+  border-top: 1px solid #f0eae0;
+  margin: 4px 0 8px;
+}
+
 .workspace-dimensions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -9701,6 +9840,46 @@ html[data-theme="dark"] .language-switch button.active {
 
 html[data-theme="dark"] .language-switch svg {
   border-color: rgba(243, 237, 227, 0.3);
+}
+
+html[data-theme="dark"] .workspace-divider {
+  border-top-color: #383129;
+}
+
+html[data-theme="dark"] .theme-switch-button {
+  color: #a89179;
+}
+
+html[data-theme="dark"] .theme-switch-button:hover,
+html[data-theme="dark"] .theme-switch-button:focus-visible,
+html[data-theme="dark"] .theme-switch-button.active {
+  color: #f3ede3;
+  background: #40301d;
+}
+
+html[data-theme="dark"] .theme-dropdown-menu {
+  background: #251b11;
+  border-color: #4a3825;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="dark"] .theme-dropdown-item {
+  color: #c9b49e;
+}
+
+html[data-theme="dark"] .theme-dropdown-item:hover,
+html[data-theme="dark"] .theme-dropdown-item:focus-visible {
+  color: #f5eee4;
+  background: #38291a;
+}
+
+html[data-theme="dark"] .theme-dropdown-item.active {
+  color: #f3a452;
+  background: #312316;
+}
+
+html[data-theme="dark"] .theme-check {
+  color: #f3a452;
 }
 
 /* Ein flaches Fenster - ein iPad quer, in Safari mit Adress-, Lesezeichen- und

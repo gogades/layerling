@@ -12,6 +12,11 @@ export const MESSAGES_EN = {
   "common.rename": "Rename",
   "common.duplicate": "Duplicate",
   "common.language": "Language",
+  "common.theme": "Theme",
+  "theme.short.system": "System",
+  "theme.short.light": "Light",
+  "theme.short.dark": "Dark",
+  "theme.short.graphite": "Graphite",
 
   "aria.originDimensions": "Distances to origin",
   "aria.moveDimensions": "Movement dimensions",
