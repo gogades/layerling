@@ -63,6 +63,7 @@ import {
   type PlacementPoint,
   type PlacementWorkplane,
 } from "@/lib/placementWorkplane";
+import { liftGeometryForFrame, type SelectionFrame } from "@/lib/liftGeometry";
 import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import { roundSideCount } from "@/lib/roundSideCount";
 import { createPyramidGeometry } from "@/lib/pyramidGeometry";
@@ -565,21 +566,6 @@ type TransformDragItem = {
   startShape: WorkplaneShape;
   startCenter: THREE.Vector3;
   startQuaternion: THREE.Quaternion;
-};
-
-type SelectionFrame = {
-  ids: string[];
-  center: THREE.Vector3;
-  quaternion: THREE.Quaternion;
-  xAxis: THREE.Vector3;
-  yAxis: THREE.Vector3;
-  zAxis: THREE.Vector3;
-  width: number;
-  height: number;
-  depth: number;
-  min: THREE.Vector3;
-  max: THREE.Vector3;
-  singleShape: WorkplaneShape | null;
 };
 
 type DragItem = {
@@ -4735,7 +4721,8 @@ export function WorkplaneViewport({
       const state = threeRef.current;
       const yBounds = selectionWorldYBounds(frame);
       const handlesLowerSide = handleKey === "bottom-height" || handleKey === "lower-shape";
-      const liftOffset = kind === "lift" ? Math.max(2, frame.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION) * (handlesLowerSide ? -1 : 1) : 0;
+      const lift = liftGeometryForFrame(frame, activeWorkplane);
+      const liftOffset = kind === "lift" ? Math.max(2, lift.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION) * (handlesLowerSide ? -1 : 1) : 0;
       const overlay = transformOverlayRef.current;
       const wheel = kind === "rotate" ? (overlay?.rotationWheels[rotationAxis] ?? overlay?.rotationWheel ?? undefined) : undefined;
       const rotationPlane = kind === "rotate" ? overlay?.rotationPlanes[rotationAxis] : undefined;
@@ -4760,16 +4747,18 @@ export function WorkplaneViewport({
       const scaleStartPoint = scalePlane ? toRawPlanePoint(event.clientX, event.clientY, scalePlane) ?? undefined : undefined;
       const scaleSigns = kind === "scale" ? resizeSignsForHandle(resizeHandleKey) : undefined;
       const scaleAnchorPoint = kind === "scale" && scaleSigns ? resizeAnchorPointForFrame(frame, scaleSigns) : undefined;
-      const liftAxis = kind === "lift" || kind === "height" ? frame.yAxis.clone().normalize() : undefined;
+      const liftAxis = kind === "lift" ? lift.axis : kind === "height" ? frame.yAxis.clone().normalize() : undefined;
       const liftHandlePoint = liftAxis
-        ? framePoint(frame, 0, handlesLowerSide ? frame.min.y : frame.max.y, 0).addScaledVector(liftAxis, liftOffset)
+        ? (kind === "lift"
+            ? lift.pointAt(handlesLowerSide ? lift.low : lift.high).addScaledVector(liftAxis, liftOffset)
+            : framePoint(frame, 0, handlesLowerSide ? frame.min.y : frame.max.y, 0).addScaledVector(liftAxis, liftOffset))
         : undefined;
       const liftPlane = state && liftAxis && liftHandlePoint
         ? axisDragPlaneForCamera(state, liftAxis, liftHandlePoint)
         : undefined;
       const liftStartPoint = liftPlane ? toRawPlanePoint(event.clientX, event.clientY, liftPlane) ?? undefined : undefined;
       const liftStartValue = kind === "lift"
-        ? workplaneFootprintY(frame, activeWorkplane) - workplaneYForFrame(frame, activeWorkplane)
+        ? lift.elevation
         : undefined;
       if (kind === "scale" && !scaleStartPoint) {
         return;
@@ -5181,7 +5170,7 @@ export function WorkplaneViewport({
     if (!frame) {
       return;
     }
-    const elevation = workplaneFootprintY(frame, activeWorkplane) - workplaneYForFrame(frame, activeWorkplane);
+    const elevation = liftGeometryForFrame(frame, activeWorkplane).elevation;
     const elevationMark = Object.values(transformOverlayRef.current?.dimensions ?? {})
       .flat()
       .find((entry) => entry.axis === "elevation");
@@ -5212,12 +5201,13 @@ export function WorkplaneViewport({
       if (Number.isFinite(value)) {
         const activeWorkplane = placementWorkplaneRef.current;
         const frame = selectionFrameForShapes(shapesRef.current, selectedIdsRef.current, activeWorkplane);
-        const currentElevation = frame
-          ? workplaneFootprintY(frame, activeWorkplane) - workplaneYForFrame(frame, activeWorkplane)
+        const lift = frame ? liftGeometryForFrame(frame, activeWorkplane) : null;
+        const currentElevation = lift
+          ? lift.elevation
           : shape.elevation ?? 0;
         const targetElevation = cleanNearZero(clamp(value, MIN_ELEVATION, MAX_ELEVATION), 0.0005);
         const delta = targetElevation - currentElevation;
-        const axis = frame?.yAxis.clone().normalize() ?? new THREE.Vector3(0, 1, 0);
+        const axis = lift ? lift.axis : new THREE.Vector3(0, 1, 0);
         selectedIdsRef.current.forEach((selectedId) => {
           const selectedShape = shapesRef.current.find((entry) => entry.id === selectedId);
           if (selectedShape) {
@@ -5958,7 +5948,8 @@ export function WorkplaneViewport({
         }
         const yBounds = selectionWorldYBounds(frame);
         const handlesLowerSide = handle.handleKey === "bottom-height" || handle.handleKey === "lower-shape";
-        const liftOffset = handle.kind === "lift" ? Math.max(2, frame.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION) * (handlesLowerSide ? -1 : 1) : 0;
+        const lift = liftGeometryForFrame(frame, activeWorkplane);
+        const liftOffset = handle.kind === "lift" ? Math.max(2, lift.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION) * (handlesLowerSide ? -1 : 1) : 0;
         const overlay = transformOverlayRef.current;
         const rotationAxis = rotationAxisForHandle(handle.handleKey);
         const resizeHandleKey = handle.handleKey;
@@ -5977,16 +5968,18 @@ export function WorkplaneViewport({
         const rotationCenter = handle.kind === "rotate" ? wheel ?? projectToScreen(pivot, state) : undefined;
         const rotationStartPoint = handle.kind === "rotate" ? rayPointOnRotationPlane(state, event.clientX, event.clientY, rotationPlaneCenter, axisVector) : null;
         const rotationStartVector = rotationStartPoint ? rotationStartPoint.sub(rotationPlaneCenter) : undefined;
-        const liftAxis = handle.kind === "lift" || handle.kind === "height" ? frame.yAxis.clone().normalize() : undefined;
+        const liftAxis = handle.kind === "lift" ? lift.axis : handle.kind === "height" ? frame.yAxis.clone().normalize() : undefined;
         const liftHandlePoint = liftAxis
-          ? framePoint(frame, 0, handlesLowerSide ? frame.min.y : frame.max.y, 0).addScaledVector(liftAxis, liftOffset)
+          ? (handle.kind === "lift"
+              ? lift.pointAt(handlesLowerSide ? lift.low : lift.high).addScaledVector(liftAxis, liftOffset)
+              : framePoint(frame, 0, handlesLowerSide ? frame.min.y : frame.max.y, 0).addScaledVector(liftAxis, liftOffset))
           : undefined;
         const liftPlane = liftAxis && liftHandlePoint
           ? axisDragPlaneForCamera(state, liftAxis, liftHandlePoint)
           : undefined;
         const liftStartPoint = liftPlane ? toRawPlanePoint(event.clientX, event.clientY, liftPlane) ?? undefined : undefined;
         const liftStartValue = handle.kind === "lift"
-          ? workplaneFootprintY(frame, activeWorkplane) - workplaneYForFrame(frame, activeWorkplane)
+          ? lift.elevation
           : undefined;
         if ((handle.kind === "lift" || handle.kind === "height") && !liftStartPoint) {
           return;
@@ -8607,10 +8600,13 @@ function syncTransformOverlay(
   ], theme);
   const lowerCenterWorld = framePoint(frame, 0, frame.min.y, 0);
   const upperCenterWorld = framePoint(frame, 0, frame.max.y, 0);
-  const liftOffset = Math.max(2, frame.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION);
-  const liftHandle = (showLowerHandles ? lowerCenterWorld : upperCenterWorld)
+  const lift = liftGeometryForFrame(frame, activeWorkplane);
+  const showLowerLiftHandle = state.camera.position.clone().sub(frame.center).dot(lift.axis) < 0;
+  const liftOffset = Math.max(2, lift.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION);
+  const liftBaseWorld = lift.pointAt(showLowerLiftHandle ? lift.low : lift.high);
+  const liftHandle = liftBaseWorld
     .clone()
-    .addScaledVector(yFootAxis, showLowerHandles ? -liftOffset : liftOffset);
+    .addScaledVector(lift.axis, showLowerLiftHandle ? -liftOffset : liftOffset);
   const bottom = {
     nearLeft: project(footprintWorld.nearLeft),
     nearRight: project(footprintWorld.nearRight),
@@ -8625,11 +8621,11 @@ function syncTransformOverlay(
   };
   const heightPoint = project(showLowerHandles ? lowerCenterWorld : upperCenterWorld);
   const liftPoint = project(liftHandle);
-  const liftBasePoint = project(showLowerHandles ? lowerCenterWorld : upperCenterWorld);
+  const liftBasePoint = project(liftBaseWorld);
   const liftTargetAngle = THREE.MathUtils.radToDeg(
     Math.atan2(liftPoint.y - liftBasePoint.y, liftPoint.x - liftBasePoint.x),
   );
-  const liftHandleAngle = liftTargetAngle - (showLowerHandles ? 90 : -90);
+  const liftHandleAngle = liftTargetAngle - (showLowerLiftHandle ? 90 : -90);
   const centerPoint = project(frame.center);
   const widthLabel = formatMeasure(frame.width, accuracy);
   const depthLabel = formatMeasure(frame.depth, accuracy);
@@ -8639,9 +8635,13 @@ function syncTransformOverlay(
   const rightOut = xFootAxis;
   const leftOut = xFootAxis.clone().multiplyScalar(-1);
   const heightHandleKey = showLowerHandles ? "bottom-height" : "top-height";
-  const liftHandleKey = showLowerHandles ? "lower-shape" : "lift-shape";
-  const workplaneAnchor = framePoint(frame, 0, workplaneY, 0);
-  const liftLabel = formatMeasure(footprintY - workplaneY, accuracy);
+  const liftHandleKey = showLowerLiftHandle ? "lower-shape" : "lift-shape";
+  const liftAnchor = lift.pointAt(0);
+  const liftTarget = lift.pointAt(lift.elevation);
+  const liftLabel = formatMeasure(lift.elevation, accuracy);
+  const liftCameraView = state.camera.position.clone().sub(frame.center);
+  const liftOutward = new THREE.Vector3().crossVectors(lift.axis, liftCameraView).normalize();
+  const liftDimensionOutward = liftOutward.lengthSq() > 0.5 ? liftOutward : rightOut;
   const makeFootprintDimensionMark = (handleKey: string, axis: "width" | "depth") => {
     if (axis === "width") {
       const useFarSide = handleKey.includes("far") || handleKey.includes("left");
@@ -8692,7 +8692,7 @@ function syncTransformOverlay(
   const dimensionMarks = {
     ...footprintDimensionMarks,
     [heightHandleKey]: [makeDimensionMark("height", heightHandleKey, "height", heightLabel, lowerCenterWorld, upperCenterWorld, rightOut, project)],
-    [liftHandleKey]: [makeDimensionMark("elevation", liftHandleKey, "elevation", liftLabel, workplaneAnchor, bottomCenterWorld, rightOut, project)],
+    [liftHandleKey]: [makeDimensionMark("elevation", liftHandleKey, "elevation", liftLabel, liftAnchor, liftTarget, liftDimensionOutward, project)],
   };
   const screenOffsetFromCenter = (point: { x: number; y: number }, distance: number) => {
     const dx = point.x - centerPoint.x;
@@ -8805,7 +8805,7 @@ function syncTransformOverlay(
     { point: mid.far, handle: { key: "far-mid", className: "edge dark", kind: "scale" as const, x: mid.far.x, y: mid.far.y, title: "Resize" } },
     { point: mid.left, handle: { key: "left-mid", className: "edge dark", kind: "scale" as const, x: mid.left.x, y: mid.left.y, title: "Resize" } },
     { point: heightPoint, handle: { key: heightHandleKey, className: "height-top", kind: "height" as const, x: heightPoint.x, y: heightPoint.y, title: "Height" } },
-    { point: liftPoint, handle: { key: liftHandleKey, className: showLowerHandles ? "height-lift lower" : "height-lift", kind: "lift" as const, x: liftPoint.x, y: liftPoint.y, title: "Lift", angle: liftHandleAngle } },
+    { point: liftPoint, handle: { key: liftHandleKey, className: showLowerLiftHandle ? "height-lift lower" : "height-lift", kind: "lift" as const, x: liftPoint.x, y: liftPoint.y, title: "Lift", angle: liftHandleAngle } },
   ].filter(({ point }) => point.visible).map(({ handle }) => handle);
   const rotationChromeVisible = !cameraInsideSelection && centerPoint.visible;
   const rotateHandles = rotationChromeVisible ? [
