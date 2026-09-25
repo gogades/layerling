@@ -12,7 +12,7 @@ function bucketKey(x: number, y: number, z: number) {
   return `${x}:${y}:${z}`;
 }
 
-function weldMeshVertices(mesh: ObjExportMesh) {
+export function weldMeshVertices(mesh: ObjExportMesh) {
   const vertices: Array<[number, number, number]> = [];
   const buckets = new Map<string, number[]>();
   const remappedIndices: number[] = [];

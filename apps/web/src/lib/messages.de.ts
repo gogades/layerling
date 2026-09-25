@@ -734,6 +734,8 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "export.run": "{format} exportieren",
   "export.stl.description": "Netz für den 3D-Druck",
   "export.stl.note": "Am besten für Slicer und 3D-Druck. Die Geometrie wird als Dreiecksnetz ausgegeben.",
+  "export.3mf.description": "Slicer-Datei mit Farben",
+  "export.3mf.note": "Für PrusaSlicer, Bambu Studio, OrcaSlicer und Cura. Jeder Körper bleibt ein eigenes Teil mit Namen und Farbe.",
   "export.obj.description": "Universelles 3D-Netz",
   "export.obj.note": "Ein breit unterstütztes Netzformat für Modellierung, Bildberechnung und Austausch.",
   "export.step.description": "CAD / B-Rep",

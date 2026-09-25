@@ -735,6 +735,8 @@ export const MESSAGES_EN = {
   "export.run": "Export {format}",
   "export.stl.description": "3D print mesh",
   "export.stl.note": "Best for slicers and 3D printing. Geometry is exported as a triangulated mesh.",
+  "export.3mf.description": "Slicer project with colors",
+  "export.3mf.note": "For PrusaSlicer, Bambu Studio, OrcaSlicer and Cura. Every body stays a separate part with its name and color.",
   "export.obj.description": "Universal 3D mesh",
   "export.obj.note": "A broadly compatible mesh format for modeling, rendering, and interchange.",
   "export.step.description": "CAD / B-Rep",

@@ -136,6 +136,7 @@ import { makeShapeFromAsset, sceneShape, shapeAssetLabel, shapeAssetMenuLabel, t
 import { importExtensionSupported } from "@/lib/importExtensions";
 import { importedShapeFromStl } from "@/lib/stlImport";
 import { exportMeshesToStl } from "@/lib/stlExport";
+import { exportMeshesTo3mf, THREE_MF_MEDIA_TYPE } from "@/lib/threemfExport";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
 import { DEFAULT_TAPER_DIMENSION_MAX, keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
@@ -169,7 +170,7 @@ import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSou
 export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
 type TopPanel = "import" | "export" | null;
-type ExportFormat = "stl" | "obj" | "step" | "svg" | "lyl";
+type ExportFormat = "stl" | "3mf" | "obj" | "step" | "svg" | "lyl";
 type DirectExportFormat = Exclude<ExportFormat, "step" | "lyl">;
 type LylHistoryLimit = EditorHistoryExportLimit;
 type LylExportTarget = "download" | "shared";
@@ -4621,15 +4622,19 @@ function manifoldMeshToMeshData(mesh: InstanceType<ManifoldToplevel["Mesh"]>, na
 async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: MeshData[]) {
   const gruppen = overlappingExportClusters(meshes.map((mesh) => meshBounds(mesh.vertices)));
   if (!gruppen.some((gruppe) => gruppe.length > 1)) {
-    return { meshes, verschmolzen: 0, gescheitert: 0 };
+    return { meshes, quellen: meshes.map((_, index) => index), verschmolzen: 0, gescheitert: 0 };
   }
   const runtime = await getManifoldRuntime().catch(() => null);
   const ergebnis: MeshData[] = [];
+  // Which input shape each result stands for - a merged body takes its first
+  // member, so the 3MF export can keep names and colours.
+  const quellen: number[] = [];
   let verschmolzen = 0;
   let gescheitert = 0;
   for (const gruppe of gruppen) {
     if (gruppe.length === 1) {
       ergebnis.push(meshes[gruppe[0]]);
+      quellen.push(gruppe[0]);
       continue;
     }
     const created: ManifoldSolid[] = [];
@@ -4646,13 +4651,17 @@ async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: Me
     }
     if (vereinigt && vereinigt.faces.length > 0) {
       ergebnis.push(vereinigt);
+      quellen.push(gruppe[0]);
       verschmolzen += gruppe.length;
     } else {
-      gruppe.forEach((index) => ergebnis.push(meshes[index]));
+      gruppe.forEach((index) => {
+        ergebnis.push(meshes[index]);
+        quellen.push(index);
+      });
       gescheitert += 1;
     }
   }
-  return { meshes: ergebnis, verschmolzen, gescheitert };
+  return { meshes: ergebnis, quellen, verschmolzen, gescheitert };
 }
 
 function disposeManifold(value: unknown) {
@@ -9511,12 +9520,19 @@ export function LayerlingEditor({
         .catch((error: unknown) => failNotice("SVG", error));
       return;
     }
-    const label = format === "stl" ? "STL" : "OBJ";
+    const label = format === "stl" ? "STL" : format === "3mf" ? "3MF" : "OBJ";
     const meshes = exportable.map(meshForShape);
     void unionOverlappingExportMeshes(exportable, meshes)
-      .then(async ({ meshes: fertig, verschmolzen, gescheitert }) => {
+      .then(async ({ meshes: fertig, quellen, verschmolzen, gescheitert }) => {
         if (format === "stl") {
           await downloadBlobFile(projectExportFileName(exportName, "stl"), new Blob([exportMeshesToStl(fertig)], { type: "model/stl" }));
+        } else if (format === "3mf") {
+          const bodies = fertig.map((mesh, index) => {
+            const source = exportable[quellen[index]];
+            return { ...mesh, name: source?.name || mesh.name, color: source?.color };
+          });
+          const bytes = exportMeshesTo3mf(bodies, { title: exportName.trim() || projectName });
+          await downloadBlobFile(projectExportFileName(exportName, "3mf"), new Blob([bytes as BlobPart], { type: THREE_MF_MEDIA_TYPE }));
         } else {
           await downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(fertig), "text/plain");
         }
@@ -11459,6 +11475,11 @@ function TopActionPanel({
       description: t("export.stl.description"),
       note: t("export.stl.note"),
     },
+    "3mf": {
+      label: "3MF",
+      description: t("export.3mf.description"),
+      note: t("export.3mf.note"),
+    },
     obj: {
       label: "OBJ",
       description: t("export.obj.description"),
@@ -11562,7 +11583,7 @@ function TopActionPanel({
                   : t(scopeLabel === "selected" ? "export.scopeSelected" : "export.scopeTotal", { count: shapeCount })}</span>
             </div>
             <div className="export-format-slider" data-format={exportFormat} role="radiogroup" aria-label={t("export.formatLabel")}>
-              {(["stl", "obj", "step", "svg", "lyl"] as const).map((format) => (
+              {(["stl", "3mf", "obj", "step", "svg", "lyl"] as const).map((format) => (
                 <button
                   key={format}
                   type="button"
