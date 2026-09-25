@@ -7803,7 +7803,6 @@ function createWorkplaneLabel(
   // Set against the left edge and low in the texture, so the caption keeps to
   // the corner of the plane instead of floating in the middle of empty texture.
   context.textAlign = align;
-  context.textBaseline = "middle";
   const textInset = canvas.width * 0.015;
   const textLeft = align === "right" ? canvas.width - textInset : textInset;
   const textWidth = canvas.width - textInset * 2;
@@ -7828,12 +7827,16 @@ function createWorkplaneLabel(
     context.globalAlpha = 1;
   };
   const caption = subtitle.trim();
+  // Every name sits on the same baseline near the bottom, so the design name
+  // and the printer line up along the front edge.
+  context.textBaseline = "alphabetic";
+  const baseline = canvas.height * 0.8;
   if (caption) {
-    // Two lines: the name, and underneath it, smaller, the detail.
-    drawText(title, 600, Math.round(canvas.height * 0.46), canvas.height * 0.4);
-    drawText(caption, 500, Math.round(canvas.height * 0.26), canvas.height * 0.82, 0.78);
+    // Two lines: the detail small on top, the name underneath.
+    drawText(caption, 500, Math.round(canvas.height * 0.26), canvas.height * 0.3, 0.78);
+    drawText(title, 600, Math.round(canvas.height * 0.46), baseline);
   } else {
-    drawText(title.trim(), 700, Math.round(canvas.height * 0.68), canvas.height * 0.57);
+    drawText(title.trim(), 700, Math.round(canvas.height * 0.68), baseline);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
