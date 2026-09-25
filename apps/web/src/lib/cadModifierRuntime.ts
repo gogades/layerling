@@ -265,5 +265,49 @@ export function cadModifierUserErrorMessage(rawError: string | null | undefined)
   ) {
     return t("edge.errorWorkerFailed");
   }
+  if (
+    rawError.includes("The walls cannot be this thick for this body") ||
+    rawError.includes("Choose a thinner wall")
+  ) {
+    return t("shell.errorTooThick");
+  }
+  if (rawError.includes("no flat bottom face to leave open")) {
+    return t("shell.errorNoFlatBottom");
+  }
+  if (
+    rawError.includes("no flat top face to leave open") ||
+    rawError.includes("no flat face to leave open") ||
+    rawError.includes("has no flat")
+  ) {
+    return t("shell.errorNoFlatTop");
+  }
+  if (rawError.includes("The object or project changed while it was being hollowed")) {
+    return t("shell.errorProjectChanged");
+  }
+  if (
+    rawError.includes("The CAD worker did not return a hollowed body") ||
+    rawError.includes("The CAD kernel returned an empty body") ||
+    rawError.includes("invalid shell")
+  ) {
+    return t("shell.errorFailed");
+  }
+  if (rawError.includes("cannot be filleted together")) {
+    return t("edge.errorFilletTogether");
+  }
+  if (rawError.includes("cannot be chamfered together")) {
+    return t("edge.errorChamferTogether");
+  }
+  if (rawError.includes("The CAD kernel could not complete this edge treatment")) {
+    return t("edge.errorKernelFailed");
+  }
+  if (rawError.includes("could not be converted into a closed CAD solid")) {
+    return t("edge.errorMeshNotSolid");
+  }
+  if (rawError.includes("memory fault and reset") || rawError.includes("incomplete validation function")) {
+    return t("edge.errorKernelMemoryFault");
+  }
+  if (rawError.includes("ran out of room and was restarted")) {
+    return t("edge.errorKernelRestart");
+  }
   return rawError;
 }

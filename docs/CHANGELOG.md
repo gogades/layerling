@@ -4,6 +4,15 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.18.0
+
+- **Hollowing tool (Körper aushöhlen):** A new Hollow tool next to chamfer and fillet turns any solid body into walls of uniform thickness, grown inward so exterior dimensions are preserved. Choose which side stays open: top, bottom, top and bottom (frame), or completely closed around a sealed cavity. Fully supports parametric re-editing, MCP automation (`layerling_hollow_object`), and localized feedback in German and English.
+- **3MF export:** Export 3D models directly as 3MF project files for PrusaSlicer, Bambu Studio, OrcaSlicer, and Cura. Preserves multi-body structures, per-body names, and materials/colours in standard millimetre Z-up orientation.
+- **Faster initial load & performance:** Reduced dashboard load size by ~80% (from 1.4 MB to 276 KB gzipped) by dynamically loading the editor and typefaces only when entering the workspace, plus removing redundant base64 WASM payloads.
+- **Reopen projects with 3MF sources:** Fixed project archive validation so saved `.lyl` files containing imported 3MF assets reopen seamlessly.
+- **Security & bridge hardening:** Updated dependencies (fflate, next, vitest), hardened `store.php` against array query injection, and added timeout handling to the MCP bridge.
+- **Localized CAD error messages:** Fully translated German and English error messages for hollowing and edge treatment constraints in the CAD modifier.
+
 ## 1.17.5
 
 - **Ground shadow of rotated shapes:** A shape turned by 90° and placed away from the workplane origin no longer shows an upright grey plane beside it that could not be removed. The shadow that marks a lifted selection now measures its height along the workplane normal, like the lift handle since 1.17.4, and lies flat on the workplane under the shape. Reported by @gogades in #19.
