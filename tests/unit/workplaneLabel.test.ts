@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   WORKPLANE_LABEL_ASPECT,
-  WORKPLANE_LABEL_TEXT,
   workplaneLabelLayout,
 } from "@/lib/workplaneGrid";
 import { DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
@@ -91,9 +90,5 @@ describe("workplane label layout", () => {
       const layout = workplaneLabelLayout(width, depth);
       expect(layout).toEqual({ width: 0, height: 0, depthOffset: 0, lateralOffset: 0 });
     }
-  });
-
-  it("labels the plane in the language the rest of the editor uses", () => {
-    expect(WORKPLANE_LABEL_TEXT).toBe("Workplane");
   });
 });

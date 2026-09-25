@@ -3811,7 +3811,7 @@ export function WorkplaneViewport({
     snapRef.current = nextSnap;
     workspaceRef.current = nextWorkspace;
     if (threeRef.current) {
-      rebuildWorkplane(threeRef.current, nextWorkspace, resolvedThemeRef.current, placementWorkplaneRef.current);
+      rebuildWorkplane(threeRef.current, nextWorkspace, resolvedThemeRef.current, placementWorkplaneRef.current, projectNameRef.current);
       constrainCamera(threeRef.current, nextWorkspace);
       threeRef.current.needsRender = true;
     }
@@ -7610,12 +7610,16 @@ function rebuildWorkplane(
         state.palette,
       ));
       const labelPalette = workplaneGridPalette(theme, lineColor, state.palette).major;
+      // The design's name in the near left corner, so a screenshot of the scene
+      // says what it shows.
       const label = createWorkplaneLabel(
         workspace.width,
         workspace.depth,
         labelPalette.color,
         muted ? labelPalette.opacity * 0.5 : labelPalette.opacity,
         projectName,
+        "",
+        { outline: muted ? undefined : palette.surface.color },
       );
       if (label) {
         group.add(label);
@@ -7628,8 +7632,9 @@ function rebuildWorkplane(
           workspace.depth,
           labelPalette.color,
           labelPalette.opacity,
+          `${printer.vendor} ${printer.model}`,
           `${printer.width} × ${printer.depth} × ${printer.height} mm`,
-          { title: `${printer.vendor} ${printer.model}`, align: "right" },
+          { align: "right", outline: palette.surface.color },
         );
         if (printerLabel) {
           printerLabel.name = "WorkplanePrinterLabel";
@@ -7766,8 +7771,8 @@ const WORKPLANE_LABEL_TEXTURE_WIDTH = 1024;
 const WORKPLANE_LABEL_FONT_STACK = '"Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif';
 
 /**
- * Flat label along the near edge of a workplane, so its orientation is
- * readable at a glance instead of having to be inferred from the axis lines.
+ * Flat label along the near edge of a workplane: the design's name on the
+ * left, the chosen printer on the right.
  *
  * Drawn into a canvas rather than built from glyph geometry: it is a single
  * static string that never needs to be a solid, and a texture costs one quad.
@@ -7777,11 +7782,12 @@ function createWorkplaneLabel(
   depth: number,
   color: string,
   opacity: number,
+  title: string,
   subtitle = "",
-  { title = t("workplane.label"), align = "left" }: { title?: string; align?: "left" | "right" } = {},
+  { align = "left", outline }: { align?: "left" | "right"; outline?: string } = {},
 ) {
   const layout = workplaneLabelLayout(width, depth);
-  if (layout.width <= 0 || layout.height <= 0) {
+  if (!title.trim() || layout.width <= 0 || layout.height <= 0) {
     return null;
   }
 
@@ -7801,19 +7807,33 @@ function createWorkplaneLabel(
   const textInset = canvas.width * 0.015;
   const textLeft = align === "right" ? canvas.width - textInset : textInset;
   const textWidth = canvas.width - textInset * 2;
+  // A rim in the colour of the plate keeps the grid lines away from the
+  // letters, so the caption stays readable where it crosses them.
+  context.lineJoin = "round";
+  const drawText = (text: string, weight: number, size: number, y: number, alpha = 1) => {
+    context.font = `${weight} ${size}px ${WORKPLANE_LABEL_FONT_STACK}`;
+    // A long name gets smaller rather than squeezed.
+    const measured = context.measureText(text).width;
+    if (measured > textWidth) {
+      size = Math.floor((size * textWidth) / measured);
+      context.font = `${weight} ${size}px ${WORKPLANE_LABEL_FONT_STACK}`;
+    }
+    if (outline) {
+      context.strokeStyle = outline;
+      context.lineWidth = size * 0.22;
+      context.strokeText(text, textLeft, y, textWidth);
+    }
+    context.globalAlpha = alpha;
+    context.fillText(text, textLeft, y, textWidth);
+    context.globalAlpha = 1;
+  };
   const caption = subtitle.trim();
   if (caption) {
-    // Two lines: the plane's name, and underneath it, smaller, the project it
-    // belongs to - so a screenshot of the scene says what it shows.
-    context.font = `600 ${Math.round(canvas.height * 0.46)}px ${WORKPLANE_LABEL_FONT_STACK}`;
-    context.fillText(title, textLeft, canvas.height * 0.4, textWidth);
-    context.font = `500 ${Math.round(canvas.height * 0.26)}px ${WORKPLANE_LABEL_FONT_STACK}`;
-    context.globalAlpha = 0.78;
-    context.fillText(caption, textLeft, canvas.height * 0.82, textWidth);
-    context.globalAlpha = 1;
+    // Two lines: the name, and underneath it, smaller, the detail.
+    drawText(title, 600, Math.round(canvas.height * 0.46), canvas.height * 0.4);
+    drawText(caption, 500, Math.round(canvas.height * 0.26), canvas.height * 0.82, 0.78);
   } else {
-    context.font = `600 ${Math.round(canvas.height * 0.68)}px ${WORKPLANE_LABEL_FONT_STACK}`;
-    context.fillText(title, textLeft, canvas.height * 0.57, textWidth);
+    drawText(title.trim(), 700, Math.round(canvas.height * 0.68), canvas.height * 0.57);
   }
 
   const texture = new THREE.CanvasTexture(canvas);

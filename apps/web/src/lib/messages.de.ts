@@ -806,7 +806,6 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "camera.moveMeasurement": "Messpunkte verschieben",
   "camera.deleteMeasurement": "Maß entfernen",
   "camera.shortcut": "{label} ({keys})",
-  "workplane.label": "Arbeitsebene",
   "workspace.title": "Arbeitsbereich-Einstellungen",
   "workspace.close": "Einstellungen schließen",
   "workspace.sections": "Bereiche der Einstellungen",
