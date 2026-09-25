@@ -102,6 +102,7 @@ export {
   ToolbarDuplicateIcon,
   ToolbarExportIcon,
   ToolbarFilletIcon,
+  ToolbarHollowIcon,
   ToolbarGroupIcon,
   ToolbarGuideIcon,
   ToolbarHomeIcon,

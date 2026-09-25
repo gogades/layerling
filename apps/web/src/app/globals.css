@@ -2528,6 +2528,36 @@ button {
   background: #fbf8f4;
 }
 
+.shell-opening-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.shell-opening-options button {
+  min-height: 30px;
+  padding: 0 8px;
+  color: #6d5133;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fbf8f4;
+  border: 1px solid #d8c8b7;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.shell-opening-options button.active {
+  color: #9f5508;
+  background: #fff1e0;
+  border-color: #e08a2c;
+}
+
+.shell-opening-options button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .edge-modifier-history-actions {
   display: grid;
   gap: 6px;
@@ -8959,6 +8989,18 @@ html[data-theme="dark"] .edge-modifier-field select {
   color: #ddccb9;
   background: #35281b;
   border-color: #5e4c3a;
+}
+
+html[data-theme="dark"] .shell-opening-options button {
+  color: #ddccb9;
+  background: #35281b;
+  border-color: #5a4633;
+}
+
+html[data-theme="dark"] .shell-opening-options button.active {
+  color: #ffb866;
+  background: #4a3217;
+  border-color: #c7772a;
 }
 
 html[data-theme="dark"] .edge-modifier-history-actions {

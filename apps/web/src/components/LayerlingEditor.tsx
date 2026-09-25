@@ -48,6 +48,7 @@ import {
   ToolbarIntersectionIcon,
   ToolbarKeyboardIcon,
   ToolbarFilletIcon,
+  ToolbarHollowIcon,
   ToolbarMirrorIcon,
   ToolbarNoteIcon,
   ToolbarPasteIcon,
@@ -63,6 +64,7 @@ import {
 import { WorkplaneViewport } from "./WorkplaneViewport";
 import { SketchWorkspace, type SketchMeasurement, type SketchPrimitive, type SketchSelection, type SketchTool } from "./SketchWorkspace";
 import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
+import { ShellPanel } from "./workplane/ShellPanel";
 import { GuideModal } from "./workplane/GuideModal";
 import { ShortcutsModal } from "./workplane/ShortcutsModal";
 import {
@@ -165,7 +167,7 @@ import {
 } from "@/lib/layerlingMcpProtocol";
 import type { CadModifierComponentMesh, CadModifierDeflection, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
-import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSource, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSource, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, ShellOpenings, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
@@ -1575,6 +1577,7 @@ function cadModifierComponentPreviews(sourceParts: WorkplaneShape[], components:
 
 function edgeTreatmentLabel(feature: NonNullable<WorkplaneShape["edgeTreatments"]>[number]) {
   const size = `${Number(feature.amount.toFixed(2))} mm`;
+  if (feature.kind === "shell") return `hollow (${size} walls, open ${feature.openings ?? "none"})`;
   return `${feature.kind === "fillet" ? "fillet" : "chamfer"} (${size}, ${feature.edgeCount} edge${feature.edgeCount === 1 ? "" : "s"})`;
 }
 
@@ -6092,6 +6095,7 @@ export function LayerlingEditor({
   const [sketchMeasurement, setSketchMeasurement] = useState<SketchMeasurement>(null);
   const [editingSketchShapeId, setEditingSketchShapeId] = useState<string | null>(null);
   const [edgeModifier, setEdgeModifier] = useState<EdgeModifierSession | null>(null);
+  const [shellTool, setShellTool] = useState<{ thickness: number; openings: ShellOpenings; busy: boolean; error: string | null } | null>(null);
   const edgeModifierRef = useRef<EdgeModifierSession | null>(null);
   const cadModifierWorkerRef = useRef<Worker | null>(null);
   const cadModifierPendingRef = useRef(new Map<number, {
@@ -8099,6 +8103,7 @@ export function LayerlingEditor({
   }, [invalidateCadModifierSession]);
 
   const startEdgeModifier = useCallback((kind: CadModifierKind) => {
+    setShellTool(null);
     if (selectedShapes.length !== 1 || !selectedShape || selectedShape.locked || selectedShape.hole || isNonSolidShapeKind(selectedShape.kind)) {
       setNotice(t("status.selectOneUnlocked", { kind }));
       return;
@@ -8328,6 +8333,118 @@ export function LayerlingEditor({
       selectableEdgeIds: selectableIds,
     };
   }, [commitShapes, invalidateCadModifierSession, prepareCadModifierForMcp, postCadModifierRequestAsync]);
+
+  /*
+   * Aushoehlen laeuft ueber denselben Weg wie Fase und Rundung: der Koerper
+   * geht als CAD-Teile an den Arbeiter, zurueck kommt ein exakter Koerper samt
+   * BREP, und der Eintrag im Verlauf haelt den Zustand davor fest - so laesst
+   * sich die Aushoehlung spaeter wieder entfernen wie jede Kantenbehandlung.
+   * "Groesse beibehalten" ist fest an: die Wandstaerke soll beim Skalieren
+   * bleiben, was sie ist.
+   */
+  const shellShape = useCallback(async (shape: WorkplaneShape, thickness: number, openings: ShellOpenings) => {
+    if (shape.locked || shape.hole || isNonSolidShapeKind(shape.kind)) {
+      throw new Error("Select one unlocked solid object to hollow");
+    }
+    invalidateCadModifierSession();
+    const sourceFingerprint = projectShapesFingerprint([shape]);
+    const sourceProjectId = projectInfoRef.current.projectId;
+    const { response, sourceParts } = await prepareCadModifierForMcp(shape, 25);
+    const previewResponse = await postCadModifierRequestAsync({
+      type: "preview",
+      kind: "shell",
+      edgeIds: [],
+      amount: thickness,
+      quality: "standard",
+      chamferAngle: 45,
+      shellOpenings: openings,
+      minDeflection: shape.cadMeshDeflection,
+    }, [], 60000);
+    if (previewResponse.type !== "preview") {
+      throw new Error("The CAD worker did not return a hollowed body");
+    }
+    const rawPreview = shapeFromCadMesh(shape, previewResponse.positions, previewResponse.normals, previewResponse.indices, previewResponse.brep, previewResponse.deflection);
+    if (!rawPreview) {
+      throw new Error("The CAD kernel returned an empty body");
+    }
+    const preview = canonicalizeShape({
+      ...rawPreview,
+      cadDisplayEdges: cadDisplayEdgesForShape(rawPreview, previewResponse.displayEdges),
+      cadDisplayEdgesVersion: 2 as const,
+    });
+    const feature = { kind: "shell" as const, amount: thickness, edgeCount: 0, openings } satisfies NonNullable<WorkplaneShape["edgeTreatments"]>[number];
+    const session: EdgeModifierSession = {
+      kind: "shell",
+      edges: response.edges,
+      selectedEdgeIds: [],
+      amount: thickness,
+      sharpAngle: 25,
+      chamferAngle: 45,
+      quality: "standard",
+      tangentChain: false,
+      preserveEdgeSize: true,
+      busy: false,
+      prepared: true,
+      error: null,
+      preview,
+      componentPreviews: cadModifierComponentPreviews(sourceParts, previewResponse.components, previewResponse.deflection),
+    };
+    const createdAt = Date.now();
+    const modifiedShape = groupedShapeWithComponentEdgeTreatment(shape, preview, sourceParts, session, feature, createdAt)
+      ?? shapeWithEdgeTreatmentRecord(bakedEdgeTreatmentPreview(preview, shape), shape, feature, true, createdAt);
+    const currentTarget = shapesRef.current.find((candidate) => candidate.id === shape.id);
+    if (
+      projectInfoRef.current.projectId !== sourceProjectId ||
+      !currentTarget ||
+      projectShapesFingerprint([currentTarget]) !== sourceFingerprint
+    ) {
+      throw new Error("The object or project changed while it was being hollowed; try again");
+    }
+    return modifiedShape;
+  }, [invalidateCadModifierSession, prepareCadModifierForMcp, postCadModifierRequestAsync]);
+
+  const startShellTool = useCallback(() => {
+    if (shellTool) {
+      setShellTool(null);
+      return;
+    }
+    if (selectedShapes.length !== 1 || !selectedShape || selectedShape.locked || selectedShape.hole || isNonSolidShapeKind(selectedShape.kind)) {
+      setNotice(t("status.selectOneUnlocked", { kind: t("editor.tool.hollow") }));
+      return;
+    }
+    if (edgeModifier) invalidateCadModifierSession();
+    const smallest = Math.min(shapeWidth(selectedShape), shapeDepth(selectedShape), selectedShape.height);
+    setShellTool({ thickness: Math.max(0.2, Math.min(2, Number((smallest / 5).toFixed(1)))), openings: "top", busy: false, error: null });
+  }, [edgeModifier, invalidateCadModifierSession, selectedShape, selectedShapes.length, shellTool]);
+
+  const applyShellTool = useCallback(() => {
+    if (!shellTool || shellTool.busy) return;
+    const target = selectedShape;
+    if (!target || selectedShapes.length !== 1) {
+      setShellTool(null);
+      return;
+    }
+    const { thickness, openings } = shellTool;
+    setShellTool((current) => current ? { ...current, busy: true, error: null } : current);
+    void shellShape(target, thickness, openings)
+      .then((modifiedShape) => {
+        commitShapes(
+          shapesRef.current.map((candidate) => candidate.id === target.id ? modifiedShape : candidate),
+          modifiedShape.id,
+          t("status.shelled", { size: Number(thickness.toFixed(2)) }),
+        );
+        setShellTool(null);
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        setShellTool((current) => current ? { ...current, busy: false, error: message } : current);
+      });
+  }, [commitShapes, selectedShape, selectedShapes.length, shellShape, shellTool]);
+
+  // The panel belongs to one selected body; a new selection closes it.
+  useEffect(() => {
+    setShellTool((current) => current && !current.busy ? null : current);
+  }, [selectedShape?.id]);
 
   useEffect(() => {
     const base = cadModifierBaseShapeRef.current;
@@ -9182,6 +9299,20 @@ export function LayerlingEditor({
         const { response } = await prepareCadModifierForMcp(target, sharpAngle);
         const selectableEdgeIds = response.edges.filter((edge) => selectableCadModifierEdge(edge, sharpAngle)).map((edge) => edge.id);
         return { object: mcpShapeSummary(target), sharpAngle, selectableEdgeIds, edges: response.edges };
+      }
+
+      if (command.action === "hollow_object") {
+        const target = findShape(params.id);
+        if (!target) throw new Error("Object not found");
+        const thickness = Math.max(0.2, mcpNumber(params.thickness, 2));
+        const openings: ShellOpenings = params.openings === "none" || params.openings === "bottom" || params.openings === "top-bottom" ? params.openings : "top";
+        const modifiedShape = await shellShape(target, thickness, openings);
+        commitShapes(
+          shapesRef.current.map((candidate) => candidate.id === target.id ? modifiedShape : candidate),
+          modifiedShape.id,
+          t("status.shelledMcp", { size: Number(thickness.toFixed(2)) }),
+        );
+        return { object: mcpShapeSummary(modifiedShape), thickness, openings };
       }
 
       if (command.action === "apply_edge_treatment") {
@@ -10351,6 +10482,8 @@ export function LayerlingEditor({
         onGroup={groupSelected}
         onIntersect={intersectSelected}
         onFillet={() => edgeModifier?.kind === "fillet" ? cancelEdgeModifier() : startEdgeModifier("fillet")}
+        onHollow={startShellTool}
+        hollowActive={Boolean(shellTool)}
         onMirror={toggleMirrorMode}
         onPaste={pasteShape}
         onRedo={redo}
@@ -10478,6 +10611,21 @@ export function LayerlingEditor({
         )}
       </div>
       <AppFooter variant="editor" version={LYL_CREATED_WITH_VERSION} />
+      {shellTool && selectedShape ? (
+        <ShellPanel
+          targetName={selectedShape.name}
+          thickness={shellTool.thickness}
+          maxThickness={Math.max(0.2, Math.min(shapeWidth(selectedShape), shapeDepth(selectedShape), selectedShape.height) / 2)}
+          openings={shellTool.openings}
+          workspace={workspaceSettings}
+          busy={shellTool.busy}
+          error={shellTool.error}
+          onThicknessChange={(value) => setShellTool((current) => current ? { ...current, thickness: value, error: null } : current)}
+          onOpeningsChange={(value) => setShellTool((current) => current ? { ...current, openings: value, error: null } : current)}
+          onApply={applyShellTool}
+          onCancel={() => setShellTool(null)}
+        />
+      ) : null}
       {edgeModifier ? (
         <EdgeModifierPanel
           kind={edgeModifier.kind}
@@ -10685,6 +10833,8 @@ function SecondaryToolbar({
   onGroup,
   onIntersect,
   onFillet,
+  onHollow,
+  hollowActive,
   onMirror,
   onPaste,
   onRedo,
@@ -10748,6 +10898,8 @@ function SecondaryToolbar({
   onGroup: () => void;
   onIntersect: () => void;
   onFillet: () => void;
+  onHollow: () => void;
+  hollowActive: boolean;
   onMirror: () => void;
   onPaste: () => void;
   onRedo: () => void;
@@ -10933,6 +11085,7 @@ function SecondaryToolbar({
     { id: "snap", label: t("editor.tool.snapToGrid"), icon: ToolbarSnapGridIcon, action: onSnap, enabled: hasSelection },
     { id: "chamfer", label: t("editor.tool.chamfer"), icon: ToolbarChamferIcon, action: onChamfer, enabled: canEdgeModify, active: edgeModifierKind === "chamfer" },
     { id: "fillet", label: t("editor.tool.fillet"), icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify, active: edgeModifierKind === "fillet" },
+    { id: "hollow", label: t("editor.tool.hollow"), icon: ToolbarHollowIcon, action: onHollow, enabled: canEdgeModify, active: hollowActive },
   ];
   const arrangeTools = [
     { id: "drop", label: t("editor.tool.dropToWorkplane"), icon: ToolbarDropToWorkplaneIcon, action: onDropToWorkplane, enabled: hasSelection },
