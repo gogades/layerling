@@ -62,7 +62,7 @@ import { regularPolygonFootprintScale } from "@/lib/regularPolygonFootprint";
 import { roundSideCount } from "@/lib/roundSideCount";
 import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
-import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
+import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision } from "@/lib/workplaneSettings";
 import { interiorWorkplaneGridCoordinates, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, WORKPLANE_MAJOR_GRID_INTERVAL } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
@@ -277,6 +277,11 @@ function readSavedWorkspaceDefault(key: string | null) {
   if (!key || typeof window === "undefined") {
     return null;
   }
+  const globalDefault = readWorkspaceDefault();
+  if (globalDefault) {
+    return globalDefault;
+  }
+  // Defaults saved before they became global were filed under this key.
   try {
     const parsed = JSON.parse(window.localStorage.getItem(`${WORKSPACE_DEFAULTS_STORAGE_PREFIX}${key}`) ?? "null") as {
       workspace?: unknown;
@@ -3851,17 +3856,8 @@ export function WorkplaneViewport({
   const makeWorkspaceDefault = useCallback(() => {
     const normalizedWorkspace = normalizeWorkspaceSettings(workspace);
     const normalizedSnap = normalizeSnapGrid(snap, DEFAULT_SNAP_GRID);
-    const key = workspaceSettingsKeyRef.current;
-    if (key) {
-      try {
-        window.localStorage.setItem(
-          `${WORKSPACE_DEFAULTS_STORAGE_PREFIX}${key}`,
-          JSON.stringify({ workspace: normalizedWorkspace, snap: normalizedSnap }),
-        );
-      } catch {
-        // Project persistence below is still attempted if browser storage is unavailable.
-      }
-    }
+    // Project persistence below is still attempted if browser storage is unavailable.
+    saveWorkspaceDefault(normalizedWorkspace, normalizedSnap);
     onWorkspaceSettingsChange?.({ workspace: normalizedWorkspace, snap: normalizedSnap });
   }, [onWorkspaceSettingsChange, snap, workspace]);
 

@@ -317,3 +317,59 @@ export function workspaceHydrationSyncDecision(pendingFingerprint: string | null
     pendingFingerprint: currentFingerprint === pendingFingerprint ? null : pendingFingerprint,
   };
 }
+
+/**
+ * "Make default" is meant for every design created afterwards, so it lives
+ * under one key for the whole browser. It used to be filed under the id of
+ * the project it was pressed in, which a new project never looks up - a new
+ * design fell back to the built-in settings, shadows and zoom speed included.
+ */
+export const WORKSPACE_DEFAULT_STORAGE_KEY = "layerling.workspaceDefault.global";
+
+function browserStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+export function readWorkspaceDefault(storage: Storage | null = browserStorage()) {
+  if (!storage) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(storage.getItem(WORKSPACE_DEFAULT_STORAGE_KEY) ?? "null") as {
+      workspace?: unknown;
+      snap?: unknown;
+    } | null;
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return {
+      workspace: normalizeWorkspaceSettings(parsed.workspace),
+      snap: normalizeSnapGrid(parsed.snap, DEFAULT_SNAP_GRID),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveWorkspaceDefault(
+  workspace: WorkplaneWorkspaceSettings,
+  snap: GridSize,
+  storage: Storage | null = browserStorage(),
+) {
+  if (!storage) {
+    return false;
+  }
+  try {
+    storage.setItem(WORKSPACE_DEFAULT_STORAGE_KEY, JSON.stringify({
+      workspace: normalizeWorkspaceSettings(workspace),
+      snap: normalizeSnapGrid(snap, DEFAULT_SNAP_GRID),
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
