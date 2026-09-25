@@ -829,6 +829,7 @@ export const MESSAGES_EN = {
   "workspace.showProjectName": "Show design name in toolbar",
   "workspace.showMoveDimensions": "Show movement dimensions",
   "workspace.showOriginDimensions": "Show origin distances",
+  "workspace.dimensionsAlwaysVisible": "Dimensions always visible",
   "workspace.selectBeforeMoving": "Select before moving",
   "workspace.showShadows": "Show shadows",
   "workspace.showGrid": "Show grid",

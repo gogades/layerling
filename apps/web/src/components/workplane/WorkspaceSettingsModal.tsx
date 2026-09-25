@@ -556,6 +556,11 @@ export function WorkspaceSettingsModal({
                     onChange={onOriginDimensionsEnabledChange}
                   />
                   <WorkspaceToggle
+                    label={t("workspace.dimensionsAlwaysVisible")}
+                    checked={workspace.dimensionsAlwaysVisible}
+                    onChange={(dimensionsAlwaysVisible) => patchWorkspace({ dimensionsAlwaysVisible })}
+                  />
+                  <WorkspaceToggle
                     label={t("workspace.selectBeforeMoving")}
                     checked={workspace.selectBeforeMove}
                     onChange={(selectBeforeMove) => patchWorkspace({ selectBeforeMove })}

@@ -219,9 +219,10 @@ export type TransformOverlayState = {
   dimensions: Record<string, DimensionMark[]>;
   /**
    * Handle keys whose dimension marks stay on screen for a single selected
-   * shape even without hovering a handle first - width, depth and height (or
-   * just diameter and height for a cylinder), each on whichever side of the
-   * shape currently faces the camera. Empty for a multi-shape selection.
+   * shape as soon as it is selected. Filled when the workspace setting
+   * dimensionsAlwaysVisible is on: width, depth and height (diameter and
+   * height for a cylinder), each on the side of the shape facing the camera.
+   * Empty when that setting is off, or when more than one shape is selected.
    */
   alwaysVisibleDimensionKeys: string[];
   rotationWheel: RotationWheelView | null;
