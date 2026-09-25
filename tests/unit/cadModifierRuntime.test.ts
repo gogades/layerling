@@ -207,6 +207,32 @@ describe("cadModifierUserErrorMessage", () => {
     expect(cadModifierUserErrorMessage("The CAD worker could not start. Update to Firefox 121+, Chrome/Brave 114+, or Safari 17.2+, then try again.")).toContain("CAD-Rechenkern");
   });
 
+  it("translates hollowing (shell) error messages into German and English", () => {
+    setLanguage("de", false);
+    expect(cadModifierUserErrorMessage("The walls cannot be this thick for this body. Choose a thinner wall.")).toBe(
+      "Die Wände können für diesen Körper nicht so dick sein. Bitte eine dünnere Wandstärke wählen.",
+    );
+    expect(cadModifierUserErrorMessage("This body has no flat top face to leave open")).toContain("keine ebene Fläche");
+    expect(cadModifierUserErrorMessage("This body has no flat bottom face to leave open")).toContain("keine ebene Fläche");
+    expect(cadModifierUserErrorMessage("The object or project changed while it was being hollowed; try again")).toContain("geändert");
+
+    setLanguage("en", false);
+    expect(cadModifierUserErrorMessage("The walls cannot be this thick for this body. Choose a thinner wall.")).toBe(
+      "The walls cannot be this thick for this body. Choose a thinner wall.",
+    );
+    expect(cadModifierUserErrorMessage("This body has no flat top face to leave open")).toContain("no flat top face");
+    expect(cadModifierUserErrorMessage("This body has no flat bottom face to leave open")).toContain("no flat bottom face");
+  });
+
+  it("translates connected edge fillet/chamfer error messages", () => {
+    setLanguage("de", false);
+    expect(cadModifierUserErrorMessage("The selected edges cannot be filleted together at this size. Reduce the size or select fewer connected edges.")).toContain("verrundet werden");
+    expect(cadModifierUserErrorMessage("The selected edges cannot be chamfered together at this size. Reduce the size or select fewer connected edges.")).toContain("angefast werden");
+
+    setLanguage("en", false);
+    expect(cadModifierUserErrorMessage("The selected edges cannot be filleted together at this size. Reduce the size or select fewer connected edges.")).toContain("filleted together");
+  });
+
   it("passes through unknown errors and handles nullish values", () => {
     expect(cadModifierUserErrorMessage(null)).toBeNull();
     expect(cadModifierUserErrorMessage(undefined)).toBeNull();
