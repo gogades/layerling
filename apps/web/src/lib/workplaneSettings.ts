@@ -17,6 +17,7 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   width: 200,
   depth: 200,
   sizePreset: "200 x 200 mm",
+  printer: "",
   gridBlockSize: 5,
   gridBlockPreset: "5 mm",
   gridColor: DEFAULT_WORKPLANE_GRID_COLOR,
@@ -281,6 +282,8 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     width: numberOrDefault(candidate.width, fallback.width),
     depth: numberOrDefault(candidate.depth, fallback.depth),
     sizePreset: stringOrDefault(candidate.sizePreset, fallback.sizePreset),
+    // Older settings have no printer; that is "none", not the fallback's choice.
+    printer: typeof candidate.printer === "string" ? candidate.printer : candidate.sizePreset === undefined ? fallback.printer : "",
     gridBlockSize: numberOrDefault(candidate.gridBlockSize, fallback.gridBlockSize),
     gridBlockPreset: stringOrDefault(candidate.gridBlockPreset, fallback.gridBlockPreset),
     gridColor: migratedLegacyColor(colorOrDefault(candidate.gridColor, fallback.gridColor), LEGACY_GRID_COLOR, fallback.gridColor),

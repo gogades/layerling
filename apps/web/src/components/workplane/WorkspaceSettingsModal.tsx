@@ -7,6 +7,8 @@ import { HexColorInput, HexColorPicker } from "react-colorful";
 import { APP_THEME_OPTIONS, type AppThemePreference } from "@/lib/appTheme";
 import { gearCenterHoleLimits, gearToothPitch } from "@/lib/gearGeometry";
 import { automaticSideCount } from "@/lib/roundSideCount";
+import { printerPresetById } from "@/lib/printBed";
+import { PRINTER_PRESETS } from "@/lib/printerPresets.generated";
 import {
   DEFAULT_THREAD_CLEARANCE,
   DEFAULT_THREAD_DIAMETER,
@@ -76,6 +78,7 @@ const WORKSPACE_SIZE_PRESETS = [
   { label: "2000 x 2000 mm", width: 2000, depth: 2000 },
   { label: "Custom", width: 200, depth: 200 },
 ];
+const PRINTER_VENDORS = [...new Set(PRINTER_PRESETS.map((preset) => preset.vendor))];
 const GRID_BLOCK_PRESETS = ["1 mm", "2.5 mm", "5 mm", "10 mm", "20 mm", "50 mm", "100 mm", "Custom"] as const;
 /** Nur die freie Wahl wird uebersetzt; Masse bleiben Masse. */
 const THEME_LABEL_KEYS: Record<AppThemePreference, MessageKey> = {
@@ -450,15 +453,25 @@ export function WorkspaceSettingsModal({
     const parsed = parseMeasurementInput(value);
     const next = clamp(Number.isFinite(parsed) ? parsed : workspace[key], MIN_WORKSPACE_SIZE, MAX_WORKSPACE_SIZE);
     setDimensionDrafts((current) => ({ ...current, [key]: next.toFixed(workspace.accuracy) }));
-    patchWorkspace({ [key]: next, sizePreset: "Custom" } as Partial<WorkspaceSettings>);
+    // A size typed by hand is no longer the chosen printer's plate.
+    patchWorkspace({ [key]: next, sizePreset: "Custom", printer: "" } as Partial<WorkspaceSettings>);
   };
+  const setPrinter = (id: string) => {
+    const printer = printerPresetById(id);
+    if (!printer) {
+      patchWorkspace({ printer: "" });
+      return;
+    }
+    patchWorkspace({ printer: printer.id, width: printer.width, depth: printer.depth, sizePreset: "Custom" });
+  };
+  const chosenPrinter = printerPresetById(workspace.printer);
   const setWorkspaceSizePreset = (sizePreset: string) => {
     const preset = WORKSPACE_SIZE_PRESETS.find((entry) => entry.label === sizePreset);
     if (!preset || sizePreset === "Custom") {
       patchWorkspace({ sizePreset: "Custom" });
       return;
     }
-    patchWorkspace({ sizePreset, width: preset.width, depth: preset.depth });
+    patchWorkspace({ sizePreset, width: preset.width, depth: preset.depth, printer: "" });
   };
   const setGridBlockPreset = (gridBlockPreset: string) => {
     patchWorkspace({ gridBlockPreset, gridBlockSize: gridBlockSizeForPreset(gridBlockPreset, workspace.gridBlockSize) });
@@ -628,6 +641,24 @@ export function WorkspaceSettingsModal({
                     <strong>{t("workspace.workplane")}</strong>
                     <span>{t("workspace.workplaneHint")}</span>
                   </div>
+                  <label className="workspace-select">
+                    <span>{t("workspace.printer")}</span>
+                    <select value={chosenPrinter?.id ?? ""} onChange={(event) => setPrinter(event.currentTarget.value)}>
+                      <option value="">{t("workspace.printerNone")}</option>
+                      {PRINTER_VENDORS.map((vendor) => (
+                        <optgroup key={vendor} label={vendor}>
+                          {PRINTER_PRESETS.filter((preset) => preset.vendor === vendor).map((preset) => (
+                            <option key={preset.id} value={preset.id}>{`${preset.vendor} ${preset.model}`}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="workspace-printer-info">
+                    {chosenPrinter
+                      ? t("workspace.printerInfo", { width: chosenPrinter.width, depth: chosenPrinter.depth, height: chosenPrinter.height })
+                      : t("workspace.printerHint")}
+                  </p>
                   <WorkspaceSelect
                     label={t("workspace.size")}
                     value={workspace.sizePreset}

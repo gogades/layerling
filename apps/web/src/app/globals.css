@@ -7287,6 +7287,40 @@ button {
 
 .workspace-row,
 .workspace-toggle,
+.workspace-printer-info {
+  margin: -4px 0 4px;
+  color: #756656;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.bed-overhang-warning {
+  position: fixed;
+  bottom: 44px;
+  left: 50%;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(640px, calc(100vw - 32px));
+  padding: 8px 14px;
+  color: #8a3b00;
+  font-size: 13px;
+  font-weight: 700;
+  background: #fff4e5;
+  border: 1px solid #f0a45a;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(80, 45, 10, 0.14);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.bed-overhang-warning svg {
+  flex: none;
+  color: #d86a00;
+}
+
 .workspace-select {
   display: grid;
   grid-template-columns: 145px 1fr;
@@ -8989,6 +9023,16 @@ html[data-theme="dark"] .edge-modifier-field select {
   color: #ddccb9;
   background: #35281b;
   border-color: #5e4c3a;
+}
+
+html[data-theme="dark"] .workspace-printer-info {
+  color: #b9a58f;
+}
+
+html[data-theme="dark"] .bed-overhang-warning {
+  color: #ffc78a;
+  background: #3a2511;
+  border-color: #a8601f;
 }
 
 html[data-theme="dark"] .shell-opening-options button {

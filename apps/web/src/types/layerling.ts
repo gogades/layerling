@@ -137,6 +137,8 @@ export type WorkplaneWorkspaceSettings = {
   width: number;
   depth: number;
   sizePreset: string;
+  /** Id of the chosen printer preset (printerPresets.generated.ts), or "" for none. */
+  printer: string;
   gridBlockSize: number;
   gridBlockPreset: string;
   gridColor: string;
