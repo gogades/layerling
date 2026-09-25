@@ -25,7 +25,7 @@
 </div>
 
 <p align="center">
-  <img src="docs/media/screenshot-en.png" width="735" alt="layerling in the browser">
+  <img src="docs/media/screenshot-en.png" width="800" alt="layerling in the browser">
 </p>
 
 <p align="center"><em>layerling in the browser</em></p>
