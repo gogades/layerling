@@ -35,13 +35,14 @@ type EdgeHistoryOption = {
 /** Der gespeicherte Text ist englisch - fuer die Tafel wird er neu gesetzt. */
 function edgeHistoryLabel(option: EdgeHistoryOption) {
   const size = String(Number(option.amount.toFixed(2)));
+  if (option.kind === "shell") return t("edge.revertShell", { size });
   if (option.edgeCount === 1) {
     return t(option.kind === "fillet" ? "edge.revertFilletOne" : "edge.revertChamferOne", { size });
   }
   return t(option.kind === "fillet" ? "edge.revertFilletMany" : "edge.revertChamferMany", { size, count: option.edgeCount });
 }
 
-function EdgeModifierSlider({
+export function EdgeModifierSlider({
   label,
   value,
   min,

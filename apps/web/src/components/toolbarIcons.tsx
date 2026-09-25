@@ -228,6 +228,16 @@ export function ToolbarFilletIcon(props: IconProps) {
   );
 }
 
+/** A cut through an open box: walls of equal thickness around the cavity. */
+export function ToolbarHollowIcon(props: IconProps) {
+  return (
+    <ToolbarVectorIcon {...props}>
+      <path d="M8 10h7v23h18V10h7v30H8Z" {...SOLID} />
+      <path d="M8 10h7v23h18V10h7v30H8Z" />
+    </ToolbarVectorIcon>
+  );
+}
+
 export function ToolbarSnapGridIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>

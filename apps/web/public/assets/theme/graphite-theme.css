@@ -902,6 +902,18 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   background: #f8f8f8;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .shell-opening-options button {
+  color: #515151;
+  background: #f8f8f8;
+  border: 1px solid #c8c8c8;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .shell-opening-options button.active {
+  color: #9f5508;
+  background: #f0f0f0;
+  border-color: #e08a2c;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .edge-modifier-history-actions {
   background: #f6f6f6;
   border: 1px solid #cecece;
@@ -3942,6 +3954,18 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-field se
   color: #cbcbcb;
   background: #2d2d2d;
   border-color: #4d4d4d;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .shell-opening-options button {
+  color: #cbcbcb;
+  background: #2d2d2d;
+  border-color: #484848;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .shell-opening-options button.active {
+  color: #ffb866;
+  background: #353535;
+  border-color: #c7772a;
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .edge-modifier-history-actions {

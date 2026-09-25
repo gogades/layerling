@@ -219,11 +219,16 @@ export type SketchRevolveSettings = {
   quality: number;
 };
 
+/** Which faces a hollowed body leaves open, measured against the world's up axis. */
+export type ShellOpenings = "none" | "top" | "bottom" | "top-bottom";
+
 export type EdgeTreatmentFeature = {
-  kind: "fillet" | "chamfer";
+  /** "shell" hollows the body: `amount` is then the wall thickness. */
+  kind: "fillet" | "chamfer" | "shell";
   amount: number;
   edgeCount: number;
   chamferAngle?: number;
+  openings?: ShellOpenings;
 };
 
 export type EdgeTreatmentHistoryEntry = {

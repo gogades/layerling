@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
+import { orientedFaceNormal, shellSolid } from "@/lib/cadShell";
 import type { CadModifierComponentMesh, CadModifierDeflection, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import { CAD_MODIFIER_KERNEL_RESTART_MESSAGE, CAD_MODIFIER_RUNTIME_BASE, cadModifierTessellationDeflection, cadModifierTopologyEdgeIsSelectable, cadTransformRequiresGeneralTransform, isCadModifierKernelExhausted, isCadModifierWasmMemoryFault } from "@/lib/cadModifierRuntime";
 
@@ -65,17 +66,6 @@ function cadShapeIsValid(cad: OcctKernel, shape: ShapeHandle) {
   }
 }
 
-function orientedFaceNormal(cad: OcctKernel, face: ShapeHandle, point: { x: number; y: number; z: number }) {
-  const uv = cad.uvFromPoint(face, point);
-  const normal = cad.surfaceNormal(face, uv.u, uv.v);
-  if (cad.shapeOrientation(face) === "reversed") {
-    normal.x *= -1;
-    normal.y *= -1;
-    normal.z *= -1;
-  }
-  const length = Math.hypot(normal.x, normal.y, normal.z) || 1;
-  return { x: normal.x / length, y: normal.y / length, z: normal.z / length };
-}
 
 function parseEdgeFaceMap(values: number[]) {
   const map = new Map<number, number[]>();
@@ -504,14 +494,16 @@ async function bearbeiteAnfrage(request: CadModifierWorkerRequest, halter: { cad
   }
   if (baseShape === null) throw new Error("Prepare an object before previewing the modifier");
   const selected = request.edgeIds.map((id) => ({ edge: edgeHandles[id], owner: edgeOwners[id] })).filter((entry): entry is { edge: ShapeHandle; owner: number } => entry.edge !== undefined);
-  if (selected.length === 0) throw new Error("Select at least one highlighted edge");
+  if (selected.length === 0 && request.kind !== "shell") throw new Error("Select at least one highlighted edge");
   const componentResults: ShapeHandle[] = [];
   let result: ShapeHandle | null = null;
   try {
     for (let owner = 0; owner < baseSolids.length; owner += 1) {
       const solid = baseSolids[owner];
       const componentEdges = selected.filter((entry) => entry.owner === owner).map((entry) => entry.edge);
-      const component = componentEdges.length === 0
+      const component = request.kind === "shell"
+        ? shellSolid(activeCad, solid, request.amount, request.shellOpenings ?? "none")
+        : componentEdges.length === 0
         ? activeCad.copy(solid)
         : request.kind === "fillet"
           ? activeCad.fillet(solid, componentEdges, request.amount)
@@ -601,7 +593,9 @@ self.onmessage = async (event: MessageEvent<CadModifierWorkerRequest>) => {
     return;
   }
   const message = request.type === "preview" && (rawMessage.includes("WebAssembly.Exception") || rawMessage.includes("fillet:") || rawMessage.includes("chamfer:"))
-    ? `The selected edges cannot be ${request.kind === "fillet" ? "filleted" : "chamfered"} together at this size. Reduce the size or select fewer connected edges.`
+    ? request.kind === "shell"
+      ? "The walls cannot be this thick for this body. Choose a thinner wall."
+      : `The selected edges cannot be ${request.kind === "fillet" ? "filleted" : "chamfered"} together at this size. Reduce the size or select fewer connected edges.`
     : rawMessage || "The CAD kernel could not complete this edge treatment";
   if (request.type === "prepare" && halter.cad) releaseSession(halter.cad);
   post({ type: "error", requestId: request.requestId, message });

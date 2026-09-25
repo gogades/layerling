@@ -46,7 +46,7 @@ const SHAPE_KINDS = new Set([
 ]);
 
 const FEATURE_TYPES = new Set([
-  "group", "boolean-subtraction", "boolean-intersection", "mirror", "sketch-extrusion", "sketch-revolve", "fillet", "chamfer",
+  "group", "boolean-subtraction", "boolean-intersection", "mirror", "sketch-extrusion", "sketch-revolve", "fillet", "chamfer", "shell",
 ]);
 
 type LylAssetKind = "source" | "derived-mesh" | "brep" | "image" | "display-edges";
@@ -756,7 +756,7 @@ function activeProjectIndexes(state: LylStateV1) {
     }
     const treatments = Array.isArray(node.definition.edgeTreatments) ? node.definition.edgeTreatments as Array<Record<string, unknown>> : [];
     treatments.forEach((treatment, index) => {
-      const type = treatment.kind === "fillet" ? "fillet" : "chamfer";
+      const type = treatment.kind === "fillet" || treatment.kind === "shell" ? treatment.kind : "chamfer";
       const featureId = `feature/${safeNodeToken(node.nodeId)}/${type}/${index}`;
       features.push({
         id: featureId,
@@ -1339,7 +1339,7 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
     if (bytes.byteLength !== asset.byteLength) throw new Error(`Asset '${asset.path}' has an invalid size`);
     const hash = await sha256Hex(bytes);
     if (hash !== asset.sha256) throw new Error(`Asset '${asset.path}' failed its integrity check`);
-    if (asset.kind === "source" && !["stl", "obj", "svg", "step"].includes(asset.sourceFormat ?? "")) {
+    if (asset.kind === "source" && !["stl", "obj", "svg", "step", "3mf"].includes(asset.sourceFormat ?? "")) {
       throw new Error(`Source asset '${id}' has an unknown source format`);
     }
     assetById.set(id, asset);

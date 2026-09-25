@@ -41,7 +41,7 @@ layerling arbeitet so, wie du ohnehin denkst: Form auf die Platte stellen, auf M
 Du wirst alles wiedererkennen: die Platte, die Formen, Körper und Aussparung (dort Solid und Hole), Gruppieren und Auflösen. Zwei Dinge warten hier auf dich, die du dort vermisst hast:
 
 - **Chamfer und Fillet.** Kante auswählen und brechen oder verrunden – das, wonach am häufigsten gefragt wird, sobald ein gedrucktes Teil fertig aussehen oder irgendwo hineinpassen soll. Angewandte Kanten bleiben umkehrbar: Du nimmst sie jederzeit wieder weg.
-- **Echte Geometrie darunter.** layerling führt exakte CAD-Körper mit, nicht nur ein Dreiecksnetz. Eine verrundete Kante bleibt deshalb eine verrundete Kante. Exportiert wird STL oder OBJ für den Slicer – oder STEP, wenn der Entwurf später in einem richtigen CAD weiterleben soll.
+- **Echte Geometrie darunter.** layerling führt exakte CAD-Körper mit, nicht nur ein Dreiecksnetz. Eine verrundete Kante bleibt deshalb eine verrundete Kante. Exportiert wird STL, 3MF oder OBJ für den Slicer – oder STEP, wenn der Entwurf später in einem richtigen CAD weiterleben soll.
 
 Und was du schon hast, funktioniert weiter: STL importieren und darum herum bauen.
 
@@ -62,7 +62,7 @@ Und was du schon hast, funktioniert weiter: STL importieren und darum herum baue
 - **Chamfer und Fillet** – jede Kante eines Körpers brechen oder verrunden und später wieder freigeben.
 - **Eigene Modelle mitbringen** – STL importieren und darum herum konstruieren.
 - **Projekte als Datei** – ein ganzes Projekt samt Verlauf, Skizzen und Gruppen als `.lyl` sichern und anderswo weiterbauen. Ältere `.skf`-Dateien aus früheren Fassungen öffnen sich weiterhin; gespeichert wird dann als `.lyl` daneben.
-- **Exportieren, was dein Slicer will** – STL oder OBJ, für die Auswahl oder die ganze Szene, dazu STEP, wenn der Entwurf in ein vollwertiges CAD weiterreisen soll.
+- **Exportieren, was dein Slicer will** – STL, 3MF mit Namen und Farben oder OBJ, für die Auswahl oder die ganze Szene, dazu STEP, wenn der Entwurf in ein vollwertiges CAD weiterreisen soll.
 - **Perspektivisch oder gerade von vorn** – zwischen normaler und orthografischer Ansicht wechseln, über den Würfelknopf neben den Zoomtasten oder mit **O**. Blickrichtung und Ausschnitt bleiben erhalten.
 
 ### Auf einem Tablet

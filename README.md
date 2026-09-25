@@ -41,7 +41,7 @@ layerling works the way you already think: put a shape on the plate, drag it to 
 You will recognise everything: the plate, the shapes, solids and holes, group and ungroup. Two things are waiting for you that you have been missing:
 
 - **Chamfer and fillet.** Pick an edge and break it or round it - the one thing people ask for most once a printed part has to feel finished or slot into something. Applied edges stay reversible: take them off again whenever you like.
-- **Real geometry underneath.** layerling keeps exact CAD shapes, not just a mesh, so a rounded edge stays a rounded edge. Export STL or OBJ for the slicer, or STEP if you want to carry the design into a full CAD program later.
+- **Real geometry underneath.** layerling keeps exact CAD shapes, not just a mesh, so a rounded edge stays a rounded edge. Export STL, 3MF or OBJ for the slicer, or STEP if you want to carry the design into a full CAD program later.
 
 And the parts you already have keep working: import an STL and build around it.
 
@@ -62,7 +62,7 @@ And the parts you already have keep working: import an STL and build around it.
 - **Chamfer and fillet** - break or round any edge of a solid, and remove the treatment again later.
 - **Bring your own models** - import an STL and build around it.
 - **Projects as files** - save a whole project, history, sketches and groups included, as a `.lyl` file and carry on elsewhere. Older `.skf` files from earlier versions still open; saving then writes a `.lyl` beside them.
-- **Export what your slicer wants** - STL or OBJ, for the selection or the whole scene, plus STEP if the design should travel on into a full CAD program.
+- **Export what your slicer wants** - STL, 3MF with names and colors, or OBJ, for the selection or the whole scene, plus STEP if the design should travel on into a full CAD program.
 - **Perspective or straight-on** - switch between the normal view and a flat, orthographic one with the cube button beside the zoom controls, or by pressing **O**. Your viewing direction and framing are kept.
 
 ### On a tablet

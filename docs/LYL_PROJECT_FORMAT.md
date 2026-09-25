@@ -1,6 +1,6 @@
 # layerling project files (`.lyl`)
 
-`.lyl` is layerling's native, editable project format. It is an additional backup, transfer, and sharing mechanism; IndexedDB autosave remains the normal local persistence system, and STL, OBJ, STEP, and SVG remain geometry exports.
+`.lyl` is layerling's native, editable project format. It is an additional backup, transfer, and sharing mechanism; IndexedDB autosave remains the normal local persistence system, and STL, 3MF, OBJ, STEP, and SVG remain geometry exports.
 
 ## Architecture decision
 

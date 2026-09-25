@@ -67,6 +67,7 @@ Useful tools:
 - `layerling_boolean_cut`: pass `solidIds` and `holeIds`; the result replaces the operands.
 - `layerling_ungroup_objects`: restore grouped children while preserving edited child geometry.
 - `layerling_separate_parts`: split disconnected parts in one object.
+- `layerling_hollow_object`: hollow a solid into walls of equal thickness, open on top, bottom, both, or closed.
 - `layerling_inspect_errors`: read the editor notice, edge modifier error, and last MCP error.
 
 ## Edge Features
@@ -80,6 +81,10 @@ For chamfer/fillet, never guess edge ids.
 3. Call `layerling_apply_edge_treatment({ editorNumber, id, kind, edgeIds, amount, chamferAngle })`.
 
 `edgeIds` can be an array of numeric ids or `"all"`. `kind` is `chamfer` or `fillet`. The app commits the result through normal history, so undo/redo works.
+
+## Hollowing
+
+For a box, cup, case or any body with walls, build the outside shape and hollow it with `layerling_hollow_object({ editorNumber, id, thickness, openings })`. Do not fake walls by subtracting a smaller copy of the shape - that gives uneven walls on anything but a box. The walls grow inward, so the outside keeps its size. `openings` is `top` (default), `bottom`, `top-bottom` or `none` for a sealed cavity; it needs a flat face on that side, measured against the world's up axis. Too thick a wall is refused with an error - use a thinner one.
 
 ## Images
 

@@ -1,4 +1,6 @@
-export type CadModifierKind = "chamfer" | "fillet";
+import type { ShellOpenings } from "@/types/layerling";
+
+export type CadModifierKind = "chamfer" | "fillet" | "shell";
 
 export type CadModifierEdge = {
   id: number;
@@ -91,6 +93,8 @@ export type CadModifierWorkerRequest =
       amount: number;
       quality: CadModifierQuality;
       chamferAngle: number;
+      // Only for "shell": which faces stay open; `amount` is the wall thickness.
+      shellOpenings?: ShellOpenings;
       // The finest deflection the shape's edge-treatment history has needed
       // so far, if any - a floor beneath this operation's own deflection.
       minDeflection?: CadModifierDeflection;
