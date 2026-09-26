@@ -34,7 +34,7 @@ function guideSections(sharedStore: boolean): GuideSection[] {
     },
     {
       title: "guide.group.select",
-      lines: ["guide.select.click", "guide.select.group", "guide.select.align", "guide.select.pivot", "guide.select.notes"],
+      lines: ["guide.select.click", "guide.select.group", "guide.select.align", "guide.select.pivot", "guide.select.pattern", "guide.select.notes"],
     },
     {
       title: "guide.group.measure",

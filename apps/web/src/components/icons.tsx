@@ -110,6 +110,7 @@ export {
   ToolbarKeyboardIcon,
   ToolbarMirrorIcon,
   ToolbarRotationPivotIcon,
+  ToolbarPatternIcon,
   ToolbarNoteIcon,
   ToolbarPasteIcon,
   ToolbarRedoIcon,
