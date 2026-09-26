@@ -257,7 +257,7 @@ It only works against a local development server: the MCP route is disabled in p
 
 The main tool names are `layerling_list_editors`, `layerling_read_scene`, `layerling_list_objects`,
 `layerling_create_shape`, `layerling_update_object`, `layerling_list_edges`, `layerling_apply_edge_treatment`,
-`layerling_hollow_object` and `layerling_capture_image`.
+`layerling_hollow_object`, `layerling_array_objects` and `layerling_capture_image`.
 
 ### Claude Code
 

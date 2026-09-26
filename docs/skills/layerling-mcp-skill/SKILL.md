@@ -68,6 +68,7 @@ Useful tools:
 - `layerling_ungroup_objects`: restore grouped children while preserving edited child geometry.
 - `layerling_separate_parts`: split disconnected parts in one object.
 - `layerling_hollow_object`: hollow a solid into walls of equal thickness, open on top, bottom, both, or closed.
+- `layerling_array_objects`: repeat objects n times in a row or around a circle (hole rows, bolt circles, teeth) as one undo step.
 - `layerling_inspect_errors`: read the editor notice, edge modifier error, and last MCP error.
 
 ## Edge Features
@@ -85,6 +86,15 @@ For chamfer/fillet, never guess edge ids.
 ## Hollowing
 
 For a box, cup, case or any body with walls, build the outside shape and hollow it with `layerling_hollow_object({ editorNumber, id, thickness, openings })`. Do not fake walls by subtracting a smaller copy of the shape - that gives uneven walls on anything but a box. The walls grow inward, so the outside keeps its size. `openings` is `top` (default), `bottom`, `top-bottom` or `none` for a sealed cavity; it needs a flat face on that side, measured against the world's up axis. `edges` is `round` (default; where the body steps or has an opening, the inner walls meet in a rounding as big as the wall) or `sharp` (they meet in a sharp edge). Too thick a wall is refused with an error - use a thinner one.
+
+## Patterns
+
+For a row of holes, a hole grid, a bolt circle or the teeth of a ring, build one piece and repeat it with `layerling_array_objects` instead of creating each copy by hand. Coordinates follow a slicer: X right, Y back, Z up.
+
+- Row: `layerling_array_objects({ editorNumber, ids, mode: "row", count: 5, spacing: 12, direction: "x" })`. `count` includes the original; a negative `spacing` runs the other way. A grid is a row of a row: repeat the returned copies plus the original along the second axis.
+- Circle: `layerling_array_objects({ editorNumber, ids, mode: "circle", count: 6, centerX: 0, centerY: 0 })`. Place the first piece at the radius you want, measured from the centre. `angle` defaults to 360 (evenly spread); a smaller angle spans an arc end to end. `rotateCopies: false` keeps every copy's orientation.
+
+Group the pattern with the body afterwards when the pieces are holes.
 
 ## Images
 

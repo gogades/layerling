@@ -92,6 +92,7 @@ export type LayerlingMcpCommandName =
   | "list_edges"
   | "apply_edge_treatment"
   | "hollow_object"
+  | "array_objects"
   | "inspect_errors"
   | "capture_image";
 

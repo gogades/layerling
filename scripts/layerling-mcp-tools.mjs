@@ -318,6 +318,26 @@ export const tools = [
     },
   },
   {
+    name: "layerling_array_objects",
+    description: "Repeat objects n times in a row or around a circle - hole rows, hole grids, bolt circles, the teeth of a ring - like the editor's Pattern tool. `count` includes the originals. Coordinates are as in a slicer: X to the right, Y to the back, Z up. A row steps `spacing` millimetres along `direction` (negative runs the other way). A circle turns about the vertical axis through (`centerX`, `centerY`) over `angle` degrees: 360 (default) spreads the pieces evenly, a smaller angle puts the first and last piece on its ends; positive runs counter-clockwise seen from above. `rotateCopies` (default true) turns each copy with the circle. The copies are added as one undo step and returned with their ids; the originals stay where they are.",
+    inputSchema: {
+      ...editorTargetSchema,
+      required: ["mode", "count"],
+      properties: {
+        ...editorTargetSchema.properties,
+        ids: { type: "array", items: { type: "string" }, description: "Objects to repeat; the current selection when omitted." },
+        mode: { type: "string", enum: ["row", "circle"] },
+        count: { type: "number", description: "Pieces including the originals, 2 to 100." },
+        spacing: { type: "number", description: "Row: centre-to-centre distance in millimetres." },
+        direction: { type: "string", enum: ["x", "y", "z"], description: "Row: axis to step along (z is up)." },
+        angle: { type: "number", description: "Circle: total angle in degrees, default 360." },
+        centerX: { type: "number", description: "Circle: centre X in millimetres, default 0." },
+        centerY: { type: "number", description: "Circle: centre Y in millimetres (towards the back), default 0." },
+        rotateCopies: { type: "boolean", description: "Circle: turn the copies with the circle, default true." },
+      },
+    },
+  },
+  {
     name: "layerling_apply_edge_treatment",
     description: "Apply chamfer or fillet to specific edge ids returned by layerling_list_edges.",
     inputSchema: {
