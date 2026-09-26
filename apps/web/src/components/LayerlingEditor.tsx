@@ -9463,6 +9463,34 @@ export function LayerlingEditor({
         return { object: mcpShapeSummary(modifiedShape), thickness, openings, edges };
       }
 
+      if (command.action === "array_objects") {
+        const requestedIds = mcpStringArray(params.ids);
+        const ids = requestedIds.length > 0 ? requestedIds : selectedIdsRef.current;
+        const sources = ids.map((id) => findShape(id)).filter((shape): shape is WorkplaneShape => Boolean(shape));
+        if (sources.length === 0) throw new Error("No objects to repeat - pass ids or select something first");
+        if (sources.some((shape) => shape.locked)) throw new Error("A locked object cannot be repeated - unlock it first");
+        const mode = params.mode === "circle" ? "circle" : "row";
+        const direction = params.direction === "y" || params.direction === "z" ? params.direction : "x";
+        const bounds = boundsForShapes(sources);
+        const settings: ArraySettings = {
+          mode,
+          count: clampArrayCount(mcpNumber(params.count, 2)),
+          spacing: mcpNumber(params.spacing, bounds.maxX - bounds.minX + 5),
+          direction,
+          angle: mcpNumber(params.angle, 360),
+          centerX: mcpNumber(params.centerX, 0),
+          centerY: mcpNumber(params.centerY, 0),
+          rotateCopies: params.rotateCopies !== false,
+        };
+        const copies = arrayCopies(sources, settings);
+        commitShapes(
+          [...shapesRef.current, ...copies],
+          [...sources.map((shape) => shape.id), ...copies.map((shape) => shape.id)],
+          t("status.arrayCreated", { count: copies.length }),
+        );
+        return { settings, originals: sources.map((shape) => shape.id), copies: copies.map(mcpShapeSummary) };
+      }
+
       if (command.action === "apply_edge_treatment") {
         const target = findShape(params.id);
         if (!target) throw new Error("Object not found");

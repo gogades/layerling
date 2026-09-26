@@ -103,6 +103,8 @@ async function callTool(name, args) {
       return bridgeCommand("list_edges", args, 30000);
     case "layerling_hollow_object":
       return bridgeCommand("hollow_object", args, 90000);
+    case "layerling_array_objects":
+      return bridgeCommand("array_objects", args, 30000);
     case "layerling_apply_edge_treatment":
       return bridgeCommand("apply_edge_treatment", args, 60000);
     case "layerling_inspect_errors":
