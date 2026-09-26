@@ -2,14 +2,32 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 const NAME = "layerling";
-const TITLE = "layerling - Easy 3D CAD for 3D printing";
-const DESCRIPTION = "Easy 3D CAD for 3D printing, right in your browser";
+const TITLE = "layerling - Free 3D CAD for 3D printing in your browser";
+const DESCRIPTION = "Free 3D CAD in your browser, no account: a Tinkercad alternative with fillets, chamfers, hollowing and threads. Export to STL, 3MF and STEP.";
+
+// Tells search engines what layerling is: a free web application, not an
+// article about one.
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: NAME,
+  url: "https://layerling.com/",
+  description: DESCRIPTION,
+  applicationCategory: "DesignApplication",
+  operatingSystem: "Any (web browser)",
+  inLanguage: ["en", "de"],
+  isAccessibleForFree: true,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
+  image: "https://layerling.com/assets/layerling/layerling-social.png",
+  sameAs: ["https://github.com/henmedia/layerling"],
+};
 const SOCIAL_CARD = "/assets/layerling/layerling-social.png";
 
 export const metadata: Metadata = {
   // Damit die Bilder fuer Linkvorschauen als volle Adresse im Kopf stehen -
   // relative Angaben liest kein Forum und kein Messenger aus.
   metadataBase: new URL("https://layerling.com"),
+  alternates: { canonical: "/" },
   title: TITLE,
   description: DESCRIPTION,
   applicationName: NAME,
@@ -58,7 +76,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" style={{ colorScheme: "light" }}>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
+        {children}
+      </body>
     </html>
   );
 }

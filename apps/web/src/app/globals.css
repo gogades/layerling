@@ -2013,6 +2013,53 @@ button {
   color: #9a5a06;
 }
 
+/* Everything beyond the first steps: a plain list, so it does not compete
+   with the numbered steps above it. The step rules match any li in the panel,
+   hence the resets. */
+.dashboard-welcome-more {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-welcome-more h3 {
+  margin: 0;
+  color: #573f26;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.dashboard-welcome-more ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.dashboard-welcome-more li {
+  display: list-item;
+}
+
+.dashboard-welcome-more li::before {
+  content: none;
+}
+
+.dashboard-welcome-more li strong {
+  font-size: inherit;
+}
+
+/* Present for search engines and screen readers, out of sight on screen. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ... which leaves the pointer to the in-editor help as a quiet closing line,
    not a second box competing with it. */
 .dashboard-welcome-help {
@@ -8746,6 +8793,7 @@ html[data-theme="dark"] .dashboard-welcome {
 }
 
 html[data-theme="dark"] .dashboard-welcome h2,
+html[data-theme="dark"] .dashboard-welcome h3,
 html[data-theme="dark"] .dashboard-welcome li strong {
   color: #f3ede3;
 }
