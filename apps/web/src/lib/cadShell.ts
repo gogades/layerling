@@ -101,6 +101,8 @@ export function shellSolid(cad: OcctKernel, solid: ShapeHandle, thickness: numbe
         cad.release(result);
         lastError = new Error("invalid shell");
       } catch (error) {
+        // A missing kernel function is not a verdict on the wall thickness.
+        if (error instanceof Error && /is not a function/.test(error.message)) throw error;
         lastError = error;
       } finally {
         if (cavity !== null) cad.release(cavity);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   CAD_MODIFIER_MAX_SHARP_ANGLE,
   CAD_MODIFIER_MAX_PREPARE_TIMEOUT_MS,
@@ -28,6 +28,19 @@ import { setLanguage } from "@/lib/i18n";
 describe("CAD modifier runtime state", () => {
   it("uses the build-managed OCCT runtime", () => {
     expect(CAD_MODIFIER_RUNTIME_BASE).toBe("/occt");
+  });
+
+  it("loads the kernel from a folder named after its version", async () => {
+    // A cached kernel from an older release must never meet newer app code.
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_OCCT_RUNTIME_VERSION", "5.3.5-layerling.1");
+    try {
+      const runtime = await import("@/lib/cadModifierRuntime");
+      expect(runtime.CAD_MODIFIER_RUNTIME_BASE).toBe("/occt/5.3.5-layerling.1");
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
   });
 
   it("does not report zero edges before preparation finishes", () => {

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const isStaticExport = process.env.STATIC_EXPORT === "true";
@@ -6,6 +7,10 @@ const extraAllowedDevOrigins = (process.env.LAYERLING_ALLOWED_DEV_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+const occtRuntimeVersion: string = JSON.parse(
+  readFileSync(path.resolve(process.cwd(), "node_modules", "occt-wasm", "package.json"), "utf8"),
+).version;
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(process.cwd()),
@@ -17,6 +22,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["localhost", "127.0.0.1", ...extraAllowedDevOrigins],
   env: {
     NEXT_PUBLIC_STATIC_EXPORT: isStaticExport ? "true" : "false",
+    NEXT_PUBLIC_OCCT_RUNTIME_VERSION: occtRuntimeVersion,
   },
   images: {
     unoptimized: true

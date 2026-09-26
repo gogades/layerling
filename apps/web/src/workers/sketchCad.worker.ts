@@ -1,21 +1,21 @@
 /// <reference lib="webworker" />
 
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
-import { SKETCH_CAD_DEFLECTION } from "@/lib/cadModifierRuntime";
+import { CAD_MODIFIER_RUNTIME_BASE, SKETCH_CAD_DEFLECTION } from "@/lib/cadModifierRuntime";
 import { cadSketchRegions, type OrderedCadSketchPath } from "@/lib/sketchCadProfile";
 import type { SketchCadBuildRequest, SketchCadBuildResponse } from "@/lib/sketchCadTypes";
 
 let kernelPromise: Promise<OcctKernel> | null = null;
 
 function kernel() {
-  const moduleUrl = "/occt/occt-wasm.js";
+  const moduleUrl = `${CAD_MODIFIER_RUNTIME_BASE}/occt-wasm.js`;
   // Drop a rejected attempt so a transient failure (e.g. a network blip
   // fetching the 22 MB wasm) can be retried on the next call instead of
   // poisoning sketch-to-3D for the rest of the session - same fix as
   // brepKernel.ts's loadBrepWithOcct.
   kernelPromise ??= import(/* webpackIgnore: true */ moduleUrl)
     .then((imported: { default: (options?: { locateFile?: (path: string) => string }) => Promise<unknown> }) => imported.default({
-      locateFile: (path) => path.endsWith(".wasm") ? "/occt/occt-wasm.wasm" : path,
+      locateFile: (path) => path.endsWith(".wasm") ? `${CAD_MODIFIER_RUNTIME_BASE}/occt-wasm.wasm` : path,
     }))
     .then((module) => {
       const KernelConstructor = OcctKernel as unknown as new (rawModule: unknown) => OcctKernel;
