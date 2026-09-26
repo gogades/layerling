@@ -37,7 +37,7 @@
     "lucide-react": "^0.511.0",
     "manifold-3d": "^3.5.0",
     "next": "^15.5.26",
-    "occt-wasm": "^3.6.1",
+    "occt-wasm": "https://github.com/henmedia/occt-wasm/releases/download/layerling-5.3.5.1/occt-wasm-5.3.5-layerling.1.tgz",
     "react": "^19.1.0",
     "react-colorful": "^5.8.0",
     "react-dom": "^19.1.0",

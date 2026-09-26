@@ -5,9 +5,10 @@ import { EdgeModifierSlider } from "@/components/workplane/EdgeModifierPanel";
 import { cadModifierUserErrorMessage } from "@/lib/cadModifierRuntime";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
-import type { ShellOpenings, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { ShellEdges, ShellOpenings, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 const SHELL_OPENINGS: readonly ShellOpenings[] = ["top", "none", "bottom", "top-bottom"];
+const SHELL_EDGES: readonly ShellEdges[] = ["round", "sharp"];
 const MIN_WALL = 0.2;
 const WALL_STEP = 0.1;
 
@@ -20,11 +21,13 @@ export function ShellPanel({
   thickness,
   maxThickness,
   openings,
+  edges,
   workspace,
   busy,
   error,
   onThicknessChange,
   onOpeningsChange,
+  onEdgesChange,
   onApply,
   onCancel,
 }: {
@@ -32,11 +35,13 @@ export function ShellPanel({
   thickness: number;
   maxThickness: number;
   openings: ShellOpenings;
+  edges: ShellEdges;
   workspace: WorkplaneWorkspaceSettings;
   busy: boolean;
   error: string | null;
   onThicknessChange: (value: number) => void;
   onOpeningsChange: (value: ShellOpenings) => void;
+  onEdgesChange: (value: ShellEdges) => void;
   onApply: () => void;
   onCancel: () => void;
 }) {
@@ -83,6 +88,25 @@ export function ShellPanel({
               onClick={() => onOpeningsChange(option)}
             >
               {t(`shell.opening.${option}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="edge-modifier-field shell-openings" role="radiogroup" aria-label={t("shell.edges")}>
+        <span>{t("shell.edges")}</span>
+        <div className="shell-opening-options">
+          {SHELL_EDGES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={edges === option}
+              className={edges === option ? "active" : ""}
+              disabled={busy}
+              onClick={() => onEdgesChange(option)}
+            >
+              {t(`shell.edges.${option}`)}
             </button>
           ))}
         </div>

@@ -225,6 +225,13 @@ export type SketchRevolveSettings = {
 /** Which faces a hollowed body leaves open, measured against the world's up axis. */
 export type ShellOpenings = "none" | "top" | "bottom" | "top-bottom";
 
+/**
+ * How the inner walls meet where the offset faces move apart: "round" is
+ * OCCT's arc join (radius = wall thickness), "sharp" extends the faces until
+ * they intersect.
+ */
+export type ShellEdges = "round" | "sharp";
+
 export type EdgeTreatmentFeature = {
   /** "shell" hollows the body: `amount` is then the wall thickness. */
   kind: "fillet" | "chamfer" | "shell";
@@ -232,6 +239,8 @@ export type EdgeTreatmentFeature = {
   edgeCount: number;
   chamferAngle?: number;
   openings?: ShellOpenings;
+  /** Only for "shell"; missing means "round". */
+  shellEdges?: ShellEdges;
 };
 
 export type EdgeTreatmentHistoryEntry = {

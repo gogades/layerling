@@ -168,7 +168,7 @@ import {
 } from "@/lib/layerlingMcpProtocol";
 import type { CadModifierComponentMesh, CadModifierDeflection, CadModifierDisplayEdge, CadModifierEdge, CadModifierKind, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
-import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSource, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, ShellOpenings, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSource, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, ShellEdges, ShellOpenings, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
@@ -6113,7 +6113,7 @@ export function LayerlingEditor({
   const [sketchMeasurement, setSketchMeasurement] = useState<SketchMeasurement>(null);
   const [editingSketchShapeId, setEditingSketchShapeId] = useState<string | null>(null);
   const [edgeModifier, setEdgeModifier] = useState<EdgeModifierSession | null>(null);
-  const [shellTool, setShellTool] = useState<{ thickness: number; openings: ShellOpenings; busy: boolean; error: string | null } | null>(null);
+  const [shellTool, setShellTool] = useState<{ thickness: number; openings: ShellOpenings; edges: ShellEdges; busy: boolean; error: string | null } | null>(null);
   const edgeModifierRef = useRef<EdgeModifierSession | null>(null);
   const cadModifierWorkerRef = useRef<Worker | null>(null);
   const cadModifierPendingRef = useRef(new Map<number, {
@@ -8360,7 +8360,7 @@ export function LayerlingEditor({
    * "Groesse beibehalten" ist fest an: die Wandstaerke soll beim Skalieren
    * bleiben, was sie ist.
    */
-  const shellShape = useCallback(async (shape: WorkplaneShape, thickness: number, openings: ShellOpenings) => {
+  const shellShape = useCallback(async (shape: WorkplaneShape, thickness: number, openings: ShellOpenings, edges: ShellEdges = "round") => {
     if (shape.locked || shape.hole || isNonSolidShapeKind(shape.kind)) {
       throw new Error("Select one unlocked solid object to hollow");
     }
@@ -8376,6 +8376,7 @@ export function LayerlingEditor({
       quality: "standard",
       chamferAngle: 45,
       shellOpenings: openings,
+      shellEdges: edges,
       minDeflection: shape.cadMeshDeflection,
     }, [], 60000);
     if (previewResponse.type !== "preview") {
@@ -8390,7 +8391,7 @@ export function LayerlingEditor({
       cadDisplayEdges: cadDisplayEdgesForShape(rawPreview, previewResponse.displayEdges),
       cadDisplayEdgesVersion: 2 as const,
     });
-    const feature = { kind: "shell" as const, amount: thickness, edgeCount: 0, openings } satisfies NonNullable<WorkplaneShape["edgeTreatments"]>[number];
+    const feature = { kind: "shell" as const, amount: thickness, edgeCount: 0, openings, ...(edges === "sharp" ? { shellEdges: edges } : {}) } satisfies NonNullable<WorkplaneShape["edgeTreatments"]>[number];
     const session: EdgeModifierSession = {
       kind: "shell",
       edges: response.edges,
@@ -8432,7 +8433,7 @@ export function LayerlingEditor({
     }
     if (edgeModifier) invalidateCadModifierSession();
     const smallest = Math.min(shapeWidth(selectedShape), shapeDepth(selectedShape), selectedShape.height);
-    setShellTool({ thickness: Math.max(0.2, Math.min(2, Number((smallest / 5).toFixed(1)))), openings: "top", busy: false, error: null });
+    setShellTool({ thickness: Math.max(0.2, Math.min(2, Number((smallest / 5).toFixed(1)))), openings: "top", edges: "round", busy: false, error: null });
   }, [edgeModifier, invalidateCadModifierSession, selectedShape, selectedShapes.length, shellTool]);
 
   const applyShellTool = useCallback(() => {
@@ -8442,9 +8443,9 @@ export function LayerlingEditor({
       setShellTool(null);
       return;
     }
-    const { thickness, openings } = shellTool;
+    const { thickness, openings, edges } = shellTool;
     setShellTool((current) => current ? { ...current, busy: true, error: null } : current);
-    void shellShape(target, thickness, openings)
+    void shellShape(target, thickness, openings, edges)
       .then((modifiedShape) => {
         commitShapes(
           shapesRef.current.map((candidate) => candidate.id === target.id ? modifiedShape : candidate),
@@ -9324,13 +9325,14 @@ export function LayerlingEditor({
         if (!target) throw new Error("Object not found");
         const thickness = Math.max(0.2, mcpNumber(params.thickness, 2));
         const openings: ShellOpenings = params.openings === "none" || params.openings === "bottom" || params.openings === "top-bottom" ? params.openings : "top";
-        const modifiedShape = await shellShape(target, thickness, openings);
+        const edges: ShellEdges = params.edges === "sharp" ? "sharp" : "round";
+        const modifiedShape = await shellShape(target, thickness, openings, edges);
         commitShapes(
           shapesRef.current.map((candidate) => candidate.id === target.id ? modifiedShape : candidate),
           modifiedShape.id,
           t("status.shelledMcp", { size: Number(thickness.toFixed(2)) }),
         );
-        return { object: mcpShapeSummary(modifiedShape), thickness, openings };
+        return { object: mcpShapeSummary(modifiedShape), thickness, openings, edges };
       }
 
       if (command.action === "apply_edge_treatment") {
@@ -10648,6 +10650,8 @@ export function LayerlingEditor({
           error={shellTool.error}
           onThicknessChange={(value) => setShellTool((current) => current ? { ...current, thickness: value, error: null } : current)}
           onOpeningsChange={(value) => setShellTool((current) => current ? { ...current, openings: value, error: null } : current)}
+          edges={shellTool.edges}
+          onEdgesChange={(value) => setShellTool((current) => current ? { ...current, edges: value, error: null } : current)}
           onApply={applyShellTool}
           onCancel={() => setShellTool(null)}
         />

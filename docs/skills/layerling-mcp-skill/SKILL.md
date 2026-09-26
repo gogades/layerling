@@ -84,7 +84,7 @@ For chamfer/fillet, never guess edge ids.
 
 ## Hollowing
 
-For a box, cup, case or any body with walls, build the outside shape and hollow it with `layerling_hollow_object({ editorNumber, id, thickness, openings })`. Do not fake walls by subtracting a smaller copy of the shape - that gives uneven walls on anything but a box. The walls grow inward, so the outside keeps its size. `openings` is `top` (default), `bottom`, `top-bottom` or `none` for a sealed cavity; it needs a flat face on that side, measured against the world's up axis. Too thick a wall is refused with an error - use a thinner one.
+For a box, cup, case or any body with walls, build the outside shape and hollow it with `layerling_hollow_object({ editorNumber, id, thickness, openings })`. Do not fake walls by subtracting a smaller copy of the shape - that gives uneven walls on anything but a box. The walls grow inward, so the outside keeps its size. `openings` is `top` (default), `bottom`, `top-bottom` or `none` for a sealed cavity; it needs a flat face on that side, measured against the world's up axis. `edges` is `round` (default; where the body steps or has an opening, the inner walls meet in a rounding as big as the wall) or `sharp` (they meet in a sharp edge). Too thick a wall is refused with an error - use a thinner one.
 
 ## Images
 

@@ -1,5 +1,5 @@
-import type { OcctKernel, ShapeHandle } from "occt-wasm";
-import type { ShellOpenings } from "@/types/layerling";
+import { JoinType, type OcctKernel, type ShapeHandle } from "occt-wasm";
+import type { ShellEdges, ShellOpenings } from "@/types/layerling";
 
 // Hollowing ("shell") for the CAD modifier worker. It lives outside the worker
 // so the end-to-end tests can run it against the real OCCT kernel.
@@ -58,6 +58,19 @@ export function shellOpeningFaces(cad: OcctKernel, solid: ShapeHandle, faces: Sh
 }
 
 /**
+ * An inward offset of a body with an inner corner comes back as a closed shell
+ * rather than a solid, and a boolean cut with a bare shell fails. Close it.
+ */
+function cavityFromOffset(cad: OcctKernel, offset: ShapeHandle) {
+  if (cad.getShapeType(offset) !== "shell") return offset;
+  try {
+    return cad.makeSolid(offset);
+  } finally {
+    cad.release(offset);
+  }
+}
+
+/**
  * Hollows one solid to walls of `thickness`, measured inward.
  *
  * With faces to open this is OCCT's thick solid. A body closed on every side
@@ -65,7 +78,8 @@ export function shellOpeningFaces(cad: OcctKernel, solid: ShapeHandle, faces: Sh
  * instead. The precise tolerance is tried first; the coarser one survives more
  * curved inputs.
  */
-export function shellSolid(cad: OcctKernel, solid: ShapeHandle, thickness: number, openings: ShellOpenings) {
+export function shellSolid(cad: OcctKernel, solid: ShapeHandle, thickness: number, openings: ShellOpenings, edges: ShellEdges = "round") {
+  const joinType = edges === "sharp" ? JoinType.Intersection : JoinType.Arc;
   const faces = cad.getSubShapes(solid, "face");
   try {
     const open = shellOpeningFaces(cad, solid, faces, openings);
@@ -80,8 +94,8 @@ export function shellSolid(cad: OcctKernel, solid: ShapeHandle, thickness: numbe
       let cavity: ShapeHandle | null = null;
       try {
         const result = open.length > 0
-          ? cad.shell(solid, open, thickness, tolerance)
-          : cad.cut(solid, (cavity = cad.offset(solid, -thickness, tolerance)));
+          ? cad.shell(solid, open, thickness, tolerance, joinType)
+          : cad.cut(solid, (cavity = cavityFromOffset(cad, cad.offset(solid, -thickness, tolerance, joinType))));
         const volume = shapeIsValid(cad, result) ? cad.getVolume(result) : 0;
         if (volume > 0 && volume < solidVolume * (1 - 1e-6)) return result;
         cad.release(result);

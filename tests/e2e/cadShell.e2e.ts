@@ -98,6 +98,62 @@ describe("hollowing a solid with the real OCCT kernel", () => {
     kernel.release(solid);
   });
 
+  function surfaceTypes(shape: ShapeHandle) {
+    const faces = kernel.getSubShapes(shape, "face");
+    const types = faces.map((face) => kernel.surfaceType(face));
+    faces.forEach((face) => kernel.release(face));
+    return types;
+  }
+
+  // An L-shaped tray: one concave vertical edge, where the inner walls move
+  // apart when they grow inward.
+  function lShape() {
+    return yUp(kernel.unifySameDomain(kernel.fuse(kernel.makeBox(40, 20, 20), kernel.makeBox(20, 40, 20))));
+  }
+
+  it("rounds the inner wall at a concave edge by default", () => {
+    const solid = lShape();
+    const result = shellSolid(kernel, solid, 3, "top");
+    expect(surfaceTypes(result)).toContain("cylinder");
+    kernel.release(result);
+    kernel.release(solid);
+  });
+
+  it("keeps the inner wall sharp with sharp edges", () => {
+    const solid = lShape();
+    const round = shellSolid(kernel, solid, 3, "top", "round");
+    const sharp = shellSolid(kernel, solid, 3, "top", "sharp");
+    expect(kernel.isValid(sharp)).toBe(true);
+    expect(surfaceTypes(sharp).every((type) => type === "plane")).toBe(true);
+    // At the inner corner the sharp cavity stops at a 3 x 3 square, the
+    // rounded one at a quarter circle of radius 3 - over the 17 mm cavity
+    // height the sharp body keeps that difference as extra wall.
+    const extraWall = (3 * 3 - (Math.PI * 3 * 3) / 4) * 17;
+    expect(kernel.getVolume(sharp) - kernel.getVolume(round)).toBeCloseTo(extraWall, 1);
+    const bounds = kernel.getBoundingBox(sharp, false);
+    expect(bounds.xmax - bounds.xmin).toBeCloseTo(40, 4);
+    expect(bounds.ymax - bounds.ymin).toBeCloseTo(20, 4);
+    kernel.release(round);
+    kernel.release(sharp);
+    kernel.release(solid);
+  });
+
+  it("hollows a closed body with an inner corner, rounded or sharp", () => {
+    // The inward offset of such a body comes back as a shell, not a solid.
+    const solid = lShape();
+    const round = shellSolid(kernel, solid, 3, "none", "round");
+    const sharp = shellSolid(kernel, solid, 3, "none", "sharp");
+    expect(kernel.isValid(round)).toBe(true);
+    expect(kernel.isValid(sharp)).toBe(true);
+    expect(surfaceTypes(sharp).every((type) => type === "plane")).toBe(true);
+    // Closed on top and bottom, the cavity is 14 mm high.
+    const extraWall = (3 * 3 - (Math.PI * 3 * 3) / 4) * 14;
+    expect(kernel.getVolume(sharp) - kernel.getVolume(round)).toBeCloseTo(extraWall, 1);
+    kernel.release(round);
+    kernel.release(sharp);
+    kernel.release(solid);
+  });
+
   it("refuses walls too thick for the body", () => {
     const solid = box();
     // Two 16 mm walls do not fit into the 30 mm depth.

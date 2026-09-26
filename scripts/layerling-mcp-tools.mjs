@@ -304,7 +304,7 @@ export const tools = [
   },
   {
     name: "layerling_hollow_object",
-    description: "Hollow a solid into walls of equal thickness, like a box, cup or case. The walls grow inward, so the outside keeps its size. `openings` chooses which flat side stays open, measured against the world's up axis: top (default), bottom, top-bottom, or none for a sealed cavity. Can be undone like an edge treatment.",
+    description: "Hollow a solid into walls of equal thickness, like a box, cup or case. The walls grow inward, so the outside keeps its size. `openings` chooses which flat side stays open, measured against the world's up axis: top (default), bottom, top-bottom, or none for a sealed cavity. `edges` sets how the inner walls meet where the body has a step or opening: round (default, radius = wall thickness) or sharp. Can be undone like an edge treatment.",
     inputSchema: {
       ...editorTargetSchema,
       required: ["id", "thickness"],
@@ -313,6 +313,7 @@ export const tools = [
         id: { type: "string" },
         thickness: { type: "number", description: "Wall thickness in millimetres." },
         openings: { type: "string", enum: ["top", "bottom", "top-bottom", "none"] },
+        edges: { type: "string", enum: ["round", "sharp"] },
       },
     },
   },

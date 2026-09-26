@@ -502,7 +502,7 @@ async function bearbeiteAnfrage(request: CadModifierWorkerRequest, halter: { cad
       const solid = baseSolids[owner];
       const componentEdges = selected.filter((entry) => entry.owner === owner).map((entry) => entry.edge);
       const component = request.kind === "shell"
-        ? shellSolid(activeCad, solid, request.amount, request.shellOpenings ?? "none")
+        ? shellSolid(activeCad, solid, request.amount, request.shellOpenings ?? "none", request.shellEdges)
         : componentEdges.length === 0
         ? activeCad.copy(solid)
         : request.kind === "fillet"
