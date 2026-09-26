@@ -96,6 +96,8 @@ import {
 } from "@/components/workplane/TransformOverlay";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, MeasurementAccuracy, ShapeAsset, WorkplaneNote, WorkplaneNoteAnchor, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { NOTE_TEXT_LIMIT } from "@/lib/workplaneNotes";
+import { planarFaceCentroid, type PivotPoint } from "@/lib/rotationPivot";
+import { rotatedGeometryShapePatch } from "@/lib/geometryRotation";
 import type { CadModifierEdge } from "@/lib/cadModifierTypes";
 
 const WORKPLANE_WIDTH = 200;
@@ -244,6 +246,11 @@ type WorkplaneViewportProps = {
   notes?: WorkplaneNote[];
   notesVisible?: boolean;
   noteMode?: boolean;
+  /** A point the selection turns around instead of its own centre. */
+  rotationPivot?: PivotPoint | null;
+  /** The next click on a body sets the rotation pivot. */
+  pivotPickMode?: boolean;
+  onPivotPick?: (point: PivotPoint | null) => void;
   onNoteAdd?: (note: { x: number; y: number; z: number; anchor?: WorkplaneNoteAnchor }) => string | null;
   onNoteUpdate?: (id: string, patch: Partial<WorkplaneNote>, transient?: boolean) => void;
   onNoteRemove?: (id: string) => void;
@@ -339,6 +346,8 @@ type ThreeState = {
   originDimensionLayer: THREE.Group;
   modifierLayer: THREE.Group;
   shapeRecords: Map<string, ShapeRenderRecord>;
+  /** The pivot the user set for rotating; the rotation wheels sit on its axes. */
+  rotationPivot?: THREE.Vector3 | null;
   officialShapeLayerActive: boolean;
   raycaster: THREE.Raycaster;
   pointer: THREE.Vector2;
@@ -535,6 +544,8 @@ type TransformDragState = {
   liftStartValue?: number;
   rotationAxisVector?: THREE.Vector3;
   rotationPivot?: THREE.Vector3;
+  /** A pivot the user set; the shapes then move around it instead of spinning in place. */
+  customPivot?: boolean;
   rotationPlaneCenter?: THREE.Vector3;
   rotationPlaneView?: RotationPlaneView;
   rotationStartPointerAngle?: number;
@@ -3458,6 +3469,9 @@ export function WorkplaneViewport({
   notes = EMPTY_NOTES,
   notesVisible = true,
   noteMode = false,
+  rotationPivot = null,
+  pivotPickMode = false,
+  onPivotPick,
   onNoteAdd,
   onNoteUpdate,
   onNoteRemove,
@@ -3565,6 +3579,8 @@ export function WorkplaneViewport({
   const tapeModelRef = useRef(tapeModel);
   const notesRef = useRef(notes);
   const noteModeRef = useRef(noteMode);
+  const rotationPivotRef = useRef<PivotPoint | null>(rotationPivot);
+  const pivotPickModeRef = useRef(pivotPickMode);
   const notesVisibleRef = useRef(notesVisible);
   const noteOverlayRef = useRef<NoteOverlayState | null>(null);
   const noteDragRef = useRef<NoteDragState | null>(null);
@@ -4067,6 +4083,31 @@ export function WorkplaneViewport({
   useEffect(() => {
     noteModeRef.current = noteMode;
   }, [noteMode]);
+
+  useEffect(() => {
+    pivotPickModeRef.current = pivotPickMode;
+  }, [pivotPickMode]);
+
+  useLayoutEffect(() => {
+    rotationPivotRef.current = rotationPivot;
+    const state = threeRef.current;
+    if (!state) return;
+    state.rotationPivot = pivotVector(rotationPivot);
+    syncTransformOverlay(
+      state,
+      shapesRef.current,
+      renderSelectionIds(),
+      transformOverlayRef,
+      setTransformOverlay,
+      workspaceRef.current.accuracy,
+      Boolean(transformRef.current || dragRef.current),
+      false,
+      placementWorkplaneRef.current,
+      resolvedThemeRef.current,
+      workspaceRef.current.dimensionsAlwaysVisible,
+    );
+    state.needsRender = true;
+  }, [renderSelectionIds, rotationPivot]);
 
   useLayoutEffect(() => {
     const state = threeRef.current;
@@ -4720,7 +4761,7 @@ export function WorkplaneViewport({
       const localClientX = rect ? event.clientX - rect.left : event.clientX;
       const localClientY = rect ? event.clientY - rect.top : event.clientY;
       const axisVector = rotationAxisVectorForFrame(handleKey, frame);
-      const pivot = frame.center.clone();
+      const pivot = pivotVector(rotationPivotRef.current) ?? frame.center.clone();
       const rotationCenter = kind === "rotate" ? wheel ?? (state ? projectToScreen(pivot, state) : { x: localClientX, y: localClientY }) : undefined;
       const rotationStartPoint = kind === "rotate" && state ? rayPointOnRotationPlane(state, event.clientX, event.clientY, rotationPlaneCenter, axisVector) : null;
       const rotationStartVector = rotationStartPoint ? rotationStartPoint.sub(rotationPlaneCenter) : undefined;
@@ -4803,6 +4844,7 @@ export function WorkplaneViewport({
         liftStartValue,
         rotationAxisVector: kind === "rotate" ? axisVector : undefined,
         rotationPivot: kind === "rotate" ? pivot : undefined,
+        customPivot: kind === "rotate" && Boolean(rotationPivotRef.current),
         rotationPlaneCenter: kind === "rotate" ? rotationPlaneCenter : undefined,
         rotationPlaneView: kind === "rotate" ? rotationPlane : undefined,
         rotationStartPointerAngle,
@@ -5078,7 +5120,14 @@ export function WorkplaneViewport({
       transform.items.forEach((item) => {
         const nextQuaternion = rotationDelta.clone().multiply(item.startQuaternion);
         const patch: Partial<WorkplaneShape> = rotationPatchFromQuaternion(nextQuaternion);
-        if (transform.items.length > 1) {
+        if (transform.customPivot) {
+          // Around a chosen pivot the point is precision: snapping the centre
+          // to the grid would pull the pipe end off the axis it was set on.
+          const nextCenter = pivot.clone().add(item.startCenter.clone().sub(pivot).applyQuaternion(rotationDelta));
+          patch.x = nextCenter.x;
+          patch.z = nextCenter.z;
+          patch.elevation = nextCenter.y - item.startShape.height / 2;
+        } else if (transform.items.length > 1) {
           const nextCenter = pivot.clone().add(item.startCenter.clone().sub(pivot).applyQuaternion(rotationDelta));
           patch.x = snapPositionValue(nextCenter.x, step, -workspaceRef.current.width / 2 + 6, workspaceRef.current.width / 2 - 6);
           patch.z = snapPositionValue(nextCenter.z, step, -workspaceRef.current.depth / 2 + 6, workspaceRef.current.depth / 2 - 6);
@@ -5447,7 +5496,18 @@ export function WorkplaneViewport({
     }
     const value = parseMeasurementInput(edit.value);
     if (Number.isFinite(value)) {
-      selectedIdsRef.current.forEach((id) => onUpdateShape(id, { ...rotationPatchForAxis(edit.axis, value), bakeTransform: true }));
+      const pivot = pivotVector(rotationPivotRef.current);
+      selectedIdsRef.current.forEach((id) => {
+        const shape = shapesRef.current.find((entry) => entry.id === id);
+        const rotationPatch = rotationPatchForAxis(edit.axis, value);
+        if (!pivot || !shape) {
+          onUpdateShape(id, { ...rotationPatch, bakeTransform: true });
+          return;
+        }
+        const startQuaternion = quaternionForShape(shape);
+        const delta = quaternionForShape({ ...shape, ...rotationPatch }).multiply(startQuaternion.clone().invert());
+        onUpdateShape(id, { ...rotatedGeometryShapePatch(shape, delta, pivot), bakeTransform: true });
+      });
     }
     setEditingRotation(null);
     setActiveRotationWheel(false);
@@ -5889,6 +5949,12 @@ export function WorkplaneViewport({
         return;
       }
 
+      if (pivotPickModeRef.current) {
+        event.preventDefault();
+        onPivotPick?.(pickRotationPivot(state, event.clientX, event.clientY));
+        return;
+      }
+
       if (noteModeRef.current) {
         event.preventDefault();
         const anchor = resolveNoteAnchor(event.clientX, event.clientY);
@@ -5950,7 +6016,7 @@ export function WorkplaneViewport({
         const localClientX = event.clientX - rect.left;
         const localClientY = event.clientY - rect.top;
         const axisVector = rotationAxisVectorForFrame(handle.handleKey, frame);
-        const pivot = frame.center.clone();
+        const pivot = pivotVector(rotationPivotRef.current) ?? frame.center.clone();
         const rotationCenter = handle.kind === "rotate" ? wheel ?? projectToScreen(pivot, state) : undefined;
         const rotationStartPoint = handle.kind === "rotate" ? rayPointOnRotationPlane(state, event.clientX, event.clientY, rotationPlaneCenter, axisVector) : null;
         const rotationStartVector = rotationStartPoint ? rotationStartPoint.sub(rotationPlaneCenter) : undefined;
@@ -6020,6 +6086,7 @@ export function WorkplaneViewport({
           liftStartValue,
           rotationAxisVector: handle.kind === "rotate" ? axisVector : undefined,
           rotationPivot: handle.kind === "rotate" ? pivot : undefined,
+          customPivot: handle.kind === "rotate" && Boolean(rotationPivotRef.current),
         rotationPlaneCenter: handle.kind === "rotate" ? rotationPlaneCenter : undefined,
         rotationPlaneView: handle.kind === "rotate" ? rotationPlane : undefined,
         rotationStartPointerAngle: handle.kind === "rotate"
@@ -6177,6 +6244,7 @@ export function WorkplaneViewport({
       onAlignAnchorChange,
       onInteractionActiveChange,
       onModifierEdgeToggle,
+      onPivotPick,
       placeCornerRuler,
       onSelectShape,
       onSetPlacementWorkplane,
@@ -6997,7 +7065,7 @@ export function WorkplaneViewport({
         )}
       </div>
 
-      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label={t("aria.workplane")}>
+      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${pivotPickMode ? "pivot-pick-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""}`} aria-label={t("aria.workplane")}>
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
@@ -7024,7 +7092,7 @@ export function WorkplaneViewport({
           {!workplaneMode && originDimensionsEnabled && originDimensionOverlay ? (
             <OriginDimensionOverlay overlay={originDimensionOverlay} />
           ) : null}
-          {!workplaneMode && transformOverlay && !alignMode && !mirrorMode && !tapeMode && !tapeDeleteMode && !tapeMoveMode && !modifierActive ? (
+          {!workplaneMode && !pivotPickMode && transformOverlay && !alignMode && !mirrorMode && !tapeMode && !tapeDeleteMode && !tapeMoveMode && !modifierActive ? (
             <TransformOverlay
               box={transformOverlay}
               measureKey={pinnedMeasureKey ?? hoverMeasureKey}
@@ -8530,6 +8598,11 @@ function updateTransformOverlayDom(state: ThreeState, next: TransformOverlayStat
     element.style.setProperty("--overlay-y", `${handle.y}px`);
     element.style.setProperty("--transform-handle-angle", `${handle.angle ?? 0}deg`);
   });
+  const pivotMarker = root.querySelector<HTMLElement>(".transform-overlay .rotation-pivot-marker");
+  if (pivotMarker && next.pivotMarker) {
+    pivotMarker.style.setProperty("--overlay-x", `${next.pivotMarker.x}px`);
+    pivotMarker.style.setProperty("--overlay-y", `${next.pivotMarker.y}px`);
+  }
   const rotateHandles = root.querySelectorAll<HTMLElement>(".transform-overlay .rotate-handle");
   next.rotateHandles.forEach((handle, index) => {
     const element = rotateHandles[index];
@@ -8759,9 +8832,16 @@ function syncTransformOverlay(
   const rotateRight = screenOffsetFromCenter(rotateRightSource, 28);
   const rotateBottomAnchor = screenOffsetFromCenter(rotateBottomSource, 26);
   const rotateBottom = { ...rotateBottomAnchor, y: rotateBottomAnchor.y - 5 };
-  const xFaceCenter = sidePoint(rotationSides.x, 0);
-  const zFaceCenter = sidePoint(rotationSides.z, 0);
-  const yFaceCenter = bottomCenterWorld;
+  // With a pivot set, each wheel slides along its face onto the axis through
+  // the pivot, so the wheel shows where the selection really turns.
+  const customPivot = state.rotationPivot ?? null;
+  const onPivotAxis = (faceCenter: THREE.Vector3, axis: THREE.Vector3) => (
+    customPivot ? customPivot.clone().addScaledVector(axis, faceCenter.clone().sub(customPivot).dot(axis)) : faceCenter
+  );
+  const xFaceCenter = onPivotAxis(sidePoint(rotationSides.x, 0), xFootAxis);
+  const zFaceCenter = onPivotAxis(sidePoint(rotationSides.z, 0), zFootAxis);
+  const yFaceCenter = onPivotAxis(bottomCenterWorld, yFootAxis);
+  const pivotScreen = customPivot ? project(customPivot) : null;
   const yRotationAxes = rotationSides.y === "near"
     ? { u: xFootAxis, v: zFootAxis }
     : rotationSides.y === "far"
@@ -8875,6 +8955,7 @@ function syncTransformOverlay(
     rotationWheels,
     rotationPlaneCenters,
     rotationPlanes,
+    pivotMarker: pivotScreen?.visible ? { x: pivotScreen.x, y: pivotScreen.y } : null,
   };
 
   if (updateDomImmediately) {
@@ -9116,6 +9197,43 @@ function syncMirrorOverlay(
 
   overlayRef.current = next;
   setOverlay(next);
+}
+
+function pivotVector(point: PivotPoint | null | undefined) {
+  return point ? new THREE.Vector3(point.x, point.y, point.z) : null;
+}
+
+/**
+ * The rotation pivot under the pointer: the centre of the flat face that was
+ * clicked (the axis of a pipe end), or the clicked point on a curved surface.
+ * Any visible body counts, not only the selection, so the pivot can also sit
+ * on the part the selection is meant to line up with.
+ */
+function pickRotationPivot(state: ThreeState, clientX: number, clientY: number): PivotPoint | null {
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  state.raycaster.setFromCamera(state.pointer, state.camera);
+  state.raycaster.layers.set(RENDER_LAYER_SHAPES);
+  const hit = state.raycaster
+    .intersectObjects(state.shapeLayer.children, true)
+    .find((entry) => entry.object instanceof THREE.Mesh && entry.faceIndex !== undefined && entry.faceIndex !== null && typeof entry.object.userData.shapeId === "string");
+  if (!hit || hit.faceIndex === undefined || hit.faceIndex === null) return null;
+
+  const mesh = hit.object as THREE.Mesh<THREE.BufferGeometry>;
+  mesh.updateWorldMatrix(true, false);
+  const position = mesh.geometry.getAttribute("position");
+  const index = mesh.geometry.getIndex();
+  const cornerCount = index ? index.count : position.count;
+  const positions = new Float64Array(cornerCount * 3);
+  const corner = new THREE.Vector3();
+  for (let offset = 0; offset < cornerCount; offset += 1) {
+    corner.fromBufferAttribute(position, index ? index.getX(offset) : offset).applyMatrix4(mesh.matrixWorld);
+    positions[offset * 3] = corner.x;
+    positions[offset * 3 + 1] = corner.y;
+    positions[offset * 3 + 2] = corner.z;
+  }
+  return planarFaceCentroid(positions, hit.faceIndex) ?? { x: hit.point.x, y: hit.point.y, z: hit.point.z };
 }
 
 function findShapeObject(state: ThreeState, id: string) {

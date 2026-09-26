@@ -290,6 +290,13 @@ export function TransformOverlay({
           </span>
         </button>
       ))}
+      {box.pivotMarker ? (
+        <span
+          className="rotation-pivot-marker"
+          aria-hidden="true"
+          style={{ "--overlay-x": `${box.pivotMarker.x}px`, "--overlay-y": `${box.pivotMarker.y}px` } as CSSProperties}
+        />
+      ) : null}
       {!hideDimensionMarks && rotationReadout ? (
         <div className="rotation-readout" style={{ "--overlay-x": `${rotationReadout.x}px`, "--overlay-y": `${rotationReadout.y}px` } as CSSProperties}>
           {rotationReadout.text}

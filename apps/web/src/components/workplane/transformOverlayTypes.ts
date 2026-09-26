@@ -229,6 +229,8 @@ export type TransformOverlayState = {
   rotationWheels: Record<RotationAxis, RotationWheelView>;
   rotationPlaneCenters: Record<RotationAxis, { x: number; y: number; z: number }>;
   rotationPlanes: Record<RotationAxis, RotationPlaneView>;
+  /** Screen position of the rotation pivot the user set; null without one. */
+  pivotMarker: { x: number; y: number } | null;
 };
 
 export type RotationReadout = {

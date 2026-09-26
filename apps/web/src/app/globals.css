@@ -6317,6 +6317,29 @@ button {
   box-shadow: 0 2px 8px rgba(58, 40, 20, 0.14);
 }
 
+/* The rotation pivot the user set: a crosshair ring on the point the
+   selection turns around. White halo so it reads on any body colour. */
+.rotation-pivot-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #dc3f36;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+  transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%);
+  background:
+    linear-gradient(#dc3f36, #dc3f36) center / 2px 100% no-repeat,
+    linear-gradient(#dc3f36, #dc3f36) center / 100% 2px no-repeat;
+}
+
+.workplane-wrap.pivot-pick-mode .three-workplane-host {
+  cursor: crosshair;
+}
+
 .shape-inspector {
   position: absolute;
   top: 0;

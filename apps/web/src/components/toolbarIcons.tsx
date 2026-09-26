@@ -208,6 +208,19 @@ export function ToolbarMirrorIcon(props: IconProps) {
   );
 }
 
+/** A turn arrow around a crosshair: the point the selection rotates about. */
+export function ToolbarRotationPivotIcon(props: IconProps) {
+  return (
+    <ToolbarVectorIcon {...props}>
+      <circle cx="24" cy="24" r="5" {...SOLID} />
+      <circle cx="24" cy="24" r="5" />
+      <path d="M24 15v4M24 29v4M15 24h4M29 24h4" />
+      <path d="M38 17a15.5 15.5 0 1 0 1.5 11" />
+      <path d="M39 10v8h-8" />
+    </ToolbarVectorIcon>
+  );
+}
+
 export function ToolbarChamferIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>

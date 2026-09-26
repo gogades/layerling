@@ -2603,6 +2603,13 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   box-shadow: 0 2px 8px rgba(44, 44, 44, 0.14);
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .rotation-pivot-marker {
+  border: 2px solid #dc3f36;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+  background: linear-gradient(#dc3f36, #dc3f36) center / 2px 100% no-repeat,
+    linear-gradient(#dc3f36, #dc3f36) center / 100% 2px no-repeat;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .shape-inspector {
   color: #404040;
   background: rgba(246, 246, 246, 0.96);

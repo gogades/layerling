@@ -50,6 +50,7 @@ import {
   ToolbarFilletIcon,
   ToolbarHollowIcon,
   ToolbarMirrorIcon,
+  ToolbarRotationPivotIcon,
   ToolbarNoteIcon,
   ToolbarPasteIcon,
   ToolbarRedoIcon,
@@ -119,6 +120,7 @@ import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatment
 import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, projectShapesFingerprint, workplaneForHistoryIndex, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { composedShapeRotation, geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
+import type { PivotPoint } from "@/lib/rotationPivot";
 import { createLocalId } from "@/lib/localIds";
 import { projectExportFileName } from "@/lib/exportNames";
 import { exportMeshesToObj } from "@/lib/objExport";
@@ -6026,6 +6028,10 @@ export function LayerlingEditor({
   const [alignPreview, setAlignPreview] = useState<{ axis: AlignAxis; target: AlignTarget } | null>(null);
   const [mirrorMode, setMirrorMode] = useState(false);
   const [mirrorPreviewAxis, setMirrorPreviewAxis] = useState<AlignAxis | null>(null);
+  // The pivot belongs to the selection it was set for; another selection
+  // turns around its own centre again.
+  const [rotationPivot, setRotationPivot] = useState<{ selectionKey: string; point: PivotPoint } | null>(null);
+  const [pivotPickMode, setPivotPickMode] = useState(false);
   const [activeMode, setActiveMode] = useState("3D Design");
   const editorLanguage = useLanguage();
   // Leer heisst Ruhe: Dann steht kein Fenster auf der Arbeitsflaeche. Ein
@@ -6666,8 +6672,44 @@ export function LayerlingEditor({
     if (selectedShapes.length === 0) {
       setMirrorMode(false);
       setMirrorPreviewAxis(null);
+      setPivotPickMode(false);
     }
   }, [alignAnchorId, selectedIds, selectedShapes.length]);
+
+  const selectionKey = selectedIds.join("|");
+  const activeRotationPivot = rotationPivot?.selectionKey === selectionKey ? rotationPivot.point : null;
+  useEffect(() => {
+    if (rotationPivot && rotationPivot.selectionKey !== selectionKey) setRotationPivot(null);
+  }, [rotationPivot, selectionKey]);
+
+  const toggleRotationPivot = useCallback(() => {
+    if (pivotPickMode) {
+      setPivotPickMode(false);
+      setNotice(t("status.pivotPickCancelled"));
+      return;
+    }
+    if (activeRotationPivot) {
+      setRotationPivot(null);
+      setNotice(t("status.pivotCleared"));
+      return;
+    }
+    if (!hasSelection) {
+      setNotice(t("status.selectShapeFirst"));
+      return;
+    }
+    setPivotPickMode(true);
+    setNotice(t("status.pivotPickStart"));
+  }, [activeRotationPivot, hasSelection, pivotPickMode]);
+
+  const pickRotationPivot = useCallback((point: PivotPoint | null) => {
+    setPivotPickMode(false);
+    if (!point) {
+      setNotice(t("status.pivotMissed"));
+      return;
+    }
+    setRotationPivot({ selectionKey, point });
+    setNotice(t("status.pivotSet"));
+  }, [selectionKey]);
 
   const syncProjectShapes = useCallback(
     (nextShapes: WorkplaneShape[], force = false) => {
@@ -10200,7 +10242,9 @@ export function LayerlingEditor({
     }
 
     const rotationDelta = geometryRotationDelta(placementWorkplane, angleDegrees);
-    const pivot = rotatableShapes.length > 1 ? selectionCenterOnWorkplane(rotatableShapes, placementWorkplane) : null;
+    const pivot = activeRotationPivot
+      ? new THREE.Vector3(activeRotationPivot.x, activeRotationPivot.y, activeRotationPivot.z)
+      : rotatableShapes.length > 1 ? selectionCenterOnWorkplane(rotatableShapes, placementWorkplane) : null;
 
     const nextShapes = shapes.map((shape) => {
       if (!selected.has(shape.id) || shape.locked) {
@@ -10219,7 +10263,7 @@ export function LayerlingEditor({
         ? t("status.rotatedOne", { angle: angleLabel })
         : t("status.rotatedMany", { count: rotatableShapes.length, angle: angleLabel }),
     );
-  }, [commitShapes, hasSelection, placementWorkplane, selectedIds, selectedShapes, shapes]);
+  }, [activeRotationPivot, commitShapes, hasSelection, placementWorkplane, selectedIds, selectedShapes, shapes]);
 
   useEffect(() => {
     const isTypingTarget = (target: EventTarget | null) => {
@@ -10271,6 +10315,11 @@ export function LayerlingEditor({
         if (noteMode) {
           setNoteMode(false);
           setNotice("");
+          return;
+        }
+        if (pivotPickMode) {
+          setPivotPickMode(false);
+          setNotice(t("status.pivotPickCancelled"));
           return;
         }
         setSelectedIds([]);
@@ -10424,6 +10473,7 @@ export function LayerlingEditor({
     hasSelection,
     nudgeSelected,
     pasteShape,
+    pivotPickMode,
     raiseSelected,
     redo,
     rotateSelectedBy,
@@ -10507,6 +10557,8 @@ export function LayerlingEditor({
         onHollow={startShellTool}
         hollowActive={Boolean(shellTool)}
         onMirror={toggleMirrorMode}
+        onRotationPivot={toggleRotationPivot}
+        rotationPivotActive={pivotPickMode || Boolean(activeRotationPivot)}
         onPaste={pasteShape}
         onRedo={redo}
         onSnap={snapSelected}
@@ -10614,6 +10666,9 @@ export function LayerlingEditor({
           notes={notes}
           notesVisible={notesVisible}
           noteMode={noteMode}
+          rotationPivot={activeRotationPivot}
+          pivotPickMode={pivotPickMode}
+          onPivotPick={pickRotationPivot}
           onNoteAdd={addNote}
           onNoteUpdate={updateNote}
           onNoteRemove={removeNote}
@@ -10866,6 +10921,8 @@ function SecondaryToolbar({
   onHollow,
   hollowActive,
   onMirror,
+  onRotationPivot,
+  rotationPivotActive,
   onPaste,
   onRedo,
   onSnap,
@@ -10931,6 +10988,8 @@ function SecondaryToolbar({
   onHollow: () => void;
   hollowActive: boolean;
   onMirror: () => void;
+  onRotationPivot: () => void;
+  rotationPivotActive: boolean;
   onPaste: () => void;
   onRedo: () => void;
   onSnap: () => void;
@@ -11112,6 +11171,7 @@ function SecondaryToolbar({
   const modifyTools = [
     { id: "align", label: t("editor.tool.align"), icon: ToolbarAlignIcon, action: onAlign, enabled: canAlign, active: alignMode },
     { id: "mirror", label: t("editor.tool.mirror"), icon: ToolbarMirrorIcon, action: onMirror, enabled: hasSelection, active: mirrorMode },
+    { id: "pivot", label: t("editor.tool.rotationPivot"), icon: ToolbarRotationPivotIcon, action: onRotationPivot, enabled: hasSelection, active: rotationPivotActive },
     { id: "snap", label: t("editor.tool.snapToGrid"), icon: ToolbarSnapGridIcon, action: onSnap, enabled: hasSelection },
     { id: "chamfer", label: t("editor.tool.chamfer"), icon: ToolbarChamferIcon, action: onChamfer, enabled: canEdgeModify, active: edgeModifierKind === "chamfer" },
     { id: "fillet", label: t("editor.tool.fillet"), icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify, active: edgeModifierKind === "fillet" },
