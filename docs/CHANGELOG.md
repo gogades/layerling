@@ -4,6 +4,13 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.18.5
+
+- **Pattern tool:** A new "Pattern" tool next to the rotation pivot repeats the selection n times - in a row along X, Y or Z with a spacing (negative runs the other way), or around a circle over a total angle, with the copies turned along or kept as they are. The circle centre is taken from the rotation pivot when one is set, otherwise the origin. The copies show as a preview while the numbers change; "Create" adds them as one undo step. Also available through MCP as `layerling_array_objects`.
+- **Up-to-date welcome guide:** The guide on the start page now lists what layerling has gained since it was written - hollowing, sketches, the shape library, patterns, workplanes on faces, the rotation pivot, measuring, printer profiles, import and building with AI - and names 3MF export.
+- **Search engines and link previews:** The start page's HTML now carries the welcome guide in English and German instead of an empty page, together with a longer description, a canonical address, structured data, `robots.txt` and `sitemap.xml`.
+- **Graphite theme:** The stylesheet is loaded from the site root and carries the app version, so a browser can no longer keep an older copy after an update.
+
 ## 1.18.4
 
 - **Rotation pivot:** A new "Set rotation pivot" tool next to Mirror picks the point the selection turns around. Clicking a flat face takes its centre - on the round end of a pipe that is the pipe's axis - and a curved surface takes the clicked point. Dragging the rotation wheel, typing an angle and the R shortcut then turn the selection around that point, so a bend tilted out of the plane keeps its pipe end on the axis. The pivot applies to the selection it was set for; clicking the tool again or selecting something else removes it. Requested by Fratercula in the forum.
