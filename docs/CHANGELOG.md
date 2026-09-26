@@ -4,6 +4,11 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.18.3
+
+- **Sharp hollowing after an update:** Browsers that had used layerling before 1.18.2 could keep the previous CAD kernel from their cache and pair it with the new app. Rounded hollowing still worked, but sharp hollowing failed with "The walls cannot be this thick". The kernel is now loaded from a folder named after its version, so every kernel update gets a new address and a cached older one can no longer be picked up. Reported by Magnetron in the forum.
+- **Clearer hollowing errors:** A failure that has nothing to do with the wall thickness is no longer reported as "walls too thick".
+
 ## 1.18.2
 
 - **Sharp inner edges when hollowing:** The Hollow tool has a new "Inner edges" switch. Rounded stays the default: where the inner walls move apart, at a step or around an opening, they meet in a rounding as large as the wall. Sharp extends the walls until they meet, so the edge stays sharp and the wall is a little thicker in that corner. Also available through MCP as `edges` on `layerling_hollow_object`. Requested by Fratercula and Magnetron in the forum.
