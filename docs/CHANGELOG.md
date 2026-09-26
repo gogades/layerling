@@ -4,6 +4,12 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.18.2
+
+- **Sharp inner edges when hollowing:** The Hollow tool has a new "Inner edges" switch. Rounded stays the default: where the inner walls move apart, at a step or around an opening, they meet in a rounding as large as the wall. Sharp extends the walls until they meet, so the edge stays sharp and the wall is a little thicker in that corner. Also available through MCP as `edges` on `layerling_hollow_object`. Requested by Fratercula and Magnetron in the forum.
+- **Closed hollowing of bodies with an inner corner:** Hollowing with every side closed failed for any body with an inner corner, such as an L-shaped part. It works now.
+- **CAD kernel:** layerling now runs on occt-wasm 5.3.5 with the added join types, built from [henmedia/occt-wasm](https://github.com/henmedia/occt-wasm) until the change is merged upstream ([andymai/occt-wasm#366](https://github.com/andymai/occt-wasm/pull/366)).
+
 ## 1.18.1
 
 - **Printer presets & build plate warnings:** The workspace settings now offer 54 common FDM 3D printer presets grouped by vendor (Bambu Lab, Prusa, Creality, Elegoo, Anycubic, Qidi, Sovol, Flashforge, Artillery, Anker, Voron) sourced directly from OrcaSlicer's profile definitions. Selecting a printer automatically sets the workplane size, displays the model and build volume (e.g. "Bambu Lab A1 / 256 × 256 × 256 mm") in the corner of the workplane, and warns when objects overhang the build plate in real-time or during STL/3MF/OBJ export.
