@@ -221,6 +221,23 @@ export function ToolbarRotationPivotIcon(props: IconProps) {
   );
 }
 
+/** Three squares in a row and dots on a ring: the two kinds of pattern. */
+export function ToolbarPatternIcon(props: IconProps) {
+  return (
+    <ToolbarVectorIcon {...props}>
+      <rect x="5" y="8" width="9" height="9" rx="1.5" {...SOLID} />
+      <rect x="5" y="8" width="9" height="9" rx="1.5" />
+      <rect x="19.5" y="8" width="9" height="9" rx="1.5" />
+      <rect x="34" y="8" width="9" height="9" rx="1.5" />
+      <circle cx="24" cy="33" r="9" strokeDasharray="3 4" opacity="0.6" />
+      <circle cx="24" cy="24" r="3" fill="currentColor" stroke="none" />
+      <circle cx="33" cy="33" r="3" fill="currentColor" stroke="none" />
+      <circle cx="24" cy="42" r="3" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="33" r="3" fill="currentColor" stroke="none" />
+    </ToolbarVectorIcon>
+  );
+}
+
 export function ToolbarChamferIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>

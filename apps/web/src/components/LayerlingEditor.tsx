@@ -51,6 +51,7 @@ import {
   ToolbarHollowIcon,
   ToolbarMirrorIcon,
   ToolbarRotationPivotIcon,
+  ToolbarPatternIcon,
   ToolbarNoteIcon,
   ToolbarPasteIcon,
   ToolbarRedoIcon,
@@ -66,6 +67,8 @@ import { WorkplaneViewport } from "./WorkplaneViewport";
 import { SketchWorkspace, type SketchMeasurement, type SketchPrimitive, type SketchSelection, type SketchTool } from "./SketchWorkspace";
 import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
 import { ShellPanel } from "./workplane/ShellPanel";
+import { ArrayPanel } from "./workplane/ArrayPanel";
+import { circleStepDegrees, clampArrayCount, rotateAroundVertical, rowOffset, type ArraySettings } from "@/lib/shapeArray";
 import { bedOverhangs, printerPresetById, type BedOverhang } from "@/lib/printBed";
 import { GuideModal } from "./workplane/GuideModal";
 import { ShortcutsModal } from "./workplane/ShortcutsModal";
@@ -2967,6 +2970,40 @@ function shapeAabb(shape: WorkplaneShape): Cuboid {
     minZ: shape.z - halfDepth,
     maxZ: shape.z + halfDepth,
   };
+}
+
+/**
+ * The copies of a pattern: every selected shape, once per extra piece, moved
+ * along the row or turned around the circle centre. The originals stay put.
+ */
+function arrayCopies(sources: WorkplaneShape[], settings: ArraySettings): WorkplaneShape[] {
+  const count = clampArrayCount(settings.count);
+  const step = circleStepDegrees(count, settings.angle);
+  const center = { x: settings.centerX, y: settings.centerY };
+  const copies: WorkplaneShape[] = [];
+  for (let index = 1; index < count; index += 1) {
+    sources.forEach((source) => {
+      const clone = cloneWorkplaneShapeTreeWithFreshIds(source, "copy");
+      if (settings.mode === "row") {
+        const { dx, dy, dz } = rowOffset(settings, index);
+        copies.push({ ...clone, x: clone.x + dx, z: clone.z + dz, elevation: (clone.elevation ?? 0) + dy });
+        return;
+      }
+      const degrees = step * index;
+      if (!settings.rotateCopies) {
+        const next = rotateAroundVertical(clone, center, degrees);
+        copies.push({ ...clone, x: next.x, z: next.z });
+        return;
+      }
+      // Same rotation as the R key and the pivot tool: about the vertical
+      // through the centre, at the shape's own height.
+      const delta = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(degrees));
+      const pivot = new THREE.Vector3(center.x, (clone.elevation ?? 0) + clone.height / 2, -center.y);
+      const rotated = canonicalizeShape({ ...clone, ...rotatedGeometryShapePatch(clone, delta, pivot) });
+      copies.push(canonicalizeShape(bakeShapeTransformIntoMesh(rotated)));
+    });
+  }
+  return copies;
 }
 
 function boundsForShapes(shapes: WorkplaneShape[]): Cuboid {
@@ -6032,6 +6069,7 @@ export function LayerlingEditor({
   // turns around its own centre again.
   const [rotationPivot, setRotationPivot] = useState<{ selectionKey: string; point: PivotPoint } | null>(null);
   const [pivotPickMode, setPivotPickMode] = useState(false);
+  const [arrayTool, setArrayTool] = useState<ArraySettings | null>(null);
   const [activeMode, setActiveMode] = useState("3D Design");
   const editorLanguage = useLanguage();
   // Leer heisst Ruhe: Dann steht kein Fenster auf der Arbeitsflaeche. Ein
@@ -6549,16 +6587,23 @@ export function LayerlingEditor({
     [alignAnchorId, selectedShapes],
   );
   const alignHandleStatuses = useMemo(() => (alignMode ? alignmentStatuses(selectedShapes, effectiveAlignAnchorId) : []), [alignMode, effectiveAlignAnchorId, selectedShapes]);
+  // The copies a pattern would add, shown on the workplane until "Create".
+  const arrayPreview = useMemo(
+    () => (arrayTool && selectedShapes.length > 0 ? arrayCopies(selectedShapes, arrayTool) : null),
+    [arrayTool, selectedShapes],
+  );
   const viewportShapes = useMemo(
     () =>
-      edgeModifier?.preview && cadModifierBaseShapeRef.current
+      arrayPreview
+        ? [...shapes, ...arrayPreview]
+        : edgeModifier?.preview && cadModifierBaseShapeRef.current
         ? shapes.map((shape) => shape.id === cadModifierBaseShapeRef.current?.id ? edgeModifier.preview as WorkplaneShape : shape)
         : alignMode && alignPreview
         ? alignedShapesForSelection(shapes, selectedIds, selectedShapes, effectiveAlignAnchorId, alignPreview.axis, alignPreview.target).nextShapes
         : mirrorMode && mirrorPreviewAxis
           ? mirroredShapesForSelection(shapes, selectedIds, selectedShapes, mirrorPreviewAxis).nextShapes
           : shapes,
-    [alignMode, alignPreview, edgeModifier?.preview, effectiveAlignAnchorId, mirrorMode, mirrorPreviewAxis, selectedIds, selectedShapes, shapes],
+    [alignMode, alignPreview, arrayPreview, edgeModifier?.preview, effectiveAlignAnchorId, mirrorMode, mirrorPreviewAxis, selectedIds, selectedShapes, shapes],
   );
   const sketchReferenceShapes = useMemo(
     () => sketchOperation === "revolve" || placementWorkplaneIsBase(activeSketchWorkplane)
@@ -6700,6 +6745,40 @@ export function LayerlingEditor({
     setPivotPickMode(true);
     setNotice(t("status.pivotPickStart"));
   }, [activeRotationPivot, hasSelection, pivotPickMode]);
+
+  // A pattern belongs to the selection it was opened for.
+  useEffect(() => {
+    setArrayTool(null);
+  }, [selectionKey]);
+
+  const toggleArrayTool = useCallback(() => {
+    if (arrayTool) {
+      setArrayTool(null);
+      setNotice(t("status.arrayCancelled"));
+      return;
+    }
+    if (selectedShapes.length === 0) {
+      setNotice(t("status.selectShapeFirst"));
+      return;
+    }
+    const bounds = boundsForShapes(selectedShapes);
+    setAlignMode(false);
+    setMirrorMode(false);
+    setPivotPickMode(false);
+    setArrayTool({
+      mode: "row",
+      count: 4,
+      // Next to each other with a little air, whatever the size of the part.
+      spacing: Math.round((bounds.maxX - bounds.minX + 5) * 2) / 2,
+      direction: "x",
+      angle: 360,
+      centerX: activeRotationPivot ? activeRotationPivot.x : 0,
+      centerY: activeRotationPivot ? -activeRotationPivot.z : 0,
+      rotateCopies: true,
+    });
+    setNotice(t("status.arrayStart"));
+  }, [activeRotationPivot, arrayTool, selectedShapes]);
+
 
   const pickRotationPivot = useCallback((point: PivotPoint | null) => {
     setPivotPickMode(false);
@@ -7869,6 +7948,13 @@ export function LayerlingEditor({
     const duplicates = selectedShapes.map((shape) => cloneWorkplaneShapeTreeWithFreshIds(shape, "copy"));
     commitShapes([...shapes, ...duplicates], duplicates.map((shape) => shape.id), t("status.duplicatedMany", { count: duplicates.length }));
   }, [commitShapes, hasSelection, selectedShapes, shapes]);
+
+  const applyArrayTool = useCallback(() => {
+    if (!arrayTool || selectedShapes.length === 0) return;
+    const copies = arrayCopies(selectedShapes, arrayTool);
+    setArrayTool(null);
+    commitShapes([...shapes, ...copies], [...selectedIds, ...copies.map((shape) => shape.id)], t("status.arrayCreated", { count: copies.length }));
+  }, [arrayTool, commitShapes, selectedIds, selectedShapes, shapes]);
 
   const duplicateShapeAt = useCallback((id: string, position: { x: number; z: number }) => {
     const shape = shapesRef.current.find((entry) => entry.id === id);
@@ -10322,6 +10408,11 @@ export function LayerlingEditor({
           setNotice(t("status.pivotPickCancelled"));
           return;
         }
+        if (arrayTool) {
+          setArrayTool(null);
+          setNotice(t("status.arrayCancelled"));
+          return;
+        }
         setSelectedIds([]);
         setNotice(t("status.selectionCleared"));
         return;
@@ -10472,6 +10563,7 @@ export function LayerlingEditor({
     groupSelected,
     hasSelection,
     nudgeSelected,
+    arrayTool,
     pasteShape,
     pivotPickMode,
     raiseSelected,
@@ -10558,6 +10650,8 @@ export function LayerlingEditor({
         hollowActive={Boolean(shellTool)}
         onMirror={toggleMirrorMode}
         onRotationPivot={toggleRotationPivot}
+        onArray={toggleArrayTool}
+        arrayActive={Boolean(arrayTool)}
         rotationPivotActive={pivotPickMode || Boolean(activeRotationPivot)}
         onPaste={pasteShape}
         onRedo={redo}
@@ -10693,6 +10787,20 @@ export function LayerlingEditor({
           <AlertTriangle size={16} aria-hidden="true" />
           <span>{overhangWarning}</span>
         </div>
+      ) : null}
+      {arrayTool && selectedShapes.length > 0 ? (
+        <ArrayPanel
+          targetName={selectedShapes.length === 1 ? selectedShapes[0].name : t("array.targetMany", { count: selectedShapes.length })}
+          settings={arrayTool}
+          workspace={workspaceSettings}
+          pivotSet={Boolean(activeRotationPivot)}
+          onChange={(patch) => setArrayTool((current) => current ? { ...current, ...patch } : current)}
+          onApply={applyArrayTool}
+          onCancel={() => {
+            setArrayTool(null);
+            setNotice(t("status.arrayCancelled"));
+          }}
+        />
       ) : null}
       {shellTool && selectedShape ? (
         <ShellPanel
@@ -10923,6 +11031,8 @@ function SecondaryToolbar({
   onMirror,
   onRotationPivot,
   rotationPivotActive,
+  onArray,
+  arrayActive,
   onPaste,
   onRedo,
   onSnap,
@@ -10990,6 +11100,8 @@ function SecondaryToolbar({
   onMirror: () => void;
   onRotationPivot: () => void;
   rotationPivotActive: boolean;
+  onArray: () => void;
+  arrayActive: boolean;
   onPaste: () => void;
   onRedo: () => void;
   onSnap: () => void;
@@ -11172,6 +11284,7 @@ function SecondaryToolbar({
     { id: "align", label: t("editor.tool.align"), icon: ToolbarAlignIcon, action: onAlign, enabled: canAlign, active: alignMode },
     { id: "mirror", label: t("editor.tool.mirror"), icon: ToolbarMirrorIcon, action: onMirror, enabled: hasSelection, active: mirrorMode },
     { id: "pivot", label: t("editor.tool.rotationPivot"), icon: ToolbarRotationPivotIcon, action: onRotationPivot, enabled: hasSelection, active: rotationPivotActive },
+    { id: "array", label: t("editor.tool.array"), icon: ToolbarPatternIcon, action: onArray, enabled: hasSelection, active: arrayActive },
     { id: "snap", label: t("editor.tool.snapToGrid"), icon: ToolbarSnapGridIcon, action: onSnap, enabled: hasSelection },
     { id: "chamfer", label: t("editor.tool.chamfer"), icon: ToolbarChamferIcon, action: onChamfer, enabled: canEdgeModify, active: edgeModifierKind === "chamfer" },
     { id: "fillet", label: t("editor.tool.fillet"), icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify, active: edgeModifierKind === "fillet" },
