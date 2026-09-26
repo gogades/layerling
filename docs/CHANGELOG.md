@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.18.4
+
+- **Rotation pivot:** A new "Set rotation pivot" tool next to Mirror picks the point the selection turns around. Clicking a flat face takes its centre - on the round end of a pipe that is the pipe's axis - and a curved surface takes the clicked point. Dragging the rotation wheel, typing an angle and the R shortcut then turn the selection around that point, so a bend tilted out of the plane keeps its pipe end on the axis. The pivot applies to the selection it was set for; clicking the tool again or selecting something else removes it. Requested by Fratercula in the forum.
+
 ## 1.18.3
 
 - **Sharp hollowing after an update:** Browsers that had used layerling before 1.18.2 could keep the previous CAD kernel from their cache and pair it with the new app. Rounded hollowing still worked, but sharp hollowing failed with "The walls cannot be this thick". The kernel is now loaded from a folder named after its version, so every kernel update gets a new address and a cached older one can no longer be picked up. Reported by Magnetron in the forum.
