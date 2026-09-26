@@ -67,7 +67,12 @@ export function applyAppTheme(preference: AppThemePreference, prefersDark?: bool
 }
 
 export const GRAPHITE_STYLESHEET_ID = "layerling-graphite-theme";
-export const GRAPHITE_STYLESHEET_HREF = "assets/theme/graphite-theme.css";
+// Root-relative like every other asset: a relative path resolved against the
+// current URL and missed on any page not at the root (the 404 page, say). The
+// version query keeps a cached stylesheet from an older release out, since
+// the file is regenerated from globals.css under the same name every build.
+const appVersion = process.env.NEXT_PUBLIC_APP_VERSION;
+export const GRAPHITE_STYLESHEET_HREF = `/assets/theme/graphite-theme.css${appVersion ? `?v=${appVersion}` : ""}`;
 
 /**
  * Graphite's colours live in a generated stylesheet that is only fetched once

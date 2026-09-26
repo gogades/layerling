@@ -69,4 +69,19 @@ describe("application theme preference", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("links the graphite stylesheet from the site root, versioned with the app", async () => {
+    // Relative, it resolved against the current URL and missed on any page not
+    // at the root; unversioned, a cached copy from an older release could stay.
+    expect(GRAPHITE_STYLESHEET_HREF.startsWith("/assets/theme/graphite-theme.css")).toBe(true);
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_APP_VERSION", "1.18.5");
+    try {
+      const theme = await import("@/lib/appTheme");
+      expect(theme.GRAPHITE_STYLESHEET_HREF).toBe("/assets/theme/graphite-theme.css?v=1.18.5");
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
 });
