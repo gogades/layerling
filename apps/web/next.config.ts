@@ -11,6 +11,9 @@ const extraAllowedDevOrigins = (process.env.LAYERLING_ALLOWED_DEV_ORIGINS ?? "")
 const occtRuntimeVersion: string = JSON.parse(
   readFileSync(path.resolve(process.cwd(), "node_modules", "occt-wasm", "package.json"), "utf8"),
 ).version;
+// The app's own version, so files with a fixed name (the Graphite stylesheet)
+// can carry it and a browser cache cannot hand out last release's copy.
+const appVersion: string = JSON.parse(readFileSync(path.resolve(process.cwd(), "package.json"), "utf8")).version;
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.resolve(process.cwd()),
@@ -23,6 +26,7 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_STATIC_EXPORT: isStaticExport ? "true" : "false",
     NEXT_PUBLIC_OCCT_RUNTIME_VERSION: occtRuntimeVersion,
+    NEXT_PUBLIC_APP_VERSION: appVersion,
   },
   images: {
     unoptimized: true
