@@ -678,6 +678,14 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   color: #9a5a06;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-welcome-more h3 {
+  color: #414141;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .visually-hidden {
+  border: 0;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-welcome-help {
   color: #656565;
 }
@@ -3681,6 +3689,7 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-welcome {
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-welcome h2,
+html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-welcome h3,
 html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-welcome li strong {
   color: #ebebeb;
 }

@@ -16,7 +16,8 @@ import { loadTextFonts } from "@/lib/textFonts";
 import { importedShapeFrom3mf } from "@/lib/threemfImport";
 import { applyAppTheme, getAppThemePreference, readStoredAppTheme, resolveAppTheme, setAppTheme, storeAppTheme, subscribeToAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, notesForHistoryIndex, type EditorHistoryEntry } from "@/lib/editorHistory";
-import { detectLanguage, setLanguage, t, type Language } from "@/lib/i18n";
+import { detectLanguage, setLanguage, t, translate, type Language } from "@/lib/i18n";
+import { WelcomeGuideBody } from "@/components/WelcomeGuide";
 import { duplicateName, type DuplicateNamePatterns } from "@/lib/duplicateName";
 import { migrateLegacyProjectShapes, migrateLegacyStorageKeys, PROJECT_SHAPES_DB_NAME } from "@/lib/storageMigration";
 import { useLanguage } from "@/lib/useLanguage";
@@ -1785,7 +1786,7 @@ export default function Home() {
   };
 
   if (!mounted) {
-    return null;
+    return <StaticIntro />;
   }
 
   const activeProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) ?? null : null;
@@ -2707,29 +2708,7 @@ function Dashboard({
                   <span className="dashboard-welcome-summary-hint">{t("welcome.teaserHint")}</span>
                 </summary>
                 <div className="dashboard-welcome-body">
-                  <p>{t("welcome.lead")}</p>
-                  <p className="dashboard-welcome-switch">
-                    <strong>{t("welcome.switchTitle")}</strong> {t("welcome.switchBody")}
-                  </p>
-                  <ol>
-                    <li>
-                      <strong>{t("welcome.step1Title")}</strong>
-                      <span>{t("welcome.step1Body")}</span>
-                    </li>
-                    <li>
-                      <strong>{t("welcome.step2Title")}</strong>
-                      <span>{t("welcome.step2Body")}</span>
-                    </li>
-                    <li>
-                      <strong>{t("welcome.step3Title")}</strong>
-                      <span>{t("welcome.step3Body")}</span>
-                    </li>
-                    <li>
-                      <strong>{t("welcome.step4Title")}</strong>
-                      <span>{t("welcome.step4Body")}</span>
-                    </li>
-                  </ol>
-                  <p className="dashboard-welcome-help">{t("welcome.help")}</p>
+                  <WelcomeGuideBody tr={t} />
                 </div>
               </details>
             </>
@@ -2984,5 +2963,27 @@ function ProjectPreview({ accent, thumbnailUrl }: { accent: DashboardProject["ac
         </>
       )}
     </span>
+  );
+}
+
+/**
+ * What the exported HTML holds before the app starts: the welcome guide in
+ * both languages. The start page draws nothing until it has read the browser's
+ * storage, so without this a search engine or link preview that does not run
+ * JavaScript found nothing but the title. It is the same text a first-time
+ * visitor sees open on the page, kept out of sight only for the moment until
+ * the app replaces it.
+ */
+function StaticIntro() {
+  return (
+    <main className="visually-hidden">
+      <h1>layerling - Free 3D CAD for 3D printing in your browser</h1>
+      {(["en", "de"] as const).map((language) => (
+        <section key={language} lang={language}>
+          <h2>{translate(language, "welcome.teaserTitle")}</h2>
+          <WelcomeGuideBody tr={(key) => translate(language, key)} />
+        </section>
+      ))}
+    </main>
   );
 }
