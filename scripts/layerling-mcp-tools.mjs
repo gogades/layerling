@@ -420,6 +420,19 @@ export const tools = [
     },
   },
   {
+    name: "layerling_simplify_mesh",
+    description: "Reduce the triangle count of one imported mesh (decimation), as the editor's \"Simplify mesh\" does - for a dense STL, OBJ, 3MF or STEP import, or the mesh a cut, merge or wrap left behind. Use it when a mesh is too complex to cut (the cut reports the triangle count and the limit) or makes the editor slow. Pass either keepPercent or targetTriangles. Fine detail goes first; the body keeps its size and position, and the simplifier stops early rather than close holes or merge walls, so the count reached can stay above a very low target. The result is one plain mesh body: a group simplified this way can no longer be ungrouped or opened. One undo step brings the old mesh back. Shapes from the catalogue have no mesh to simplify; lower their sides or quality instead. Returns the object with trianglesBefore and trianglesAfter.",
+    inputSchema: {
+      ...editorTargetSchema,
+      properties: {
+        ...editorTargetSchema.properties,
+        id: { type: "string", description: "The mesh to simplify; defaults to the one selected body." },
+        keepPercent: { type: "number", description: "Share of the triangles to keep, above 0 and below 100. 50 halves the count." },
+        targetTriangles: { type: "number", description: "Number of triangles to aim for, below the current count (importedTriangles in layerling_list_objects)." },
+      },
+    },
+  },
+  {
     name: "layerling_save_custom_shape",
     description: "Keep bodies as a custom shape, as the shape library's \"Save selection\" does, to insert them into any design later. Several bodies become one shape and come back together. The shape is kept centred, standing on the plate. Where the shared server store is on, it goes to the server's \"Custom shapes\" folder unless location says \"browser\"; otherwise it stays in this browser. Returns the new shape's id, name and location.",
     inputSchema: {

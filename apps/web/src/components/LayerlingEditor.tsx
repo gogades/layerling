@@ -62,6 +62,7 @@ import {
   ToolbarKeyboardIcon,
   ToolbarFilletIcon,
   ToolbarHollowIcon,
+  ToolbarSimplifyIcon,
   ToolbarMirrorIcon,
   ToolbarRotationPivotIcon,
   ToolbarPatternIcon,
@@ -82,6 +83,7 @@ import { layFlatRotation } from "@/lib/layFlat";
 import { SketchWorkspace, type SketchMeasurement, type SketchPrimitive, type SketchSelection, type SketchTool } from "./SketchWorkspace";
 import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
 import { ShellPanel } from "./workplane/ShellPanel";
+import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
 import { shellMaxThickness } from "@/lib/shellLimits";
 import { circleStepDegrees, clampArrayCount, rotateAroundVertical, rowOffset, type ArraySettings } from "@/lib/shapeArray";
@@ -172,6 +174,7 @@ import { AppFooter } from "@/components/AppFooter";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { exportLylProject, importLylProject, LYL_CREATED_WITH_VERSION, LYL_MEDIA_TYPE } from "@/lib/lylProject";
+import { simplifyTrianglePositions } from "@/lib/meshSimplify";
 import { displayShapeName, makeShapeFromAsset, sceneShape, shapeAssetLabel, shapeAssetMenuLabel, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { importedShapeFromStl } from "@/lib/stlImport";
 import { exportMeshesToStl } from "@/lib/stlExport";
@@ -3745,6 +3748,44 @@ function offersCylinderWrap(shape: WorkplaneShape | null | undefined) {
   return Boolean(shape.importedMesh && !shape.groupedShapes?.length) || shape.kind === "text" || Boolean(shape.sketchProfile);
 }
 
+/** Simplifying is for meshes dense enough to be worth it; a plate from an SVG has nothing to give. */
+const MESH_SIMPLIFY_MIN_TRIANGLES = 500;
+
+function offersMeshSimplify(shape: WorkplaneShape | null | undefined) {
+  return Boolean(shape?.importedMesh && shape.groupOperation !== "bundle" && shape.importedMesh.triangleCount >= MESH_SIMPLIFY_MIN_TRIANGLES);
+}
+
+/**
+ * The body with its mesh replaced by a simplified one in the same frame, or
+ * null when that is no reduction. What comes out is a plain mesh: the file it
+ * was imported from, its exact B-Rep, the parts of a group and the edge
+ * history all describe the mesh that was - they do not come along, or the
+ * next load, export or regroup would bring the old triangles back.
+ */
+function simplifiedMeshShape(shape: WorkplaneShape, positions: number[]): WorkplaneShape | null {
+  const source = shape.importedMesh;
+  const triangleCount = Math.floor(positions.length / 9);
+  if (!source || triangleCount < 4 || triangleCount >= source.triangleCount) return null;
+  return canonicalizeShape({
+    ...shape,
+    importedMesh: {
+      positions,
+      baseWidth: source.baseWidth,
+      baseDepth: source.baseDepth,
+      baseHeight: source.baseHeight,
+      triangleCount,
+      sourceFormat: "json",
+    },
+    groupedShapes: undefined,
+    groupOperation: undefined,
+    edgeTreatments: undefined,
+    edgeTreatmentHistory: undefined,
+    edgeResizeMode: undefined,
+    cadBrep: undefined,
+    cadDisplayEdges: undefined,
+  });
+}
+
 function separateMeshParts(shape: WorkplaneShape) {
   const mesh = meshForShape(shape);
   const components = meshFaceComponents(mesh).filter((component) => component.length > 0);
@@ -6721,6 +6762,7 @@ export function LayerlingEditor({
   }, [sketchSelection, sketchTool, sketchActive]);
   const [edgeModifier, setEdgeModifier] = useState<EdgeModifierSession | null>(null);
   const [shellTool, setShellTool] = useState<{ thickness: number; openings: ShellOpenings; edges: ShellEdges; busy: boolean; error: string | null } | null>(null);
+  const [simplifyToolId, setSimplifyToolId] = useState<string | null>(null);
   const edgeModifierRef = useRef<EdgeModifierSession | null>(null);
   const cadModifierWorkerRef = useRef<Worker | null>(null);
   const cadModifierPendingRef = useRef(new Map<number, {
@@ -10246,6 +10288,43 @@ export function LayerlingEditor({
     );
   }, [commitShapes, cylinderWrapErrorText, selectedShape, selectedShapes.length, shapes]);
 
+  const simplifyToolShape = simplifyToolId && selectedShapes.length === 1 && selectedShape?.id === simplifyToolId && offersMeshSimplify(selectedShape)
+    ? selectedShape
+    : null;
+  // The panel belongs to one body; with another selection it has nothing to show and goes.
+  useEffect(() => {
+    if (simplifyToolId && !simplifyToolShape) setSimplifyToolId(null);
+  }, [simplifyToolId, simplifyToolShape]);
+
+  const startSimplifyTool = useCallback(() => {
+    if (simplifyToolShape) {
+      setSimplifyToolId(null);
+      return;
+    }
+    if (selectedShapes.length !== 1 || !selectedShape || !offersMeshSimplify(selectedShape)) {
+      setNotice(t("status.selectOneMeshToSimplify"));
+      return;
+    }
+    if (selectedShape.locked) {
+      setNotice(t("status.unlockBeforeSimplify"));
+      return;
+    }
+    setSimplifyToolId(selectedShape.id);
+  }, [selectedShape, selectedShapes.length, simplifyToolShape]);
+
+  const applySimplifyTool = useCallback((positions: number[]) => {
+    const target = simplifyToolShape;
+    if (!target?.importedMesh || target.locked) return;
+    const simplified = simplifiedMeshShape(target, positions);
+    if (!simplified?.importedMesh) return;
+    commitShapes(
+      shapes.map((shape) => (shape.id === target.id ? simplified : shape)),
+      [simplified.id],
+      t("status.meshSimplified", { before: formatTriangleCount(target.importedMesh.triangleCount), after: formatTriangleCount(simplified.importedMesh.triangleCount) }),
+    );
+    setSimplifyToolId(null);
+  }, [commitShapes, shapes, simplifyToolShape]);
+
   const separateSelectedParts = useCallback(() => {
     if (selectedShapes.length !== 1 || !selectedShape) {
       setNotice(t("status.selectOneToSeparate"));
@@ -11074,6 +11153,31 @@ export function LayerlingEditor({
           t("status.mcpWrapped"),
         );
         return { object: mcpShapeSummary(wrapped) };
+      }
+
+      if (command.action === "simplify_mesh") {
+        const target = findShape(params.id) ?? (selectedIdsRef.current.length === 1 ? findShape(selectedIdsRef.current[0]) : null);
+        if (!target) throw new Error("Select one object to simplify, or pass its id");
+        if (target.locked) throw new Error("Unlock the object before simplifying it");
+        const source = target.importedMesh;
+        if (!source || target.groupOperation === "bundle") throw new Error("Only an imported mesh or the mesh result of a cut, merge or wrap can be simplified; a shape from the catalogue has its own settings for that");
+        const hasPercent = params.keepPercent !== undefined;
+        const hasTarget = params.targetTriangles !== undefined;
+        if (hasPercent === hasTarget) throw new Error("Pass either keepPercent or targetTriangles");
+        const requested = hasPercent
+          ? source.triangleCount * mcpNumber(params.keepPercent, Number.NaN) / 100
+          : mcpNumber(params.targetTriangles, Number.NaN);
+        if (!Number.isFinite(requested) || requested <= 0) throw new Error(hasPercent ? "keepPercent must be a number above 0 and below 100" : "targetTriangles must be a positive number");
+        if (Math.round(requested) >= source.triangleCount) throw new Error(`The mesh has ${source.triangleCount} triangles; the target must be below that`);
+        const result = await simplifyTrianglePositions(source.positions, requested);
+        const simplified = simplifiedMeshShape(target, result.positions);
+        if (!simplified) throw new Error("The mesh cannot be simplified any further without changing its form");
+        commitShapes(
+          currentShapes().map((shape) => (shape.id === target.id ? simplified : shape)),
+          [simplified.id],
+          t("status.mcpSimplified"),
+        );
+        return { object: mcpShapeSummary(simplified), trianglesBefore: source.triangleCount, trianglesAfter: result.triangleCount };
       }
 
       if (command.action === "save_custom_shape") {
@@ -12735,6 +12839,7 @@ export function LayerlingEditor({
     ];
     if (selectedShapes.length >= 2) items.push({ key: "group", label: t("contextMenu.group"), shortcut: "Ctrl+G", onSelect: () => void groupSelected() });
     if (single?.groupedShapes?.length) items.push({ key: "ungroup", label: t("contextMenu.ungroup"), shortcut: "Ctrl+Shift+G", onSelect: ungroupSelected });
+    if (single && offersMeshSimplify(single) && !single.locked) items.push({ key: "simplify", label: t("contextMenu.simplify"), separated: true, onSelect: startSimplifyTool });
     items.push(
       { key: "hide", label: t("contextMenu.hide"), shortcut: "Ctrl+H", separated: true, onSelect: toggleHidden },
       { key: "lock", label: t(allLocked ? "contextMenu.unlock" : "contextMenu.lock"), shortcut: "Ctrl+L", onSelect: toggleLocked },
@@ -12822,6 +12927,9 @@ export function LayerlingEditor({
         onFillet={() => edgeModifier?.kind === "fillet" ? cancelEdgeModifier() : startEdgeModifier("fillet")}
         onHollow={startShellTool}
         hollowActive={Boolean(shellTool)}
+        canSimplify={selectedShapes.length === 1 && offersMeshSimplify(selectedShape) && !selectedShape?.locked}
+        onSimplify={startSimplifyTool}
+        simplifyActive={Boolean(simplifyToolShape)}
         onMirror={toggleMirrorMode}
         onRotationPivot={toggleRotationPivot}
         onArray={toggleArrayTool}
@@ -13072,6 +13180,14 @@ export function LayerlingEditor({
             setArrayTool(null);
             setNotice(t("status.arrayCancelled"));
           }}
+        />
+      ) : null}
+      {simplifyToolShape ? (
+        <MeshSimplifyPanel
+          key={simplifyToolShape.id}
+          shape={simplifyToolShape}
+          onApply={applySimplifyTool}
+          onCancel={() => setSimplifyToolId(null)}
         />
       ) : null}
       {shellTool && selectedShape ? (
@@ -13350,6 +13466,9 @@ function SecondaryToolbar({
   onFillet,
   onHollow,
   hollowActive,
+  canSimplify,
+  onSimplify,
+  simplifyActive,
   onMirror,
   onRotationPivot,
   rotationPivotActive,
@@ -13436,6 +13555,9 @@ function SecondaryToolbar({
   onFillet: () => void;
   onHollow: () => void;
   hollowActive: boolean;
+  canSimplify: boolean;
+  onSimplify: () => void;
+  simplifyActive: boolean;
   onMirror: () => void;
   onRotationPivot: () => void;
   rotationPivotActive: boolean;
@@ -13669,6 +13791,7 @@ function SecondaryToolbar({
     { id: "chamfer", label: t("editor.tool.chamfer"), icon: ToolbarChamferIcon, action: onChamfer, enabled: canEdgeModify, active: edgeModifierKind === "chamfer" },
     { id: "fillet", label: t("editor.tool.fillet"), icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify, active: edgeModifierKind === "fillet" },
     { id: "hollow", label: t("editor.tool.hollow"), icon: ToolbarHollowIcon, action: onHollow, enabled: canEdgeModify, active: hollowActive },
+    { id: "simplify", label: t("editor.tool.simplify"), icon: ToolbarSimplifyIcon, action: onSimplify, enabled: canSimplify, active: simplifyActive },
   ];
   const arrangeTools = [
     { id: "drop", label: t("editor.tool.dropToWorkplane"), icon: ToolbarDropToWorkplaneIcon, action: onDropToWorkplane, enabled: hasSelection },

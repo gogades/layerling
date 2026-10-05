@@ -115,6 +115,8 @@ To keep bodies for later designs, `layerling_save_custom_shape({ editorNumber, i
 
 To put a logo, an SVG or lettering onto a cup or tube, create it flat on the plate as seen from above, then `layerling_wrap_around_cylinder({ editorNumber, id, diameter })` with the cylinder's outside diameter, and centre it on the cylinder with `layerling_align_objects` on x and z (anchorId = the cylinder): the wrapped body's middle is the axis. For an engraving pass `inward: true`, make it a hole and group it with the cylinder. It refuses a body longer than the circumference and names the smallest diameter that fits.
 
+When an imported mesh is too dense - a cut fails with "too complex to cut", or the editor is slow with it - reduce it with `layerling_simplify_mesh({ editorNumber, id, keepPercent: 50 })` (or `targetTriangles`). `importedTriangles` in `layerling_list_objects` is the current count; the call returns `trianglesBefore` and `trianglesAfter`. Fine detail goes first, so capture an image afterwards and undo if too much is lost. A simplified group becomes one plain mesh and can no longer be ungrouped.
+
 ## Workplane
 
 To build on a side of a body - a hole in a wall, text on a front - put the workplane there with `layerling_set_workplane({ editorNumber, id, face: "front" })` (top, bottom, left, right, front or back of the object's own box, snapped to the real face). New shapes from `layerling_create_shape` then land on that face, and `layerling_read_scene` reports `workplane.onBase: false`; the user can do the same with W and a click. `layerling_set_workplane({ editorNumber, reset: true })` puts it back on the base plate. `visible: false` hides a face workplane for a clear look or picture while it keeps applying; `visible: true` shows it again.

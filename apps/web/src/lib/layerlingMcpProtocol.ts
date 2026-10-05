@@ -100,6 +100,7 @@ export type LayerlingMcpCommandName =
   | "boolean_cut"
   | "separate_parts"
   | "wrap_around_cylinder"
+  | "simplify_mesh"
   | "save_custom_shape"
   | "list_custom_shapes"
   | "insert_custom_shape"
