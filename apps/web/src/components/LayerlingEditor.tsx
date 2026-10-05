@@ -3800,11 +3800,34 @@ function cadModifierSourceParts(shape: WorkplaneShape) {
   return glyphParts.length > 1 ? glyphParts : [shape];
 }
 
+/**
+ * Counting the loose pieces of an imported mesh walks every triangle, and the
+ * toolbar asks again each time the selected shape changes - also when it was
+ * only moved. Where the shape stands does not change how many pieces it has,
+ * so the count is kept per mesh and per everything-but-the-position.
+ */
+const importedPartCounts = new WeakMap<object, { key: string; count: number }>();
+
 function separablePartCount(shape: WorkplaneShape) {
   if (shape.locked || shape.hole) return 0;
   if (shape.groupedShapes?.length && !shape.importedMesh) return shape.groupedShapes.length;
-  const mesh = meshForShape(shape);
-  return meshFaceComponents(mesh).length;
+  if (!shape.importedMesh) return meshFaceComponents(meshForShape(shape)).length;
+  const key = JSON.stringify({
+    ...shape,
+    x: 0,
+    z: 0,
+    elevation: 0,
+    importedMesh: undefined,
+    groupedShapes: undefined,
+    edgeTreatmentHistory: undefined,
+    cadBrep: undefined,
+    cadDisplayEdges: undefined,
+  });
+  const cached = importedPartCounts.get(shape.importedMesh);
+  if (cached?.key === key) return cached.count;
+  const count = meshFaceComponents(meshForShape(shape)).length;
+  importedPartCounts.set(shape.importedMesh, { key, count });
+  return count;
 }
 
 function separateShapeParts(shape: WorkplaneShape) {
