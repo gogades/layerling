@@ -178,7 +178,7 @@ import { exportMeshesToStl } from "@/lib/stlExport";
 import { exportMeshesTo3mf, THREE_MF_MEDIA_TYPE } from "@/lib/threemfExport";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
-import { DEFAULT_TAPER_DIMENSION_MAX, keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
+import { DEFAULT_BOOLEAN_TRIANGLE_LIMIT, DEFAULT_TAPER_DIMENSION_MAX, keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import { MCP_SHAPE_SETTING_KEYS, mcpThreadSizeName, mcpThreadSizeParams } from "@/lib/mcpShapeSettings";
 import { createNoteId, detachNotesFromMissingShapes, normalizeNotes, NOTE_COUNT_LIMIT, NOTE_TEXT_LIMIT } from "@/lib/workplaneNotes";
 import {
@@ -354,7 +354,13 @@ const NOTICE_LINGER_MS = 4000;
 const NOTICE_PATIENT_MS = 30000;
 const MAX_SKETCH_HISTORY_ENTRIES = 100;
 const MODEL_DIMENSION_PRECISION = 3;
-const IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT = 150000;
+// The exact kernel (Manifold) cuts a few hundred thousand triangles in about a
+// second; the triangle-soup fallback for meshes that are not watertight is far
+// slower and keeps the lower limit so it cannot freeze the editor.
+// The kernel's limit is a workspace setting; the editor keeps this copy current
+// so the boolean helpers below need not be handed the settings one by one.
+let exactBooleanTriangleLimit = DEFAULT_BOOLEAN_TRIANGLE_LIMIT;
+const IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT = 150000;
 const COPLANAR_BOOLEAN_RESCUE_DEGREES = 0.02;
 const NORMAL_SELECTION_CAD_EDGE_MIN_ANGLE = 60;
 const MIN_EDGE_MODIFIER_AMOUNT = 0.001;
@@ -5148,7 +5154,7 @@ async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { 
 
   const sourceMesh = mergedSolidMeshData(solids);
   const cutterTriangleCount = holes.reduce((total, hole) => total + meshForShape(hole).faces.length, 0);
-  if (sourceMesh.faces.length + cutterTriangleCount > IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT) {
+  if (sourceMesh.faces.length + cutterTriangleCount > exactBooleanTriangleLimit) {
     return null;
   }
   const cutterShapes = holes.map(paddedCutterShape);
@@ -5211,7 +5217,7 @@ async function manifoldUnionMeshShape(selection: WorkplaneShape[], groupChildren
   }
 
   const mergedSourceMesh = mergedSolidMeshData(solids);
-  if (mergedSourceMesh.faces.length > IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT) {
+  if (mergedSourceMesh.faces.length > exactBooleanTriangleLimit) {
     return null;
   }
 
@@ -5281,7 +5287,7 @@ function intersectionOperandsOverlap(operands: WorkplaneShape[][]) {
 
 async function manifoldIntersectionMeshShape(plan: IntersectionPlan): Promise<IntersectionAttempt> {
   const sourceTriangleCount = plan.children.reduce((total, shape) => total + meshForShape(shape).faces.length, 0);
-  if (sourceTriangleCount > IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT) {
+  if (sourceTriangleCount > exactBooleanTriangleLimit) {
     return { status: "unsupported" };
   }
 
@@ -5450,7 +5456,7 @@ function importedBooleanMeshShape(selection: WorkplaneShape[], groupChildren?: W
   const mergedSolidMesh = mergedSolidMeshData(solids);
   const sourceTriangleCount = mergedSolidMesh.faces.length;
   const cutterTriangleCount = holes.reduce((total, hole) => total + meshForShape(hole).faces.length, 0);
-  if (sourceTriangleCount + cutterTriangleCount > IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT) {
+  if (sourceTriangleCount + cutterTriangleCount > IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT) {
     return null;
   }
 
@@ -6015,6 +6021,26 @@ function hasNonZeroRotation(shape: WorkplaneShape) {
   return [rotation, rotationX, rotationZ].some((value) => value > 0.001 && Math.abs(value - 360) > 0.001);
 }
 
+/**
+ * Why a cut with an imported mesh did not come about. Above the kernel's limit
+ * the triangle count alone is the reason; between the two limits the kernel
+ * was tried and refused the mesh, and only the fallback stopped at the count.
+ */
+function importedCutFailureNotice(selection: WorkplaneShape[], succeeded: boolean) {
+  const fallback = "Could not cut this imported mesh cleanly";
+  if (succeeded) return fallback;
+  const triangleCount = selection
+    .filter((shape) => !shape.locked || shape.hole)
+    .reduce((total, shape) => total + (shape.importedMesh?.triangleCount ?? meshForShape(shape).faces.length), 0);
+  if (triangleCount > exactBooleanTriangleLimit) {
+    return t("status.cutTooComplex", { triangles: formatTriangleCount(triangleCount), limit: formatTriangleCount(exactBooleanTriangleLimit) });
+  }
+  if (triangleCount > IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT) {
+    return t("status.cutNotWatertightTooComplex", { triangles: formatTriangleCount(triangleCount), limit: formatTriangleCount(IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT) });
+  }
+  return fallback;
+}
+
 async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Promise<GroupBuildResult> {
   const booleanSelection = expandGroupsForBoolean(groupable);
   const hasSolid = booleanSelection.some((shape) => !shape.hole);
@@ -6049,7 +6075,9 @@ async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Prom
     hasHole,
     hasImportedMesh,
     consumed,
-    failureNotice: hasImportedMesh && hasSolid && hasHole ? "Could not cut this imported mesh cleanly" : hasSolid && hasHole ? "Could not cut this selection" : "Could not group this selection",
+    failureNotice: hasImportedMesh && hasSolid && hasHole
+      ? importedCutFailureNotice(booleanSelection, Boolean(group) || consumed)
+      : hasSolid && hasHole ? "Could not cut this selection" : "Could not group this selection",
   };
 }
 
@@ -6991,6 +7019,7 @@ export function LayerlingEditor({
 
   useEffect(() => {
     workspaceSettingsRef.current = workspaceSettings;
+    exactBooleanTriangleLimit = workspaceSettings.booleanTriangleLimit;
   }, [workspaceSettings]);
 
   useEffect(() => {

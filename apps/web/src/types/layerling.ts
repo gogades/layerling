@@ -206,6 +206,8 @@ export type WorkplaneWorkspaceSettings = {
   scale: string;
   accuracy: MeasurementAccuracy;
   historyLimit: HistoryRetentionLimit;
+  /** Imported meshes with more triangles than this are not cut, merged or intersected exactly. */
+  booleanTriangleLimit: number;
   shapeCustomizations: ShapeCustomizationMap;
 };
 

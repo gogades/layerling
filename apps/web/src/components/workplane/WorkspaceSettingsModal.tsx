@@ -60,11 +60,11 @@ import {
   MIN_BENT_TUBE_SIZE,
   MIN_BENT_TUBE_WALL,
 } from "@/lib/bentTubeGeometry";
-import { t, type MessageKey } from "@/lib/i18n";
+import { getLanguage, t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
-import { DEFAULT_WORKPLANE_WORKSPACE, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_CUSTOM_SHAPE_DIMENSION, gridBlockForUnits, snapGridForUnits, snapGridOptionsForUnits } from "@/lib/workplaneSettings";
+import { BOOLEAN_TRIANGLE_LIMIT_STEP, DEFAULT_WORKPLANE_WORKSPACE, MAX_BOOLEAN_TRIANGLE_LIMIT, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_BOOLEAN_TRIANGLE_LIMIT, MIN_CUSTOM_SHAPE_DIMENSION, gridBlockForUnits, snapGridForUnits, snapGridOptionsForUnits } from "@/lib/workplaneSettings";
 import { IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm } from "@/lib/workplaneGrid";
 import type { BentTubeProfile, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
@@ -663,6 +663,21 @@ export function WorkspaceSettingsModal({
                     <small>
                       <span>{t("workspace.slow")}</span>
                       <span>{t("workspace.fast")}</span>
+                    </small>
+                  </label>
+                  <label className="workspace-range">
+                    <span>{t("workspace.booleanTriangleLimit", { count: workspace.booleanTriangleLimit.toLocaleString(getLanguage() === "de" ? "de-DE" : "en-US") })}</span>
+                    <input
+                      type="range"
+                      min={MIN_BOOLEAN_TRIANGLE_LIMIT}
+                      max={MAX_BOOLEAN_TRIANGLE_LIMIT}
+                      step={BOOLEAN_TRIANGLE_LIMIT_STEP}
+                      value={workspace.booleanTriangleLimit}
+                      onChange={(event) => patchWorkspace({ booleanTriangleLimit: Number(event.currentTarget.value) })}
+                    />
+                    <small>
+                      <span>{t("workspace.booleanTriangleLimitFast")}</span>
+                      <span>{t("workspace.booleanTriangleLimitSlow")}</span>
                     </small>
                   </label>
                 </>
