@@ -8,7 +8,6 @@ import { computeSectionPlaneVector, DEFAULT_SECTION_SETTINGS, getSectionBounds, 
 import { projectSectionPoint, type SectionLoop, type SectionPoint } from "@/lib/sectionSvg";
 import { sectionMeasurement, sectionPointToWorld, snapSectionPoint, type SectionSnap } from "@/lib/sectionMeasure";
 import * as THREE from "three";
-import { Brush, Evaluator, HOLLOW_INTERSECTION } from "three-bvh-csg";
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from "three-mesh-bvh";
 import { triangleTouchesRect, type ScreenRect } from "@/lib/screenRectHit";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -215,7 +214,6 @@ function fitCameraDepthRange(camera: THREE.Camera, target: THREE.Vector3) {
 const CAMERA_HOME = new THREE.Vector3(118, 96, 118);
 const CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
 const MIN_SHAPE_SIZE = 0.01;
-const CUT_PREVIEW_PADDING = 0.01;
 const MIN_ELEVATION = -180;
 const MAX_ELEVATION = 220;
 /** World-space offset from the height handle to the lift handle, as a fraction of selection height. */
@@ -699,10 +697,6 @@ function previewShapesForDrag(shapes: WorkplaneShape[], drag: DragState | null) 
     const preview = previewById.get(shape.id);
     return preview ? { ...shape, x: preview.nextX, z: preview.nextZ, elevation: preview.nextElevation } : shape;
   });
-}
-
-function shouldBuildCutPreviews(transform: TransformDragState | null, drag: DragState | null) {
-  return !drag && (!transform || transform.kind === "scale" || transform.kind === "height");
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -4521,7 +4515,6 @@ export function WorkplaneViewport({
       threeRef.current,
       shapes,
       renderSelectionIds(),
-      shouldBuildCutPreviews(transformRef.current, dragRef.current),
       modifierActiveRef.current,
       placementWorkplaneRef.current,
     );
@@ -4603,7 +4596,6 @@ export function WorkplaneViewport({
       threeRef.current,
       shapesRef.current,
       renderSelectionIds(selectedIds),
-      shouldBuildCutPreviews(transformRef.current, dragRef.current),
       modifierActiveRef.current,
       placementWorkplaneRef.current,
     );
@@ -4645,7 +4637,6 @@ export function WorkplaneViewport({
       threeRef.current,
       shapesRef.current,
       renderSelectionIds(),
-      !transformRef.current && !dragRef.current,
       modifierActive,
       placementWorkplaneRef.current,
     );
@@ -4658,7 +4649,6 @@ export function WorkplaneViewport({
       threeRef.current,
       shapesRef.current,
       renderSelectionIds(),
-      !transformRef.current && !dragRef.current,
       modifierActiveRef.current,
       placementWorkplaneRef.current,
     );
@@ -4797,7 +4787,6 @@ export function WorkplaneViewport({
       state,
       shapesRef.current,
       renderSelectionIds(),
-      shouldBuildCutPreviews(transformRef.current, dragRef.current),
       modifierActiveRef.current,
       placementWorkplaneRef.current,
     );
@@ -4962,12 +4951,12 @@ export function WorkplaneViewport({
     state.workplaneLayer.visible = !workplaneLayerHiddenRef.current;
     window.layerlingCaptureCanvas = () => {
       state.camera.updateMatrixWorld();
-      state.renderer.render(state.scene, state.camera);
+      renderFrame(state);
       return state.renderer.domElement.toDataURL("image/png");
     };
     window.layerlingCaptureCanvasAsync = () => {
       state.camera.updateMatrixWorld();
-      state.renderer.render(state.scene, state.camera);
+      renderFrame(state);
       return thumbnailPngDataUrl(state.renderer.domElement);
     };
     window.layerlingCaptureView = (face = "current") => {
@@ -4979,7 +4968,7 @@ export function WorkplaneViewport({
       syncViewCube(state, viewCubeRef.current);
       fitCameraDepthRange(state.camera, state.controls.target);
       state.camera.updateMatrixWorld();
-      state.renderer.render(state.scene, state.camera);
+      renderFrame(state);
       return state.renderer.domElement.toDataURL("image/png");
     };
     /*
@@ -4995,7 +4984,7 @@ export function WorkplaneViewport({
       const factor = Math.max(0.25, Math.min(scale, 4096 / Math.max(cssWidth, cssHeight)));
       const width = Math.round(cssWidth * factor);
       const height = Math.round(cssHeight * factor);
-      const target = new THREE.WebGLRenderTarget(width, height, { samples: 4 });
+      const target = new THREE.WebGLRenderTarget(width, height, { samples: 4, stencilBuffer: true });
       target.texture.colorSpace = THREE.SRGBColorSpace;
       const helpers: Array<THREE.Object3D | null> = [
         state.workplanePreviewLayer,
@@ -5020,7 +5009,7 @@ export function WorkplaneViewport({
         fitCameraDepthRange(state.camera, state.controls.target);
         state.camera.updateMatrixWorld();
         state.renderer.setRenderTarget(target);
-        state.renderer.render(state.scene, state.camera);
+        renderFrame(state);
         const pixels = new Uint8Array(width * height * 4);
         state.renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
         const out = document.createElement("canvas");
@@ -5060,7 +5049,7 @@ export function WorkplaneViewport({
     };
     perfRef.current.lastSample = performance.now();
     resetCamera(state);
-    rebuildShapes(state, shapesRef.current, renderSelectionIds(), true, false, placementWorkplaneRef.current);
+    rebuildShapes(state, shapesRef.current, renderSelectionIds(), false, placementWorkplaneRef.current);
     syncSplitPlane(state, splitPlaneRef.current);
 
     const animate = () => {
@@ -5125,7 +5114,7 @@ export function WorkplaneViewport({
       }
       const renderStart = performance.now();
       fitCameraDepthRange(state.camera, state.controls.target);
-      state.renderer.render(state.scene, state.camera);
+      renderFrame(state);
       const frameMs = performance.now() - renderStart;
       const perf = perfRef.current;
       perf.frameMs = frameMs;
@@ -5166,6 +5155,7 @@ export function WorkplaneViewport({
         disposeObject(state.sectionPlaneHelper);
         state.sectionPlaneHelper = null;
       }
+      disposeCutPreviewResources();
       state.renderer.dispose();
       host.replaceChildren();
       if (window.layerlingCaptureCanvas) {
@@ -5839,9 +5829,6 @@ export function WorkplaneViewport({
         setRotationReadout(null);
       }
       if (state) {
-        if (kind !== "scale" && kind !== "height") {
-          clearCutPreviewOverlays(state);
-        }
         state.needsRender = true;
         state.controls.enabled = false;
       }
@@ -6149,7 +6136,6 @@ export function WorkplaneViewport({
     setPinnedRotationWheelView(null);
     setRotationReadout(null);
     if (threeRef.current) {
-      syncCutPreviewOverlays(threeRef.current, shapesRef.current);
       setSelectionHelpersVisible(threeRef.current, true);
       threeRef.current.controls.enabled = true;
       threeRef.current.needsRender = true;
@@ -7249,9 +7235,6 @@ export function WorkplaneViewport({
         } else {
           setRotationReadout(null);
         }
-        if (handle.kind !== "scale" && handle.kind !== "height") {
-          clearCutPreviewOverlays(state);
-        }
         state.needsRender = true;
         state.controls.enabled = false;
         onInteractionActiveChange?.(true);
@@ -7578,7 +7561,6 @@ export function WorkplaneViewport({
           resolvedThemeRef.current,
           workspaceRef.current.dimensionsAlwaysVisible,
         );
-        syncCutPreviewOverlays(threeRef.current, previewShapes);
         syncMoveDimensionOverlay(
           threeRef.current,
           moveDimensionSession,
@@ -7672,7 +7654,6 @@ export function WorkplaneViewport({
       clearMoveDimensions();
       if (state) {
         syncObjectSnapGuides(state, [], 0);
-        syncCutPreviewOverlays(state, shapesRef.current);
       }
     }
     if (state) state.needsRender = true;
@@ -7725,7 +7706,6 @@ export function WorkplaneViewport({
         setActiveTransformKind(null);
         setRotationReadout(null);
         if (state) {
-          syncCutPreviewOverlays(state, shapesRef.current);
           setSelectionHelpersVisible(state, true);
           state.controls.enabled = true;
           state.needsRender = true;
@@ -7827,11 +7807,6 @@ export function WorkplaneViewport({
       }
       dragRef.current = null;
       if (state) {
-        // A moved shape triggers the shapes effect, which rebuilds this preview.
-        // Running it here as well makes cylinder/hole CSG execute twice on release.
-        if (!movedShape) {
-          syncCutPreviewOverlays(state, shapesRef.current);
-        }
         syncMoveDimensionOverlay(
           state,
           moveDimensionSessionRef.current,
@@ -9030,7 +9005,7 @@ export function WorkplaneViewport({
 }
 
 function createThreeScene(host: HTMLDivElement): ThreeState {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: false });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: false, stencil: true });
   renderer.localClippingEnabled = true;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(host.clientWidth, host.clientHeight);
@@ -9798,218 +9773,254 @@ function linesFromPoints(points: number[], material: THREE.LineBasicMaterial) {
   return lines;
 }
 
-type CutPreviewShapeFrame = {
-  shape: WorkplaneShape;
-  worldBounds: THREE.Box3;
+// The cut a hole makes in a body is drawn from depth textures rather than from a
+// boolean. A hole fragment lies inside a body when it falls between the body's
+// near and its far depth at that pixel, and a body fragment lies inside a hole
+// the same way; four depth textures carry those bounds. Nothing runs on the CPU
+// for it, so the preview keeps up with a shape while it is being dragged, and no
+// result has to be cached or dropped when a gesture starts.
+const CUT_PREVIEW_COLOR = 0x30363a;
+const CUT_PREVIEW_OPACITY = 0.34;
+// Window depth is not linear, so a bias in window units opens a gap where the cut
+// meets the surface that grows as the view is pulled back. The band is widened by it
+// rather than narrowed, so a hole flush with a face stays visible - the cutter pads
+// by 0.05 the same way - and the bias only has to be big enough to break a tie.
+const CUT_PREVIEW_DEPTH_BIAS = 1e-7;
+
+type CutPreviewResources = {
+  bodiesNear: THREE.WebGLRenderTarget;
+  bodiesFar: THREE.WebGLRenderTarget;
+  frontDepth: THREE.MeshBasicMaterial;
+  backDepth: THREE.MeshBasicMaterial;
+  // The hole shaded where it lies inside a body: what is going to be cut out,
+  // drawn on the hole itself. Nothing has to know the shape of either body - only
+  // whether a fragment sits between the near and the far depth of the other one.
+  ink: THREE.ShaderMaterial;
+  width: number;
+  height: number;
 };
 
-function shapeCutPreviewFrames(state: ThreeState, shapes: WorkplaneShape[]) {
-  return shapes.reduce<Record<string, CutPreviewShapeFrame>>((frames, shape) => {
-    const object = findShapeObject(state, shape.id);
-    if (!object) {
-      return frames;
-    }
-    object.updateMatrixWorld(true);
-    const worldBounds = new THREE.Box3().setFromObject(object);
-    if (!worldBounds.isEmpty()) {
-      frames[shape.id] = { shape, worldBounds };
-    }
-    return frames;
-  }, {});
-}
+let cutPreviewResources: CutPreviewResources | null = null;
 
-type CutPreviewBrushCacheEntry = {
-  signature: string;
-  brush: Brush;
-};
-
-const cutPreviewBrushCache = new WeakMap<THREE.Object3D, CutPreviewBrushCacheEntry>();
-const cutPreviewEvaluator = new Evaluator();
-cutPreviewEvaluator.useGroups = false;
-cutPreviewEvaluator.attributes = ["position", "normal"];
-
-function cutPreviewObjectSignature(root: THREE.Object3D) {
-  const parts: string[] = [];
-  root.updateMatrixWorld(true);
-  const inverseRoot = root.matrixWorld.clone().invert();
-  root.traverse((child) => {
-    if (!(child instanceof THREE.Mesh) || !child.visible || !(child.geometry instanceof THREE.BufferGeometry)) {
-      return;
-    }
-    const relativeMatrix = inverseRoot.clone().multiply(child.matrixWorld);
-    parts.push(child.geometry.uuid, ...relativeMatrix.elements.map((value) => value.toFixed(5)));
+function cutPreviewInkMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    // Both sides, so the far wall of a hole that goes right through fills the cut.
+    // The stencil keeps one layer per pixel, so the two walls cannot add up to a
+    // darker ring.
+    side: THREE.DoubleSide,
+    stencilWrite: true,
+    stencilFunc: THREE.NotEqualStencilFunc,
+    stencilRef: 1,
+    stencilFail: THREE.KeepStencilOp,
+    stencilZFail: THREE.KeepStencilOp,
+    stencilZPass: THREE.ReplaceStencilOp,
+    uniforms: {
+      nearDepth: { value: null },
+      farDepth: { value: null },
+      resolution: { value: new THREE.Vector2(1, 1) },
+      // Written straight into the frame, so the tint keeps the values it was
+      // given instead of being converted twice.
+      tint: { value: new THREE.Color().setHex(CUT_PREVIEW_COLOR, THREE.LinearSRGBColorSpace) },
+      opacity: { value: CUT_PREVIEW_OPACITY },
+      bias: { value: CUT_PREVIEW_DEPTH_BIAS },
+    },
+    vertexShader: [
+      "void main() {",
+      "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);",
+      "}",
+    ].join("\n"),
+    fragmentShader: [
+      "uniform sampler2D nearDepth;",
+      "uniform sampler2D farDepth;",
+      "uniform vec2 resolution;",
+      "uniform vec3 tint;",
+      "uniform float opacity;",
+      "uniform float bias;",
+      "void main() {",
+      "  // Both sides are window-space depth, so they compare directly.",
+      "  float depth = gl_FragCoord.z;",
+      "  vec2 uv = gl_FragCoord.xy / resolution;",
+      "  float near = texture2D(nearDepth, uv).r;",
+      "  float far = texture2D(farDepth, uv).r;",
+      "  if (depth < near - bias || depth > far + bias) {",
+      "    discard;",
+      "  }",
+      "  gl_FragColor = vec4(tint, opacity);",
+      "}",
+    ].join("\n"),
   });
-  return parts.join(":");
 }
 
-function cutPreviewBrushFromObject(root: THREE.Object3D) {
-  const signature = cutPreviewObjectSignature(root);
-  const cached = cutPreviewBrushCache.get(root);
-  if (cached?.signature === signature) {
-    cached.brush.matrixAutoUpdate = false;
-    cached.brush.matrix.copy(root.matrixWorld);
-    cached.brush.matrixWorld.copy(root.matrixWorld);
-    return cached.brush;
-  }
-
-  const positions: number[] = [];
-  const point = new THREE.Vector3();
-  const inverseRoot = root.matrixWorld.clone().invert();
-  root.traverse((child) => {
-    if (!(child instanceof THREE.Mesh) || !child.visible || !(child.geometry instanceof THREE.BufferGeometry)) {
-      return;
-    }
-
-    const position = child.geometry.getAttribute("position");
-    if (!position) {
-      return;
-    }
-    const index = child.geometry.getIndex();
-    const count = index?.count ?? position.count;
-    const relativeMatrix = inverseRoot.clone().multiply(child.matrixWorld);
-    const mirrored = relativeMatrix.determinant() < 0;
-    for (let offset = 0; offset + 2 < count; offset += 3) {
-      const triangle = [0, 1, 2].map((corner) => {
-        const vertexIndex = index ? index.getX(offset + corner) : offset + corner;
-        return point
-          .set(position.getX(vertexIndex), position.getY(vertexIndex), position.getZ(vertexIndex))
-          .applyMatrix4(relativeMatrix)
-          .toArray();
-      });
-      if (mirrored) {
-        [triangle[1], triangle[2]] = [triangle[2], triangle[1]];
-      }
-      positions.push(...triangle[0], ...triangle[1], ...triangle[2]);
-    }
+function cutPreviewDepthTarget(width: number, height: number) {
+  const depthTexture = new THREE.DepthTexture(width, height);
+  depthTexture.format = THREE.DepthFormat;
+  depthTexture.type = THREE.UnsignedIntType;
+  const target = new THREE.WebGLRenderTarget(width, height, {
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+    depthBuffer: true,
+    stencilBuffer: false,
+    depthTexture,
   });
-
-  if (positions.length < 9) {
-    return null;
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.computeVertexNormals();
-  const brush = new Brush(geometry);
-  brush.matrixAutoUpdate = false;
-  brush.matrix.copy(root.matrixWorld);
-  brush.matrixWorld.copy(root.matrixWorld);
-  if (cached) {
-    cached.brush.geometry.dispose();
-  }
-  cutPreviewBrushCache.set(root, { signature, brush });
-  return brush;
+  target.texture.colorSpace = THREE.NoColorSpace;
+  return target;
 }
 
-function cutPreviewActualIntersectionGeometry(state: ThreeState, solid: WorkplaneShape, hole: WorkplaneShape) {
-  const solidObject = findShapeObject(state, solid.id);
-  const holeObject = findShapeObject(state, hole.id);
-  if (!solidObject || !holeObject) {
-    return null;
+function disposeCutPreviewResources() {
+  if (!cutPreviewResources) {
+    return;
   }
-
-  const solidBrush = cutPreviewBrushFromObject(solidObject);
-  const holeBrush = cutPreviewBrushFromObject(holeObject);
-  if (!solidBrush || !holeBrush) {
-    return null;
-  }
-
-  // Equal-height cylinders have coplanar caps. Feeding those surfaces directly
-  // to three-bvh-csg can turn a few hundred input triangles into hundreds of
-  // thousands of preview triangles. A tiny local expansion preserves the
-  // visible cut while keeping the preview topology bounded.
-  const holeScale = new THREE.Matrix4().makeScale(
-    (shapeWidth(hole) + CUT_PREVIEW_PADDING * 2) / Math.max(MIN_SHAPE_SIZE, shapeWidth(hole)),
-    (hole.height + CUT_PREVIEW_PADDING * 2) / Math.max(MIN_SHAPE_SIZE, hole.height),
-    (shapeDepth(hole) + CUT_PREVIEW_PADDING * 2) / Math.max(MIN_SHAPE_SIZE, shapeDepth(hole)),
+  [cutPreviewResources.bodiesNear, cutPreviewResources.bodiesFar].forEach((target) =>
+    target.dispose(),
   );
-  const paddedHoleMatrix = holeBrush.matrix.clone().multiply(holeScale);
-  holeBrush.matrix.copy(paddedHoleMatrix);
-  holeBrush.matrixWorld.copy(paddedHoleMatrix);
+  [
+    cutPreviewResources.frontDepth,
+    cutPreviewResources.backDepth,
+    cutPreviewResources.ink,
+  ].forEach((material) => material.dispose());
+  cutPreviewResources = null;
+}
 
-  try {
-    const result = cutPreviewEvaluator.evaluate(solidBrush, holeBrush, HOLLOW_INTERSECTION);
-    const position = result.geometry.getAttribute("position");
-    if (!position || position.count < 3) {
-      result.geometry.dispose();
-      return null;
-    }
-    const geometry = result.geometry.clone();
-    geometry.applyMatrix4(result.matrixWorld);
-    result.geometry.dispose();
-    geometry.computeVertexNormals();
-    return geometry;
-  } catch {
-    return null;
+function cutPreviewResourcesFor(width: number, height: number) {
+  if (
+    cutPreviewResources &&
+    cutPreviewResources.width === width &&
+    cutPreviewResources.height === height
+  ) {
+    return cutPreviewResources;
   }
+  disposeCutPreviewResources();
+  cutPreviewResources = {
+    bodiesNear: cutPreviewDepthTarget(width, height),
+    bodiesFar: cutPreviewDepthTarget(width, height),
+    frontDepth: new THREE.MeshBasicMaterial({
+      colorWrite: false,
+      depthWrite: true,
+      depthTest: true,
+      depthFunc: THREE.LessDepth,
+      side: THREE.FrontSide,
+    }),
+    backDepth: new THREE.MeshBasicMaterial({
+      colorWrite: false,
+      depthWrite: true,
+      depthTest: true,
+      depthFunc: THREE.LessDepth,
+      side: THREE.BackSide,
+    }),
+    ink: cutPreviewInkMaterial(),
+    width,
+    height,
+  };
+  return cutPreviewResources;
 }
 
-function addCutPreviewOverlays(state: ThreeState, holeFrame: CutPreviewShapeFrame, solidFrames: CutPreviewShapeFrame[]) {
-  solidFrames.forEach((solidFrame) => {
-    if (!holeFrame.worldBounds.intersectsBox(solidFrame.worldBounds)) {
+function drawCutPreviews(state: ThreeState) {
+  const bodies: THREE.Object3D[] = [];
+  const holes: THREE.Object3D[] = [];
+  state.shapeRecords.forEach((record) => {
+    const object = record.object;
+    if (!object || record.shape.hidden || !object.visible) {
       return;
     }
-
-    const geometry = cutPreviewActualIntersectionGeometry(state, solidFrame.shape, holeFrame.shape);
-    if (!geometry) {
-      return;
-    }
-    const preview = new THREE.Mesh(
-      geometry,
-      new THREE.MeshBasicMaterial({
-        color: "#30363a",
-        transparent: true,
-        opacity: 0.34,
-        depthTest: false,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      }),
-    );
-    preview.name = "CutPreviewOverlay";
-    preview.renderOrder = 18;
-    preview.userData.cutPreview = true;
-    preview.raycast = () => undefined;
-    setObjectRenderLayer(preview, RENDER_LAYER_PREVIEWS);
-    freezeStaticObjectMatrices(preview);
-    state.shapeLayer.add(preview);
-  });
-}
-
-function clearCutPreviewOverlays(state: ThreeState) {
-  const overlays: THREE.Object3D[] = [];
-  state.shapeLayer.traverse((child) => {
-    if (child.userData.cutPreview) {
-      overlays.push(child);
+    if (record.shape.hole) {
+      holes.push(object);
+    } else {
+      bodies.push(object);
     }
   });
-  overlays.forEach((overlay) => {
-    overlay.parent?.remove(overlay);
-    disposeObject(overlay);
-  });
-}
-
-function syncCutPreviewOverlays(state: ThreeState, shapes: WorkplaneShape[]) {
-  clearCutPreviewOverlays(state);
-  const visibleShapes = shapes.filter((shape) => !shape.hidden);
-  const cutFrames = shapeCutPreviewFrames(state, visibleShapes);
-  const solidFrames = visibleShapes
-    .filter((shape) => !shape.hole)
-    .map((shape) => cutFrames[shape.id])
-    .filter((frame): frame is CutPreviewShapeFrame => Boolean(frame));
-
-  if (solidFrames.length === 0) {
+  if (bodies.length === 0 || holes.length === 0) {
     return;
   }
 
-  visibleShapes.forEach((shape) => {
-    if (!shape.hole) {
-      return;
+  const renderer = state.renderer;
+  const scene = state.scene;
+  const camera = state.camera;
+  const frameTarget = renderer.getRenderTarget();
+  const size = frameTarget
+    ? new THREE.Vector2(frameTarget.width, frameTarget.height)
+    : renderer.getDrawingBufferSize(new THREE.Vector2());
+  const resources = cutPreviewResourcesFor(size.x, size.y);
+
+  const shapes = [...bodies, ...holes];
+  const wasVisible = new Map(shapes.map((object) => [object, object.visible] as const));
+  const previousAutoClear = renderer.autoClear;
+  const previousOverride = scene.overrideMaterial;
+  const previousBackground = scene.background;
+  const previousMask = camera.layers.mask;
+
+  const renderSet = (visible: THREE.Object3D[]) => {
+    const wanted = new Set(visible);
+    shapes.forEach((object) => {
+      object.visible = wanted.has(object);
+    });
+  };
+
+  try {
+    renderer.autoClear = false;
+    camera.layers.set(RENDER_LAYER_SHAPES);
+    // A scene background is repainted by every render() call, and this renders
+    // the scene four more times; left alone it would wipe the frame.
+    scene.background = null;
+
+    // The section plane clips per material, and these are the preview's own: without
+    // it the depth textures keep the geometry that was cut away, and the ink lands in
+    // the removed half. Where the plane is gone the depth reads 1.0, which discards
+    // the ink there by itself.
+    const sectionPlane = state.sectionPlane ?? null;
+    for (const material of [resources.frontDepth, resources.backDepth]) {
+      if ((material.clippingPlanes?.[0] ?? null) !== sectionPlane) {
+        material.clippingPlanes = sectionPlane ? [sectionPlane] : null;
+        material.needsUpdate = true;
+      }
     }
-    const holeFrame = cutFrames[shape.id];
-    if (holeFrame) {
-      addCutPreviewOverlays(state, holeFrame, solidFrames);
-    }
-  });
+
+    const depthPass = (
+      visible: THREE.Object3D[],
+      material: THREE.Material,
+      target: THREE.WebGLRenderTarget,
+    ) => {
+      renderSet(visible);
+      renderer.setRenderTarget(target);
+      renderer.clear(true, true, false);
+      scene.overrideMaterial = material;
+      renderer.render(scene, camera);
+    };
+
+    depthPass(bodies, resources.frontDepth, resources.bodiesNear);
+    depthPass(bodies, resources.backDepth, resources.bodiesFar);
+
+    // The hole is drawn once, over the frame, and shaded where it lies inside a
+    // body. The stencil decides which of its fragments gets a pixel: one layer, so
+    // the shading stays even wherever the hole turns back on itself.
+    resources.ink.uniforms.nearDepth.value = resources.bodiesNear.depthTexture;
+    resources.ink.uniforms.farDepth.value = resources.bodiesFar.depthTexture;
+    (resources.ink.uniforms.resolution.value as THREE.Vector2).set(
+      resources.width,
+      resources.height,
+    );
+    renderSet(holes);
+    renderer.setRenderTarget(frameTarget);
+    renderer.clear(false, false, true);
+    scene.overrideMaterial = resources.ink;
+    renderer.render(scene, camera);
+  } finally {
+    shapes.forEach((object) => {
+      object.visible = wasVisible.get(object) ?? true;
+    });
+    scene.overrideMaterial = previousOverride;
+    scene.background = previousBackground;
+    camera.layers.mask = previousMask;
+    renderer.autoClear = previousAutoClear;
+    renderer.setRenderTarget(frameTarget);
+  }
+}
+
+function renderFrame(state: ThreeState) {
+  state.renderer.render(state.scene, state.camera);
+  drawCutPreviews(state);
 }
 
 function updateShapeObjectTransform(object: THREE.Group, shape: WorkplaneShape) {
@@ -10257,7 +10268,6 @@ function rebuildShapes(
   state: ThreeState | null,
   shapes: WorkplaneShape[],
   selectedIds: string[],
-  showCutPreviews = true,
   useOfficialModifierRendering = false,
   workplane: PlacementWorkplane = horizontalPlacementWorkplane(),
 ) {
@@ -10265,7 +10275,6 @@ function rebuildShapes(
     return;
   }
 
-  clearCutPreviewOverlays(state);
   const selected = new Set(selectedIds);
   const visibleShapes = shapes.filter((shape) => !shape.hidden);
 
@@ -10279,9 +10288,6 @@ function rebuildShapes(
       }, false);
       state.shapeLayer.add(object);
     });
-    if (showCutPreviews) {
-      syncCutPreviewOverlays(state, visibleShapes);
-    }
     rebuildSelectionHelpers(state, shapes, selectedIds, workplane);
     if (state.sectionPlane) {
       applySectionClipping(state, state.sectionPlane);
@@ -10352,9 +10358,6 @@ function rebuildShapes(
     record.selected = selectedShape;
   });
 
-  if (showCutPreviews) {
-    syncCutPreviewOverlays(state, visibleShapes);
-  }
 
   rebuildSelectionHelpers(state, shapes, selectedIds, workplane);
   if (state.sectionPlane) {
