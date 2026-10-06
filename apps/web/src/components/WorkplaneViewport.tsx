@@ -225,8 +225,9 @@ const CAMERA_MAX_TARGET_Y = 120;
 const ROTATION_PROTRACTOR_OUTER_RADIUS = 94;
 const RENDER_LAYER_WORKPLANE = 0;
 const RENDER_LAYER_SHAPES = 1;
-/** How far beside a body a press may land and still mean it, in screen pixels. */
+/** How far beside a body a press may land and still mean it, in screen pixels: a fingertip covers more than a mouse pointer. */
 const PICK_TOLERANCE_PIXELS = 6;
+const PICK_TOLERANCE_PIXELS_TOUCH = 16;
 const PICK_TOLERANCE_RAYS = 8;
 const RENDER_LAYER_HELPERS = 2;
 const RENDER_LAYER_MODIFIERS = 3;
@@ -6573,11 +6574,12 @@ export function WorkplaneViewport({
     setActiveRotationWheel(false);
   }, []);
 
-  const pickShape = useCallback((clientX: number, clientY: number) => {
+  const pickShape = useCallback((clientX: number, clientY: number, pointerType = "mouse") => {
     const state = threeRef.current;
     if (!state) {
       return null;
     }
+    const tolerance = pointerType === "touch" ? PICK_TOLERANCE_PIXELS_TOUCH : PICK_TOLERANCE_PIXELS;
 
     const rect = state.renderer.domElement.getBoundingClientRect();
     state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -6605,8 +6607,8 @@ export function WorkplaneViewport({
     let nearestDistance = Number.POSITIVE_INFINITY;
     for (let step = 0; step < PICK_TOLERANCE_RAYS; step += 1) {
       const angle = (step / PICK_TOLERANCE_RAYS) * Math.PI * 2;
-      state.pointer.x = ((clientX + Math.cos(angle) * PICK_TOLERANCE_PIXELS - rect.left) / rect.width) * 2 - 1;
-      state.pointer.y = -((clientY + Math.sin(angle) * PICK_TOLERANCE_PIXELS - rect.top) / rect.height) * 2 + 1;
+      state.pointer.x = ((clientX + Math.cos(angle) * tolerance - rect.left) / rect.width) * 2 - 1;
+      state.pointer.y = -((clientY + Math.sin(angle) * tolerance - rect.top) / rect.height) * 2 + 1;
       state.raycaster.setFromCamera(state.pointer, state.camera);
       const near = state.raycaster.intersectObjects(state.shapeLayer.children, true).find(pickable);
       if (near && near.distance < nearestDistance) {
@@ -7256,7 +7258,7 @@ export function WorkplaneViewport({
         return;
       }
 
-      const id = pickShape(event.clientX, event.clientY);
+      const id = pickShape(event.clientX, event.clientY, event.pointerType);
       const additive = event.shiftKey;
       if (!id) {
         const startX = event.clientX - rect.left;
@@ -7690,7 +7692,7 @@ export function WorkplaneViewport({
       if (event.button === 2 && rightPress) {
         rightPressRef.current = null;
         if (onShapeContextMenu && Math.hypot(event.clientX - rightPress.x, event.clientY - rightPress.y) < 5) {
-          const shapeId = pickShape(event.clientX, event.clientY);
+          const shapeId = pickShape(event.clientX, event.clientY, event.pointerType);
           if (shapeId && !selectedIdsRef.current.includes(shapeId)) onSelectShape(shapeId);
           onShapeContextMenu({ shapeId, clientX: event.clientX, clientY: event.clientY });
         }
