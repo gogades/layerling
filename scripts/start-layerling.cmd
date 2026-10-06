@@ -52,7 +52,14 @@ rem starting this script afresh: no line is read from the file after the update.
 (
   git pull --ff-only --quiet
   if errorlevel 1 (
-    echo The update could not be fetched - continuing with the version that is already here.
+    rem A short gap in the network, right after the computer starts or wakes up, is
+    rem the usual reason: wait a moment and try once more before giving up.
+    echo The update could not be fetched - trying once more in 5 seconds...
+    ping -n 6 127.0.0.1 >nul
+    git pull --ff-only --quiet
+  )
+  if errorlevel 1 (
+    echo The update could not be fetched - check your internet connection. Continuing with the version that is already here.
   ) else (
     git diff --quiet %BEFORE% HEAD || (
       echo layerling was updated. Installing dependencies...
