@@ -160,4 +160,24 @@ describe("placement workplanes", () => {
     expect(placementWorkplaneFingerprint(planeA)).toBe(placementWorkplaneFingerprint(planeC));
     expect(placementWorkplaneFingerprint(planeA)).not.toBe(placementWorkplaneFingerprint(planeB));
   });
+
+  it("normalizes a stored oblique workplane to a fixed point", () => {
+    // Re-normalizing used to flip the last bit back and forth, so saving the
+    // project list never settled ("Maximum update depth exceeded").
+    for (const upright of [false, true]) {
+      for (let i = 0; i < 200; i += 1) {
+        const plane = placementWorkplaneFromSurface(
+          { x: 12.5, y: 3 + i, z: -7 },
+          { x: Math.sin(i), y: Math.cos(i * 0.7), z: 0.3 + Math.sin(i * 1.3) },
+          { x: Math.cos(i * 2.1), y: 0.2, z: Math.sin(i * 0.4) },
+          false,
+          upright,
+        );
+        const once = normalizePlacementWorkplane(JSON.parse(JSON.stringify(plane)));
+        const twice = normalizePlacementWorkplane(JSON.parse(JSON.stringify(once)));
+        expect(JSON.stringify(twice)).toBe(JSON.stringify(once));
+        expect(JSON.stringify(once)).toBe(JSON.stringify(plane));
+      }
+    }
+  });
 });

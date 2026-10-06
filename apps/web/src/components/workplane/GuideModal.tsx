@@ -51,7 +51,7 @@ function guideSections(sharedStore: boolean): GuideSection[] {
     {
       title: "guide.group.solid",
       chapter: "solids",
-      lines: ["guide.solid.modes", "guide.solid.group", "guide.solid.intersect", "guide.solid.edit"],
+      lines: ["guide.solid.modes", "guide.solid.group", "guide.solid.intersect", "guide.solid.edit", "guide.solid.split"],
     },
     {
       title: "guide.group.edges",

@@ -14,6 +14,7 @@ import { loadTextFonts } from "@/lib/textFonts";
 import { applyAppTheme, getAppThemePreference, readStoredAppTheme, resolveAppTheme, setAppTheme, storeAppTheme, subscribeToAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, notesForHistoryIndex, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { detectLanguage, setLanguage, t, translate, type Language } from "@/lib/i18n";
+import { localizedError } from "@/lib/userErrors";
 import { WelcomeGuideBody } from "@/components/WelcomeGuide";
 import { InstallAppHint } from "@/components/InstallAppHint";
 import { TabPresenceNotice } from "@/components/TabPresenceNotice";
@@ -747,7 +748,7 @@ export default function Home() {
       const landed = typeof payload.path === "string" ? payload.path : "";
       sharedPathRef.current = response.ok ? landed : parentStorePath(wanted);
       setSharedPath(sharedPathRef.current);
-      if (!response.ok && payload.enabled) setDashboardNotice(payload.error ?? t("notice.sharedLoadFailed"));
+      if (!response.ok && payload.enabled) setDashboardNotice(payload.error ? localizedError(payload.error) : t("notice.sharedLoadFailed"));
     } catch {
       setSharedProjectsEnabled(false);
       setSharedProjects([]);
@@ -972,7 +973,7 @@ export default function Home() {
       })
       .catch((error) => {
         if (!canceled) {
-          setDashboardNotice(error instanceof Error ? error.message : t("notice.projectShapesLoadFailed"));
+          setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.projectShapesLoadFailed"));
           setProjectShapesById((current) => {
             // A failed background read must not erase a project that has already
             // received live editor changes while the read was pending.
@@ -1148,7 +1149,7 @@ export default function Home() {
       })
       .catch((error) => {
         if (projectShapeSaveQueuesRef.current[snapshot.projectId] === queuedSave) {
-          setDashboardNotice(error instanceof Error ? error.message : t("notice.projectShapesSaveFailed"));
+          setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.projectShapesSaveFailed"));
           // The dashboard is not on screen while someone works; the editor has to say it too.
           setProjectSaveFailure({ message: t("notice.projectShapesSaveFailed"), at: Date.now() });
         }
@@ -1272,7 +1273,7 @@ export default function Home() {
         ? t("notice.openedServerProject", { name: sharedProject.name })
         : t("notice.openedLocalProject", { name: file.name }) };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not open layerling project";
+      const message = error instanceof Error ? localizedError(error.message) : "Could not open layerling project";
       setDashboardNotice(message);
       return { ok: false, message };
     }
@@ -1290,7 +1291,7 @@ export default function Home() {
       const file = new File([await response.blob()], sharedProject.fileName, { type: LYL_MEDIA_TYPE });
       await openLylProjectFromFile(file, { ...sharedProject, revision });
     } catch (error) {
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.openSharedFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.openSharedFailed"));
     }
   }, [openLylProjectFromFile]);
 
@@ -1316,7 +1317,7 @@ export default function Home() {
       }));
       setDashboardNotice(t("notice.deletedShared", { name: sharedProject.name }));
     } catch (error) {
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.deleteSharedFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.deleteSharedFailed"));
       await refreshSharedProjects();
     }
   }, [refreshSharedProjects]);
@@ -1355,7 +1356,7 @@ export default function Home() {
         ? t("notice.movedShared", { name: moved.name, folder: targetPath.split("/").slice(-1)[0] })
         : t("notice.movedSharedRoot", { name: moved.name }));
     } catch (error) {
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.moveSharedFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.moveSharedFailed"));
       await refreshSharedProjects();
     }
   }, [refreshSharedProjects]);
@@ -1394,7 +1395,7 @@ export default function Home() {
       await refreshSharedProjects();
       setDashboardNotice(t("notice.duplicated", { name: copy.name }));
     } catch (error) {
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.duplicateFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.duplicateFailed"));
       await refreshSharedProjects();
     }
   }, [refreshSharedProjects, sharedProjects]);
@@ -1482,7 +1483,7 @@ export default function Home() {
       await refreshSharedProjects();
       setDashboardNotice(t("notice.savedToServer", { name: saved.name }));
     } catch (error) {
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.saveSharedFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.saveSharedFailed"));
     }
   }, [projects, refreshSharedProjects]);
 
@@ -1519,7 +1520,7 @@ export default function Home() {
       binding = { fileName: saved.fileName, revision: saved.revision, path: saved.path ?? targetPath };
     } catch (error) {
       // The design still exists, it just stays in this browser for now.
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.saveSharedFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.saveSharedFailed"));
     }
     setProjects((current) => [{ ...project, sharedProject: binding }, ...current]);
     if (binding) void refreshSharedProjects();
@@ -1540,7 +1541,7 @@ export default function Home() {
       if (!response.ok) throw new Error(payload.error ?? t("notice.folderCreateFailed"));
       await refreshSharedProjects();
     } catch (error) {
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.folderCreateFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.folderCreateFailed"));
     }
   }, [refreshSharedProjects]);
 
@@ -1573,7 +1574,7 @@ export default function Home() {
       }
       setDashboardNotice(t("notice.renamedFolder", { name: renamedTo.split("/").slice(-1)[0] }));
     } catch (error) {
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.folderRenameFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.folderRenameFailed"));
       await refreshSharedProjects();
     }
   }, [refreshSharedProjects]);
@@ -1603,7 +1604,7 @@ export default function Home() {
       await refreshSharedProjects();
       setDashboardNotice(t("notice.deletedFolder", { name: folderName }));
     } catch (error) {
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.folderDeleteFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.folderDeleteFailed"));
       await refreshSharedProjects();
     }
   }, [refreshSharedProjects]);
@@ -1636,7 +1637,7 @@ export default function Home() {
         ? t("notice.backupDoneWithShapes", { count: projects.length, shapes: shapeCount, name: fileName })
         : t("notice.backupDone", { count: projects.length, name: fileName }));
     } catch (error) {
-      setDashboardNotice(t("notice.backupFailed", { reason: error instanceof Error ? error.message : String(error) }));
+      setDashboardNotice(t("notice.backupFailed", { reason: error instanceof Error ? localizedError(error.message) : String(error) }));
     }
   }, [projects]);
 
@@ -1757,7 +1758,7 @@ export default function Home() {
         setProjects((current) => [project, ...current]);
         openEditor(project.id, { allowMissingFromStorage: true });
       } catch (error) {
-        setDashboardNotice(error instanceof Error ? error.message : t("notice.importProjectFailed"));
+        setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.importProjectFailed"));
       }
     },
     [openLylProjectFromFile, projects.length],
@@ -1844,7 +1845,7 @@ export default function Home() {
       }
       setDashboardNotice(t("notice.duplicated", { name: copy.name }));
     } catch (error) {
-      setDashboardNotice(error instanceof Error ? error.message : t("notice.duplicateFailed"));
+      setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.duplicateFailed"));
     }
   };
 

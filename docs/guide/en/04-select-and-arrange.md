@@ -5,7 +5,7 @@ summary: Selecting shapes, finding them in the object list, aligning, mirroring,
 
 ## Selecting
 
-A click on a shape selects it. With [[Shift]] you add more or take them away again. A click on empty space clears the selection, and so does [[Esc]]. Drag a frame on the empty workplane to select everything inside it, and [[Ctrl]]+[[A]] selects all visible bodies.
+A click on a shape selects it. With [[Shift]] you add more or take them away again. A click on empty space clears the selection, and so does [[Esc]]. Drag a frame on the empty workplane to select everything it touches; with [[Shift]] held, the frame adds what was not selected and takes away what was. And [[Ctrl]]+[[A]] selects all visible bodies.
 
 What is in your way you hide ({{ui:editor.tool.hideSelected}}, [[Ctrl]]+[[H]]). Hidden shapes stay in the design, they are just not visible and stay out of the export; the export window says beforehand how many there are. [[Ctrl]]+[[Shift]]+[[H]] brings them all back. What should stay put you lock with the padlock at the top of the settings or with [[Ctrl]]+[[L]]. Locked shapes can neither be moved nor deleted by accident.
 

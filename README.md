@@ -65,6 +65,7 @@ You will recognise everything: the plate, the shapes, solids and holes, group an
 - **Solids and holes** – turn shapes into cutters and group them into the final geometry. Edit group (**E**) lays a group's parts loose to change them and rebuilds it with Done – also a group inside a group, as deep as the design goes.
 - **Bundle** – Ctrl+B holds parts together like Tinkercad's bundle: they move, turn and scale as one, but keep their colours and stay separate bodies in the export – handy for multicolour prints.
 - **Intersection** – keep only what two or more selected solids have in common, or where solids and holes overlap.
+- **Split** – cut solids or holes in two with a plane; a hollowed body keeps its cavity. Turn the plane for an angled cut.
 
 ### Refining
 
@@ -75,7 +76,7 @@ You will recognise everything: the plate, the shapes, solids and holes, group an
 
 ### Files
 
-- **Bring your own models** – import STL, OBJ, 3MF, STEP or SVG and build around it. A coloured OBJ – from layerling, or from Tinkercad as a ZIP with its `.mtl` – or a coloured 3MF, slicer projects included, comes in as one body per colour.
+- **Bring your own models** – import STL, OBJ, 3MF, STEP or SVG and build around it. A coloured OBJ – from layerling, or from Tinkercad as a ZIP with its `.mtl` – or a coloured 3MF, slicer projects included, comes in as one body per colour, and a 3MF with several objects as one body per object.
 - **Export what your slicer wants** – STL, 3MF with names and colours, or OBJ with colours, for the selection or the whole scene (hidden parts stay out), plus STEP if the design should travel on into a full CAD program. PNG saves a clean picture of the view, at twice the resolution and with a transparent background if you like.
 - **Projects as files** – save a whole project, history, sketches and groups included, as a `.lyl` file and carry on elsewhere. Older `.skf` files from earlier versions still open; saving then writes a `.lyl` beside them.
 - **Bug report** – one link in the footer saves the design as a `.lyl` with the version, browser and last messages inside, ready to attach in the forum or on GitHub.
@@ -87,7 +88,7 @@ You will recognise everything: the plate, the shapes, solids and holes, group an
 - **Turn the view at the cube** – dragging the view cube turns the view like the right mouse button, with one finger on a tablet; a click still jumps to that side. Keys **1**–**6** jump too, and **Shift+1**–**6** also zoom to the selection.
 - **Look from below** – the eye over a grid in the camera bar hides the plate, so the underside of a design can be seen without it in the way.
 - **Panels where you want them** – the object list, the settings, the section view, the tape measure and the tool panels for edges, hollowing and patterns move by their title bar and open there again; a double-click docks them.
-- **Right-click menu** – a short right click on a body brings up the most used commands: duplicate, hole or solid, group, hide, lock, drop to the workplane, delete. Dragging with the right button still turns the view.
+- **Right-click menu** – a short right click on a body brings up the most used commands: duplicate, hole or solid, group, chamfer, fillet and hollow for one body, hide, lock, drop to the workplane, delete. Dragging with the right button still turns the view.
 - **Section view** – cut the view open along a plane across X, Y or Z to look at walls, cavities and parts that fit into each other, with a coarse and a fine slider. Only the view is cut: the design and every export stay whole. "Section as SVG" saves the cut itself at 1:1, for a laser or a template, and "Measure" reads wall thickness and gaps right on the cut, snapping square to the wall.
 - **Workplane on any face** – press W and click a face to build on it; an eye hides the plane for a clear view while it keeps applying. An AI can set it on a face too.
 - **On a tablet** – one finger works the design, exactly as the left mouse button does: tap to select, drag to move, drag on empty space for a selection box. **Two fingers belong to the view**: spread or pinch them to zoom, move them together to shift the workplane. Putting a second finger down takes back whatever the first one had started, so a pinch never nudges a part. Turning the view has no gesture of its own; the camera rail carries a switch for it, shown only on a touch screen, and while it is on, one finger orbits instead of selecting. Number fields hand you their whole value when you tap them, ready to be overwritten – a decimal keypad has no arrow keys to move the caret with.
@@ -182,7 +183,7 @@ Everyday commands:
 - **Restart:** `docker compose -f docker/compose.yml up -d`
 - **Update** (after pulling new code or extracting a new ZIP): `docker compose -f docker/compose.yml up -d --build`; with the ready-made image `docker compose -f docker/compose.yml pull` and then `up -d`
 
-The image runs `next start` in production mode, so the MCP bridge is not available there. To offer a shared project folder, bind a writable directory and set `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` (see [Shared Designs on a Network](#shared-designs-on-a-network)).
+The image runs `next start` in production mode, so the MCP bridge is not available there. To offer a shared project folder, bind a writable directory and set `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` to the path inside the container where it is mounted, for example `./shared-projects:/shared-projects` with `LAYERLING_SHARED_PROJECTS_DIR: "/shared-projects"` (see [Shared Designs on a Network](#shared-designs-on-a-network)). After changing it, run `docker compose up -d`: `docker compose restart` keeps the old setting. `docker exec <container> printenv LAYERLING_SHARED_PROJECTS_DIR` shows the one in use.
 
 ### Shared Designs on a Network
 

@@ -5,7 +5,7 @@ summary: Formen auswählen, in der Objektliste finden, ausrichten, spiegeln, dre
 
 ## Auswählen
 
-Ein Klick auf eine Form wählt sie aus. Mit [[Umschalt]] nimmst du weitere dazu oder wieder weg. Ein Klick ins Leere hebt die Auswahl auf, ebenso [[Esc]]. Ziehst du auf der leeren Arbeitsebene einen Rahmen auf, wählst du alles darin aus, und [[Strg]]+[[A]] wählt alle sichtbaren Körper.
+Ein Klick auf eine Form wählt sie aus. Mit [[Umschalt]] nimmst du weitere dazu oder wieder weg. Ein Klick ins Leere hebt die Auswahl auf, ebenso [[Esc]]. Ziehst du auf der leeren Arbeitsebene einen Rahmen auf, wählst du alles aus, was er berührt; mit gehaltenem [[Umschalt]] nimmt der Rahmen dazu, was nicht ausgewählt war, und weg, was es war. Und [[Strg]]+[[A]] wählt alle sichtbaren Körper.
 
 Was du im Weg hast, blendest du aus ({{ui:editor.tool.hideSelected}}, [[Strg]]+[[H]]). Ausgeblendete Formen bleiben im Entwurf, sie sind nur nicht zu sehen und kommen nicht mit in den Export; das Exportfenster sagt vorher, wie viele es sind. Mit [[Strg]]+[[Umschalt]]+[[H]] holst du alle zurück. Was liegen bleiben soll, sperrst du mit dem Schloss oben in den Einstellungen oder mit [[Strg]]+[[L]]. Gesperrte Formen lassen sich weder verschieben noch versehentlich löschen.
 

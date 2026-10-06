@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import { cadHasSolidBody } from "@/lib/cadSolidBody";
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
 import { orientedFaceNormal, shellSolid } from "@/lib/cadShell";
 import type { CadModifierComponentMesh, CadModifierDeflection, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierProfilePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
@@ -666,6 +667,12 @@ async function bearbeiteAnfrage(request: CadModifierWorkerRequest, halter: { cad
           : Math.abs(request.chamferAngle - 45) < 0.001
             ? activeCad.chamfer(solid, componentEdges, request.amount)
             : activeCad.chamferDistAngle(solid, componentEdges, request.amount, request.chamferAngle);
+      if (request.kind !== "shell" && componentEdges.length > 0 && !cadHasSolidBody(activeCad, component)) {
+        // Past a certain size the kernel returns a "valid" compound without any
+        // solid in it (and a volume that grew): not a body to go on with.
+        releaseHandles(activeCad, [component]);
+        throw new Error("The chosen size does not leave a closed solid");
+      }
       componentResults.push(component);
     }
     result = componentResults.length === 1 ? componentResults[0] : activeCad.makeCompound(componentResults);

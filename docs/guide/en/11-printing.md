@@ -23,7 +23,7 @@ A body that sticks out over the edge of the print plate is marked. A message tel
 
 ![The box is wider than the print bed of the Bambu Lab A1 mini. The message at the bottom says by how much.](shot:printer-overhang)
 
-The warning does not stop you from working on. It is a hint so you do not find out only in the slicer that the part is too big. Parts can often be split, too: cut them in two halves with a hole and print both separately.
+The warning does not stop you from working on. It is a hint so you do not find out only in the slicer that the part is too big. A part that is too big can often be split: cut it in two with {{ui:editor.tool.split}} and print both halves separately.
 
 ## Laying the part right
 

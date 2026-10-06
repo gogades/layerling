@@ -41,7 +41,7 @@ Die KI arbeitet mit denselben Funktionen wie du, sie läuft über denselben Weg 
 | `layerling_select_objects` | wählt Objekte aus |
 | `layerling_delete_objects` | löscht Objekte |
 | `layerling_create_shape` | legt eine Form an: Quader, Zylinder, Text (auch gebogen), Gewinde, Zahnrad, Skizzenkörper und alle anderen |
-| `layerling_import_file` | importiert eine Datei wie das Importfenster, eine farbige OBJ oder 3MF als ein Körper je Farbe |
+| `layerling_import_file` | importiert eine Datei wie das Importfenster, eine farbige OBJ oder 3MF als ein Körper je Farbe, eine 3MF mit mehreren Objekten als ein Körper je Objekt |
 | `layerling_import_mesh` | bringt ein Dreiecksnetz in den Entwurf |
 | `layerling_update_object` | ändert Maße, Lage, Farbe, Name, Körper oder Aussparung und alles, was die Form sonst ausmacht |
 | `layerling_align_objects` | richtet Objekte aneinander aus |
@@ -53,6 +53,7 @@ Die KI arbeitet mit denselben Funktionen wie du, sie läuft über denselben Weg 
 | `layerling_boolean_cut` | schneidet Körper mit Aussparungen |
 | `layerling_intersect_objects` | behält nur, was die Objekte gemeinsam haben (Schnittmenge) |
 | `layerling_separate_parts` | zerlegt eine Form mit losen Teilen |
+| `layerling_split_objects` | teilt Körper oder Aussparungen mit einer Ebene in zwei |
 | `layerling_list_edges` | listet die echten CAD-Kanten eines Objekts |
 | `layerling_apply_edge_treatment` | fast oder verrundet ausgewählte Kanten |
 | `layerling_hollow_object` | höhlt einen Körper mit gleichmäßiger Wand aus |

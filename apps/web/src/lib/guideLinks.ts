@@ -44,6 +44,7 @@ export const GUIDE_SECTIONS = {
   grouping: { chapter: "solids", de: "gruppieren", en: "grouping" },
   bundling: { chapter: "solids", de: "buendeln", en: "bundling" },
   intersection: { chapter: "solids", de: "schnittmenge", en: "intersection" },
+  splitting: { chapter: "solids", de: "teilen", en: "splitting" },
   edgeTreatment: { chapter: "edges", de: "kanten-fasen-und-verrunden", en: "chamfering-and-filleting-edges" },
   hollowing: { chapter: "edges", de: "koerper-aushoehlen", en: "hollowing-bodies" },
   threads: { chapter: "threads", de: "gewinde", en: "threads" },

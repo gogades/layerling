@@ -56,7 +56,26 @@ export function normalizePlacementWorkplane(value: unknown, fallbackElevation = 
   if (!origin || !normal || !xAxis || vector(normal).lengthSq() < EPSILON || vector(xAxis).lengthSq() < EPSILON) {
     return horizontalPlacementWorkplane(fallbackElevation);
   }
+  // Ein bereits gueltiges Achsenkreuz bleibt Bit fuer Bit erhalten. Erneutes
+  // Normalisieren kippt auf schraegen Ebenen die letzte Nachkommastelle hin
+  // und her - Speichern und Projektliste haben sich darueber endlos
+  // gegenseitig aktualisiert ("Maximum update depth exceeded").
+  const zAxis = finitePoint(candidate.zAxis);
+  if (zAxis && orthonormalFrame(normal, xAxis, zAxis)) {
+    return { origin, normal: { ...normal }, xAxis: { ...xAxis }, zAxis: { ...zAxis } };
+  }
   return placementWorkplaneFromSurface(origin, normal, xAxis);
+}
+
+function orthonormalFrame(normal: PlacementPoint, xAxis: PlacementPoint, zAxis: PlacementPoint) {
+  const n = vector(normal);
+  const x = vector(xAxis);
+  const z = vector(zAxis);
+  const tolerance = 1e-9;
+  return Math.abs(n.lengthSq() - 1) < tolerance
+    && Math.abs(x.lengthSq() - 1) < tolerance
+    && Math.abs(n.dot(x)) < tolerance
+    && x.clone().cross(n).distanceToSquared(z) < tolerance;
 }
 
 export function placementWorkplaneFingerprint(workplane: PlacementWorkplane) {

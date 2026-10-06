@@ -41,7 +41,7 @@ The AI works with the same functions as you, through the same path as your opera
 | `layerling_select_objects` | selects objects |
 | `layerling_delete_objects` | deletes objects |
 | `layerling_create_shape` | creates a shape: box, cylinder, text (also curved), thread, gear, sketch body and all the others |
-| `layerling_import_file` | imports a file as the import window does, a coloured OBJ or 3MF as one body per colour |
+| `layerling_import_file` | imports a file as the import window does, a coloured OBJ or 3MF as one body per colour, a 3MF with several objects as one body per object |
 | `layerling_import_mesh` | brings a triangle mesh into the design |
 | `layerling_update_object` | changes dimensions, position, colour, name, solid or hole and everything else that makes up the shape |
 | `layerling_align_objects` | aligns objects with each other |
@@ -52,7 +52,8 @@ The AI works with the same functions as you, through the same path as your opera
 | `layerling_ungroup_objects` | dissolves groups |
 | `layerling_boolean_cut` | cuts solids with holes |
 | `layerling_intersect_objects` | keeps only what the objects have in common (Intersection) |
-| `layerling_separate_parts` | splits a shape with loose parts |
+| `layerling_separate_parts` | separates a shape into its loose parts |
+| `layerling_split_objects` | cuts solids or holes in two with a plane |
 | `layerling_list_edges` | lists the real CAD edges of an object |
 | `layerling_apply_edge_treatment` | chamfers or fillets chosen edges |
 | `layerling_hollow_object` | hollows a body with an even wall |

@@ -23,7 +23,7 @@ Ein Körper, der über den Rand der Druckplatte hinausragt, wird markiert. Dazu 
 
 ![Der Quader ist breiter als das Druckbett des Bambu Lab A1 mini. Die Meldung unten sagt, um wie viel.](shot:printer-overhang)
 
-Die Warnung hindert dich nicht am Weiterarbeiten. Sie ist ein Hinweis, damit du nicht erst im Slicer feststellst, dass das Teil zu groß ist. Teile lassen sich außerdem oft aufteilen: schneide sie mit einer Aussparung in zwei Hälften und drucke beide getrennt.
+Die Warnung hindert dich nicht am Weiterarbeiten. Sie ist ein Hinweis, damit du nicht erst im Slicer feststellst, dass das Teil zu groß ist. Ein zu großes Teil lässt sich oft aufteilen: schneide es mit {{ui:editor.tool.split}} in zwei Hälften und drucke beide getrennt.
 
 ## Das Teil richtig hinlegen
 

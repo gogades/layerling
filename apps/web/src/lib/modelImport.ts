@@ -101,8 +101,9 @@ export async function importModelFiles(
       const bytes = new Uint8Array(await file.arrayBuffer());
       const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
       let shape: WorkplaneShape;
-      // Eine farbige OBJ oder 3MF wird zu einem Koerper je Farbe. Die tragen
-      // ihr Netz dann selbst; die Datei als Ganzes bauen sie nicht nach.
+      // Eine farbige OBJ oder 3MF wird zu einem Koerper je Farbe, eine 3MF mit
+      // mehreren Objekten zu einem je Objekt. Die tragen ihr Netz dann selbst;
+      // die Datei als Ganzes bauen sie nicht nach.
       if (isObj || is3mf) {
         const colored = isObj
           ? importedShapesFromObj(file.name, new TextDecoder().decode(bytes), prepared.mtlSources)
@@ -112,7 +113,8 @@ export async function importModelFiles(
         if (colored.split) {
           result.shapes.push(...colored.shapes);
           result.importedFileNames.push(file.name);
-          result.notes.push(t("status.importColoredParts", { name: file.name, count: colored.shapes.length }));
+          const objects = "objects" in colored ? colored.objects : 1;
+          result.notes.push(t(objects > 1 ? "status.importObjectParts" : "status.importColoredParts", { name: file.name, count: colored.shapes.length, objects }));
           continue;
         }
         shape = colored.shapes[0];

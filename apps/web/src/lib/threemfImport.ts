@@ -124,7 +124,10 @@ type SlicerFilaments = {
   colors: Array<string | undefined>;
   objectExtruder: Map<string, number>;
   partExtruder: Map<string, number>;
-  volumes: Map<string, Array<{ first: number; last: number; extruder: number }>>;
+  /** Ein Volumen, das nicht druckt (Modifier, negatives Volumen, Stuetzblocker), traegt `skip`. */
+  volumes: Map<string, Array<{ first: number; last: number; extruder: number; skip: boolean }>>;
+  /** Wie der Slicer ein Objekt nennt. */
+  objectNames: Map<string, string>;
 };
 
 function fileByName(files: Record<string, Uint8Array>, name: string) {
@@ -132,14 +135,25 @@ function fileByName(files: Record<string, Uint8Array>, name: string) {
   return key ? files[key] : undefined;
 }
 
+function metadataOf(element: Element, key: string) {
+  const entry = [...element.children].find((child) => localName(child) === "metadata" && child.getAttribute("key") === key);
+  return entry?.getAttribute("value") ?? undefined;
+}
+
 function extruderOf(element: Element) {
-  const entry = [...element.children].find((child) => localName(child) === "metadata" && child.getAttribute("key") === "extruder");
-  const value = Number(entry?.getAttribute("value"));
+  const value = Number(metadataOf(element, "extruder"));
   return Number.isInteger(value) && value > 0 ? value : 0;
 }
 
+/** PrusaSlicer: ein Volumen ist Modifier, negatives Volumen oder Stuetzblocker/-erzwinger statt Teil. */
+function prusaVolumeSkipped(volume: Element) {
+  if (metadataOf(volume, "modifier") === "1") return true;
+  const type = metadataOf(volume, "volume_type");
+  return type !== undefined && type !== "ModelPart";
+}
+
 function readSlicerFilaments(files: Record<string, Uint8Array>): SlicerFilaments | null {
-  const result: SlicerFilaments = { colors: [], objectExtruder: new Map(), partExtruder: new Map(), volumes: new Map() };
+  const result: SlicerFilaments = { colors: [], objectExtruder: new Map(), partExtruder: new Map(), volumes: new Map(), objectNames: new Map() };
   let found = false;
 
   const bambuModel = fileByName(files, "Metadata/model_settings.config");
@@ -151,6 +165,8 @@ function readSlicerFilaments(files: Record<string, Uint8Array>): SlicerFilaments
         if (!id) return;
         found = true;
         result.objectExtruder.set(id, extruderOf(object));
+        const name = metadataOf(object, "name");
+        if (name) result.objectNames.set(id, name);
         [...object.children].filter((child) => localName(child) === "part").forEach((part) => {
           const partId = part.getAttribute("id");
           if (partId) result.partExtruder.set(`${id}/${partId}`, extruderOf(part));
@@ -179,10 +195,13 @@ function readSlicerFilaments(files: Record<string, Uint8Array>): SlicerFilaments
         if (!id) return;
         found = true;
         result.objectExtruder.set(id, extruderOf(object));
+        const name = metadataOf(object, "name");
+        if (name) result.objectNames.set(id, name);
         const volumes = [...object.children].filter((child) => localName(child) === "volume").map((volume) => ({
           first: Number(volume.getAttribute("firstid")),
           last: Number(volume.getAttribute("lastid")),
           extruder: extruderOf(volume),
+          skip: prusaVolumeSkipped(volume),
         })).filter((volume) => Number.isInteger(volume.first) && Number.isInteger(volume.last));
         if (volumes.length) result.volumes.set(id, volumes);
       });
@@ -202,6 +221,10 @@ function readSlicerFilaments(files: Record<string, Uint8Array>): SlicerFilaments
 /** Ein Dreieck mit seiner Farbe, so weit die Datei sie nennt. */
 type ColoredTriangles = {
   positions: number[];
+  /** Je Dreieck: das Objekt im Bauraum (Index in `itemNames`), aus dem es kommt. */
+  items: number[];
+  /** Je Objekt im Bauraum sein Name, so weit die Datei ihn nennt. */
+  itemNames: Array<string | undefined>;
   /** Je Dreieck: Schluessel der Farbe ("" = keine), Farbe, Bezeichnung. */
   keys: string[];
   colors: Map<string, { color?: string; label?: string }>;
@@ -209,7 +232,7 @@ type ColoredTriangles = {
 };
 
 /** Woher ein Dreieck kommt: das Objekt im Bauraum und der Teil darin - fuer die Slicer-Angaben. */
-type ObjectContext = { buildObjectId: string; partId?: string };
+type ObjectContext = { buildObjectId: string; item: number; partId?: string };
 
 /** Extract all vertex/triangle data from a single <object> element. */
 function extractObjectMesh(
@@ -252,8 +275,7 @@ function extractObjectMesh(
     const generic = !base.name || /^(colou?r|material|base)\s*\d*$/i.test(base.name.trim());
     return { key: `rgb:${base.color}`, color: base.color, label: generic ? undefined : base.name };
   };
-  const extruderFor = (triangleIndex: number): FoundColor | undefined => {
-    const volume = volumes?.find((entry) => triangleIndex >= entry.first && triangleIndex <= entry.last);
+  const extruderFor = (volume: { extruder: number } | undefined): FoundColor | undefined => {
     const extruder = volume?.extruder || partExtruder || objectExtruder;
     if (!extruder) return undefined;
     const color = slicer?.colors[extruder - 1];
@@ -269,17 +291,21 @@ function extractObjectMesh(
     if (v1 < 0 || v1 >= vertices.length || v2 < 0 || v2 >= vertices.length || v3 < 0 || v3 >= vertices.length) {
       throw new Error("3MF triangle references out-of-range vertex");
     }
+    // Ein Modifier aus PrusaSlicer steckt im selben Netz; er druckt nicht.
+    const volume = volumes?.find((entry) => i >= entry.first && i <= entry.last);
+    if (volume?.skip) continue;
     const [ax, ay, az] = zUpToLayerling(vertices[v1]);
     const [bx, by, bz] = zUpToLayerling(vertices[v2]);
     const [cx, cy, cz] = zUpToLayerling(vertices[v3]);
     out.positions.push(ax, ay, az, bx, by, bz, cx, cy, cz);
+    out.items.push(context.item);
 
     // Erst die Farbe am Dreieck, dann die am Objekt, dann das Filament aus
     // dem Slicer-Projekt.
     const trianglePid = el.getAttribute("pid");
     const p1 = el.getAttribute("p1");
     const own = colorFor(trianglePid ?? objectPid, Number(p1 ?? (trianglePid ? 0 : objectPindex)));
-    const found = own ?? extruderFor(i);
+    const found = own ?? extruderFor(volume);
     if (el.hasAttribute("paint_color") || el.hasAttribute("slic3rpe:mmu_segmentation")) out.painted += 1;
     const key = found?.key ?? "";
     out.keys.push(key);
@@ -295,7 +321,7 @@ function extractObjectMesh(
  * may nest.
  */
 function gatherMeshes(files: Record<string, Uint8Array>, mainKey: string, main: ModelPart, slicer: SlicerFilaments | null): ColoredTriangles {
-  const out: ColoredTriangles = { positions: [], keys: [], colors: new Map(), painted: 0 };
+  const out: ColoredTriangles = { positions: [], items: [], itemNames: [], keys: [], colors: new Map(), painted: 0 };
   const parts = new Map<string, ModelPart>([[mainKey.toLowerCase(), main]]);
   const keyByLowerCase = new Map(Object.keys(files).map((key) => [key.toLowerCase(), key]));
   const partFor = (path: string): ModelPart | null => {
@@ -322,21 +348,34 @@ function gatherMeshes(files: Record<string, Uint8Array>, mainKey: string, main: 
       const targetPart = externalPath ? partFor(externalPath) : part;
       const compObj = targetPart?.objects.get(compId);
       if (!targetPart || !compObj) return;
+      // Modifier, negative Volumen und Stuetzblocker sind keine Teile
+      // (Bambu Studio und OrcaSlicer schreiben sie als type="other").
+      if (!printable(compObj)) return;
       // Component first, then the transform of whatever contains it. The
       // first level of components are the slicer's parts of the object.
       addObject(targetPart, targetPath, compObj, combineTransforms(transform, parseMatrix(comp.getAttribute("transform"))), depth + 1, {
         buildObjectId: context.buildObjectId,
+        item: context.item,
         partId: context.partId ?? compId,
       });
     });
   };
 
   const mainPath = mainKey.toLowerCase();
+  const startItem = (objectId: string, objectEl: Element) => {
+    out.itemNames.push(objectEl.getAttribute("name")?.trim() || slicer?.objectNames.get(objectId));
+    return out.itemNames.length - 1;
+  };
   // Process each <item> in <build>
   const items = main.doc.querySelectorAll("build > item");
   if (items.length === 0) {
-    // Fallback: no <build> section, just import all objects with meshes
-    main.objects.forEach((objectEl, id) => addObject(main, mainPath, objectEl, IDENTITY_M, 0, { buildObjectId: id }));
+    // Fallback: no <build> section, just import all printable objects. One
+    // that is only a component of another one comes in with that one.
+    const referenced = new Set([...main.doc.querySelectorAll("component")].filter((comp) => !componentPath(comp)).map((comp) => comp.getAttribute("objectid")));
+    main.objects.forEach((objectEl, id) => {
+      if (referenced.has(id) || !printable(objectEl)) return;
+      addObject(main, mainPath, objectEl, IDENTITY_M, 0, { buildObjectId: id, item: startItem(id, objectEl) });
+    });
     return out;
   }
 
@@ -349,14 +388,19 @@ function gatherMeshes(files: Record<string, Uint8Array>, mainKey: string, main: 
     const objectEl = main.objects.get(objectId);
     if (!objectEl) continue;
 
-    const objectType = objectEl.getAttribute("type");
     // Skip support / other structural types
-    if (objectType && objectType !== "model") continue;
+    if (!printable(objectEl)) continue;
 
-    addObject(main, mainPath, objectEl, transform, 0, { buildObjectId: objectId });
+    addObject(main, mainPath, objectEl, transform, 0, { buildObjectId: objectId, item: startItem(objectId, objectEl) });
   }
 
   return out;
+}
+
+/** Ein Objekt, das gedruckt wird: ohne type oder type="model" (3MF Core). */
+function printable(objectEl: Element) {
+  const type = objectEl.getAttribute("type");
+  return !type || type === "model";
 }
 
 /** Combine two 3×4 row-major transforms: result = outer(inner(v)). */
@@ -413,42 +457,65 @@ export function importedShapeFrom3mf(fileName: string, buffer: ArrayBuffer): Wor
 
 export type ThreeMfImportResult = {
   shapes: WorkplaneShape[];
-  /** Mehr als eine Farbe: ein Koerper je Farbe, die ihr Netz selbst tragen. */
+  /** Mehr als ein Objekt oder eine Farbe: je ein Koerper, die ihr Netz selbst tragen. */
   split: boolean;
+  /** Wie viele Objekte im Bauraum Dreiecke beitragen. */
+  objects: number;
   /** Dreiecke, die im Slicer bemalt wurden - deren Farben liest layerling nicht. */
   painted: number;
 };
 
+/** Ein Name aus dem Slicer ohne die Endung der Quelldatei ("tray.step" -> "tray"). */
+function itemLabel(name: string | undefined) {
+  return name?.replace(/\.(step|stp|stl|obj|3mf|amf)$/i, "").trim() || undefined;
+}
+
 /**
- * Eine farbige 3MF wird zu einem Koerper je Farbe, alle an ihrem Platz
- * zueinander. Die Farbe kommt aus der Datei selbst (`basematerials`,
- * `m:colorgroup`, auch je Dreieck - so schreibt layerling) oder aus dem
- * Filament, das Bambu Studio, OrcaSlicer oder PrusaSlicer einem Objekt oder
- * Teil zugewiesen hat. Einfarbig bleibt es ein Koerper wie bisher.
+ * Eine 3MF wird zu einem Koerper je Objekt im Bauraum und darin je Farbe, alle
+ * an ihrem Platz zueinander. Die Farbe kommt aus der Datei selbst
+ * (`basematerials`, `m:colorgroup`, auch je Dreieck - so schreibt layerling)
+ * oder aus dem Filament, das Bambu Studio, OrcaSlicer oder PrusaSlicer einem
+ * Objekt oder Teil zugewiesen hat. Ein Objekt in einer Farbe bleibt ein
+ * Koerper wie bisher.
  */
 export function importedShapesFrom3mf(fileName: string, buffer: ArrayBuffer): ThreeMfImportResult {
   const triangles = readPackage(buffer);
-  const order: string[] = [];
-  const byKey = new Map<string, number[]>();
+  const order: Array<{ item: number; key: string }> = [];
+  const byGroup = new Map<string, number[]>();
   triangles.keys.forEach((key, index) => {
-    let positions = byKey.get(key);
+    const item = triangles.items[index];
+    const group = `${item}|${key}`;
+    let positions = byGroup.get(group);
     if (!positions) {
       positions = [];
-      byKey.set(key, positions);
-      order.push(key);
+      byGroup.set(group, positions);
+      order.push({ item, key });
     }
     for (let offset = index * 9; offset < index * 9 + 9; offset += 1) positions.push(triangles.positions[offset]);
   });
+  const objects = new Set(order.map((group) => group.item)).size;
 
   const whole = importedShapeFromTriangleSoup(fileName, triangles.positions, undefined, "3mf");
   if (order.length <= 1) {
-    const color = triangles.colors.get(order[0] ?? "")?.color;
-    return { shapes: [color ? { ...whole, color } : whole], split: false, painted: triangles.painted };
+    const color = triangles.colors.get(order[0]?.key ?? "")?.color;
+    return { shapes: [color ? { ...whole, color } : whole], split: false, objects, painted: triangles.painted };
   }
+  const colorsIn = (item: number) => order.filter((group) => group.item === item).length;
+  const seenIn = new Map<number, number>();
   const shapes = placeColoredParts(
     whole.name,
-    order.map((key) => ({ color: triangles.colors.get(key)?.color, label: triangles.colors.get(key)?.label, positions: byKey.get(key)! })),
+    order.map(({ item, key }) => {
+      const found = triangles.colors.get(key);
+      const nth = (seenIn.get(item) ?? 0) + 1;
+      seenIn.set(item, nth);
+      // Mehrere Objekte: der Name des Objekts, bei mehreren Farben darin dazu
+      // die Farbe - oder, wenn sie keinen Namen hat (ein Filament), ihre Nummer.
+      const label = objects > 1
+        ? [itemLabel(triangles.itemNames[item]), colorsIn(item) > 1 ? found?.label || String(nth) : undefined].filter(Boolean).join(" ") || undefined
+        : found?.label;
+      return { color: found?.color, label, positions: byGroup.get(`${item}|${key}`)! };
+    }),
     (positions) => importedShapeFromTriangleSoup(fileName, positions, undefined, "3mf"),
   );
-  return { shapes, split: true, painted: triangles.painted };
+  return { shapes, split: true, objects, painted: triangles.painted };
 }

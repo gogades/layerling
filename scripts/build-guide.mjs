@@ -94,7 +94,7 @@ export function renderFooter({ language, messages, environment, version }) {
   const fallback = language === "de" ? { imprint: "Impressum", privacy: "Datenschutz" } : { imprint: "Imprint", privacy: "Privacy Policy" };
   const left = [];
   const sponsorUrl = environment.NEXT_PUBLIC_SPONSOR_URL?.trim();
-  if (sponsorUrl) left.push(link(sponsorUrl, environment.NEXT_PUBLIC_SPONSOR_LABEL?.trim() || messages["dashboard.sponsor"], external));
+  if (sponsorUrl) left.push(link(sponsorUrl.startsWith("/") ? `${sponsorUrl}${sponsorUrl.includes("?") ? "&" : "?"}lang=${language}` : sponsorUrl, environment.NEXT_PUBLIC_SPONSOR_LABEL?.trim() || messages["dashboard.sponsor"], external));
   left.push(link(GUIDE_LANGUAGES[language].forumUrl, messages["dashboard.forum"], external));
   const imprintUrl = environment.NEXT_PUBLIC_IMPRINT_URL?.trim();
   if (imprintUrl) left.push(link(imprintUrl, environment.NEXT_PUBLIC_IMPRINT_LABEL?.trim() || fallback.imprint));

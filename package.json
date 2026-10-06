@@ -1,6 +1,6 @@
 {
   "name": "layerling",
-  "version": "1.39.0",
+  "version": "1.40.0",
   "private": true,
   "description": "Easy 3D CAD for 3D printing. A local-first 3D editor that runs in your browser.",
   "author": {
@@ -52,6 +52,7 @@
     "@types/node": "^22.15.18",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
+    "jsdom": "^30.1.2",
     "typescript": "^5.8.3",
     "vitest": "^4.1.11"
   },

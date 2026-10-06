@@ -47,6 +47,26 @@ function sharedProjectsDirectory() {
   return configured ? path.resolve(configured) : null;
 }
 
+/**
+ * The store's own folder, made if it is missing. When that fails, the bare
+ * system error ("EACCES: permission denied, mkdir '/data'") leaves people
+ * guessing where the path came from (#114); say which setting it is and what
+ * to mount.
+ */
+async function ensureSharedRoot(root: string) {
+  try {
+    await fs.mkdir(root, { recursive: true });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new RequestFailure(
+      `The shared folder ${root} from ${SHARED_PROJECTS_ENV} cannot be created (${reason}). Mount a writable folder at ${root}, or set ${SHARED_PROJECTS_ENV} to the folder you mounted. In Docker, apply a changed setting with "docker compose up -d"; "restart" keeps the old one.`,
+      500,
+      // The store is switched on, only not usable: the start page shows the error, as before.
+      { enabled: true, projects: [] },
+    );
+  }
+}
+
 function sharedProjectStem(requestedName: string) {
   return path.basename(requestedName.replace(/\.(lyl|skf)$/i, ""))
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
@@ -232,7 +252,7 @@ export async function GET(request: Request) {
   const root = sharedProjectsDirectory();
   if (!root) return disabledResponse();
   try {
-    await fs.mkdir(root, { recursive: true });
+    await ensureSharedRoot(root);
     const requestUrl = new URL(request.url);
     const folder = await resolveFolder(root, requestUrl.searchParams.get("path"));
     const folderPath = folderKey(root, folder);
@@ -554,7 +574,7 @@ export async function DELETE(request: Request) {
   let lockHandle: Awaited<ReturnType<typeof fs.open>> | null = null;
   let lockPath = "";
   try {
-    await fs.mkdir(root, { recursive: true });
+    await ensureSharedRoot(root);
     const requestUrl = new URL(request.url);
     const folder = await resolveFolder(root, requestUrl.searchParams.get("path"));
     if (requestUrl.searchParams.get("deleteFolder") === "1") {
@@ -616,7 +636,7 @@ export async function POST(request: Request) {
   let temporaryPath = "";
   let temporaryThumbnailPath = "";
   try {
-    await fs.mkdir(root, { recursive: true });
+    await ensureSharedRoot(root);
     const requestUrl = new URL(request.url);
     const folder = await resolveFolder(root, requestUrl.searchParams.get("path"));
     const folderPath = folderKey(root, folder);

@@ -115,6 +115,7 @@ export {
   ToolbarPatternIcon,
   ToolbarLayFlatIcon,
   ToolbarNoteIcon,
+  ToolbarSplitIcon,
   ToolbarPasteIcon,
   ToolbarRedoIcon,
   ToolbarSettingsIcon,

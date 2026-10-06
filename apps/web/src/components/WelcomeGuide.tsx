@@ -16,6 +16,7 @@ const STEPS = [
  */
 const MORE = [
   ["welcome.moreHollowTitle", "welcome.moreHollowBody"],
+  ["welcome.moreSplitTitle", "welcome.moreSplitBody"],
   ["welcome.moreSketchTitle", "welcome.moreSketchBody"],
   ["welcome.moreLibraryTitle", "welcome.moreLibraryBody"],
   ["welcome.morePatternTitle", "welcome.morePatternBody"],

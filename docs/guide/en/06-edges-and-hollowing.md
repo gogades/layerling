@@ -8,7 +8,7 @@ summary: Chamfer and fillet on chosen edges, walls of equal thickness for boxes,
 Sharp edges rarely look good on a printed part, and they are not particularly strong either. A **chamfer** cuts the edge off at an angle, a **fillet** rounds it. Both act on the edges you click.
 
 1. Select the body (or the group).
-2. Click {{ui:editor.tool.fillet}} or {{ui:editor.tool.chamfer}} in the ribbon.
+2. Click {{ui:editor.tool.fillet}} or {{ui:editor.tool.chamfer}} in the ribbon, or right-click the body and pick it from the menu.
 3. The body's edges light up. Click those that should be affected. Another click takes an edge out again. With [[Shift]] you add or remove a single edge.
 4. Set the size and confirm with {{ui:edge.apply}} or [[Enter]].
 
@@ -43,7 +43,7 @@ A part imported as STEP keeps its CAD geometry too: chamfers, fillets and hollow
 
 Boxes, cups, cases and covers have one thing in common: they are empty inside, with walls of equal thickness. That is exactly what {{ui:editor.tool.hollow}} does.
 
-1. Select the body and click {{ui:editor.tool.hollow}}.
+1. Select the body and click {{ui:editor.tool.hollow}}, or right-click the body and pick it from the menu.
 2. Set the {{ui:shell.wall}}.
 3. Choose which side stays open: {{ui:shell.opening.top}}, {{ui:shell.opening.bottom}}, {{ui:shell.opening.top-bottom}} or {{ui:shell.opening.none}} (fully closed, with a cavity in the middle).
 4. Decide whether the {{ui:shell.edges}} should be {{ui:shell.edges.round}} or {{ui:shell.edges.sharp}}.

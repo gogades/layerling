@@ -65,6 +65,18 @@ Anders als {{ui:editor.tool.ungroup}}, das eine Gruppe endgültig auflöst, beh�
 
 Ein Hinweis: Fasen und Verrundungen, die du auf die **ganze** Gruppe gelegt hattest, gehen beim Neuberechnen verloren. Darauf weist der Balken hin.
 
+## Teilen
+
+{{ui:editor.tool.split}} im Bereich {{ui:editor.group.modify}} schneidet die Auswahl mit einer Ebene in zwei – etwa ein Teil, das zu groß für das Druckbett ist, oder eins, in das du hineinschauen willst. Markiere einen oder mehrere Körper oder Aussparungen und klicke darauf. Eine durchscheinende Ebene zeigt genau, wo der Schnitt liegt; geändert wird erst, wenn du ihn anwendest.
+
+- {{ui:split.orientation}}: **X** schneidet senkrecht zwischen links und rechts, **Y** zwischen vorne und hinten, **Z** waagerecht zwischen oben und unten. Die Achsen heißen wie in der Positionskarte, Z zeigt nach oben; die Ebene beginnt mit Z.
+- {{ui:split.position}}: wo die Ebene durchgeht, mit dem Schieberegler oder als Zahl. Sie beginnt in der Mitte.
+- Die beiden Drehregler darunter drehen die Ebene um die anderen beiden Achsen, bis 180° in jede Richtung, für einen schrägen Schnitt. Sie lassen sich kombinieren.
+
+{{ui:split.apply}} oder [[Enter]] schneidet, [[Esc]] bricht ab. Jedes Objekt, durch das die Ebene geht, wird zu zwei geschlossenen Körpern, benannt nach ihrer Seite, zum Beispiel „Quader (Z+)“ und „Quader (Z-)“; Objekte, die sie verfehlt, bleiben, wie sie sind. Aus einer Aussparung werden zwei Aussparungen, und ein ausgehöhlter Körper behält seinen Hohlraum. Beide Hälften bleiben, wo sie waren – zum Drucken legst du jede mit {{ui:editor.tool.layFlat}} auf ihre Schnittfläche.
+
+Die Hälften sind einfache Netze: Einstellungen wie die Seitenzahl eines Zylinders oder die Buchstaben eines Textes gehen verloren, stelle sie also vorher ein. [[Strg]]+[[Z]] holt das Original in einem Schritt zurück. Gesperrte und ausgeblendete Objekte lassen sich nicht teilen.
+
 ## Teile trennen
 
 Besteht eine Form aus mehreren voneinander getrennten Stücken, etwa ein Text aus einzelnen Buchstaben, kannst du sie mit {{ui:inspector.separateParts}} in eigenständige Formen zerlegen.

@@ -8,7 +8,7 @@ summary: Fase und Verrundung an ausgewählten Kanten, Wände gleicher Stärke f�
 Scharfe Kanten sehen an einem gedruckten Teil selten gut aus, und sie sind auch nicht besonders stabil. Mit einer **Fase** schneidest du die Kante schräg ab, mit einer **Verrundung** rundest du sie ab. Beides wirkt auf die Kanten, die du anklickst.
 
 1. Wähle den Körper aus (oder die Gruppe).
-2. Klicke im Menüband auf {{ui:editor.tool.fillet}} oder {{ui:editor.tool.chamfer}}.
+2. Klicke im Menüband auf {{ui:editor.tool.fillet}} oder {{ui:editor.tool.chamfer}}, oder klicke mit der rechten Maustaste auf den Körper und wähle es im Menü.
 3. Die Kanten des Körpers werden hervorgehoben. Klicke die an, die betroffen sein sollen. Ein weiterer Klick nimmt sie wieder heraus. Mit [[Umschalt]] fügst du eine einzelne Kante hinzu oder nimmst sie weg.
 4. Stelle das Maß ein und bestätige mit {{ui:edge.apply}} oder [[Enter]].
 
@@ -43,7 +43,7 @@ Ein als STEP importiertes Teil behält seine CAD-Geometrie ebenfalls: Fasen, Run
 
 Dosen, Becher, Gehäuse und Abdeckungen haben eines gemeinsam: Sie sind innen leer, mit Wänden gleicher Stärke. Genau das macht {{ui:editor.tool.hollow}}.
 
-1. Wähle den Körper aus und klicke auf {{ui:editor.tool.hollow}}.
+1. Wähle den Körper aus und klicke auf {{ui:editor.tool.hollow}}, oder klicke mit der rechten Maustaste auf den Körper und wähle es im Menü.
 2. Stelle die {{ui:shell.wall}} ein.
 3. Wähle, welche Seite offen bleibt: {{ui:shell.opening.top}}, {{ui:shell.opening.bottom}}, {{ui:shell.opening.top-bottom}} oder {{ui:shell.opening.none}} (ganz geschlossen, mit einem Hohlraum in der Mitte).
 4. Entscheide, ob die {{ui:shell.edges}} {{ui:shell.edges.round}} oder {{ui:shell.edges.sharp}} sein sollen.

@@ -65,6 +65,18 @@ Unlike {{ui:editor.tool.ungroup}}, which takes a group apart for good, editing k
 
 A note: fillets and chamfers you had put on the **whole** group are lost on rebuild. The bar tells you so.
 
+## Splitting
+
+{{ui:editor.tool.split}} in the {{ui:editor.group.modify}} area cuts the selection in two with a plane - a part too big for the print bed, say, or one you want to see the inside of. Select one or more solids or holes and click it. A translucent plane shows exactly where the cut will go; nothing changes until you apply it.
+
+- {{ui:split.orientation}}: **X** makes an upright cut between left and right, **Y** between front and back, **Z** a horizontal cut between top and bottom. The axes are named as on the Position card, with Z up; Z is where the plane starts.
+- {{ui:split.position}}: where the plane crosses, with the slider or typed in. It starts in the middle.
+- The two rotation sliders below turn the plane about the other two axes, up to 180° either way, for an angled cut. They can be combined.
+
+{{ui:split.apply}} or [[Enter]] makes the cut, [[Esc]] cancels. Every object the plane crosses becomes two closed bodies, named after their side, for example "Box (Z+)" and "Box (Z-)"; objects it misses stay as they are. A hole becomes two holes, and a hollowed body keeps its cavity. Both halves stay where they were - for printing, lay each one on its cut face with {{ui:editor.tool.layFlat}}.
+
+The halves are plain meshes: settings such as a cylinder's sides or a text's lettering are gone, so set those first. [[Ctrl]]+[[Z]] brings the original back in one step. Locked and hidden objects cannot be split.
+
 ## Separating parts
 
 If a shape consists of several separate pieces, such as text made of single letters, {{ui:inspector.separateParts}} splits it into independent shapes.

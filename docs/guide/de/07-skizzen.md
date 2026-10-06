@@ -37,7 +37,7 @@ Klicke auf einen Eckpunkt und wähle {{ui:sketch.filletCorner}} oder {{ui:sketch
 
 ## Ein Körper daraus machen
 
-Klicke auf {{ui:sketch.finishSketch}}. Der Umriss steht als Körper auf der Arbeitsebene und trägt den Namen „Skizzenkörper“. In seinen Einstellungen änderst du die Höhe, die Farbe und alles Weitere wie bei jeder anderen Form.
+Klicke auf {{ui:sketch.finishSketch}}. Der Umriss steht als Körper auf der Arbeitsebene und trägt den Namen „Skizzenkörper“. In seinen Einstellungen änderst du die Höhe, die Farbe und alles Weitere wie bei jeder anderen Form. Änderst du seine Größe, baut layerling ihn kurz danach aus der Skizze neu auf, und die Skizze wächst mit. So bleibt er ein exakter Körper, an dem Fase und Rundung gehen, und beim nächsten Bearbeiten hat die Skizze die Größe, die der Körper hat.
 
 Liegt die Arbeitsebene auf einer Seite eines Körpers, zeichnest du so, wie du auf diese Seite schaust: Oben in der Skizze ist auch am fertigen Körper oben. Der blasse Umriss des Körpers in der Skizzenansicht zeigt, wo er steht.
 

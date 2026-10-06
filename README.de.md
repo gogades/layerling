@@ -66,6 +66,7 @@ Du wirst alles wiedererkennen: die Platte, die Formen, Körper und Aussparung (d
 - **Körper und Aussparungen** – Formen zu Schneidwerkzeugen erklären und zur fertigen Geometrie gruppieren. „Gruppe bearbeiten“ (**E**) legt die Teile einer Gruppe einzeln hin und rechnet sie mit „Fertig“ neu – auch eine Gruppe in einer Gruppe, so tief der Entwurf geht.
 - **Bündeln** – Strg+B hält Teile zusammen wie das Bündel in Tinkercad: Sie bewegen, drehen und skalieren sich gemeinsam, behalten aber ihre Farben und bleiben im Export getrennte Körper – praktisch für den Mehrfarbdruck.
 - **Schnittmenge** – nur das behalten, wo sich die ausgewählten Körper und Aussparungen überlappen.
+- **Teilen** – Körper oder Aussparungen mit einer Ebene in zwei schneiden; ein ausgehöhlter Körper behält seinen Hohlraum. Gedreht schneidet die Ebene schräg.
 
 ### Bearbeiten
 
@@ -76,7 +77,7 @@ Du wirst alles wiedererkennen: die Platte, die Formen, Körper und Aussparung (d
 
 ### Dateien
 
-- **Eigene Modelle mitbringen** – STL, OBJ, 3MF, STEP oder SVG importieren und darum herum konstruieren. Eine farbige OBJ – aus layerling oder aus Tinkercad als ZIP mit ihrer `.mtl` – oder eine farbige 3MF, auch ein Slicer-Projekt, kommt als ein Körper je Farbe.
+- **Eigene Modelle mitbringen** – STL, OBJ, 3MF, STEP oder SVG importieren und darum herum konstruieren. Eine farbige OBJ – aus layerling oder aus Tinkercad als ZIP mit ihrer `.mtl` – oder eine farbige 3MF, auch ein Slicer-Projekt, kommt als ein Körper je Farbe, eine 3MF mit mehreren Objekten als ein Körper je Objekt.
 - **Exportieren, was dein Slicer will** – STL, 3MF mit Namen und Farben oder OBJ mit Farben, für die Auswahl oder die ganze Szene (Ausgeblendetes bleibt draußen), dazu STEP, wenn der Entwurf in ein vollwertiges CAD weiterreisen soll. PNG speichert ein sauberes Bild der Ansicht, in doppelter Auflösung und auf Wunsch mit durchsichtigem Hintergrund.
 - **Projekte als Datei** – ein ganzes Projekt samt Verlauf, Skizzen und Gruppen als `.lyl` sichern und anderswo weiterbauen. Ältere `.skf`-Dateien aus früheren Fassungen öffnen sich weiterhin; gespeichert wird dann als `.lyl` daneben.
 - **Fehlerbericht** – ein Link in der Fußzeile speichert den Entwurf als `.lyl` samt Version, Browser und den letzten Meldungen, fertig zum Anhängen im Forum oder bei GitHub.
@@ -88,7 +89,7 @@ Du wirst alles wiedererkennen: die Platte, die Formen, Körper und Aussparung (d
 - **Ansicht am Würfel drehen** – Ziehen am Ansichtswürfel dreht die Ansicht wie die rechte Maustaste, auf dem Tablet mit einem Finger; ein Klick springt weiter auf die gerade Seite. Die Tasten **1**–**6** springen ebenfalls, **Umschalt+1**–**6** zoomen dabei auf die Auswahl.
 - **Von unten schauen** – das Auge über dem Gitter in der Kameraleiste blendet die Platte aus, damit die Unterseite eines Entwurfs frei zu sehen ist.
 - **Fenster nach Wunsch** – Objektliste, Einstellungen, Schnittansicht, Maßband und die Werkzeugfenster für Kanten, Aushöhlen und Muster lassen sich an ihrer Titelleiste frei verschieben und öffnen sich dort wieder; ein Doppelklick dockt sie an.
-- **Rechtsklick-Menü** – ein kurzer Rechtsklick auf einen Körper bringt die häufigsten Befehle: duplizieren, Aussparung oder Körper, gruppieren, ausblenden, sperren, auf die Arbeitsebene setzen, löschen. Ziehen mit der rechten Taste dreht weiter die Ansicht.
+- **Rechtsklick-Menü** – ein kurzer Rechtsklick auf einen Körper bringt die häufigsten Befehle: duplizieren, Aussparung oder Körper, gruppieren, Fase, Rundung und Aushöhlen für einen Körper, ausblenden, sperren, auf die Arbeitsebene setzen, löschen. Ziehen mit der rechten Taste dreht weiter die Ansicht.
 - **Schnittansicht** – die Ansicht entlang einer Ebene quer zu X, Y oder Z aufschneiden, um Wände, Hohlräume und ineinandergreifende Teile zu sehen, mit grobem und feinem Regler. Geschnitten wird nur die Ansicht: Entwurf und jeder Export bleiben ganz. Den Schnitt selbst speichert „Schnitt als SVG“ im Maßstab 1:1, etwa für einen Laser oder eine Schablone, und „Messen“ liest Wandstärken und Spalte direkt auf dem Schnitt ab, im rechten Winkel zur Wand eingerastet.
 - **Arbeitsebene auf jeder Fläche** – W drücken und eine Fläche anklicken, um darauf zu bauen; ein Auge blendet die Ebene für freie Sicht aus, sie gilt trotzdem weiter. Auch eine KI kann sie auf eine Fläche legen.
 - **Auf einem Tablet** – ein Finger arbeitet am Entwurf, genau wie die linke Maustaste: Antippen wählt aus, Ziehen verschiebt, Ziehen auf leerer Fläche spannt den Auswahlrahmen. **Zwei Finger gehören der Ansicht**: Spreizen und Zusammenziehen zoomt, gemeinsames Schieben verschiebt die Arbeitsfläche. Setzt der zweite Finger auf, wird zurückgenommen, was der erste angefangen hatte; ein Zoom verschiebt also nie versehentlich ein Teil. Fürs Drehen gibt es keine eigene Geste, dafür einen Umschalter in der Kameraleiste, der nur auf einem Berührungsbildschirm erscheint: Solange er an ist, dreht ein Finger die Ansicht, statt auszuwählen. Zahlenfelder geben beim Antippen ihren ganzen Wert zum Überschreiben frei – eine Dezimaltastatur hat keine Pfeiltasten, mit denen sich der Schreibzeiger setzen ließe.
@@ -187,7 +188,10 @@ Befehle im Alltag:
 
 Das Image führt `next start` im Produktionsmodus aus, die MCP-Brücke steht dort also nicht zur Verfügung. Für einen
 gemeinsamen Projektordner ein beschreibbares Verzeichnis einbinden und in `compose.yml` `LAYERLING_SHARED_PROJECTS_DIR`
-setzen (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
+auf den Pfad im Container setzen, an dem es eingebunden ist, etwa `./shared-projects:/shared-projects` mit
+`LAYERLING_SHARED_PROJECTS_DIR: "/shared-projects"` (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
+Nach einer Änderung `docker compose up -d` ausführen: `docker compose restart` behält die alte Einstellung.
+`docker exec <Container> printenv LAYERLING_SHARED_PROJECTS_DIR` zeigt die tatsächlich verwendete.
 
 ### Gemeinsame Entwürfe im Netz
 

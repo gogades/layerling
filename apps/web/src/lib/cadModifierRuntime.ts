@@ -1,4 +1,5 @@
 import { t } from "@/lib/i18n";
+import { localizedError } from "@/lib/userErrors";
 import type { CadModifierDeflection, CadModifierEdge, CadModifierQuality } from "@/lib/cadModifierTypes";
 
 const occtRuntimeVersion = process.env.NEXT_PUBLIC_OCCT_RUNTIME_VERSION;
@@ -363,5 +364,5 @@ export function cadModifierUserErrorMessage(rawError: string | null | undefined)
   if (rawError.includes("ran out of room and was restarted")) {
     return t("edge.errorKernelRestart");
   }
-  return rawError;
+  return localizedError(rawError);
 }
