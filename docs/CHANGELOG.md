@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Snap grids of your own:** In the workspace settings you can add a measure of your own - a name and a size in millimetres, such as the 2.54 mm pin pitch of chips, pin headers and perfboard. The snap menu then offers it whole, halved and quartered, the arrow keys move by it, and the grids are kept with the design. By @rmpel in #118.
+
 ## 1.40.0
 
 - **No endless update loop on a tilted workplane:** A design saved on a tilted workplane could end in "Maximum update depth exceeded". Each time the workplane was read, its axes were rebuilt, and on tilted planes the last digit flipped back and forth, so the project list and the editor kept updating each other. A workplane whose axes are already valid is now kept exactly as stored. By @gogades in #120.

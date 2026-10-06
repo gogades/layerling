@@ -24,6 +24,7 @@ const MORE = [
   ["welcome.moreWorkplaneTitle", "welcome.moreWorkplaneBody"],
   ["welcome.morePlaceTitle", "welcome.morePlaceBody"],
   ["welcome.moreSnapTitle", "welcome.moreSnapBody"],
+  ["welcome.moreGridTitle", "welcome.moreGridBody"],
   ["welcome.moreWindowsTitle", "welcome.moreWindowsBody"],
   ["welcome.morePivotTitle", "welcome.morePivotBody"],
   ["welcome.moreLayFlatTitle", "welcome.moreLayFlatBody"],
