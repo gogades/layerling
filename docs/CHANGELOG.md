@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **A fingertip hits a body more easily:** Touch input now reaches 16 pixels beside the edge of a body instead of 6, because a fingertip covers more than a mouse pointer. The mouse is unchanged. By @rmpel in #123.
 - **Snap grids of your own:** In the workspace settings you can add a measure of your own - a name and a size in millimetres, such as the 2.54 mm pin pitch of chips, pin headers and perfboard. The snap menu then offers it whole, halved and quartered, the arrow keys move by it, and the grids are kept with the design. By @rmpel in #118.
 
 ## 1.40.0
