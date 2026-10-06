@@ -8368,6 +8368,36 @@ html[data-theme="dark"] .inspector-bundle-note {
   white-space: nowrap;
 }
 
+/* The title bar moves the panel across the workplane, like the other tool panels. */
+.mesh-compare-header.movable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.mesh-compare.moving,
+.mesh-compare.moving .mesh-compare-header.movable {
+  cursor: grabbing;
+}
+
+.mesh-compare.floating {
+  min-height: 240px;
+}
+
+.mesh-compare-note {
+  margin: 0;
+  padding: 7px 14px;
+  color: #7a4a12;
+  background: #fdf1df;
+  border-bottom: 1px solid #f0d9b8;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.mesh-compare-header .guide-help-link {
+  flex-shrink: 0;
+}
+
 .mesh-compare-check {
   display: flex;
   align-items: center;
@@ -8563,6 +8593,12 @@ html[data-theme="dark"] .mesh-compare-footer {
 html[data-theme="dark"] .mesh-compare-header > div span,
 html[data-theme="dark"] .mesh-compare-hint {
   color: #b9a58f;
+}
+
+html[data-theme="dark"] .mesh-compare-note {
+  color: #f0c98a;
+  background: #3a2c1a;
+  border-bottom-color: #55401f;
 }
 
 html[data-theme="dark"] .mesh-compare-close:hover {

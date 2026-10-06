@@ -64,7 +64,7 @@ import { getLanguage, t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
-import { BOOLEAN_TRIANGLE_LIMIT_STEP, DEFAULT_WORKPLANE_WORKSPACE, MAX_BOOLEAN_TRIANGLE_LIMIT, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_BOOLEAN_TRIANGLE_LIMIT, MIN_CUSTOM_SHAPE_DIMENSION, gridBlockForUnits, snapGridForUnits, snapGridOptionsForUnits } from "@/lib/workplaneSettings";
+import { BOOLEAN_TRIANGLE_LIMIT_PRESETS, BOOLEAN_TRIANGLE_LIMIT_STEP, DEFAULT_WORKPLANE_WORKSPACE, MAX_BOOLEAN_TRIANGLE_LIMIT, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_BOOLEAN_TRIANGLE_LIMIT, MIN_CUSTOM_SHAPE_DIMENSION, booleanTriangleLimitPreset, gridBlockForUnits, snapGridForUnits, snapGridOptionsForUnits, type BooleanTriangleLimitPreset } from "@/lib/workplaneSettings";
 import { IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm } from "@/lib/workplaneGrid";
 import type { BentTubeProfile, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
@@ -98,6 +98,11 @@ function gridBlockPresetLabel(preset: string) {
   return preset === "Custom" ? t("workspace.custom") : preset;
 }
 const HISTORY_LIMIT_OPTIONS = [30, 50, 100, "unlimited", "custom"] as const;
+const BOOLEAN_LIMIT_PRESET_LABEL_KEYS: Record<BooleanTriangleLimitPreset, MessageKey> = {
+  older: "workspace.booleanTriangleLimitOlder",
+  normal: "workspace.booleanTriangleLimitNormal",
+  fast: "workspace.booleanTriangleLimitFast",
+};
 const HISTORY_CUSTOM_DEFAULT = 250;
 const TEXT_FONT_OPTIONS = ["Multilanguage", "Sans", "Serif", "Script", "Monospace", "Rounded", "Stencil"];
 const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: string }> = [
@@ -396,6 +401,11 @@ export function WorkspaceSettingsModal({
     ? workspace.historyLimit
     : "custom";
   const historyLimitIndex = HISTORY_LIMIT_OPTIONS.indexOf(historyLimitMode);
+  const [customBooleanLimitDraft, setCustomBooleanLimitDraft] = useState(() => String(workspace.booleanTriangleLimit));
+  // "Custom" stays chosen while the field is open, even when the typed value happens to equal a preset.
+  const [booleanLimitCustomOpen, setBooleanLimitCustomOpen] = useState(() => booleanTriangleLimitPreset(workspace.booleanTriangleLimit) === null);
+  const booleanLimitMode: BooleanTriangleLimitPreset | "custom" = booleanLimitCustomOpen ? "custom" : booleanTriangleLimitPreset(workspace.booleanTriangleLimit) ?? "custom";
+  const formatSettingCount = (value: number) => value.toLocaleString(getLanguage() === "de" ? "de-DE" : "en-US");
   const scaleOptions = scaleOptionsForUnits(workspace.units);
   const scaleValue = normalizeScaleForUnits(workspace.units, workspace.scale);
   const gridColor = /^#[0-9a-f]{6}$/i.test(workspace.gridColor)
@@ -534,6 +544,23 @@ export function WorkspaceSettingsModal({
     }
     patchWorkspace({ historyLimit: mode });
   };
+  const setBooleanLimitMode = (mode: BooleanTriangleLimitPreset | "custom") => {
+    if (mode === "custom") {
+      // The free field starts from the current value, so picking "Custom" changes nothing yet.
+      setCustomBooleanLimitDraft(String(workspace.booleanTriangleLimit));
+      setBooleanLimitCustomOpen(true);
+      return;
+    }
+    setBooleanLimitCustomOpen(false);
+    const preset = BOOLEAN_TRIANGLE_LIMIT_PRESETS.find((entry) => entry.id === mode);
+    if (preset) patchWorkspace({ booleanTriangleLimit: preset.limit });
+  };
+  const setCustomBooleanLimit = (value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    const next = Number.isFinite(parsed) ? Math.round(clamp(parsed, MIN_BOOLEAN_TRIANGLE_LIMIT, MAX_BOOLEAN_TRIANGLE_LIMIT)) : workspace.booleanTriangleLimit;
+    setCustomBooleanLimitDraft(String(next));
+    patchWorkspace({ booleanTriangleLimit: next });
+  };
   const setCustomHistoryLimit = (value: string) => {
     const parsed = Number.parseInt(value, 10);
     const next = Number.isFinite(parsed) ? Math.round(clamp(parsed, 1, 5000)) : HISTORY_CUSTOM_DEFAULT;
@@ -665,21 +692,38 @@ export function WorkspaceSettingsModal({
                       <span>{t("workspace.fast")}</span>
                     </small>
                   </label>
-                  <label className="workspace-range">
-                    <span>{t("workspace.booleanTriangleLimit", { count: workspace.booleanTriangleLimit.toLocaleString(getLanguage() === "de" ? "de-DE" : "en-US") })}</span>
-                    <input
-                      type="range"
-                      min={MIN_BOOLEAN_TRIANGLE_LIMIT}
-                      max={MAX_BOOLEAN_TRIANGLE_LIMIT}
-                      step={BOOLEAN_TRIANGLE_LIMIT_STEP}
-                      value={workspace.booleanTriangleLimit}
-                      onChange={(event) => patchWorkspace({ booleanTriangleLimit: Number(event.currentTarget.value) })}
-                    />
-                    <small>
-                      <span>{t("workspace.booleanTriangleLimitFast")}</span>
-                      <span>{t("workspace.booleanTriangleLimitSlow")}</span>
-                    </small>
+                  <label className="workspace-select">
+                    <span>{t("workspace.booleanTriangleLimit")}</span>
+                    <select
+                      value={booleanLimitMode}
+                      onChange={(event) => setBooleanLimitMode(event.currentTarget.value as BooleanTriangleLimitPreset | "custom")}
+                    >
+                      {BOOLEAN_TRIANGLE_LIMIT_PRESETS.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {t(BOOLEAN_LIMIT_PRESET_LABEL_KEYS[preset.id], { count: formatSettingCount(preset.limit) })}
+                        </option>
+                      ))}
+                      <option value="custom">{t("workspace.custom")}</option>
+                    </select>
                   </label>
+                  {booleanLimitMode === "custom" ? (
+                    <label className="workspace-history-custom">
+                      <span>{t("workspace.booleanTriangleLimitCustom")}</span>
+                      <input
+                        type="number"
+                        min={MIN_BOOLEAN_TRIANGLE_LIMIT}
+                        max={MAX_BOOLEAN_TRIANGLE_LIMIT}
+                        step={BOOLEAN_TRIANGLE_LIMIT_STEP}
+                        value={customBooleanLimitDraft}
+                        onChange={(event) => setCustomBooleanLimitDraft(event.currentTarget.value)}
+                        onBlur={(event) => setCustomBooleanLimit(event.currentTarget.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") event.currentTarget.blur();
+                        }}
+                      />
+                    </label>
+                  ) : null}
+                  <p className="workspace-history-note">{t("workspace.booleanTriangleLimitNote")}</p>
                 </>
               ) : null}
 

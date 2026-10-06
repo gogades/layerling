@@ -4,9 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Check, LoaderCircle, X } from "lucide-react";
+import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { getLanguage, t } from "@/lib/i18n";
 import { simplifyTrianglePositions, type SimplifiedMesh } from "@/lib/meshSimplify";
+import { displayShapeName } from "@/lib/shapeCatalog";
 import { useLanguage } from "@/lib/useLanguage";
+import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel";
 import { shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
 import type { WorkplaneShape } from "@/types/layerling";
 
@@ -23,6 +26,14 @@ type CompareState = {
 
 const MIN_KEEP_PERCENT = 1;
 const MAX_KEEP_PERCENT = 99;
+
+// Docked, the panel stretches between the toolbar, the inspector and the
+// bottom bar; moved, it floats at the size it had and lets the window's lower
+// edge clip it like the other tool panels.
+const COMPARE_PANEL: MovablePanelOptions = {
+  floatingStyle: { right: "auto", bottom: "auto" },
+  area: (panel) => panel.ownerDocument.querySelector<HTMLElement>(".workplane-stage"),
+};
 
 function setSideGeometry(side: THREE.Group, positions: ArrayLike<number> | null) {
   side.children.forEach((child) => {
@@ -45,6 +56,9 @@ function setSideGeometry(side: THREE.Group, positions: ArrayLike<number> | null)
  * zooming one turns and zooms the other, with nothing to keep in step. The
  * triangles are shaded flat and can be outlined, because the facets are
  * exactly what there is to compare. Nothing changes until "Simplify".
+ *
+ * The mouse works as on the workplane: the right button turns, the middle one
+ * (or Ctrl/Cmd with the left) moves, the wheel zooms.
  */
 export function MeshSimplifyPanel({
   shape,
@@ -64,8 +78,11 @@ export function MeshSimplifyPanel({
   const maxTarget = Math.max(minTarget, Math.floor(sourceTriangles * MAX_KEEP_PERCENT / 100));
   const clampTarget = (value: number) => Math.min(maxTarget, Math.max(minTarget, Math.round(value)));
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef<CompareState | null>(null);
+  const movable = useMovablePanel<HTMLDivElement>("layerling.editor.meshComparePosition", COMPARE_PANEL);
+  // The size the stylesheet gives the docked panel; a floating panel keeps it.
+  const [dockedSize, setDockedSize] = useState<{ width: number; height: number } | null>(null);
   const [target, setTarget] = useState(() => clampTarget(sourceTriangles / 2));
   const [targetDraft, setTargetDraft] = useState<string | null>(null);
   const [percentDraft, setPercentDraft] = useState<string | null>(null);
@@ -118,6 +135,16 @@ export function MeshSimplifyPanel({
   }, []);
 
   useEffect(() => {
+    const panel = movable.panelRef.current;
+    if (!panel || movable.moved) return;
+    const observer = new ResizeObserver(() => {
+      if (panel.offsetWidth > 0 && panel.offsetHeight > 0) setDockedSize({ width: panel.offsetWidth, height: panel.offsetHeight });
+    });
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [movable.moved, movable.panelRef]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onCancel();
     };
@@ -126,8 +153,13 @@ export function MeshSimplifyPanel({
   }, [onCancel]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+    // The canvas is made here, not by React: a context given up below cannot be
+    // used again, and a remount (React's development double run among them)
+    // must not inherit a canvas whose context is lost.
+    const canvas = document.createElement("canvas");
+    stage.prepend(canvas);
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setScissorTest(true);
@@ -157,6 +189,12 @@ export function MeshSimplifyPanel({
     };
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = false;
+    // The same buttons as on the workplane, so a hand used to the editor needs no second habit here.
+    controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
+    const onPointerDown = (event: PointerEvent) => {
+      controls.mouseButtons.LEFT = event.button === 0 && (event.ctrlKey || event.metaKey) ? THREE.MOUSE.PAN : null;
+    };
+    canvas.addEventListener("pointerdown", onPointerDown, { capture: true });
     const state: CompareState = { renderer, scene, camera, controls, sides: [side(), side()], solid, wire, needsRender: true };
     stateRef.current = state;
     controls.addEventListener("change", () => { state.needsRender = true; });
@@ -194,11 +232,16 @@ export function MeshSimplifyPanel({
     return () => {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
+      canvas.removeEventListener("pointerdown", onPointerDown, { capture: true });
       controls.dispose();
       state.sides.forEach((group) => setSideGeometry(group, null).dispose());
       solid.dispose();
       wire.dispose();
       renderer.dispose();
+      // Browsers keep only a handful of WebGL contexts; giving this one up
+      // right away means opening the panel again and again never runs out.
+      renderer.forceContextLoss();
+      canvas.remove();
       stateRef.current = null;
     };
   }, []);
@@ -253,6 +296,8 @@ export function MeshSimplifyPanel({
   const locale = getLanguage() === "de" ? "de-DE" : "en-US";
   const count = (triangles: number) => triangles.toLocaleString(locale);
   const reduces = Boolean(result && result.triangleCount < sourceTriangles);
+  // A cut or merge keeps its parts for "Edit group"; the simplified mesh cannot, and should say so beforehand.
+  const dissolvesGroup = Boolean(shape.groupedShapes?.length);
   const commitTargetDraft = () => {
     const parsed = Number(targetDraft);
     if (targetDraft !== null && Number.isFinite(parsed)) setTarget(clampTarget(parsed));
@@ -270,22 +315,29 @@ export function MeshSimplifyPanel({
   };
 
   return (
-    <div className="mesh-compare" role="dialog" aria-label={t("simplify.title")} style={{ right: rightInset }}>
-      <div className="mesh-compare-header">
+    <div
+      ref={movable.panelRef}
+      className={`mesh-compare ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
+      role="dialog"
+      aria-label={t("simplify.title")}
+      style={movable.moved ? { ...movable.style, width: dockedSize?.width, height: dockedSize?.height } : { right: rightInset }}
+    >
+      <div className="mesh-compare-header movable" title={t("panel.moveHint")} {...movable.handleProps}>
         <div>
           <strong>{t("simplify.title")}</strong>
-          <span>{shape.name}</span>
+          <span>{displayShapeName(shape)}</span>
         </div>
-        <label className="mesh-compare-check">
+        <label className="mesh-compare-check" onPointerDown={(event) => event.stopPropagation()}>
           <input type="checkbox" checked={showTriangles} onChange={(event) => setShowTriangles(event.currentTarget.checked)} />
           <span>{t("simplify.showTriangles")}</span>
         </label>
+        <GuideHelpLink section="simplifyMesh" />
         <button type="button" className="mesh-compare-close" aria-label={t("common.cancel")} title={t("common.cancel")} onClick={onCancel}>
           <X size={18} strokeWidth={2.5} />
         </button>
       </div>
-      <div className="mesh-compare-stage">
-        <canvas ref={canvasRef} />
+      {dissolvesGroup ? <p className="mesh-compare-note">{t("simplify.groupNote")}</p> : null}
+      <div className="mesh-compare-stage" ref={stageRef}>
         <span className="mesh-compare-label before">{t("simplify.before", { count: count(sourceTriangles) })}</span>
         <span className={`mesh-compare-label after ${busy ? "busy" : ""}`}>
           {result ? t("simplify.after", { count: count(result.triangleCount) }) : t("simplify.working")}

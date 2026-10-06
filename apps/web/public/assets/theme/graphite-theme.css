@@ -3413,6 +3413,12 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .inspector-bundle-note 
   color: #6c6c6c;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .mesh-compare-note {
+  color: #7a4a12;
+  background: #eeeeee;
+  border-bottom: 1px solid #d4d4d4;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .mesh-compare-check input,
 :where(html[data-theme="dark"][data-palette="graphite"]) .mesh-compare-slider input {
   accent-color: #d07313;
@@ -3482,6 +3488,12 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .mesh-compare-footer {
 html[data-theme="dark"]:where([data-palette="graphite"]) .mesh-compare-header > div span,
 html[data-theme="dark"]:where([data-palette="graphite"]) .mesh-compare-hint {
   color: #909090;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .mesh-compare-note {
+  color: #f0c98a;
+  background: #2f2f2f;
+  border-bottom-color: #3d3d3d;
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .mesh-compare-close:hover {

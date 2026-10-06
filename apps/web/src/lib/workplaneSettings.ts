@@ -17,11 +17,23 @@ export const MAX_HIGH_RESOLUTION_STEPS = 256;
 
 // How many triangles the exact kernel is handed for a cut, merge or intersection
 // with an imported mesh. It works on the main thread: around a second for a few
-// hundred thousand triangles, noticeably longer towards the upper end.
-export const DEFAULT_BOOLEAN_TRIANGLE_LIMIT = 1_000_000;
-export const MIN_BOOLEAN_TRIANGLE_LIMIT = 100_000;
+// hundred thousand triangles, noticeably longer towards the upper end, so the
+// default stays where a slower computer still answers within seconds.
+export const DEFAULT_BOOLEAN_TRIANGLE_LIMIT = 250_000;
+export const MIN_BOOLEAN_TRIANGLE_LIMIT = 10_000;
 export const MAX_BOOLEAN_TRIANGLE_LIMIT = 5_000_000;
-export const BOOLEAN_TRIANGLE_LIMIT_STEP = 100_000;
+export const BOOLEAN_TRIANGLE_LIMIT_STEP = 10_000;
+// Named choices for the limit; the free number field remains for other values.
+export const BOOLEAN_TRIANGLE_LIMIT_PRESETS = [
+  { id: "older", limit: 100_000 },
+  { id: "normal", limit: DEFAULT_BOOLEAN_TRIANGLE_LIMIT },
+  { id: "fast", limit: 1_000_000 },
+] as const;
+export type BooleanTriangleLimitPreset = (typeof BOOLEAN_TRIANGLE_LIMIT_PRESETS)[number]["id"];
+
+export function booleanTriangleLimitPreset(limit: number): BooleanTriangleLimitPreset | null {
+  return BOOLEAN_TRIANGLE_LIMIT_PRESETS.find((preset) => preset.limit === limit)?.id ?? null;
+}
 
 export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   width: 200,

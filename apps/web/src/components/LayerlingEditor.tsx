@@ -181,7 +181,7 @@ import { exportMeshesToStl } from "@/lib/stlExport";
 import { exportMeshesTo3mf, THREE_MF_MEDIA_TYPE } from "@/lib/threemfExport";
 import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
-import { DEFAULT_BOOLEAN_TRIANGLE_LIMIT, DEFAULT_TAPER_DIMENSION_MAX, keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
+import { DEFAULT_TAPER_DIMENSION_MAX, keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import { MCP_SHAPE_SETTING_KEYS, mcpThreadSizeName, mcpThreadSizeParams } from "@/lib/mcpShapeSettings";
 import { createNoteId, detachNotesFromMissingShapes, normalizeNotes, NOTE_COUNT_LIMIT, NOTE_TEXT_LIMIT } from "@/lib/workplaneNotes";
 import {
@@ -358,11 +358,9 @@ const NOTICE_PATIENT_MS = 30000;
 const MAX_SKETCH_HISTORY_ENTRIES = 100;
 const MODEL_DIMENSION_PRECISION = 3;
 // The exact kernel (Manifold) cuts a few hundred thousand triangles in about a
-// second; the triangle-soup fallback for meshes that are not watertight is far
-// slower and keeps the lower limit so it cannot freeze the editor.
-// The kernel's limit is a workspace setting; the editor keeps this copy current
-// so the boolean helpers below need not be handed the settings one by one.
-let exactBooleanTriangleLimit = DEFAULT_BOOLEAN_TRIANGLE_LIMIT;
+// second; its limit is the workspace setting handed to the boolean helpers
+// below. The triangle-soup fallback for meshes that are not watertight is far
+// slower and keeps this lower limit so it cannot freeze the editor.
 const IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT = 150000;
 const COPLANAR_BOOLEAN_RESCUE_DEGREES = 0.02;
 const NORMAL_SELECTION_CAD_EDGE_MIN_ANGLE = 60;
@@ -2015,7 +2013,7 @@ function restoreOwnLastEdgeTreatment(shape: WorkplaneShape, entry: NonNullable<W
   return restoreShapeBeforeEdgeTreatment(shape, entry);
 }
 
-async function restoreEdgeTreatmentInShape(shape: WorkplaneShape, path: number[], entryId: string): Promise<{ shape: WorkplaneShape; label: string } | null> {
+async function restoreEdgeTreatmentInShape(shape: WorkplaneShape, path: number[], entryId: string, triangleLimit: number): Promise<{ shape: WorkplaneShape; label: string } | null> {
   if (path.length === 0) {
     const entry = (shape.edgeTreatmentHistory ?? []).find((candidate) => candidate.id === entryId);
     return entry ? { shape: restoreOwnLastEdgeTreatment(shape, entry), label: edgeTreatmentLabel(entry.feature) } : null;
@@ -2031,13 +2029,13 @@ async function restoreEdgeTreatmentInShape(shape: WorkplaneShape, path: number[]
   if (!child) {
     return null;
   }
-  const restoredChild = await restoreEdgeTreatmentInShape(child, restPath, entryId);
+  const restoredChild = await restoreEdgeTreatmentInShape(child, restPath, entryId, triangleLimit);
   if (!restoredChild) {
     return null;
   }
 
   restoredChildren[childIndex] = restoredChild.shape;
-  const rebuilt = await buildGroupedShapeFromSelection(restoredChildren);
+  const rebuilt = await buildGroupedShapeFromSelection(restoredChildren, triangleLimit);
   if (!rebuilt.group) {
     return null;
   }
@@ -5183,7 +5181,7 @@ function disposeManifold(value: unknown) {
   (value as { delete?: () => void } | null)?.delete?.();
 }
 
-async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { requireImported?: boolean; idPrefix?: string } = {}, groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
+async function manifoldBooleanMeshShape(selection: WorkplaneShape[], triangleLimit: number, options: { requireImported?: boolean; idPrefix?: string } = {}, groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
   // GROUPING SAFETY NOTE FOR FUTURE AGENTS:
   // Imported STL + hole grouping stays on exact boolean first. Rotated cutters
   // are validated against their real oriented volume, not their broad AABB.
@@ -5195,7 +5193,7 @@ async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { 
 
   const sourceMesh = mergedSolidMeshData(solids);
   const cutterTriangleCount = holes.reduce((total, hole) => total + meshForShape(hole).faces.length, 0);
-  if (sourceMesh.faces.length + cutterTriangleCount > exactBooleanTriangleLimit) {
+  if (sourceMesh.faces.length + cutterTriangleCount > triangleLimit) {
     return null;
   }
   const cutterShapes = holes.map(paddedCutterShape);
@@ -5251,14 +5249,14 @@ async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { 
   }
 }
 
-async function manifoldUnionMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
+async function manifoldUnionMeshShape(selection: WorkplaneShape[], triangleLimit: number, groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
   const solids = selection.filter((shape) => !shape.hole && !shape.locked);
   if (solids.length < 2 || !selection.some((shape) => Boolean(shape.importedMesh))) {
     return null;
   }
 
   const mergedSourceMesh = mergedSolidMeshData(solids);
-  if (mergedSourceMesh.faces.length > exactBooleanTriangleLimit) {
+  if (mergedSourceMesh.faces.length > triangleLimit) {
     return null;
   }
 
@@ -5326,9 +5324,9 @@ function intersectionOperandsOverlap(operands: WorkplaneShape[][]) {
   return rest.every((operand) => hasSolidHoleOverlap(first, operand));
 }
 
-async function manifoldIntersectionMeshShape(plan: IntersectionPlan): Promise<IntersectionAttempt> {
+async function manifoldIntersectionMeshShape(plan: IntersectionPlan, triangleLimit: number): Promise<IntersectionAttempt> {
   const sourceTriangleCount = plan.children.reduce((total, shape) => total + meshForShape(shape).faces.length, 0);
-  if (sourceTriangleCount > exactBooleanTriangleLimit) {
+  if (sourceTriangleCount > triangleLimit) {
     return { status: "unsupported" };
   }
 
@@ -5409,7 +5407,7 @@ function bvhIntersectionMeshShape(plan: IntersectionPlan, operation: CSGOperatio
   }
 }
 
-async function buildIntersectionShapeFromSelection(groupable: WorkplaneShape[]): Promise<IntersectionBuildResult> {
+async function buildIntersectionShapeFromSelection(groupable: WorkplaneShape[], triangleLimit: number): Promise<IntersectionBuildResult> {
   const plan = intersectionPlanForSelection(groupable);
   if (!plan) {
     return {
@@ -5423,7 +5421,7 @@ async function buildIntersectionShapeFromSelection(groupable: WorkplaneShape[]):
     return { group: null, empty: true, failureNotice: "" };
   }
 
-  const manifoldAttempt = await manifoldIntersectionMeshShape(plan);
+  const manifoldAttempt = await manifoldIntersectionMeshShape(plan, triangleLimit);
   if (manifoldAttempt.status === "success") {
     return { group: manifoldAttempt.group, empty: false, failureNotice: "" };
   }
@@ -6067,14 +6065,14 @@ function hasNonZeroRotation(shape: WorkplaneShape) {
  * the triangle count alone is the reason; between the two limits the kernel
  * was tried and refused the mesh, and only the fallback stopped at the count.
  */
-function importedCutFailureNotice(selection: WorkplaneShape[], succeeded: boolean) {
+function importedCutFailureNotice(selection: WorkplaneShape[], succeeded: boolean, triangleLimit: number) {
   const fallback = "Could not cut this imported mesh cleanly";
   if (succeeded) return fallback;
   const triangleCount = selection
     .filter((shape) => !shape.locked || shape.hole)
     .reduce((total, shape) => total + (shape.importedMesh?.triangleCount ?? meshForShape(shape).faces.length), 0);
-  if (triangleCount > exactBooleanTriangleLimit) {
-    return t("status.cutTooComplex", { triangles: formatTriangleCount(triangleCount), limit: formatTriangleCount(exactBooleanTriangleLimit) });
+  if (triangleCount > triangleLimit) {
+    return t("status.cutTooComplex", { triangles: formatTriangleCount(triangleCount), limit: formatTriangleCount(triangleLimit) });
   }
   if (triangleCount > IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT) {
     return t("status.cutNotWatertightTooComplex", { triangles: formatTriangleCount(triangleCount), limit: formatTriangleCount(IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT) });
@@ -6082,7 +6080,7 @@ function importedCutFailureNotice(selection: WorkplaneShape[], succeeded: boolea
   return fallback;
 }
 
-async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Promise<GroupBuildResult> {
+async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[], triangleLimit: number): Promise<GroupBuildResult> {
   const booleanSelection = expandGroupsForBoolean(groupable);
   const hasSolid = booleanSelection.some((shape) => !shape.hole);
   const hasHole = booleanSelection.some((shape) => shape.hole);
@@ -6095,8 +6093,8 @@ async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Prom
   // als vier einzelne Kinder existiert (Forum: Gruppe verschwindet beim
   // Aufloesen einer Vereinigung, die eine Gewinde-Gruppe enthielt).
   const cleanBoxGroup = canUseBoxBoolean(boxBooleanSelection) ? boxedBooleanMeshShape(boxBooleanSelection, groupable) : null;
-  const manifoldCutGroup = hasSolid && hasHole ? await manifoldBooleanMeshShape(booleanSelection, { requireImported: false }, groupable) : null;
-  const manifoldImportedMerge = hasImportedMesh && hasSolid && !hasHole ? await manifoldUnionMeshShape(booleanSelection, groupable) : null;
+  const manifoldCutGroup = hasSolid && hasHole ? await manifoldBooleanMeshShape(booleanSelection, triangleLimit, { requireImported: false }, groupable) : null;
+  const manifoldImportedMerge = hasImportedMesh && hasSolid && !hasHole ? await manifoldUnionMeshShape(booleanSelection, triangleLimit, groupable) : null;
   const exactImportedGroup = hasImportedMesh && hasSolid && hasHole ? manifoldCutGroup ?? importedBooleanMeshShape(booleanSelection, groupable) : null;
   const bakedImportedMerge = hasImportedMesh && !(hasSolid && hasHole) ? manifoldImportedMerge ?? mergedMeshShape(booleanSelection, groupable) : null;
   const group = hasSolid && hasHole
@@ -6117,7 +6115,7 @@ async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Prom
     hasImportedMesh,
     consumed,
     failureNotice: hasImportedMesh && hasSolid && hasHole
-      ? importedCutFailureNotice(booleanSelection, Boolean(group) || consumed)
+      ? importedCutFailureNotice(booleanSelection, Boolean(group) || consumed, triangleLimit)
       : hasSolid && hasHole ? "Could not cut this selection" : "Could not group this selection",
   };
 }
@@ -7061,7 +7059,6 @@ export function LayerlingEditor({
 
   useEffect(() => {
     workspaceSettingsRef.current = workspaceSettings;
-    exactBooleanTriangleLimit = workspaceSettings.booleanTriangleLimit;
   }, [workspaceSettings]);
 
   useEffect(() => {
@@ -7838,7 +7835,7 @@ export function LayerlingEditor({
     }
     const sourceFingerprint = projectShapesFingerprint([selectedShape]);
     const sourceProjectId = projectInfoRef.current.projectId;
-    const restored = await restoreEdgeTreatmentInShape(selectedShape, option.path, option.entryId);
+    const restored = await restoreEdgeTreatmentInShape(selectedShape, option.path, option.entryId, workspaceSettingsRef.current.booleanTriangleLimit);
     if (!restored) {
       setNotice(selectedEdgeFeatureCount > 0 ? t("status.edgeNoUndoHistory") : t("status.noEdgeFeature"));
       return;
@@ -9998,7 +9995,7 @@ export function LayerlingEditor({
 
     const sourceFingerprint = projectShapesFingerprint(shapesRef.current);
     const sourceProjectId = projectInfoRef.current.projectId;
-    const result = await buildGroupedShapeFromSelection(selectedShapes);
+    const result = await buildGroupedShapeFromSelection(selectedShapes, workspaceSettingsRef.current.booleanTriangleLimit);
     if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(shapesRef.current) !== sourceFingerprint) {
       setNotice(t("status.groupChanged"));
       return;
@@ -10051,7 +10048,7 @@ export function LayerlingEditor({
 
     const sourceFingerprint = projectShapesFingerprint(shapesRef.current);
     const sourceProjectId = projectInfoRef.current.projectId;
-    const result = await buildIntersectionShapeFromSelection(groupable);
+    const result = await buildIntersectionShapeFromSelection(groupable, workspaceSettingsRef.current.booleanTriangleLimit);
     if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(shapesRef.current) !== sourceFingerprint) {
       setNotice(t("status.intersectChanged"));
       return;
@@ -10170,10 +10167,10 @@ export function LayerlingEditor({
     try {
       const operation = original.groupOperation === "intersection" ? "intersection" : original.groupOperation === "bundle" ? "bundle" : "group";
       const result = operation === "intersection"
-        ? await buildIntersectionShapeFromSelection(parts)
+        ? await buildIntersectionShapeFromSelection(parts, workspaceSettingsRef.current.booleanTriangleLimit)
         : operation === "bundle"
           ? { group: groupedShape(parts) }
-          : await buildGroupedShapeFromSelection(parts);
+          : await buildGroupedShapeFromSelection(parts, workspaceSettingsRef.current.booleanTriangleLimit);
       if (
         projectInfoRef.current.projectId !== sourceProjectId ||
         projectShapesFingerprint(shapesRef.current) !== sourceFingerprint ||
@@ -11038,7 +11035,7 @@ export function LayerlingEditor({
         if (groupable.some((shape) => isNonSolidShapeKind(shape.kind))) throw new Error("A ruler isn't a solid and can't be grouped");
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
         const sourceProjectId = projectInfoRef.current.projectId;
-        const result = await buildGroupedShapeFromSelection(groupable);
+        const result = await buildGroupedShapeFromSelection(groupable, workspaceSettingsRef.current.booleanTriangleLimit);
         if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(currentShapes()) !== sourceFingerprint) {
           throw new Error("The scene changed while grouping; run the command again");
         }
@@ -11075,7 +11072,7 @@ export function LayerlingEditor({
         if (!canIntersectShapes(groupable)) throw new Error("Pass two solids, or a solid and a hole, to intersect");
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
         const sourceProjectId = projectInfoRef.current.projectId;
-        const result = await buildIntersectionShapeFromSelection(groupable);
+        const result = await buildIntersectionShapeFromSelection(groupable, workspaceSettingsRef.current.booleanTriangleLimit);
         if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(currentShapes()) !== sourceFingerprint) {
           throw new Error("The scene changed while intersecting; run the command again");
         }
@@ -11119,7 +11116,7 @@ export function LayerlingEditor({
         }
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
         const sourceProjectId = projectInfoRef.current.projectId;
-        const result = await buildGroupedShapeFromSelection(operands);
+        const result = await buildGroupedShapeFromSelection(operands, workspaceSettingsRef.current.booleanTriangleLimit);
         if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(currentShapes()) !== sourceFingerprint) {
           throw new Error("The scene changed while cutting; run the command again");
         }
@@ -11776,7 +11773,7 @@ export function LayerlingEditor({
         return;
       }
 
-      const result = await buildGroupedShapeFromSelection(testCase.shapes);
+      const result = await buildGroupedShapeFromSelection(testCase.shapes, workspaceSettingsRef.current.booleanTriangleLimit);
       if (!result.group) {
         const noticeText = result.consumed ? t("status.groupedHoleConsumed") : result.failureNotice;
         commitShapes(result.consumed ? [] : testCase.shapes, result.consumed ? [] : ids, noticeText);
