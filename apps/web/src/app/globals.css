@@ -3006,6 +3006,16 @@ button {
   outline-offset: 2px;
 }
 
+.split-panel-header.movable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.split-panel.moving,
+.split-panel.moving .split-panel-header.movable {
+  cursor: grabbing;
+}
+
 .split-panel-header,
 .split-panel-footer,
 .split-position-control > span {
