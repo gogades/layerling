@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendEditorHistorySnapshot, boundedEditorHistory, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, immutableResourceFingerprint, projectShapesFingerprint } from "@/lib/editorHistory";
+import { appendEditorHistorySnapshot, boundedEditorHistory, editorHistoryBranch, editorHistoryEntry, editorHistoryForExport, historyStateAt, hydrateEditorHistoryState, immutableResourceFingerprint, projectShapesFingerprint } from "@/lib/editorHistory";
 import type { WorkplaneShape } from "@/types/layerling";
 
 function box(overrides: Partial<WorkplaneShape> = {}): WorkplaneShape {
@@ -219,5 +219,64 @@ describe("editor history snapshots", () => {
     expect(lastThirty.index).toBe(30);
     expect(lastThirty.entries[0].shapes[0].x).toBe(90);
     expect(lastThirty.entries[30].shapes[0].x).toBe(120);
+  });
+});
+
+describe("history view", () => {
+  it("stamps a new state with the time it was recorded and keeps it through hydration", () => {
+    const first = editorHistoryEntry([box()], []);
+    const second = editorHistoryEntry([box({ x: 10 })], []);
+    const appended = appendEditorHistorySnapshot([first], 0, second, "unlimited", 1_700_000_000_000);
+
+    expect(appended.changed).toBe(true);
+    expect(appended.entries[1].at).toBe(1_700_000_000_000);
+    expect(appended.entries[1].fingerprint).toBe(second.fingerprint);
+
+    const hydrated = hydrateEditorHistoryState([box({ x: 10 })], appended.entries, 1);
+    expect(hydrated.entries).toHaveLength(2);
+    expect(hydrated.entries[1].at).toBe(1_700_000_000_000);
+    expect(hydrated.entries[0].at).toBeUndefined();
+  });
+
+  it("does not stamp an unchanged state or alter a fingerprint", () => {
+    const first = editorHistoryEntry([box()], []);
+    const again = appendEditorHistorySnapshot([first], 0, editorHistoryEntry([box()], ["box-1"]), "unlimited", 5);
+
+    expect(again.changed).toBe(false);
+    expect(again.entries[0].at).toBeUndefined();
+    expect(editorHistoryEntry([box()], [], [], undefined, 42).fingerprint).toBe(first.fingerprint);
+  });
+
+  it("resolves a state with its bodies, notes and workplane elevation", () => {
+    const entries = [
+      editorHistoryEntry([box()], []),
+      editorHistoryEntry([box({ x: 5 }), box({ id: "box-2", x: 30 })], ["box-2", "gone"], [{ id: "n1", text: "hi", x: 1, y: 2, z: 3 }]),
+    ];
+
+    const resolved = historyStateAt(entries, 1);
+    expect(resolved?.index).toBe(1);
+    expect(resolved?.shapes.map((shape) => shape.id)).toEqual(["box-1", "box-2"]);
+    expect(resolved?.selectedIds).toEqual(["box-2"]);
+    expect(resolved?.notes.map((note) => note.text)).toEqual(["hi"]);
+    expect(resolved?.placementElevation).toBe(0);
+
+    expect(historyStateAt(entries, 99)?.index).toBe(1);
+    expect(historyStateAt(entries, -3)?.index).toBe(0);
+    expect(historyStateAt([], 0)).toBeNull();
+  });
+
+  it("branches the history at a state, leaving later states behind", () => {
+    const entries = [0, 1, 2, 3, 4].map((step) => editorHistoryEntry([box({ x: step })], []));
+
+    const branch = editorHistoryBranch(entries, 2);
+    expect(branch.entries).toHaveLength(3);
+    expect(branch.index).toBe(2);
+    expect(branch.entries[2].shapes[0].x).toBe(2);
+
+    const limited = editorHistoryBranch(entries, 3, 1);
+    expect(limited.entries.map((entry) => entry.shapes[0].x)).toEqual([2, 3]);
+    expect(limited.index).toBe(1);
+
+    expect(editorHistoryBranch([], 0)).toEqual({ entries: [], index: 0 });
   });
 });

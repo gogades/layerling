@@ -78,3 +78,9 @@ The copies first appear as a preview. Only {{ui:array.apply}} creates them. If t
 ## Undoing
 
 {{ui:editor.tool.undo}} ([[Ctrl]]+[[Z]]) and {{ui:editor.tool.redo}} ([[Ctrl]]+[[Shift]]+[[Z]] or [[Ctrl]]+[[Y]]) step through your history. How many steps travel with the saved design you set in the settings under {{ui:workspace.history}}.
+
+## Looking back: the history view
+
+{{ui:editor.tool.history}}, next to undo and redo, opens a view of your history without changing anything. The work area shows the design as it was, and a slider at the bottom runs through every undo step: all the way to the right is the current state, each step to the left is one undo earlier, and states you have undone sit to the right of the current one. The arrow keys step through the states, [[Esc]] returns to the current state. You can turn and zoom the view meanwhile, but nothing can be selected or moved; the design itself stays exactly as it is.
+
+Two things you can take along from an earlier state. {{ui:historyView.createProject}} puts that state into a new design in the overview, named after this one with the time of that state in brackets - a design saved before layerling recorded times says "copy" instead - and with the history up to that point, so undo keeps working there. {{ui:historyView.export}} opens the usual export with that state as the design, so you can save it as STL, 3MF, STEP, a picture or a LYL file with the history up to that state.

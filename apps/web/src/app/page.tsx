@@ -22,6 +22,7 @@ import { duplicateName, type DuplicateNamePatterns } from "@/lib/duplicateName";
 import { migrateLegacyProjectShapes, migrateLegacyStorageKeys, PROJECT_SHAPES_DB_NAME } from "@/lib/storageMigration";
 import { useLanguage } from "@/lib/useLanguage";
 import { createLocalId } from "@/lib/localIds";
+import type { HistoryProjectRequest } from "@/components/LayerlingEditor";
 import {
   horizontalPlacementWorkplane,
   normalizePlacementWorkplane,
@@ -1849,6 +1850,52 @@ export default function Home() {
     }
   };
 
+  /**
+   * Ein neues Projekt aus einem frueheren Stand, den der Verlaufsblick zeigt.
+   * Es entsteht wie ein Duplikat - in der Uebersicht, mit eigener Karte -, nur
+   * dass Koerper und Verlauf aus diesem Stand kommen. Der Editor bleibt im
+   * Projekt, in dem er ist; der Satz, der zurueckgeht, sagt, wo das neue liegt.
+   */
+  const createProjectFromHistoryState = useCallback(async (request: HistoryProjectRequest) => {
+    const source = request.sourceProjectId ? projects.find((project) => project.id === request.sourceProjectId) : undefined;
+    const taken = projects.map((project) => project.name);
+    const isTaken = (name: string) => taken.some((candidate) => candidate.trim().toLowerCase() === name.trim().toLowerCase());
+    const wished = request.name?.trim().slice(0, PROJECT_NAME_LIMIT);
+    // Der Wunschname traegt die Zeit des Standes. Steht er schon in der
+    // Uebersicht - derselbe Stand ein zweites Mal -, wird er zur Kopie.
+    const name = wished && !isTaken(wished)
+      ? wished
+      : duplicateName(wished || source?.name || t("dashboard.untitledDesign", { number: projects.length + 1 }), taken, duplicateNamePatterns(), PROJECT_NAME_LIMIT);
+    const now = Date.now();
+    const { sharedProject: _bound, ...carried } = source ?? newProject(name, projects.length, request.shapes.length);
+    const copy: DashboardProject = {
+      ...carried,
+      id: createLocalId("project"),
+      name,
+      createdAt: now,
+      updatedAt: now,
+      revision: now,
+      shapes: request.shapes.length,
+      thumbnailUrl: null,
+      thumbnailVersion: undefined,
+      workspace: request.workspace,
+      snapGrid: request.snapGrid,
+      placementElevation: request.placementElevation,
+      placementWorkplane: request.placementWorkplane,
+      sketchPlacementWorkplane: request.placementWorkplane,
+    };
+    const entry = projectShapeCacheEntryFromEditor(now, request.shapes, request.history, request.historyIndex, request.assets);
+    await saveProjectShapes(copy.id, entry, projectShapeSaveContext(copy));
+    setProjectShapesById((current) => ({ ...current, [copy.id]: entry }));
+    setProjects((current) => [copy, ...current]);
+    if (request.thumbnailDataUrl) {
+      // Das Bild ist Beiwerk, wie beim Duplizieren: ohne steht die Karte mit
+      // der Ersatzflaeche da, das Projekt ist trotzdem angelegt.
+      await updateProjectSnapshot({ image: request.thumbnailDataUrl, projectId: copy.id, shapes: copy.shapes }).catch(() => undefined);
+    }
+    return t("notice.createdFromHistory", { name });
+  }, [projects, updateProjectSnapshot]);
+
   const renameProject = (projectId: string, name: string) => {
     const nextName = name.trim().slice(0, PROJECT_NAME_LIMIT);
     if (!nextName) return;
@@ -1960,6 +2007,7 @@ export default function Home() {
             onProjectNameChange={(name) => {
               if (activeProjectId) renameProject(activeProjectId, name);
             }}
+            onCreateProjectFromState={createProjectFromHistoryState}
             projectId={activeProjectId}
             projectName={activeProject?.name}
             projectCreatedAt={activeProject?.createdAt}
@@ -1983,7 +2031,7 @@ function EditorLoadingSkeleton() {
   const leftToolbarSections = [
     { className: "home", controls: 1 },
     { className: "clipboard", controls: 4 },
-    { className: "history", controls: 2 },
+    { className: "history", controls: 3 },
     { className: "shapes", controls: 1 },
   ];
   const rightToolbarSections = [

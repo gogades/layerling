@@ -6307,6 +6307,101 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .color-recent {
   border-top-color: rgba(225, 225, 225, 0.14);
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-bar {
+  color: #424242;
+  background: rgba(252, 252, 252, 0.98);
+  border: 1px solid #cbcbcb;
+  box-shadow: 0 14px 38px rgba(56, 56, 56, 0.2);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-heading span {
+  color: #676767;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-head .panel-header-actions button {
+  color: inherit;
+  background: transparent;
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-head .panel-header-actions button:hover,
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-head .guide-help-link:hover {
+  background: #ebebeb;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-slider > button {
+  color: #535353;
+  background: #fff;
+  border: 1px solid #c8c8c8;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-slider input[type="range"]:focus-visible {
+  outline: 2px solid #d07313;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-facts {
+  color: #676767;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-facts .current {
+  color: #2a8f57;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-actions button {
+  border: 1px solid #c8c8c8;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-actions .secondary {
+  color: #535353;
+  background: white;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .history-view-actions .primary {
+  color: white;
+  background: #cc7011;
+  border-color: #b35f07;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-bar {
+  color: #e1e1e1;
+  background: rgba(36, 36, 36, 0.97);
+  border-color: #4c4c4c;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34);
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-heading span,
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-facts {
+  color: #909090;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-facts .current {
+  color: #5fd394;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-head .panel-header-actions button:hover,
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-head .guide-help-link:hover {
+  background: #353535;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-slider > button,
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-actions .secondary {
+  color: #e4e4e4;
+  background: #353535;
+  border-color: #515151;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-slider .range-control input[type="range"]::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #e0862a 0 var(--slider-pos), #4c4c4c var(--slider-pos) 100%);
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-slider .range-control input[type="range"]::-moz-range-track {
+  background: #4c4c4c;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-slider .range-control input[type="range"]::-moz-range-progress {
+  background: #e0862a;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section-tools,
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section .action-buttons {
   background: var(--toolbar-tile);

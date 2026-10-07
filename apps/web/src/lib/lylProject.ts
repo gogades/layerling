@@ -133,7 +133,13 @@ export type LylProjectDocumentV1 = {
   sceneStateId: string;
   states: LylStateV1[];
   history: {
-    entries: Array<{ stateId: string; selectedObjectIds: string[]; workplane?: PlacementWorkplane }>;
+    entries: Array<{
+      stateId: string;
+      selectedObjectIds: string[];
+      workplane?: PlacementWorkplane;
+      /** When the state was recorded, ISO 8601. States from before this field exists have none. */
+      recordedAt?: string;
+    }>;
     index: number;
   };
   sketches: Array<{ id: string; nodeId: string; objectId: string; operation?: SketchOperation; extrusionDepth: number; revolve?: SketchRevolveSettings }>;
@@ -851,6 +857,7 @@ export async function exportLylProject(input: LylProjectExportInput) {
       stateId,
       selectedObjectIds: [...entry.selectedIds],
       ...(entry.placementWorkplane ? { workplane: entry.placementWorkplane } : {}),
+      ...(typeof entry.at === "number" && Number.isFinite(entry.at) ? { recordedAt: new Date(entry.at).toISOString() } : {}),
     });
   }
 
@@ -969,6 +976,13 @@ function objectRecord(value: unknown, label: string): Record<string, unknown> {
 function stringValue(value: unknown, label: string) {
   if (typeof value !== "string" || !value.trim()) throw new Error(`${label} must be a non-empty string`);
   return value;
+}
+
+/** The time a history entry was recorded, if the package carries one that parses. */
+function historyRecordedAt(value: string | undefined): number | undefined {
+  if (typeof value !== "string") return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function stringArray(value: unknown, label: string) {
@@ -1453,6 +1467,9 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
   document.history.entries.forEach((entry, index) => {
     if (!stateById.has(entry.stateId)) throw new Error(`History entry ${index} references missing state '${entry.stateId}'`);
     stringArray(entry.selectedObjectIds, `history.entries[${index}].selectedObjectIds`);
+    if (entry.recordedAt !== undefined && typeof entry.recordedAt !== "string") {
+      throw new Error(`history.entries[${index}].recordedAt must be a string`);
+    }
   });
   if (document.history.entries[document.history.index]?.stateId !== document.sceneStateId) throw new Error("Active scene and undo history index do not match");
   validateFeatureGraph(document.features, activeObjectIds);
@@ -1629,6 +1646,7 @@ async function restoreV1(document: LylProjectDocumentV1, assetById: Map<string, 
     entry.selectedObjectIds,
     restoredNotes.get(entry.stateId) ?? [],
     entry.workplane,
+    historyRecordedAt(entry.recordedAt),
   ));
   const shapes = restoredStates.get(document.sceneStateId) ?? [];
   const notes = restoredNotes.get(document.sceneStateId) ?? [];

@@ -734,3 +734,19 @@ describe("layerling .lyl project packages", () => {
     await expect(importLylProject(broken)).rejects.toThrow("missing display edge asset");
   });
 });
+
+describe("history timestamps", () => {
+  it("round-trips the time a state was recorded and tolerates states without one", async () => {
+    const before = editorHistoryEntry([shape("box")], []);
+    const after = editorHistoryEntry([shape("box", "box-1", { x: 40 })], [], [], undefined, Date.UTC(2026, 9, 7, 12, 30));
+    const exported = await exportLylProject(input([shape("box", "box-1", { x: 40 })], { history: [before, after], historyIndex: 1 }));
+    const document = JSON.parse(strFromU8(unzipSync(exported)["project.json"])) as LylProjectDocumentV1;
+
+    expect(document.history.entries[0].recordedAt).toBeUndefined();
+    expect(document.history.entries[1].recordedAt).toBe("2026-10-07T12:30:00.000Z");
+
+    const restored = await importLylProject(exported);
+    expect(restored.history[0].at).toBeUndefined();
+    expect(restored.history[1].at).toBe(Date.UTC(2026, 9, 7, 12, 30));
+  });
+});

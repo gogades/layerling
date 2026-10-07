@@ -48,6 +48,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     shortcuts: [
       { combos: ["Ctrl+Z"], label: "shortcuts.undo" },
       { combos: ["Ctrl+Shift+Z", "Ctrl+Y"], label: "shortcuts.redo" },
+      { combos: ["← / →"], label: "shortcuts.historyView" },
+      { combos: ["Esc"], label: "shortcuts.historyViewClose" },
     ],
   },
   {
