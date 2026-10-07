@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.45.0
 
 - **Look back with the history view:** The History button, next to Undo and Redo, shows any earlier state of the project without changing it. A slider runs through the states (or use the arrow keys), Esc returns, and from an earlier state you can export it or start a new project from it. While it is open, every tool that changes the design is switched off, in the ribbon, in the command search and for AI clients. The AI bridge has a new tool, `layerling_set_history_view`, that opens it at a state, so a picture can be taken of an earlier version. By @rmpel in #134.
 - **The ribbon fits again with the new button:** The three steps where the icons shrink and the groups wrap now start at 1825, 1547 and 1424 px, where the ribbon with the history button really runs out of room.
