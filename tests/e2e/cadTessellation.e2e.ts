@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
 import type { WorkplaneShape } from "@/types/layerling";
 import { cadModifierBaseDeflection, cadModifierCappedDeflection } from "@/lib/cadModifierRuntime";
-import { meshTreatedBody } from "@/lib/cadMeshAccuracy";
+import { MAX_REFINED_TRIANGLES, meshTreatedBody } from "@/lib/cadMeshAccuracy";
 import { textGlyphProfiles } from "@/lib/cadProfileExtrusion";
 import { profileExtrusionSolid } from "@/lib/cadProfileSolid";
 import { loadTextFonts } from "@/lib/textFonts";
@@ -136,5 +136,34 @@ describe("tessellation of treated bodies with the real OCCT kernel", () => {
     // Meshed afresh - not the looser mesh the body already carried (1182 triangles).
     expect(after).toEqual(before);
     expect(after.deviation).toBeLessThan(0.003);
+  });
+
+  it("tightens the angle further when the old one still leaves a fillet straying (forum report, 07.10.2026)", () => {
+    // A 0.5 mm fillet round a 60 mm cylinder: at the old angle (0.16) OCCT
+    // lets single triangles span most of the quarter arc, 0.124 mm off the
+    // exact torus against a chord limit of 0.025 mm - visible as a sawtooth
+    // along the seam, in the editor and in the slicer. At 0.1 it is 0.008 mm.
+    const cylinder = () => {
+      const solid = cad.makeCylinder(30, 5);
+      return cad.fillet(solid, edgesAt(solid, "z", 5), 0.5);
+    };
+    const { linear, angular, fellBack, before, after } = compare(cylinder, 0.5);
+    expect(fellBack).toBe(true);
+    expect(angular).toBeLessThan(BEFORE_ANGULAR);
+    expect(before.deviation).toBeGreaterThan(linear * 2);
+    expect(after.deviation).toBeLessThanOrEqual(linear);
+    // The finer mesh costs triangles, but not without bound.
+    expect(after.triangles).toBeLessThan(40000);
+  });
+
+  it("never leaves a treated body above the triangle limit it allows for refining", () => {
+    const cylinder = () => {
+      const solid = cad.makeCylinder(30, 5);
+      return cad.fillet(solid, edgesAt(solid, "z", 5), 0.5);
+    };
+    const base = cadModifierBaseDeflection("standard", 0.5);
+    const solid = cylinder();
+    const meshed = meshTreatedBody(cad, [solid], solid, base, cadModifierCappedDeflection("standard", base));
+    expect(meshed.mesh.triangleCount).toBeLessThanOrEqual(MAX_REFINED_TRIANGLES);
   });
 });

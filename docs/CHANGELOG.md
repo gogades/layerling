@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Small fillets no longer leave a sawtooth:** A fillet of about 0.2 to 0.9 mm round a large circular edge (a 0.5 mm fillet on a 60 mm cylinder, for example) could come out with visible zigzags along the seam, in the editor and in the slicer, while 1 mm looked fine. The surface was closed but strayed up to 0.12 mm from the true curve, five times what the chord limit allows, because single triangles spanned most of the rounded arc. The mesh is now checked again after the first fallback and, where it still strays, rebuilt with a tighter angle (0.1, then 0.05), as long as the body stays under 400,000 triangles; such a rim now has roughly 8,000 to 33,000 triangles instead of about 6,000. Reported in the forum.
 - **Delete all measurements at once:** The tape measure has a fourth button, a bin, that removes every measurement in the design. Because this cannot be undone, it asks first; with no measurements it does nothing.
 
 ## 1.44.0

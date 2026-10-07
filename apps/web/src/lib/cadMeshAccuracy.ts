@@ -76,38 +76,84 @@ export function cadMeshStraysFromFaces(cad: OcctKernel, shape: ShapeHandle, opti
 }
 
 /**
- * Meshes a treated body with `deflection` - unless the angle can still be
- * tightened to `capped` and the mesh strays from a checked face: then fresh
- * copies of the components (OCCT keeps a triangulation a shape already has,
- * a copy has none) are meshed with `capped`, which is what every treatment
- * got before the angle loosened. The components passed in are released when
- * they are replaced; the caller owns whatever comes back.
+ * The angle limits tried, one after the other, when even the angle every
+ * treatment got before the loosening leaves a mesh that strays. A 0.5 mm
+ * fillet round a 60 mm cylinder strays 0.124 mm at 0.16 (five times its
+ * 0.025 mm chord limit - OCCT lets one triangle span most of the quarter
+ * arc), 0.008 mm at 0.1 and 0.002 mm at 0.05. Each step costs triangles
+ * (5,912, 8,564 and 32,756 for that body), so a step is only taken for a
+ * mesh that still strays after the one before it.
  */
-export function meshTreatedBody(cad: OcctKernel, components: ShapeHandle[], result: ShapeHandle, deflection: CadModifierDeflection, capped: CadModifierDeflection): { components: ShapeHandle[]; result: ShapeHandle; deflection: CadModifierDeflection; mesh: Mesh } {
-  const mesh = cad.tessellate(result, optionsFor(deflection));
-  const kept = { components, result, deflection, mesh };
-  if (!(capped.angular < deflection.angular)) return kept;
-  let strays = true;
-  try {
-    strays = cadMeshStraysFromFaces(cad, result, optionsFor(deflection));
-  } catch {
-    // A face the check cannot measure counts as straying.
-  }
-  if (!strays) return kept;
+const TIGHTER_ANGLES = [0.1, 0.05];
+
+/** A tighter angle is not taken when it would leave a body with more triangles than this. */
+export const MAX_REFINED_TRIANGLES = 400_000;
+
+type MeshedBody = { components: ShapeHandle[]; result: ShapeHandle; deflection: CadModifierDeflection; mesh: Mesh };
+
+/** Fresh copies of the components (OCCT keeps a triangulation a shape already has, a copy has none), meshed with `deflection`. */
+function meshCopies(cad: OcctKernel, components: ShapeHandle[], deflection: CadModifierDeflection): MeshedBody {
   const fresh: ShapeHandle[] = [];
   let freshResult: ShapeHandle | null = null;
-  let freshMesh: Mesh;
   try {
     components.forEach((component) => fresh.push(cad.copy(component)));
     freshResult = fresh.length === 1 ? fresh[0] : cad.makeCompound(fresh);
-    freshMesh = cad.tessellate(freshResult, optionsFor(capped));
-  } catch {
-    // The treatment itself succeeded; keep its mesh rather than fail it.
+    const mesh = cad.tessellate(freshResult, optionsFor(deflection));
+    return { components: fresh, result: freshResult, deflection, mesh };
+  } catch (error) {
     if (freshResult !== null && fresh.length > 1) releaseAll(cad, [freshResult]);
     releaseAll(cad, fresh);
-    return kept;
+    throw error;
   }
+}
+
+function releaseMeshed(cad: OcctKernel, body: MeshedBody) {
+  if (body.components.length > 1) releaseAll(cad, [body.result]);
+  releaseAll(cad, body.components);
+}
+
+/**
+ * Meshes a treated body with `deflection` - unless the angle can still be
+ * tightened to `capped` and the mesh strays from a checked face: then fresh
+ * copies of the components are meshed with `capped`, which is what every
+ * treatment got before the angle loosened. If that mesh still strays, the
+ * angle is tightened further (TIGHTER_ANGLES) until it does not, as long as
+ * the body stays under MAX_REFINED_TRIANGLES. The components passed in are
+ * released when they are replaced; the caller owns whatever comes back.
+ */
+export function meshTreatedBody(cad: OcctKernel, components: ShapeHandle[], result: ShapeHandle, deflection: CadModifierDeflection, capped: CadModifierDeflection): MeshedBody {
+  const mesh = cad.tessellate(result, optionsFor(deflection));
+  const kept = { components, result, deflection, mesh };
+  if (!(capped.angular < deflection.angular)) return kept;
+  const straysWith = (body: { result: ShapeHandle }, options: CadModifierDeflection) => {
+    try {
+      return cadMeshStraysFromFaces(cad, body.result, optionsFor(options));
+    } catch {
+      // A face the check cannot measure counts as straying.
+      return true;
+    }
+  };
+  if (!straysWith(kept, deflection)) return kept;
+  let current: MeshedBody | null = null;
+  const angles = [capped.angular, ...TIGHTER_ANGLES.filter((angular) => angular < capped.angular)];
+  for (const angular of angles) {
+    let next: MeshedBody;
+    try {
+      next = meshCopies(cad, components, { linear: capped.linear, angular });
+    } catch {
+      // The treatment itself succeeded; keep the mesh it has rather than fail it.
+      break;
+    }
+    if (current && next.mesh.triangleCount > MAX_REFINED_TRIANGLES) {
+      releaseMeshed(cad, next);
+      break;
+    }
+    if (current) releaseMeshed(cad, current);
+    current = next;
+    if (!straysWith(next, next.deflection)) break;
+  }
+  if (!current) return kept;
   if (components.length > 1) releaseAll(cad, [result]);
   releaseAll(cad, components);
-  return { components: fresh, result: freshResult, deflection: capped, mesh: freshMesh };
+  return current;
 }
