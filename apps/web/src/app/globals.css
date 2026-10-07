@@ -9218,15 +9218,27 @@ html[data-theme="dark"] .inspector-bundle-note {
   min-height: 240px;
 }
 
-.mesh-compare-note {
+/* A body that came out of a group loses its parts when simplified. That is
+   not a hint to notice later: it stands in the warning colour right above
+   the button that does it, across the whole row. */
+.mesh-compare-warning {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 9px;
   margin: 0;
-  padding: 7px 14px;
-  color: #7a4a12;
-  background: #fdf1df;
-  border-bottom: 1px solid #f0d9b8;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 8px 12px;
+  color: #8a3b00;
+  background: #fff4e5;
+  border: 1px solid #f0a45a;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 700;
   line-height: 1.4;
+}
+
+.mesh-compare-warning svg {
+  flex-shrink: 0;
 }
 
 .mesh-compare-header .guide-help-link {
@@ -9430,10 +9442,10 @@ html[data-theme="dark"] .mesh-compare-hint {
   color: #b9a58f;
 }
 
-html[data-theme="dark"] .mesh-compare-note {
-  color: #f0c98a;
-  background: #3a2c1a;
-  border-bottom-color: #55401f;
+html[data-theme="dark"] .mesh-compare-warning {
+  color: #ffc78a;
+  background: #3a2511;
+  border-color: #a8601f;
 }
 
 html[data-theme="dark"] .mesh-compare-close:hover {

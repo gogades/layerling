@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Check, LoaderCircle, X } from "lucide-react";
+import { AlertTriangle, Check, LoaderCircle, X } from "lucide-react";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { getLanguage, t } from "@/lib/i18n";
 import { simplifyTrianglePositions, type SimplifiedMesh } from "@/lib/meshSimplify";
@@ -336,7 +336,6 @@ export function MeshSimplifyPanel({
           <X size={18} strokeWidth={2.5} />
         </button>
       </div>
-      {dissolvesGroup ? <p className="mesh-compare-note">{t("simplify.groupNote")}</p> : null}
       <div className="mesh-compare-stage" ref={stageRef}>
         <span className="mesh-compare-label before">{t("simplify.before", { count: count(sourceTriangles) })}</span>
         <span className={`mesh-compare-label after ${busy ? "busy" : ""}`}>
@@ -346,6 +345,12 @@ export function MeshSimplifyPanel({
         <span className="mesh-compare-hint">{t("simplify.hint")}</span>
       </div>
       <div className="mesh-compare-footer">
+        {dissolvesGroup ? (
+          <p className="mesh-compare-warning" role="status">
+            <AlertTriangle size={17} strokeWidth={2.4} aria-hidden="true" />
+            <span>{t("simplify.groupNote")}</span>
+          </p>
+        ) : null}
         <label className="mesh-compare-slider">
           <span>{t("simplify.keep")}</span>
           <input
