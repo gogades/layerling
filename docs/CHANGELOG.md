@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **AI control of a copy on a NAS over plain http works:** The editor page of a copy opened as `http://192.168.x.x:3000` could not connect (every poll got 403), because browsers send `Sec-Fetch-Site` only to secure contexts (https or localhost). Without it, a matching `Origin` header now counts; with neither, the request is still refused, and a present `Sec-Fetch-Site` still has to be `same-origin`. Found on a Synology, with the fix and its test by @brauwers1981 in #142.
 - **The history bar can be moved:** Drag it by its title to get it off whatever it covers; a double-click on the title puts it back, and the spot is remembered.
 - **Dragging a dense design no longer stalls on the autosave:** A trace from a forum user showed that saving a dense design takes over a second on the main thread, started right after each move, so a click that came in meanwhile waited and the body jumped to its new place late. The autosave now holds back while you drag, type or scroll and runs in the first pause (at most 6 seconds later; a window that goes to the background is saved at once), and a save whose newer state is already waiting is skipped instead of written one by one.
 - **Saving repeats less work:** The exact-CAD text of a body (and of an imported STEP) was encoded and hashed again for every undo state on every save. The few most recent ones are now remembered.

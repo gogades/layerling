@@ -136,7 +136,11 @@ export function authorizeRemoteRequest(request: Request, role: McpRole, settings
       return { ok: false, status: 403, error: "layerling MCP rejects requests from other sites." };
     }
   }
-  if (request.headers.get("sec-fetch-site") !== "same-origin") {
+  // Browsers send Sec-Fetch-Site only to secure contexts (https or localhost). A copy on a NAS over plain
+  // http://192.168.x.x gets none, so then the Origin header, which every browser sends on a POST, has to
+  // be there and has matched the host above. Without either header it is not a browser page of this site.
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite ? fetchSite !== "same-origin" : !origin) {
     return { ok: false, status: 403, error: "layerling MCP rejects requests from other sites." };
   }
   return { ok: true };

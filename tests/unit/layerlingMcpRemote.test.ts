@@ -98,10 +98,16 @@ describe("authorizeRemoteRequest", () => {
     expect(authorizeRemoteRequest(proxied, "editor", listed)).toEqual({ ok: true });
   });
 
+  it("accepts an editor page over plain http, where the browser sends an Origin but no Sec-Fetch-Site", () => {
+    const plainHttp = request({ host: "192.168.2.11:3000", origin: "http://192.168.2.11:3000" });
+    expect(authorizeRemoteRequest(plainHttp, "editor", ON)).toEqual({ ok: true });
+    expect(authorizeRemoteRequest(request({ host: "192.168.2.11:3000", origin: "http://example.com" }), "editor", ON)).toMatchObject({ ok: false, status: 403 });
+  });
+
   it("refuses another site's page and anything that is not a browser page", () => {
     expect(authorizeRemoteRequest(request({ host: "192.168.2.11:3000", origin: "http://example.com", "sec-fetch-site": "cross-site" }), "editor", ON)).toMatchObject({ ok: false, status: 403 });
     expect(authorizeRemoteRequest(request({ host: "192.168.2.11:3000", origin: "http://192.168.2.11:4000", "sec-fetch-site": "same-origin" }), "editor", ON)).toMatchObject({ ok: false, status: 403 });
-    // No Fetch Metadata header: not a browser page of this site.
+    // Neither Fetch Metadata nor an Origin: not a browser page of this site.
     expect(authorizeRemoteRequest(request({ host: "192.168.2.11:3000" }), "editor", ON)).toMatchObject({ ok: false, status: 403 });
     // With the token, anything goes.
     expect(authorizeRemoteRequest(request({ host: "192.168.2.11:3000", authorization: `Bearer ${TOKEN}` }), "editor", ON)).toEqual({ ok: true });
