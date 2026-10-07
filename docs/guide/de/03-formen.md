@@ -22,6 +22,8 @@ Was die Bibliothek bietet:
 - **Mechanik:** {{ui:shape.thread}} (Gewindestange, Schraube, Mutter und Gewindeloch), {{ui:shape.spring}}, {{ui:shape.gear}} und die {{ui:shape.knurl}} für Griffe. Mehr im Kapitel [Gewinde und Mechanik](chapter:gewinde-und-mechanik).
 - **Für Konstruktionen:** {{ui:shape.honeycomb}}, das druckbare {{ui:shape.hinge}}, {{ui:shape.dovetail}}, die {{ui:shape.teardrop}} für waagerechte Löcher, die {{ui:shape.counterbore}} und {{ui:shape.countersink}} für Schraubenköpfe und das {{ui:shape.ruler}}, das nur ein Messwerkzeug ist und in keinem Export auftaucht.
 
+Ein Dreieck bekommst du auf zwei Wegen: Der {{ui:shape.polygon}} mit drei Seiten ist ein gleichschenkliges Dreieck, das „Dach“ aus Tinkercad, der {{ui:shape.wedge}} ein rechtwinkliges. Beide sind echte Dreiecksprismen. Für ein dreieckiges Loch kopierst du die Form, machst die Kopie kleiner, markierst sie als Aussparung und richtest sie mit {{ui:editor.tool.centerOnWorkplane}} oder {{ui:editor.tool.align}} aus. Beides arbeitet mit dem Umgrenzungskasten der Form, also dem kleinsten Quader, der sie umschließt; ein halbiertes Quadrat gilt deshalb weiter als ganzes Quadrat. Mit der Befehlssuche ([[Strg]]+[[K]]) findest du beide Formen auch unter „Dreieck“ oder „Dach“.
+
 ## Die Einstellungen der Form
 
 Sobald eine Form ausgewählt ist, erscheinen rechts ihre Einstellungen. Ganz oben steht der Name; über den Stift daneben ({{ui:outliner.rename}}) tippst du einen neuen ein. [[Enter]] übernimmt ihn, [[Esc]] bricht ab, und ein leerer Name bringt den Standardnamen der Form zurück. Weiter rechts schließt das Schloss die Form gegen versehentliches Verschieben ab, und das Auge blendet sie aus. Der Pfeil ganz links klappt die Einstellungen bis auf ihre Titelleiste ein.
