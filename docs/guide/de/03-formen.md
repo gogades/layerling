@@ -11,7 +11,7 @@ Klicke im Menüband auf {{ui:editor.addShape}}. Es öffnet sich die Formenbiblio
 
 ![Die Formenbibliothek. Jedes Bildchen ist aus der echten Geometrie der Form gerendert.](shot:shape-menu)
 
-Wähle eine Form aus. Sie hängt jetzt am Mauszeiger und landet dort, wo du klickst. Drückst du [[Esc]], wird das Absetzen abgebrochen. Wer die Form lieber direkt in der Mitte der Platte haben möchte, kann das Absetzen per Klick in den Einstellungen abschalten (Bereich {{ui:workspace.appearance}}, Schalter {{ui:workspace.cruise}}).
+Wähle eine Form aus. Sie hängt jetzt am Mauszeiger und landet dort, wo du klickst. Drückst du [[Esc]], wird das Absetzen abgebrochen. Ein Werkzeug, das auf einen Klick wartet, etwa das Maßband, das Winkellineal, eine Notiz, {{ui:camera.placeWorkplane}}, {{ui:editor.tool.layFlat}} oder die Kantenwerkzeuge, wird beim Wählen einer Form abgeschaltet, damit der Klick die Form absetzt. Umgekehrt legt das Einschalten eines dieser Werkzeuge die Form wieder weg. Wer die Form lieber direkt in der Mitte der Platte haben möchte, kann das Absetzen per Klick in den Einstellungen abschalten (Bereich {{ui:workspace.appearance}}, Schalter {{ui:workspace.cruise}}).
 
 Was die Bibliothek bietet:
 

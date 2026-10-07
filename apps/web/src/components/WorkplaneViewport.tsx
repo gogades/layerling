@@ -288,6 +288,8 @@ type WorkplaneViewportProps = {
   onDropMyShape?: (id: string, point: PlacementPoint) => void;
   /** Shape following the cursor until a click drops it. Null places immediately. */
   cruiseAsset?: ShapeAsset | null;
+  /** Puts down the shape on the pointer when a tool here takes over the click. */
+  onCancelCruise?: () => void;
   onAlignAnchorChange: (id: string) => void;
   onAlignPreview: (axis: AlignAxis, target: AlignTarget) => void;
   onAlignPreviewClear: () => void;
@@ -4203,6 +4205,7 @@ export function WorkplaneViewport({
   onAddShape,
   onDropMyShape,
   cruiseAsset = null,
+  onCancelCruise,
   onAlignAnchorChange,
   onAlignPreview,
   onAlignPreviewClear,
@@ -5745,6 +5748,21 @@ export function WorkplaneViewport({
     }
   }, [storeTapeModel]);
 
+  // A shape taken up for placing puts down the measuring tools that would
+  // otherwise catch its click (the editor does the same for its own tools).
+  useEffect(() => {
+    if (!cruiseAsset) return;
+    setTapeActive(false);
+    tapeDeleteModeRef.current = false;
+    setTapeDeleteMode(false);
+    tapeMoveModeRef.current = false;
+    setTapeMoveMode(false);
+    tapePointDragRef.current = null;
+    cornerRulerModeRef.current = false;
+    setCornerRulerMode(false);
+    setSectionMeasureMode(false);
+  }, [cruiseAsset, setTapeActive]);
+
   const resolveTapeCandidate = useCallback(
     (clientX: number, clientY: number, ignoredPointId?: string): TapeCandidate | null => {
       const state = threeRef.current;
@@ -7183,9 +7201,10 @@ export function WorkplaneViewport({
   const toggleCornerRulerTool = useCallback(() => {
     if (splitActiveRef.current) return;
     const next = !cornerRulerModeRef.current;
+    if (next) onCancelCruise?.();
     cornerRulerModeRef.current = next;
     setCornerRulerMode(next);
-  }, []);
+  }, [onCancelCruise]);
 
   /** Der Griff ist immer direkt ziehbar, ohne eigenen Verschieben-Modus - wie bei einer Notiz-Nadel, nicht wie beim Massband (das mehrere Punkte je Strecke verwaltet und deshalb einen Modus braucht). Ein Klick ohne Zug dreht die Instanz um 90 Grad - wie in Tinkercad. */
   const handleCornerRulerHandlePointerDown = useCallback((event: ReactPointerEvent<SVGCircleElement>, id: string) => {
@@ -8419,7 +8438,8 @@ export function WorkplaneViewport({
     setTapeMoveMode(false);
     setTapeActive(true);
     onWorkplaneModeChange(false);
-  }, [onWorkplaneModeChange, setTapeActive]);
+    onCancelCruise?.();
+  }, [onCancelCruise, onWorkplaneModeChange, setTapeActive]);
 
   const activateTapeDelete = useCallback(() => {
     if (splitActiveRef.current) return;
@@ -8429,7 +8449,8 @@ export function WorkplaneViewport({
     tapeDeleteModeRef.current = true;
     setTapeDeleteMode(true);
     onWorkplaneModeChange(false);
-  }, [onWorkplaneModeChange, setTapeActive]);
+    onCancelCruise?.();
+  }, [onCancelCruise, onWorkplaneModeChange, setTapeActive]);
 
   const activateTapeMove = useCallback(() => {
     if (splitActiveRef.current) return;
@@ -8439,8 +8460,9 @@ export function WorkplaneViewport({
     tapeMoveModeRef.current = true;
     setTapeMoveMode(true);
     onWorkplaneModeChange(false);
+    onCancelCruise?.();
     onSelectShape(null);
-  }, [onSelectShape, onWorkplaneModeChange, setTapeActive]);
+  }, [onCancelCruise, onSelectShape, onWorkplaneModeChange, setTapeActive]);
 
   const collapseCameraControls = useCallback(() => {
     setCameraControlsCollapsed(true);
@@ -9073,7 +9095,10 @@ export function WorkplaneViewport({
                           type="button"
                           className={`section-action-btn section-measure-btn ${sectionMeasureMode ? "active" : ""}`}
                           aria-pressed={sectionMeasureMode}
-                          onClick={() => setSectionMeasureMode((current) => !current)}
+                          onClick={() => {
+                            if (!sectionMeasureModeRef.current) onCancelCruise?.();
+                            setSectionMeasureMode((current) => !current);
+                          }}
                           title={t("camera.sectionMeasureHint")}
                         >
                           <Ruler size={14} strokeWidth={2.2} aria-hidden="true" />

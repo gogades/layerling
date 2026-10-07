@@ -16,6 +16,8 @@ Sharp edges rarely look good on a printed part, and they are not particularly st
 
 The panel sits at the top right. If it covers edges you want to click, drag it away by its title bar; it opens there next time too, and so do {{ui:editor.tool.hollow}} and {{ui:editor.tool.array}}. Double-click the title bar to put it back.
 
+Picking a shape from the shape list while the panel is open closes it without applying anything, and the edges you clicked are forgotten. The click then places the new shape instead of picking edges.
+
 In the panel you find:
 
 - {{ui:edge.allSharpEdges}} selects every edge at once, {{ui:edge.clear}} empties the selection.

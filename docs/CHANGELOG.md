@@ -7,6 +7,7 @@ code still carries it - so a lower number further down is older, not newer.
 ## Unreleased
 
 - **Clearer import and export symbols:** The two buttons in the Manage area, in the command search and in the import window showed a tray with an arrow down and an arrow up, which reads as "download" for both and was easy to mix up. They now show a model (a cube) with a diagonal arrow: toward the cube for Import, away from it for Export, with a small gap between arrow and cube. The diagonal also uses the full height of the ribbon, like the other symbols.
+- **A shape to place no longer gets stuck behind a tool:** With "Add measurement" switched on, a shape picked for placing followed the pointer, but a click set a measuring point instead and the shape stayed on the pointer until Esc. The same happened with the other measuring modes, the framing square, Measure in the section view, notes, Place workplane, picking the rotation pivot, Lay flat and edge picking for chamfer and fillet. Now whichever was started last wins: picking a shape switches those tools off, and switching one of them on puts the shape down. An open chamfer or fillet window closes without applying anything when a shape is picked.
 
 ## 1.43.0
 
