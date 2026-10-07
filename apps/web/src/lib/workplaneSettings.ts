@@ -15,6 +15,26 @@ export const MAX_CUSTOM_SHAPE_DIMENSION = 2000;
 export const MAX_HIGH_RESOLUTION_SIDES = 512;
 export const MAX_HIGH_RESOLUTION_STEPS = 256;
 
+// How many triangles the exact kernel is handed for a cut, merge or intersection
+// with an imported mesh. It works on the main thread: around a second for a few
+// hundred thousand triangles, noticeably longer towards the upper end, so the
+// default stays where a slower computer still answers within seconds.
+export const DEFAULT_BOOLEAN_TRIANGLE_LIMIT = 250_000;
+export const MIN_BOOLEAN_TRIANGLE_LIMIT = 10_000;
+export const MAX_BOOLEAN_TRIANGLE_LIMIT = 5_000_000;
+export const BOOLEAN_TRIANGLE_LIMIT_STEP = 10_000;
+// Named choices for the limit; the free number field remains for other values.
+export const BOOLEAN_TRIANGLE_LIMIT_PRESETS = [
+  { id: "older", limit: 100_000 },
+  { id: "normal", limit: DEFAULT_BOOLEAN_TRIANGLE_LIMIT },
+  { id: "fast", limit: 1_000_000 },
+] as const;
+export type BooleanTriangleLimitPreset = (typeof BOOLEAN_TRIANGLE_LIMIT_PRESETS)[number]["id"];
+
+export function booleanTriangleLimitPreset(limit: number): BooleanTriangleLimitPreset | null {
+  return BOOLEAN_TRIANGLE_LIMIT_PRESETS.find((preset) => preset.limit === limit)?.id ?? null;
+}
+
 export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   width: 200,
   depth: 200,
@@ -37,6 +57,7 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   scale: "1:1 (millimeters)",
   accuracy: 2,
   historyLimit: 100,
+  booleanTriangleLimit: DEFAULT_BOOLEAN_TRIANGLE_LIMIT,
   customSnapGrids: [],
   shapeCustomizations: {},
 };
@@ -191,6 +212,11 @@ function historyLimitOrDefault(value: unknown, fallback: HistoryRetentionLimit):
   if (value === "unlimited") return value;
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.min(5000, Math.max(1, Math.round(value)));
+}
+
+function booleanTriangleLimitOrDefault(value: unknown, fallback: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(MAX_BOOLEAN_TRIANGLE_LIMIT, Math.max(MIN_BOOLEAN_TRIANGLE_LIMIT, Math.round(value)));
 }
 
 function optionalShapeDimension(value: unknown, fallback: number | undefined) {
@@ -474,6 +500,7 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     scale: normalizeScaleForUnits(units, stringOrDefault(candidate.scale, fallback.scale)),
     accuracy: accuracyOrDefault(candidate.accuracy, fallback.accuracy),
     historyLimit: historyLimitOrDefault(candidate.historyLimit, fallback.historyLimit),
+    booleanTriangleLimit: booleanTriangleLimitOrDefault(candidate.booleanTriangleLimit, fallback.booleanTriangleLimit),
     customSnapGrids: normalizeCustomSnapGrids(candidate.customSnapGrids, fallback.customSnapGrids),
     shapeCustomizations: normalizeShapeCustomizations(candidate.shapeCustomizations, fallback.shapeCustomizations),
   };

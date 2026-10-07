@@ -62,6 +62,7 @@ import {
   ToolbarKeyboardIcon,
   ToolbarFilletIcon,
   ToolbarHollowIcon,
+  ToolbarSimplifyIcon,
   ToolbarMirrorIcon,
   ToolbarRotationPivotIcon,
   ToolbarPatternIcon,
@@ -83,6 +84,7 @@ import { layFlatRotation } from "@/lib/layFlat";
 import { SketchWorkspace, type SketchMeasurement, type SketchPrimitive, type SketchSelection, type SketchTool } from "./SketchWorkspace";
 import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
 import { ShellPanel } from "./workplane/ShellPanel";
+import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
 import { shellMaxThickness } from "@/lib/shellLimits";
 import { circleStepDegrees, clampArrayCount, rotateAroundVertical, rowOffset, type ArraySettings } from "@/lib/shapeArray";
@@ -179,6 +181,7 @@ import { AppFooter } from "@/components/AppFooter";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { exportLylProject, importLylProject, LYL_CREATED_WITH_VERSION, LYL_MEDIA_TYPE } from "@/lib/lylProject";
+import { simplifyTrianglePositions } from "@/lib/meshSimplify";
 import { displayShapeName, makeShapeFromAsset, sceneShape, shapeAssetLabel, shapeAssetMenuLabel, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { importedShapeFromStl } from "@/lib/stlImport";
 import { exportMeshesToStl } from "@/lib/stlExport";
@@ -377,7 +380,11 @@ const NOTICE_LINGER_MS = 4000;
 const NOTICE_PATIENT_MS = 30000;
 const MAX_SKETCH_HISTORY_ENTRIES = 100;
 const MODEL_DIMENSION_PRECISION = 3;
-const IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT = 150000;
+// The exact kernel (Manifold) cuts a few hundred thousand triangles in about a
+// second; its limit is the workspace setting handed to the boolean helpers
+// below. The triangle-soup fallback for meshes that are not watertight is far
+// slower and keeps this lower limit so it cannot freeze the editor.
+const IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT = 150000;
 const COPLANAR_BOOLEAN_RESCUE_DEGREES = 0.02;
 const NORMAL_SELECTION_CAD_EDGE_MIN_ANGLE = 60;
 const MIN_EDGE_MODIFIER_AMOUNT = 0.001;
@@ -2029,7 +2036,7 @@ function restoreOwnLastEdgeTreatment(shape: WorkplaneShape, entry: NonNullable<W
   return restoreShapeBeforeEdgeTreatment(shape, entry);
 }
 
-async function restoreEdgeTreatmentInShape(shape: WorkplaneShape, path: number[], entryId: string): Promise<{ shape: WorkplaneShape; label: string } | null> {
+async function restoreEdgeTreatmentInShape(shape: WorkplaneShape, path: number[], entryId: string, triangleLimit: number): Promise<{ shape: WorkplaneShape; label: string } | null> {
   if (path.length === 0) {
     const entry = (shape.edgeTreatmentHistory ?? []).find((candidate) => candidate.id === entryId);
     return entry ? { shape: restoreOwnLastEdgeTreatment(shape, entry), label: edgeTreatmentLabel(entry.feature) } : null;
@@ -2045,13 +2052,13 @@ async function restoreEdgeTreatmentInShape(shape: WorkplaneShape, path: number[]
   if (!child) {
     return null;
   }
-  const restoredChild = await restoreEdgeTreatmentInShape(child, restPath, entryId);
+  const restoredChild = await restoreEdgeTreatmentInShape(child, restPath, entryId, triangleLimit);
   if (!restoredChild) {
     return null;
   }
 
   restoredChildren[childIndex] = restoredChild.shape;
-  const rebuilt = await buildGroupedShapeFromSelection(restoredChildren);
+  const rebuilt = await buildGroupedShapeFromSelection(restoredChildren, triangleLimit);
   if (!rebuilt.group) {
     return null;
   }
@@ -3765,6 +3772,44 @@ function offersCylinderWrap(shape: WorkplaneShape | null | undefined) {
   return Boolean(shape.importedMesh && !shape.groupedShapes?.length) || shape.kind === "text" || Boolean(shape.sketchProfile);
 }
 
+/** Simplifying is for meshes dense enough to be worth it; a plate from an SVG has nothing to give. */
+const MESH_SIMPLIFY_MIN_TRIANGLES = 500;
+
+function offersMeshSimplify(shape: WorkplaneShape | null | undefined) {
+  return Boolean(shape?.importedMesh && shape.groupOperation !== "bundle" && shape.importedMesh.triangleCount >= MESH_SIMPLIFY_MIN_TRIANGLES);
+}
+
+/**
+ * The body with its mesh replaced by a simplified one in the same frame, or
+ * null when that is no reduction. What comes out is a plain mesh: the file it
+ * was imported from, its exact B-Rep, the parts of a group and the edge
+ * history all describe the mesh that was - they do not come along, or the
+ * next load, export or regroup would bring the old triangles back.
+ */
+function simplifiedMeshShape(shape: WorkplaneShape, positions: number[]): WorkplaneShape | null {
+  const source = shape.importedMesh;
+  const triangleCount = Math.floor(positions.length / 9);
+  if (!source || triangleCount < 4 || triangleCount >= source.triangleCount) return null;
+  return canonicalizeShape({
+    ...shape,
+    importedMesh: {
+      positions,
+      baseWidth: source.baseWidth,
+      baseDepth: source.baseDepth,
+      baseHeight: source.baseHeight,
+      triangleCount,
+      sourceFormat: "json",
+    },
+    groupedShapes: undefined,
+    groupOperation: undefined,
+    edgeTreatments: undefined,
+    edgeTreatmentHistory: undefined,
+    edgeResizeMode: undefined,
+    cadBrep: undefined,
+    cadDisplayEdges: undefined,
+  });
+}
+
 function separateMeshParts(shape: WorkplaneShape) {
   const mesh = meshForShape(shape);
   const components = meshFaceComponents(mesh).filter((component) => component.length > 0);
@@ -3826,11 +3871,34 @@ function cadModifierSourceParts(shape: WorkplaneShape) {
   return glyphParts.length > 1 ? glyphParts : [shape];
 }
 
+/**
+ * Counting the loose pieces of an imported mesh walks every triangle, and the
+ * toolbar asks again each time the selected shape changes - also when it was
+ * only moved. Where the shape stands does not change how many pieces it has,
+ * so the count is kept per mesh and per everything-but-the-position.
+ */
+const importedPartCounts = new WeakMap<object, { key: string; count: number }>();
+
 function separablePartCount(shape: WorkplaneShape) {
   if (shape.locked || shape.hole) return 0;
   if (shape.groupedShapes?.length && !shape.importedMesh) return shape.groupedShapes.length;
-  const mesh = meshForShape(shape);
-  return meshFaceComponents(mesh).length;
+  if (!shape.importedMesh) return meshFaceComponents(meshForShape(shape)).length;
+  const key = JSON.stringify({
+    ...shape,
+    x: 0,
+    z: 0,
+    elevation: 0,
+    importedMesh: undefined,
+    groupedShapes: undefined,
+    edgeTreatmentHistory: undefined,
+    cadBrep: undefined,
+    cadDisplayEdges: undefined,
+  });
+  const cached = importedPartCounts.get(shape.importedMesh);
+  if (cached?.key === key) return cached.count;
+  const count = meshFaceComponents(meshForShape(shape)).length;
+  importedPartCounts.set(shape.importedMesh, { key, count });
+  return count;
 }
 
 function separateShapeParts(shape: WorkplaneShape) {
@@ -5241,7 +5309,7 @@ function disposeManifold(value: unknown) {
   (value as { delete?: () => void } | null)?.delete?.();
 }
 
-async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { requireImported?: boolean; idPrefix?: string } = {}, groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
+async function manifoldBooleanMeshShape(selection: WorkplaneShape[], triangleLimit: number, options: { requireImported?: boolean; idPrefix?: string } = {}, groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
   // GROUPING SAFETY NOTE FOR FUTURE AGENTS:
   // Imported STL + hole grouping stays on exact boolean first. Rotated cutters
   // are validated against their real oriented volume, not their broad AABB.
@@ -5253,7 +5321,7 @@ async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { 
 
   const sourceMesh = mergedSolidMeshData(solids);
   const cutterTriangleCount = holes.reduce((total, hole) => total + meshForShape(hole).faces.length, 0);
-  if (sourceMesh.faces.length + cutterTriangleCount > IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT) {
+  if (sourceMesh.faces.length + cutterTriangleCount > triangleLimit) {
     return null;
   }
   const cutterShapes = holes.map(paddedCutterShape);
@@ -5309,14 +5377,14 @@ async function manifoldBooleanMeshShape(selection: WorkplaneShape[], options: { 
   }
 }
 
-async function manifoldUnionMeshShape(selection: WorkplaneShape[], groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
+async function manifoldUnionMeshShape(selection: WorkplaneShape[], triangleLimit: number, groupChildren?: WorkplaneShape[]): Promise<WorkplaneShape | null> {
   const solids = selection.filter((shape) => !shape.hole && !shape.locked);
   if (solids.length < 2 || !selection.some((shape) => Boolean(shape.importedMesh))) {
     return null;
   }
 
   const mergedSourceMesh = mergedSolidMeshData(solids);
-  if (mergedSourceMesh.faces.length > IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT) {
+  if (mergedSourceMesh.faces.length > triangleLimit) {
     return null;
   }
 
@@ -5384,9 +5452,9 @@ function intersectionOperandsOverlap(operands: WorkplaneShape[][]) {
   return rest.every((operand) => hasSolidHoleOverlap(first, operand));
 }
 
-async function manifoldIntersectionMeshShape(plan: IntersectionPlan): Promise<IntersectionAttempt> {
+async function manifoldIntersectionMeshShape(plan: IntersectionPlan, triangleLimit: number): Promise<IntersectionAttempt> {
   const sourceTriangleCount = plan.children.reduce((total, shape) => total + meshForShape(shape).faces.length, 0);
-  if (sourceTriangleCount > IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT) {
+  if (sourceTriangleCount > triangleLimit) {
     return { status: "unsupported" };
   }
 
@@ -5467,7 +5535,7 @@ function bvhIntersectionMeshShape(plan: IntersectionPlan, operation: CSGOperatio
   }
 }
 
-async function buildIntersectionShapeFromSelection(groupable: WorkplaneShape[]): Promise<IntersectionBuildResult> {
+async function buildIntersectionShapeFromSelection(groupable: WorkplaneShape[], triangleLimit: number): Promise<IntersectionBuildResult> {
   const plan = intersectionPlanForSelection(groupable);
   if (!plan) {
     return {
@@ -5481,7 +5549,7 @@ async function buildIntersectionShapeFromSelection(groupable: WorkplaneShape[]):
     return { group: null, empty: true, failureNotice: "" };
   }
 
-  const manifoldAttempt = await manifoldIntersectionMeshShape(plan);
+  const manifoldAttempt = await manifoldIntersectionMeshShape(plan, triangleLimit);
   if (manifoldAttempt.status === "success") {
     return { group: manifoldAttempt.group, empty: false, failureNotice: "" };
   }
@@ -5555,7 +5623,7 @@ function importedBooleanMeshShape(selection: WorkplaneShape[], groupChildren?: W
   const mergedSolidMesh = mergedSolidMeshData(solids);
   const sourceTriangleCount = mergedSolidMesh.faces.length;
   const cutterTriangleCount = holes.reduce((total, hole) => total + meshForShape(hole).faces.length, 0);
-  if (sourceTriangleCount + cutterTriangleCount > IMPORTED_EXACT_BOOLEAN_TRIANGLE_LIMIT) {
+  if (sourceTriangleCount + cutterTriangleCount > IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT) {
     return null;
   }
 
@@ -6114,7 +6182,27 @@ function hasNonZeroRotation(shape: WorkplaneShape) {
   return [rotation, rotationX, rotationZ].some((value) => value > 0.001 && Math.abs(value - 360) > 0.001);
 }
 
-async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Promise<GroupBuildResult> {
+/**
+ * Why a cut with an imported mesh did not come about. Above the kernel's limit
+ * the triangle count alone is the reason; between the two limits the kernel
+ * was tried and refused the mesh, and only the fallback stopped at the count.
+ */
+function importedCutFailureNotice(selection: WorkplaneShape[], succeeded: boolean, triangleLimit: number) {
+  const fallback = "Could not cut this imported mesh cleanly";
+  if (succeeded) return fallback;
+  const triangleCount = selection
+    .filter((shape) => !shape.locked || shape.hole)
+    .reduce((total, shape) => total + (shape.importedMesh?.triangleCount ?? meshForShape(shape).faces.length), 0);
+  if (triangleCount > triangleLimit) {
+    return t("status.cutTooComplex", { triangles: formatTriangleCount(triangleCount), limit: formatTriangleCount(triangleLimit) });
+  }
+  if (triangleCount > IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT) {
+    return t("status.cutNotWatertightTooComplex", { triangles: formatTriangleCount(triangleCount), limit: formatTriangleCount(IMPORTED_FALLBACK_BOOLEAN_TRIANGLE_LIMIT) });
+  }
+  return fallback;
+}
+
+async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[], triangleLimit: number): Promise<GroupBuildResult> {
   const booleanSelection = expandGroupsForBoolean(groupable);
   const hasSolid = booleanSelection.some((shape) => !shape.hole);
   const hasHole = booleanSelection.some((shape) => shape.hole);
@@ -6127,8 +6215,8 @@ async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Prom
   // als vier einzelne Kinder existiert (Forum: Gruppe verschwindet beim
   // Aufloesen einer Vereinigung, die eine Gewinde-Gruppe enthielt).
   const cleanBoxGroup = canUseBoxBoolean(boxBooleanSelection) ? boxedBooleanMeshShape(boxBooleanSelection, groupable) : null;
-  const manifoldCutGroup = hasSolid && hasHole ? await manifoldBooleanMeshShape(booleanSelection, { requireImported: false }, groupable) : null;
-  const manifoldImportedMerge = hasImportedMesh && hasSolid && !hasHole ? await manifoldUnionMeshShape(booleanSelection, groupable) : null;
+  const manifoldCutGroup = hasSolid && hasHole ? await manifoldBooleanMeshShape(booleanSelection, triangleLimit, { requireImported: false }, groupable) : null;
+  const manifoldImportedMerge = hasImportedMesh && hasSolid && !hasHole ? await manifoldUnionMeshShape(booleanSelection, triangleLimit, groupable) : null;
   const exactImportedGroup = hasImportedMesh && hasSolid && hasHole ? manifoldCutGroup ?? importedBooleanMeshShape(booleanSelection, groupable) : null;
   const bakedImportedMerge = hasImportedMesh && !(hasSolid && hasHole) ? manifoldImportedMerge ?? mergedMeshShape(booleanSelection, groupable) : null;
   const group = hasSolid && hasHole
@@ -6148,7 +6236,9 @@ async function buildGroupedShapeFromSelection(groupable: WorkplaneShape[]): Prom
     hasHole,
     hasImportedMesh,
     consumed,
-    failureNotice: hasImportedMesh && hasSolid && hasHole ? "Could not cut this imported mesh cleanly" : hasSolid && hasHole ? "Could not cut this selection" : "Could not group this selection",
+    failureNotice: hasImportedMesh && hasSolid && hasHole
+      ? importedCutFailureNotice(booleanSelection, Boolean(group) || consumed, triangleLimit)
+      : hasSolid && hasHole ? "Could not cut this selection" : "Could not group this selection",
   };
 }
 
@@ -6802,6 +6892,7 @@ export function LayerlingEditor({
   }, [sketchSelection, sketchTool, sketchActive]);
   const [edgeModifier, setEdgeModifier] = useState<EdgeModifierSession | null>(null);
   const [shellTool, setShellTool] = useState<{ thickness: number; openings: ShellOpenings; edges: ShellEdges; busy: boolean; error: string | null } | null>(null);
+  const [simplifyToolId, setSimplifyToolId] = useState<string | null>(null);
   const edgeModifierRef = useRef<EdgeModifierSession | null>(null);
   const cadModifierWorkerRef = useRef<Worker | null>(null);
   const cadModifierPendingRef = useRef(new Map<number, {
@@ -7948,7 +8039,7 @@ export function LayerlingEditor({
     }
     const sourceFingerprint = projectShapesFingerprint([selectedShape]);
     const sourceProjectId = projectInfoRef.current.projectId;
-    const restored = await restoreEdgeTreatmentInShape(selectedShape, option.path, option.entryId);
+    const restored = await restoreEdgeTreatmentInShape(selectedShape, option.path, option.entryId, workspaceSettingsRef.current.booleanTriangleLimit);
     if (!restored) {
       setNotice(selectedEdgeFeatureCount > 0 ? t("status.edgeNoUndoHistory") : t("status.noEdgeFeature"));
       return;
@@ -10352,7 +10443,7 @@ export function LayerlingEditor({
 
     const sourceFingerprint = projectShapesFingerprint(shapesRef.current);
     const sourceProjectId = projectInfoRef.current.projectId;
-    const result = await buildGroupedShapeFromSelection(selectedShapes);
+    const result = await buildGroupedShapeFromSelection(selectedShapes, workspaceSettingsRef.current.booleanTriangleLimit);
     if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(shapesRef.current) !== sourceFingerprint) {
       setNotice(t("status.groupChanged"));
       return;
@@ -10405,7 +10496,7 @@ export function LayerlingEditor({
 
     const sourceFingerprint = projectShapesFingerprint(shapesRef.current);
     const sourceProjectId = projectInfoRef.current.projectId;
-    const result = await buildIntersectionShapeFromSelection(groupable);
+    const result = await buildIntersectionShapeFromSelection(groupable, workspaceSettingsRef.current.booleanTriangleLimit);
     if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(shapesRef.current) !== sourceFingerprint) {
       setNotice(t("status.intersectChanged"));
       return;
@@ -10524,10 +10615,10 @@ export function LayerlingEditor({
     try {
       const operation = original.groupOperation === "intersection" ? "intersection" : original.groupOperation === "bundle" ? "bundle" : "group";
       const result = operation === "intersection"
-        ? await buildIntersectionShapeFromSelection(parts)
+        ? await buildIntersectionShapeFromSelection(parts, workspaceSettingsRef.current.booleanTriangleLimit)
         : operation === "bundle"
           ? { group: groupedShape(parts) }
-          : await buildGroupedShapeFromSelection(parts);
+          : await buildGroupedShapeFromSelection(parts, workspaceSettingsRef.current.booleanTriangleLimit);
       if (
         projectInfoRef.current.projectId !== sourceProjectId ||
         projectShapesFingerprint(shapesRef.current) !== sourceFingerprint ||
@@ -10641,6 +10732,43 @@ export function LayerlingEditor({
       t(inward ? "status.wrappedInward" : "status.wrappedAround", { diameter: `${formatLengthMm(diameter, workspace.accuracy)} ${lengthDisplayUnit(workspace).label}` }),
     );
   }, [commitShapes, cylinderWrapErrorText, selectedShape, selectedShapes.length, shapes]);
+
+  const simplifyToolShape = simplifyToolId && selectedShapes.length === 1 && selectedShape?.id === simplifyToolId && offersMeshSimplify(selectedShape)
+    ? selectedShape
+    : null;
+  // The panel belongs to one body; with another selection it has nothing to show and goes.
+  useEffect(() => {
+    if (simplifyToolId && !simplifyToolShape) setSimplifyToolId(null);
+  }, [simplifyToolId, simplifyToolShape]);
+
+  const startSimplifyTool = useCallback(() => {
+    if (simplifyToolShape) {
+      setSimplifyToolId(null);
+      return;
+    }
+    if (selectedShapes.length !== 1 || !selectedShape || !offersMeshSimplify(selectedShape)) {
+      setNotice(t("status.selectOneMeshToSimplify"));
+      return;
+    }
+    if (selectedShape.locked) {
+      setNotice(t("status.unlockBeforeSimplify"));
+      return;
+    }
+    setSimplifyToolId(selectedShape.id);
+  }, [selectedShape, selectedShapes.length, simplifyToolShape]);
+
+  const applySimplifyTool = useCallback((positions: number[]) => {
+    const target = simplifyToolShape;
+    if (!target?.importedMesh || target.locked) return;
+    const simplified = simplifiedMeshShape(target, positions);
+    if (!simplified?.importedMesh) return;
+    commitShapes(
+      shapes.map((shape) => (shape.id === target.id ? simplified : shape)),
+      [simplified.id],
+      t("status.meshSimplified", { before: formatTriangleCount(target.importedMesh.triangleCount), after: formatTriangleCount(simplified.importedMesh.triangleCount) }),
+    );
+    setSimplifyToolId(null);
+  }, [commitShapes, shapes, simplifyToolShape]);
 
   const separateSelectedParts = useCallback(() => {
     if (selectedShapes.length !== 1 || !selectedShape) {
@@ -11355,7 +11483,7 @@ export function LayerlingEditor({
         if (groupable.some((shape) => isNonSolidShapeKind(shape.kind))) throw new Error("A ruler isn't a solid and can't be grouped");
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
         const sourceProjectId = projectInfoRef.current.projectId;
-        const result = await buildGroupedShapeFromSelection(groupable);
+        const result = await buildGroupedShapeFromSelection(groupable, workspaceSettingsRef.current.booleanTriangleLimit);
         if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(currentShapes()) !== sourceFingerprint) {
           throw new Error("The scene changed while grouping; run the command again");
         }
@@ -11392,7 +11520,7 @@ export function LayerlingEditor({
         if (!canIntersectShapes(groupable)) throw new Error("Pass two solids, or a solid and a hole, to intersect");
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
         const sourceProjectId = projectInfoRef.current.projectId;
-        const result = await buildIntersectionShapeFromSelection(groupable);
+        const result = await buildIntersectionShapeFromSelection(groupable, workspaceSettingsRef.current.booleanTriangleLimit);
         if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(currentShapes()) !== sourceFingerprint) {
           throw new Error("The scene changed while intersecting; run the command again");
         }
@@ -11436,7 +11564,7 @@ export function LayerlingEditor({
         }
         const sourceFingerprint = projectShapesFingerprint(currentShapes());
         const sourceProjectId = projectInfoRef.current.projectId;
-        const result = await buildGroupedShapeFromSelection(operands);
+        const result = await buildGroupedShapeFromSelection(operands, workspaceSettingsRef.current.booleanTriangleLimit);
         if (projectInfoRef.current.projectId !== sourceProjectId || projectShapesFingerprint(currentShapes()) !== sourceFingerprint) {
           throw new Error("The scene changed while cutting; run the command again");
         }
@@ -11470,6 +11598,31 @@ export function LayerlingEditor({
           t("status.mcpWrapped"),
         );
         return { object: mcpShapeSummary(wrapped) };
+      }
+
+      if (command.action === "simplify_mesh") {
+        const target = findShape(params.id) ?? (selectedIdsRef.current.length === 1 ? findShape(selectedIdsRef.current[0]) : null);
+        if (!target) throw new Error("Select one object to simplify, or pass its id");
+        if (target.locked) throw new Error("Unlock the object before simplifying it");
+        const source = target.importedMesh;
+        if (!source || target.groupOperation === "bundle") throw new Error("Only an imported mesh or the mesh result of a cut, merge or wrap can be simplified; a shape from the catalogue has its own settings for that");
+        const hasPercent = params.keepPercent !== undefined;
+        const hasTarget = params.targetTriangles !== undefined;
+        if (hasPercent === hasTarget) throw new Error("Pass either keepPercent or targetTriangles");
+        const requested = hasPercent
+          ? source.triangleCount * mcpNumber(params.keepPercent, Number.NaN) / 100
+          : mcpNumber(params.targetTriangles, Number.NaN);
+        if (!Number.isFinite(requested) || requested <= 0) throw new Error(hasPercent ? "keepPercent must be a number above 0 and below 100" : "targetTriangles must be a positive number");
+        if (Math.round(requested) >= source.triangleCount) throw new Error(`The mesh has ${source.triangleCount} triangles; the target must be below that`);
+        const result = await simplifyTrianglePositions(source.positions, requested);
+        const simplified = simplifiedMeshShape(target, result.positions);
+        if (!simplified) throw new Error("The mesh cannot be simplified any further without changing its form");
+        commitShapes(
+          currentShapes().map((shape) => (shape.id === target.id ? simplified : shape)),
+          [simplified.id],
+          t("status.mcpSimplified"),
+        );
+        return { object: mcpShapeSummary(simplified), trianglesBefore: source.triangleCount, trianglesAfter: result.triangleCount };
       }
 
       if (command.action === "save_custom_shape") {
@@ -12169,7 +12322,7 @@ export function LayerlingEditor({
         return;
       }
 
-      const result = await buildGroupedShapeFromSelection(testCase.shapes);
+      const result = await buildGroupedShapeFromSelection(testCase.shapes, workspaceSettingsRef.current.booleanTriangleLimit);
       if (!result.group) {
         const noticeText = result.consumed ? t("status.groupedHoleConsumed") : result.failureNotice;
         commitShapes(result.consumed ? [] : testCase.shapes, result.consumed ? [] : ids, noticeText);
@@ -13244,6 +13397,7 @@ export function LayerlingEditor({
         { key: "hollow", label: t("editor.tool.hollow"), onSelect: startShellTool },
       );
     }
+    if (single && offersMeshSimplify(single) && !single.locked) items.push({ key: "simplify", label: t("contextMenu.simplify"), separated: true, onSelect: startSimplifyTool });
     if (!allHoles) {
       items.push(
         { key: "markCenter", label: t("contextMenu.markCenter"), separated: true, onSelect: () => markSelectionPoints("center") },
@@ -13340,6 +13494,9 @@ export function LayerlingEditor({
         onFillet={() => edgeModifier?.kind === "fillet" ? cancelEdgeModifier() : startEdgeModifier("fillet")}
         onHollow={startShellTool}
         hollowActive={Boolean(shellTool)}
+        canSimplify={selectedShapes.length === 1 && offersMeshSimplify(selectedShape) && !selectedShape?.locked}
+        onSimplify={startSimplifyTool}
+        simplifyActive={Boolean(simplifyToolShape)}
         onMirror={toggleMirrorMode}
         onRotationPivot={toggleRotationPivot}
         onArray={toggleArrayTool}
@@ -13599,6 +13756,14 @@ export function LayerlingEditor({
             setArrayTool(null);
             setNotice(t("status.arrayCancelled"));
           }}
+        />
+      ) : null}
+      {simplifyToolShape ? (
+        <MeshSimplifyPanel
+          key={simplifyToolShape.id}
+          shape={simplifyToolShape}
+          onApply={applySimplifyTool}
+          onCancel={() => setSimplifyToolId(null)}
         />
       ) : null}
       {shellTool && selectedShape ? (
@@ -13946,6 +14111,9 @@ function SecondaryToolbar({
   onFillet,
   onHollow,
   hollowActive,
+  canSimplify,
+  onSimplify,
+  simplifyActive,
   onMirror,
   onRotationPivot,
   rotationPivotActive,
@@ -14037,6 +14205,9 @@ function SecondaryToolbar({
   onFillet: () => void;
   onHollow: () => void;
   hollowActive: boolean;
+  canSimplify: boolean;
+  onSimplify: () => void;
+  simplifyActive: boolean;
   onMirror: () => void;
   onRotationPivot: () => void;
   rotationPivotActive: boolean;
@@ -14296,6 +14467,7 @@ function SecondaryToolbar({
     { id: "chamfer", label: t("editor.tool.chamfer"), icon: ToolbarChamferIcon, action: onChamfer, enabled: canEdgeModify, active: edgeModifierKind === "chamfer" },
     { id: "fillet", label: t("editor.tool.fillet"), icon: ToolbarFilletIcon, action: onFillet, enabled: canEdgeModify, active: edgeModifierKind === "fillet" },
     { id: "hollow", label: t("editor.tool.hollow"), icon: ToolbarHollowIcon, action: onHollow, enabled: canEdgeModify, active: hollowActive },
+    { id: "simplify", label: t("editor.tool.simplify"), icon: ToolbarSimplifyIcon, action: onSimplify, enabled: canSimplify, active: simplifyActive },
   ];
   const arrangeTools = [
     { id: "drop", label: t("editor.tool.dropToWorkplane"), icon: ToolbarDropToWorkplaneIcon, action: onDropToWorkplane, enabled: hasSelection },

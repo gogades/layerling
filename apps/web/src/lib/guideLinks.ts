@@ -62,6 +62,7 @@ export const GUIDE_SECTIONS = {
   backingUp: { chapter: "files", de: "sichern-und-weitergeben", en: "backing-up-and-passing-on" },
   exporting: { chapter: "files", de: "exportieren", en: "exporting" },
   importing: { chapter: "files", de: "importieren", en: "importing" },
+  simplifyMesh: { chapter: "files", de: "ein-importiertes-netz-vereinfachen", en: "simplifying-an-imported-mesh" },
   tapeMeasure: { chapter: "measuring", de: "das-massband", en: "the-tape-measure" },
   notes: { chapter: "measuring", de: "notizen", en: "notes" },
   sketchCorners: { chapter: "sketches", de: "ecken-runden-oder-fasen", en: "rounding-or-chamfering-corners" },

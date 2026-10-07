@@ -306,6 +306,18 @@ export function ToolbarHollowIcon(props: IconProps) {
   );
 }
 
+/** A dense mesh on the left, the same outline with a few large triangles on the right. */
+export function ToolbarSimplifyIcon(props: IconProps) {
+  return (
+    <ToolbarVectorIcon {...props}>
+      <path d="M24 6 40 15v18L24 42 8 33V15Z" {...SOLID} />
+      <path d="M24 6 40 15v18L24 42 8 33V15Z" />
+      <path d="M24 6v36M24 24 40 15M24 24l16 9" />
+      <path d="M8 21h16M8 27h16M13.5 12v27M19 9v30" strokeWidth="1.6" opacity="0.7" />
+    </ToolbarVectorIcon>
+  );
+}
+
 export function ToolbarSnapGridIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>

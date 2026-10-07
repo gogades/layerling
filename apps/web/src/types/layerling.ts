@@ -216,6 +216,8 @@ export type WorkplaneWorkspaceSettings = {
   historyLimit: HistoryRetentionLimit;
   /** Snap steps of the user's own, offered in the snap menu next to the fixed ones. */
   customSnapGrids: CustomSnapGrid[];
+  /** Imported meshes with more triangles than this are not cut, merged or intersected exactly. */
+  booleanTriangleLimit: number;
   shapeCustomizations: ShapeCustomizationMap;
 };
 

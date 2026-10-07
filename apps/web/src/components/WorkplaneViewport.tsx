@@ -3010,7 +3010,25 @@ type AxisProjectionBounds = {
   max: THREE.Vector3;
 };
 
-const importedShapeProjectionBoundsCache = new WeakMap<WorkplaneShape, Map<string, AxisProjectionBounds>>();
+// Walking every vertex of an imported mesh is too slow to do on each pointer
+// move, and a drag hands in a fresh copy of the shape for every move. Moving a
+// shape only shifts its bounds, so they are kept per mesh, measured from the
+// shape's centre, for as long as nothing but the position changes.
+// Copies of a shape share one mesh, hence a short list per mesh.
+const importedShapeProjectionBoundsCache = new WeakMap<object, Array<{ shape: WorkplaneShape; byAxis: Map<string, AxisProjectionBounds> }>>();
+const MAX_PROJECTION_BOUNDS_PER_MESH = 16;
+
+function sameShapeApartFromPosition(a: WorkplaneShape, b: WorkplaneShape) {
+  if (a === b) return true;
+  const left = a as unknown as Record<string, unknown>;
+  const right = b as unknown as Record<string, unknown>;
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    if (key === "x" || key === "z" || key === "elevation") continue;
+    if (left[key] !== right[key]) return false;
+  }
+  return true;
+}
 
 function importedShapeProjectionBounds(
   shape: WorkplaneShape,
@@ -3023,16 +3041,25 @@ function importedShapeProjectionBounds(
   }
 
   const axisKey = [...xAxis.toArray(), ...yAxis.toArray(), ...zAxis.toArray()].map((value) => value.toFixed(6)).join(":");
-  let shapeCache = importedShapeProjectionBoundsCache.get(shape);
-  if (!shapeCache) {
-    shapeCache = new Map();
-    importedShapeProjectionBoundsCache.set(shape, shapeCache);
+  let meshCache = importedShapeProjectionBoundsCache.get(shape.importedMesh);
+  if (!meshCache) {
+    meshCache = [];
+    importedShapeProjectionBoundsCache.set(shape.importedMesh, meshCache);
   }
+  let entry = meshCache.find((candidate) => sameShapeApartFromPosition(candidate.shape, shape));
+  if (!entry) {
+    entry = { shape, byAxis: new Map() };
+    meshCache.push(entry);
+    if (meshCache.length > MAX_PROJECTION_BOUNDS_PER_MESH) meshCache.shift();
+  }
+  const shapeCache = entry.byAxis;
+  const center = shapeCenter(shape);
+  const centerOffset = new THREE.Vector3(center.dot(xAxis), center.dot(yAxis), center.dot(zAxis));
   const cached = shapeCache.get(axisKey);
   if (cached) {
     return {
-      min: cached.min.clone(),
-      max: cached.max.clone(),
+      min: cached.min.clone().add(centerOffset),
+      max: cached.max.clone().add(centerOffset),
     };
   }
 
@@ -3041,11 +3068,11 @@ function importedShapeProjectionBounds(
   const scaleX = preserveSize ? 1 : shapeWidth(shape) / Math.max(0.001, shape.importedMesh.baseWidth);
   const scaleY = preserveSize ? 1 : shape.height / Math.max(0.001, shape.importedMesh.baseHeight);
   const scaleZ = preserveSize ? 1 : shapeDepth(shape) / Math.max(0.001, shape.importedMesh.baseDepth);
-  const center = shapeCenter(shape);
   const quaternion = quaternionForShape(shape);
   const min = new THREE.Vector3(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
   const max = new THREE.Vector3(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
   const point = new THREE.Vector3();
+  const projected = new THREE.Vector3();
   const tapered = shapeHasTaper(shape);
   const deformed = shapeHasExtrudeDeform(shape);
   let taperMinY = Number.POSITIVE_INFINITY;
@@ -3077,9 +3104,8 @@ function importedShapeProjectionBounds(
     }
     point
       .set(localX, localY - shape.height / 2, localZ)
-      .applyQuaternion(quaternion)
-      .add(center);
-    const projected = new THREE.Vector3(point.dot(xAxis), point.dot(yAxis), point.dot(zAxis));
+      .applyQuaternion(quaternion);
+    projected.set(point.dot(xAxis), point.dot(yAxis), point.dot(zAxis));
     min.min(projected);
     max.max(projected);
   }
@@ -3087,8 +3113,9 @@ function importedShapeProjectionBounds(
   if (![min.x, min.y, min.z, max.x, max.y, max.z].every(Number.isFinite)) {
     return null;
   }
+  if (shapeCache.size >= 32) shapeCache.clear();
   shapeCache.set(axisKey, { min: min.clone(), max: max.clone() });
-  return { min, max };
+  return { min: min.add(centerOffset), max: max.add(centerOffset) };
 }
 
 const WORLD_X_AXIS = new THREE.Vector3(1, 0, 0);

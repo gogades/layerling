@@ -101,6 +101,7 @@ export type LayerlingMcpCommandName =
   | "separate_parts"
   | "split_objects"
   | "wrap_around_cylinder"
+  | "simplify_mesh"
   | "save_custom_shape"
   | "list_custom_shapes"
   | "insert_custom_shape"

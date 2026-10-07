@@ -51,6 +51,12 @@ With {{ui:editor.import}} or [[Ctrl]]+[[I]] you bring foreign files into the des
 
 Template pictures are added in sketch mode, see [Sketches](chapter:sketches).
 
+## Simplifying an imported mesh
+
+A scanned or sculpted mesh often has far more triangles than its shape needs, and every one of them is carried along while you move, cut and save. {{ui:simplify.title}} in the Modify group (or in the right-click menu of the body) shows the mesh as it is next to what a chosen share of its triangles would leave of it; both views turn and zoom together with the mouse buttons of the workplane. Set how much to keep as a percentage or a number of triangles, and {{ui:simplify.apply}} takes the lighter mesh. The result is a plain mesh: for the result of a cut or merge, {{ui:group.edit}} and its original parts are given up.
+
+Cutting, merging and intersecting an imported mesh is calculated in your browser, so the workspace settings limit how many triangles such a mesh may have ({{ui:workspace.booleanTriangleLimit}}). A mesh above the limit is not processed, and the message names its triangle count; simplify the mesh first, or raise the limit if your computer can take it.
+
 ## Reporting a bug
 
 If layerling does something unexpected, save a {{ui:editor.bugReport}}: the link sits in the footer at the bottom, next to the forum. It is an ordinary .lyl file with your design that opens in layerling, and it also carries a short text file with the version, browser, screen size, the last messages and any errors. Nothing personal is in it. Attach the file to your post in the forum or on GitHub, so the problem can be followed with exactly your design.

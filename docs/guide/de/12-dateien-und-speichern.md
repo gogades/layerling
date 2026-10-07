@@ -51,6 +51,12 @@ Bei STL, 3MF, OBJ und STEP zeigt das Feld {{ui:export.estimateTitle}} Volumen, G
 
 Bilder als Vorlage fügst du im Skizzenmodus ein, siehe [Skizzen](chapter:skizzen).
 
+## Ein importiertes Netz vereinfachen
+
+Ein gescanntes oder modelliertes Netz hat oft weit mehr Dreiecke, als seine Form braucht, und jedes davon wird beim Verschieben, Schneiden und Speichern mitgeschleppt. {{ui:simplify.title}} in der Gruppe Ändern (oder im Rechtsklickmenü des Körpers) zeigt das Netz, wie es ist, neben dem, was ein gewählter Anteil seiner Dreiecke davon übrig lässt; beide Ansichten drehen und zoomen gemeinsam, mit den Maustasten der Arbeitsebene. Lege fest, wie viel bleiben soll, als Prozentsatz oder als Zahl von Dreiecken, und {{ui:simplify.apply}} übernimmt das leichtere Netz. Das Ergebnis ist ein einfaches Netz: Beim Ergebnis eines Schnitts oder einer Vereinigung entfallen {{ui:group.edit}} und die ursprünglichen Teile.
+
+Schneiden, Vereinigen und Schnittmengen mit einem importierten Netz werden in deinem Browser berechnet, darum begrenzen die Arbeitsbereich-Einstellungen, wie viele Dreiecke so ein Netz haben darf ({{ui:workspace.booleanTriangleLimit}}). Ein Netz über der Grenze wird nicht verarbeitet, und die Meldung nennt seine Dreieckszahl; vereinfache das Netz zuerst oder hebe die Grenze an, wenn dein Rechner das verträgt.
+
 ## Einen Fehler melden
 
 Macht layerling etwas Unerwartetes, speichere einen {{ui:editor.bugReport}}: Der Link steht unten in der Fußzeile neben dem Forum. Das ist eine gewöhnliche .lyl-Datei mit deinem Entwurf, die sich in layerling öffnen lässt. Darin liegt zusätzlich eine kurze Textdatei mit Version, Browser, Bildschirmgröße, den letzten Meldungen und aufgetretenen Fehlern. Persönliches steht nicht darin. Häng die Datei an deinen Beitrag im Forum oder bei GitHub, dann lässt sich der Fehler mit genau deinem Entwurf nachstellen.

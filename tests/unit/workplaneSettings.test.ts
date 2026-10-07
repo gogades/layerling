@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, normalizeScaleForUnits, parseMeasurementInput, resolveMeasurementInput, scaleOptionsForUnits } from "@/lib/measurementUnits";
-import { canBeginShapeDrag, customSnapGridLabel, DEFAULT_ORBIT_ZOOM_SPEED, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, keyboardNudgeStep, normalizeShapeCustomizations, snapGridForUnits, snapGridOptions, snapGridStep, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
+import { booleanTriangleLimitPreset, canBeginShapeDrag, customSnapGridLabel, DEFAULT_ORBIT_ZOOM_SPEED, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, keyboardNudgeStep, normalizeShapeCustomizations, snapGridForUnits, snapGridOptions, snapGridStep, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { toolbarShapeAssets } from "@/lib/shapeCatalog";
 
 describe("workplane settings helpers", () => {
@@ -61,6 +61,15 @@ describe("workplane settings helpers", () => {
     expect(normalizeWorkspaceSettings({ historyLimit: 73 }).historyLimit).toBe(73);
     expect(normalizeWorkspaceSettings({ historyLimit: 9000 }).historyLimit).toBe(5000);
     expect(normalizeWorkspaceSettings({ historyLimit: "invalid" }).historyLimit).toBe(100);
+    expect(normalizeWorkspaceSettings({}).booleanTriangleLimit).toBe(250_000);
+    expect(normalizeWorkspaceSettings({ booleanTriangleLimit: 1_000_000 }).booleanTriangleLimit).toBe(1_000_000);
+    expect(normalizeWorkspaceSettings({ booleanTriangleLimit: 5 }).booleanTriangleLimit).toBe(10_000);
+    expect(normalizeWorkspaceSettings({ booleanTriangleLimit: 9e9 }).booleanTriangleLimit).toBe(5_000_000);
+    expect(normalizeWorkspaceSettings({ booleanTriangleLimit: "many" }).booleanTriangleLimit).toBe(250_000);
+    expect(booleanTriangleLimitPreset(250_000)).toBe("normal");
+    expect(booleanTriangleLimitPreset(100_000)).toBe("older");
+    expect(booleanTriangleLimitPreset(1_000_000)).toBe("fast");
+    expect(booleanTriangleLimitPreset(300_000)).toBeNull();
     expect(normalizeWorkspaceSettings({ gridColor: "not-a-color" }).gridColor).toBe(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
     expect(DEFAULT_WORKPLANE_WORKSPACE.dimensionsAlwaysVisible).toBe(true);
     expect(normalizeWorkspaceSettings({}).dimensionsAlwaysVisible).toBe(true);
