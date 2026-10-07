@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.42.0
 
 - **Reference points:** Right-click a body and choose "Mark the centre", "Mark the corners" or "Mark the edge middles": small orange marks appear on its top face - pencil marks that belong to no body and are never printed. A shape you drag snaps to them with its edges and centre, the framing square snaps to them, you can drag a point or type its coordinates, and they are saved with the design. An AI can mark, list and remove them with `layerling_add_reference_points`, `layerling_list_reference_points` and `layerling_remove_reference_points`. This is the first step of the idea in #128; guide lines are not part of it yet. Asked for by @structurednewstore-rgb in #128.
 - **The chosen bent-tube segment lights up:** In the segment list of a bent tube, the segment you are editing is now drawn in orange on the tube itself, so you can see which piece a length, angle or roll belongs to and follow the order when you add more. Asked for by @RobbieKnobbie in #126.
