@@ -17,6 +17,8 @@ Can't find a tool? Press [[Ctrl]]+[[K]] or click the magnifying glass in the {{u
 - Every entry shows the keys that do the same and the area of the toolbar it lives in, so you learn where it is.
 - Entries that are greyed out cannot run right now, mostly because nothing is selected. They stay in the list so the search still tells you where the tool is.
 - A shape's name adds that shape to the workplane, just like clicking it in the shapes menu.
+- With an empty field the search lists the commands you used last at the top.
+- The name of a body in your design finds that body and selects it, which helps in a design with many parts. Bodies only appear once you type.
 - It works in sketch mode as well, with the sketch tools.
 
 {{shortcuts}}

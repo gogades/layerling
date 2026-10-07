@@ -1,10 +1,10 @@
 "use client";
 
 import { Search, X } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type ComponentType } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ComponentType } from "react";
 import { createPortal } from "react-dom";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
-import { searchCommands } from "@/lib/commandSearch";
+import { rememberCommand, searchCommands } from "@/lib/commandSearch";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 
@@ -23,8 +23,31 @@ export type PaletteCommand = {
   enabled: boolean;
   /** A tool that is switched on right now. */
   active?: boolean;
+  /** Only listed once something is typed, like the bodies of a design - too many for the empty list. */
+  searchOnly?: boolean;
+  /** Not remembered as recently used (its id changes from design to design). */
+  transient?: boolean;
   run: () => void;
 };
+
+const RECENT_STORAGE_KEY = "layerling.recentCommands";
+
+function readRecent(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(RECENT_STORAGE_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeRecent(ids: string[]) {
+  try {
+    window.localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(ids));
+  } catch {
+    // Without storage the list simply starts over next time.
+  }
+}
 
 /**
  * The search for every command of the toolbar, opened with Ctrl+K: type a few
@@ -40,7 +63,17 @@ export function CommandPalette({ commands, onClose }: { commands: PaletteCommand
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
   const [blocked, setBlocked] = useState(false);
-  const results = useMemo(() => searchCommands(commands, query), [commands, query]);
+  const [recentIds, setRecentIds] = useState<string[]>(readRecent);
+  const typing = query.trim().length > 0;
+  // An empty field lists what was used last on top, then everything in toolbar
+  // order; once something is typed, only the ranking counts.
+  const { results, recentCount } = useMemo(() => {
+    if (typing) return { results: searchCommands(commands, query), recentCount: 0 };
+    const listed = commands.filter((command) => !command.searchOnly);
+    const recent = recentIds.flatMap((id) => listed.find((command) => command.id === id) ?? []);
+    const rest = listed.filter((command) => !recent.includes(command));
+    return { results: [...recent, ...rest], recentCount: recent.length };
+  }, [commands, query, recentIds, typing]);
   const current = Math.min(index, Math.max(0, results.length - 1));
 
   useEffect(() => {
@@ -60,6 +93,11 @@ export function CommandPalette({ commands, onClose }: { commands: PaletteCommand
     if (!command.enabled) {
       setBlocked(true);
       return;
+    }
+    if (!command.transient) {
+      const next = rememberCommand(recentIds, command.id);
+      setRecentIds(next);
+      writeRecent(next);
     }
     onClose();
     // After the palette is gone, so the tool finds the focus where it left it.
@@ -140,8 +178,11 @@ export function CommandPalette({ commands, onClose }: { commands: PaletteCommand
             {results.map((command, position) => {
               const Icon = command.icon;
               return (
+                <Fragment key={command.id}>
+                {recentCount > 0 && (position === 0 || position === recentCount) ? (
+                  <li className="command-palette-heading" role="presentation">{position === 0 ? t("palette.recent") : t("palette.all")}</li>
+                ) : null}
                 <li
-                  key={command.id}
                   id={`${listId}-${position}`}
                   data-index={position}
                   role="option"
@@ -164,6 +205,7 @@ export function CommandPalette({ commands, onClose }: { commands: PaletteCommand
                   ) : null}
                   <span className="command-palette-group">{command.group}</span>
                 </li>
+                </Fragment>
               );
             })}
           </ul>

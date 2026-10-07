@@ -14,6 +14,14 @@ export type SearchableCommand = {
   enabled?: boolean;
 };
 
+/** How many recently used commands the empty search lists first. */
+export const RECENT_COMMAND_LIMIT = 5;
+
+/** The list of recently used command ids after running `id`: newest first, no duplicates, capped. */
+export function rememberCommand(recent: readonly string[], id: string, limit = RECENT_COMMAND_LIMIT): string[] {
+  return [id, ...recent.filter((entry) => entry !== id)].slice(0, limit);
+}
+
 /**
  * Lower case, without accents, so "aushöhlen", "AUSHOEHLEN" and "aushohlen"
  * find the same thing. Two spellings of every word are searched: umlauts

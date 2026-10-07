@@ -506,6 +506,10 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   color: var(--primary);
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-heading {
+  color: var(--muted-strong);
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-icon svg,
 :where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-icon .sketch-reference-icon {
   color: var(--foreground);

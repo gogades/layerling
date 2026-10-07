@@ -13367,6 +13367,8 @@ export function LayerlingEditor({
           setTopPanel((current) => (current === panel ? null : panel));
           setMenuOpen(false);
         }}
+        objects={shapes.map((shape) => ({ id: shape.id, name: displayShapeName(shape), kind: shape.kind, hidden: Boolean(shape.hidden) }))}
+        onSelectObject={(id) => selectShape(id)}
         renderMyShapes={(close) => (
           <MyShapesSection
             shapes={customShapeEntries}
@@ -13970,6 +13972,8 @@ function SecondaryToolbar({
   overhangAngle,
   onToggleOverhangs,
   renderMyShapes,
+  objects,
+  onSelectObject,
 }: {
   toolbarMode: ToolbarMode;
   projectName: string;
@@ -14060,6 +14064,9 @@ function SecondaryToolbar({
   onToggleOverhangs: () => void;
   /** Custom shapes above the library; gets the way to close the menu. */
   renderMyShapes?: (close: () => void) => ReactNode;
+  /** The bodies of the design, so the command search can find them by name. */
+  objects: ReadonlyArray<{ id: string; name: string; kind: string; hidden: boolean }>;
+  onSelectObject: (id: string) => void;
 }) {
   const [shapesOpen, setShapesOpen] = useState(false);
   const [sketchCreateOpen, setSketchCreateOpen] = useState(false);
@@ -14427,6 +14434,14 @@ function SecondaryToolbar({
       plain("settings", t("editor.workspaceSettings"), manageGroup, true, () => window.dispatchEvent(new Event("layerling:open-workspace-settings")), { icon: ToolbarSettingsIcon }),
       plain("mode-sketch", t("palette.switchSketch"), t("palette.group.mode"), true, () => selectToolbarMode("sketch")),
       ...helpCommands,
+      ...objects.map((object) => plain(
+        `object-${object.id}`,
+        t("palette.selectObject", { name: object.name }),
+        t("palette.group.objects"),
+        true,
+        () => onSelectObject(object.id),
+        { keywords: [object.name, object.kind, ...(object.hidden ? ["hidden", "ausgeblendet", "versteckt"] : [])], searchOnly: true, transient: true },
+      )),
     ];
   };
 

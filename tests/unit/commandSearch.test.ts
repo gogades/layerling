@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { searchCommands, searchWords, type SearchableCommand } from "@/lib/commandSearch";
+import { rememberCommand, searchCommands, searchWords, type SearchableCommand } from "@/lib/commandSearch";
 
 type Cmd = SearchableCommand & { id: string };
 
@@ -68,6 +68,13 @@ describe("searchCommands", () => {
 
   it("lists a command that cannot run after an equal hit that can", () => {
     expect(ids("anpassen")).toEqual(["chamfer", "hollow", "fillet"]);
+  });
+
+  it("remembers the newest command first, once, and only a few", () => {
+    expect(rememberCommand([], "copy")).toEqual(["copy"]);
+    expect(rememberCommand(["copy", "paste"], "paste")).toEqual(["paste", "copy"]);
+    expect(rememberCommand(["a", "b", "c", "d", "e"], "f")).toEqual(["f", "a", "b", "c", "d"]);
+    expect(rememberCommand(["a", "b"], "c", 2)).toEqual(["c", "a"]);
   });
 
   it("splits words in both spellings", () => {
