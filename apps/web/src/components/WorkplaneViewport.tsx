@@ -129,7 +129,7 @@ import {
 } from "@/components/workplane/TransformOverlay";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, MeasurementAccuracy, ShapeAsset, WorkplaneNote, WorkplaneNoteAnchor, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { NOTE_TEXT_LIMIT } from "@/lib/workplaneNotes";
-import { planarFaceCentroid, type PivotPoint } from "@/lib/rotationPivot";
+import { planarFaceCentroid, planarFaceTriangles, type PivotPoint } from "@/lib/rotationPivot";
 import { outwardFaceNormal } from "@/lib/layFlat";
 import { OVERHANG_PLATE_TOLERANCE, overhangDownwardLimit } from "@/lib/overhangLimits";
 import { directionIsOwnShapeAxis, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
@@ -416,6 +416,8 @@ type ThreeState = {
   controls: OrbitControls;
   workplaneLayer: THREE.Group;
   workplanePreviewLayer: THREE.Group;
+  /** The face "Lay flat" would turn down, drawn while the pointer is over it. */
+  layFlatHoverLayer?: THREE.Group;
   shapeLayer: THREE.Group;
   helperLayer: THREE.Group;
   splitLayer: THREE.Group;
@@ -4760,6 +4762,10 @@ export function WorkplaneViewport({
     pivotPickModeRef.current = pivotPickMode;
   }, [pivotPickMode]);
 
+  useEffect(() => {
+    if (!layFlatPickMode) syncLayFlatHover(threeRef.current, [], resolvedThemeRef.current, null, null);
+  }, [layFlatPickMode]);
+
   useLayoutEffect(() => {
     rotationPivotRef.current = rotationPivot;
     const state = threeRef.current;
@@ -4988,6 +4994,7 @@ export function WorkplaneViewport({
       target.texture.colorSpace = THREE.SRGBColorSpace;
       const helpers: Array<THREE.Object3D | null> = [
         state.workplanePreviewLayer,
+        state.layFlatHoverLayer ?? null,
         state.helperLayer,
         state.transformGuideLayer,
         state.moveDimensionLayer,
@@ -5141,6 +5148,9 @@ export function WorkplaneViewport({
       disposeChildren(state.workplaneLayer);
       if (state.workplanePreviewLayer) {
         disposeChildren(state.workplanePreviewLayer);
+      }
+      if (state.layFlatHoverLayer) {
+        disposeChildren(state.layFlatHoverLayer);
       }
       disposeChildren(state.shapeLayer);
       state.shapeRecords.clear();
@@ -7451,6 +7461,10 @@ export function WorkplaneViewport({
           workspaceRef.current,
           resolvedThemeRef.current,
         );
+        return;
+      }
+      if (layFlatPickModeRef.current) {
+        syncLayFlatHover(threeRef.current, selectedIdsRef.current, resolvedThemeRef.current, event.clientX, event.clientY);
         return;
       }
       if (modifierActiveRef.current) {
@@ -11208,6 +11222,121 @@ function pickLayFlatFace(state: ThreeState, clientX: number, clientY: number): L
   const corner = (index: number) => new THREE.Vector3().fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld);
   const normal = outwardFaceNormal(corner(hit.face.a), corner(hit.face.b), corner(hit.face.c), state.raycaster.ray.direction);
   return normal ? { shapeId: mesh.userData.shapeId as string, normal } : null;
+}
+
+/**
+ * While "Lay flat" waits for a click, shows the face the click would turn
+ * down: the flat face under the pointer, if it belongs to the selection. The
+ * face is looked up again only when the pointer moves onto another triangle.
+ */
+function syncLayFlatHover(
+  state: ThreeState | null,
+  selectedIds: readonly string[],
+  theme: ResolvedAppTheme,
+  clientX: number | null,
+  clientY: number | null,
+) {
+  if (!state) return;
+  let layer = state.layFlatHoverLayer;
+  if (!layer) {
+    layer = new THREE.Group();
+    layer.name = "LayFlatHover";
+    layer.layers.set(RENDER_LAYER_PREVIEWS);
+    layer.visible = false;
+    state.layFlatHoverLayer = layer;
+    state.scene.add(layer);
+  }
+  const clear = () => {
+    if (layer.userData.key === undefined) return;
+    disposeChildren(layer);
+    layer.userData.key = undefined;
+    layer.visible = false;
+    state.needsRender = true;
+  };
+  if (clientX === null || clientY === null) {
+    clear();
+    return;
+  }
+
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  state.raycaster.setFromCamera(state.pointer, state.camera);
+  state.raycaster.layers.set(RENDER_LAYER_SHAPES);
+  const hit = state.raycaster
+    .intersectObjects(state.shapeLayer.children, true)
+    .find((entry) => {
+      if (state.sectionPlane && state.sectionPlane.distanceToPoint(entry.point) < -0.001) return false;
+      return entry.object instanceof THREE.Mesh && entry.faceIndex !== undefined && entry.faceIndex !== null && typeof entry.object.userData.shapeId === "string";
+    });
+  const mesh = hit?.object as THREE.Mesh<THREE.BufferGeometry> | undefined;
+  if (!hit || !mesh || hit.faceIndex === undefined || hit.faceIndex === null || !selectedIds.includes(mesh.userData.shapeId as string)) {
+    clear();
+    return;
+  }
+
+  const key = `${mesh.uuid}:${hit.faceIndex}:${theme}`;
+  if (layer.userData.key === key) return;
+
+  mesh.updateWorldMatrix(true, false);
+  const position = mesh.geometry.getAttribute("position");
+  const index = mesh.geometry.getIndex();
+  const cornerCount = index ? index.count : position.count;
+  const corner = new THREE.Vector3();
+  const worldCorner = (offset: number) =>
+    corner.fromBufferAttribute(position, index ? index.getX(offset) : offset).applyMatrix4(mesh.matrixWorld);
+  let triangles: number[] = [hit.faceIndex];
+  let positions: ArrayLike<number>;
+  // A very dense mesh is too slow to search on every move: show the one facet.
+  if (cornerCount <= 600000) {
+    const world = new Float64Array(cornerCount * 3);
+    for (let offset = 0; offset < cornerCount; offset += 1) {
+      worldCorner(offset);
+      world[offset * 3] = corner.x;
+      world[offset * 3 + 1] = corner.y;
+      world[offset * 3 + 2] = corner.z;
+    }
+    positions = world;
+    triangles = planarFaceTriangles(world, hit.faceIndex)?.triangles ?? triangles;
+  } else {
+    const world = new Float64Array(9);
+    for (let offset = 0; offset < 3; offset += 1) {
+      worldCorner(hit.faceIndex * 3 + offset);
+      world[offset * 3] = corner.x;
+      world[offset * 3 + 1] = corner.y;
+      world[offset * 3 + 2] = corner.z;
+    }
+    positions = world;
+    triangles = [0];
+  }
+
+  const vertices = new Float32Array(triangles.length * 9);
+  triangles.forEach((triangle, slot) => {
+    for (let offset = 0; offset < 9; offset += 1) vertices[slot * 9 + offset] = positions[triangle * 9 + offset];
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+  const highlight = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: theme === "dark" ? "#69d9ff" : "#079bc6",
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
+    }),
+  );
+  highlight.layers.set(RENDER_LAYER_PREVIEWS);
+  highlight.renderOrder = 960;
+  highlight.raycast = () => undefined;
+  disposeChildren(layer);
+  layer.add(highlight);
+  layer.userData.key = key;
+  layer.visible = true;
+  state.needsRender = true;
 }
 
 function findShapeObject(state: ThreeState, id: string) {

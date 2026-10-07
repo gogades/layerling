@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Lay flat on face shows the face first:** While "Lay flat on face" waits for your click, the flat face under the pointer now lights up, so you see which side will go down before you click, and you can turn the view to look at the others. Asked for by @Jeff-Haas in #130.
 - **A resized group keeps its new size:** A group of solids resized after grouping was still split, exported to STL, 3MF and OBJ, aligned and snapped at the size it had when it was grouped. Splitting it also turned the halves back to that size, and the split plane could not go past the old height. All of these now use the size the group shows. By @gogades in #127.
 - **A second try when the update cannot be fetched:** If the computer has no network for a moment - right after it starts or wakes up, say - the start script gave up on the update at once and started the version that was already installed. It now waits five seconds and tries once more, and when that fails too, the message says to check the internet connection. The same in `start-layerling.sh`. Seen by @bernbout in #110.
 

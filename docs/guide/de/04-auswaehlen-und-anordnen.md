@@ -58,7 +58,7 @@ Gedreht wird mit den gebogenen Pfeilen an der Form, mit den Zahlen in den Einste
 
 ## Auf eine Fläche legen
 
-Ein Teil soll für den Druck auf seiner besten Seite liegen? Wähle es aus, klicke auf {{ui:editor.tool.layFlat}} und dann auf die Fläche, die nach unten soll. Das Teil dreht sich so, dass diese Fläche auf der Arbeitsebene liegt.
+Ein Teil soll für den Druck auf seiner besten Seite liegen? Wähle es aus, klicke auf {{ui:editor.tool.layFlat}} und dann auf die Fläche, die nach unten soll. Wenn du mit dem Zeiger über das Teil fährst, leuchtet die Fläche darunter auf, du siehst also vorher, welche du gleich nimmst; drehe die Ansicht, um die anderen Seiten zu prüfen. Das Teil dreht sich so, dass diese Fläche auf der Arbeitsebene liegt.
 
 Ähnlich einfach sind {{ui:editor.tool.dropToWorkplane}} ([[D]]), das die Auswahl auf die Arbeitsebene absetzt, und {{ui:editor.tool.centerOnWorkplane}}.
 
