@@ -1,3 +1,5 @@
+import type { SketchProfile } from "@/types/layerling";
+
 export type SketchSelection =
   | { kind: "point"; id: string }
   | { kind: "segment"; id: string }
@@ -36,4 +38,57 @@ export function sketchSelectionCount(selected: SketchSelection): number {
   if (!selected) return 0;
   if (selected.kind === "multiple") return selected.pointIds.length + selected.segmentIds.length + (selected.imageIds?.length ?? 0);
   return 1;
+}
+
+/**
+ * The points that move when the selection moves: the selected points and the
+ * end points of the selected lines. A line has no position of its own, so
+ * moving it means moving its two ends.
+ */
+export function sketchSelectionMovePointIds(profile: Pick<SketchProfile, "segments">, selected: SketchSelection): string[] {
+  if (!selected || selected.kind === "image") return [];
+  const ids = new Set<string>();
+  const addSegment = (segmentId: string) => {
+    const segment = profile.segments.find((entry) => entry.id === segmentId);
+    if (segment) {
+      ids.add(segment.startId);
+      ids.add(segment.endId);
+    }
+  };
+  if (selected.kind === "point") ids.add(selected.id);
+  else if (selected.kind === "segment") addSegment(selected.id);
+  else {
+    selected.pointIds.forEach((id) => ids.add(id));
+    selected.segmentIds.forEach(addSegment);
+  }
+  return [...ids];
+}
+
+/**
+ * What dragging a line moves: the whole selection when the line is part of a
+ * larger one (it is then the handle for all of it), otherwise its own two ends.
+ */
+export function sketchSegmentDragPointIds(profile: Pick<SketchProfile, "segments">, selected: SketchSelection, segmentId: string): string[] {
+  if (selected?.kind === "multiple" && selected.segmentIds.includes(segmentId)) {
+    return sketchSelectionMovePointIds(profile, selected);
+  }
+  return sketchSelectionMovePointIds(profile, { kind: "segment", id: segmentId });
+}
+
+/** Shift while dragging: the move stays on the axis it follows more, like on the workplane. */
+export function constrainToAxis(origin: { x: number; z: number }, point: { x: number; z: number }) {
+  return Math.abs(point.x - origin.x) >= Math.abs(point.z - origin.z)
+    ? { x: point.x, z: origin.z }
+    : { x: origin.x, z: point.z };
+}
+
+/** A nudge, shortened where it would carry a point off the plate (which spans +-halfWidth by +-halfDepth). */
+export function clampNudge(points: Array<{ x: number; z: number }>, dx: number, dz: number, halfWidth: number, halfDepth: number) {
+  let nextX = dx;
+  let nextZ = dz;
+  for (const point of points) {
+    nextX = Math.min(Math.max(nextX, -halfWidth - point.x), halfWidth - point.x);
+    nextZ = Math.min(Math.max(nextZ, -halfDepth - point.z), halfDepth - point.z);
+  }
+  return { dx: nextX, dz: nextZ };
 }

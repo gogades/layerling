@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronUp, CornerDownRight, Crosshair, Home, Link, Link2Off, LockKeyhole, LockKeyholeOpen, Minus, Plus, RulerDimensionLine, Slash, Spline, Split, Trash2, Waves, X } from "lucide-react";
+import { Check, ChevronUp, CornerDownRight, Crosshair, Home, Link, Link2Off, LockKeyhole, LockKeyholeOpen, Minus, Plus, Ruler, RulerDimensionLine, Slash, Spline, Split, Trash2, Waves, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { SnapGridControl } from "@/components/workplane/ShapeInspector";
 import { SketchRevolvePreview } from "@/components/SketchRevolvePreview";
@@ -15,11 +15,11 @@ import { closestPointOnSketchSegment, type SketchSegmentPlacement } from "@/lib/
 import { isSketchPanGesture, SKETCH_MANUAL_MAX_ZOOM, SKETCH_MAX_ZOOM, SKETCH_WHEEL_ZOOM_BOOST, SKETCH_MIN_ZOOM, sketchWheelZoomFactor, zoomSketchViewAt, type SketchView } from "@/lib/sketchPointerControls";
 import { isSketchPrimitive, type SketchPrimitive } from "@/lib/sketchPrimitives";
 import { mirrorSign, resizedImportedMeshPositions } from "@/lib/workplaneShapes";
-import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, snapGridStep as snapStep, orbitControlsZoomSpeed, zoomDistanceScale } from "@/lib/workplaneSettings";
+import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, keyboardNudgeStep, normalizeSnapGrid, normalizeWorkspaceSettings, snapGridStep as snapStep, orbitControlsZoomSpeed, zoomDistanceScale } from "@/lib/workplaneSettings";
 import type { GridSize, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
-import type { SketchSelectableEntity, SketchSelection } from "@/lib/sketchSelection";
+import { clampNudge, constrainToAxis, sketchSegmentDragPointIds, sketchSelectionMovePointIds, type SketchSelectableEntity, type SketchSelection } from "@/lib/sketchSelection";
 import { closedPathAt, cubicPoint, curveControls, isInsideEdges, orderedPaths, pathEdges, type DisplayPath, type PlaneEdge } from "@/lib/sketchPaths";
 
 export type { SketchPrimitive } from "@/lib/sketchPrimitives";
@@ -67,7 +67,7 @@ type SketchWorkspaceProps = {
 type SketchReferenceFootprint = { fillD: string | null; outlineD: string | null };
 type PointerAction =
   | { kind: "bezier"; pointerId: number; origin: { x: number; z: number }; current: { x: number; z: number } }
-  | { kind: "move-point"; pointerId: number; pointId: string; current: { x: number; z: number } }
+  | { kind: "move-point"; pointerId: number; pointId: string; origin: { x: number; z: number }; current: { x: number; z: number } }
   | { kind: "move-selection"; pointerId: number; origin: { x: number; z: number }; current: { x: number; z: number }; startPoints: SketchPoint[] }
   | { kind: "resize-selection"; pointerId: number; handle: ResizeHandle; current: { x: number; z: number }; startPoints: SketchPoint[]; bounds: SelectionBounds }
   | { kind: "move-handle"; pointerId: number; pointId: string; handle: "in" | "out"; current: { x: number; z: number } }
@@ -78,6 +78,8 @@ type PointerAction =
 
 type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 type SelectionBounds = { minX: number; maxX: number; minZ: number; maxZ: number; width: number; depth: number; cx: number; cz: number };
+
+const SKETCH_MEASUREMENTS_STORAGE_KEY = "layerling.sketch.measurements";
 
 function snapValue(value: number, step: number) {
   return step > 0 ? Math.round(value / step) * step : value;
@@ -519,6 +521,25 @@ export function SketchWorkspace({
   const [hover, setHover] = useState<{ x: number; z: number } | null>(null);
   const [refinePreview, setRefinePreview] = useState<{ segmentId: string; placement: SketchSegmentPlacement } | null>(null);
   const [pointerAction, setPointerAction] = useState<PointerAction | null>(null);
+  const [showMeasurements, setShowMeasurements] = useState(true);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(SKETCH_MEASUREMENTS_STORAGE_KEY) === "off") setShowMeasurements(false);
+    } catch {
+      // Without storage the switch simply starts on.
+    }
+  }, []);
+  const toggleMeasurements = () => {
+    setShowMeasurements((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(SKETCH_MEASUREMENTS_STORAGE_KEY, next ? "on" : "off");
+      } catch {
+        // Not remembered, but it applies now.
+      }
+      return next;
+    });
+  };
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
   const svgRef = useRef<SVGSVGElement | null>(null);
   const wrapRef = useRef<HTMLElement | null>(null);
@@ -808,7 +829,13 @@ export function SketchWorkspace({
     }
     const point = pointFromEvent(event);
     setHover(point);
-    if (point && pointerAction) setPointerAction({ ...pointerAction, current: point });
+    if (point && pointerAction) {
+      // Shift held while a point, a line or a selection is being dragged keeps the
+      // move on one axis, as on the workplane. Pressing it only starts a drag
+      // from selecting, so it is looked at here, while the pointer moves.
+      const lockOrigin = pointerAction.kind === "move-point" || pointerAction.kind === "move-selection" ? pointerAction.origin : null;
+      setPointerAction({ ...pointerAction, current: event.shiftKey && lockOrigin ? constrainToAxis(lockOrigin, point) : point });
+    }
   };
 
   const finishPointerAction = (event: ReactPointerEvent<SVGSVGElement>) => {
@@ -852,6 +879,11 @@ export function SketchWorkspace({
         handleOut: { x: action.origin.x + dx, z: action.origin.z + dz },
       });
     } else if (action.kind === "move-selection") {
+      // A click on a line, without dragging, only selects it.
+      if (action.current.x === action.origin.x && action.current.z === action.origin.z) {
+        setPointerAction(null);
+        return;
+      }
       onTransformPoints(
         translateSketchPoints(action.startPoints, action.current.x - action.origin.x, action.current.z - action.origin.z),
         t("sketch.shapeMoved"),
@@ -924,11 +956,34 @@ export function SketchWorkspace({
       } else if (event.key.toLowerCase() === "f" || event.key === "Home") {
         event.preventDefault();
         resetView();
+      } else if (tool === "select" && !pointerAction && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+        // Fine moves, as on the workplane: one grid step, or a coarser one with
+        // Shift. What moves is the selection - points, the ends of lines, an image.
+        const step = keyboardNudgeStep(snap, event.shiftKey);
+        const dx = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
+        const dz = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
+        if (selected?.kind === "image") {
+          const image = (profile.images ?? []).find((entry) => entry.id === selected.id);
+          if (!image || image.locked) return;
+          event.preventDefault();
+          onUpdateImage(image.id, {
+            x: clamp(image.x + dx, -workspace.width / 2, workspace.width / 2),
+            z: clamp(image.z + dz, -workspace.depth / 2, workspace.depth / 2),
+          }, t("sketch.imageMoved"));
+          return;
+        }
+        const moving = new Set(sketchSelectionMovePointIds(profile, selected));
+        const startPoints = profile.points.filter((point) => moving.has(point.id));
+        if (!startPoints.length) return;
+        event.preventDefault();
+        const allowed = clampNudge(startPoints, dx, dz, workspace.width / 2, workspace.depth / 2);
+        if (allowed.dx === 0 && allowed.dz === 0) return;
+        onTransformPoints(translateSketchPoints(startPoints, allowed.dx, allowed.dz), t("sketch.shapeMoved"));
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusSelection, resetView]);
+  }, [focusSelection, onTransformPoints, onUpdateImage, pointerAction, profile, resetView, selected, snap, tool, workspace.depth, workspace.width]);
 
   const beginEntityDrag = (event: ReactPointerEvent<SVGElement>, action: PointerAction) => {
     if (event.button !== 0) return;
@@ -974,7 +1029,7 @@ export function SketchWorkspace({
   // Each label starts just off its segment; one that would cover a label placed
   // before it moves further out along its extension lines until it is clear.
   const placedPills: Array<{ minX: number; maxX: number; minZ: number; maxZ: number }> = [];
-  const dimensionLayouts = displayProfile.segments.filter((segment) => selected?.kind === "segment"
+  const dimensionLayouts = displayProfile.segments.filter((segment) => !showMeasurements ? false : selected?.kind === "segment"
     ? segment.id === selected.id
     : selectedPoint ? segment.startId === selectedPoint.id || segment.endId === selectedPoint.id : false,
   ).flatMap((segment) => {
@@ -1084,6 +1139,15 @@ export function SketchWorkspace({
           onClick={onMeasureTool}
         >
           <RulerDimensionLine size={26} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+        <button
+          className={showMeasurements ? "active" : ""}
+          aria-label={t("sketch.showMeasurements")}
+          title={t("sketch.showMeasurements")}
+          aria-pressed={showMeasurements}
+          onClick={toggleMeasurements}
+        >
+          <Ruler size={26} strokeWidth={2.2} aria-hidden="true" />
         </button>
       </div>
       <section ref={wrapRef} className="sketch-plate-wrap" aria-label="2D sketch plate">
@@ -1239,7 +1303,14 @@ export function SketchWorkspace({
                     onToggleSelect({ kind: "segment", id: segment.id });
                   }
                   else if (event.button === 0 && tool === "select" && point) {
-                    onSelectSegment(segment.id);
+                    // A line is moved by its two ends; one that belongs to a larger
+                    // selection moves all of it. The line is selected as it is grabbed.
+                    const moving = new Set(sketchSegmentDragPointIds(profile, selected, segment.id));
+                    if (!(selected?.kind === "multiple" && selected.segmentIds.includes(segment.id))) onSelectSegment(segment.id);
+                    const startPoints = profile.points
+                      .filter((entry) => moving.has(entry.id))
+                      .map((entry) => ({ ...entry, handleIn: entry.handleIn ? { ...entry.handleIn } : undefined, handleOut: entry.handleOut ? { ...entry.handleOut } : undefined }));
+                    beginEntityDrag(event, { kind: "move-selection", pointerId: event.pointerId, origin: point, current: point, startPoints });
                   } else if (event.button === 0) onSelectSegment(segment.id);
                 }}
               />
@@ -1343,11 +1414,11 @@ export function SketchWorkspace({
                     beginEntityDrag(event, { kind: "move-selection", pointerId: event.pointerId, origin: point, current: point, startPoints });
                   }}
                 />
-                <g className="sketch-geometry-dimension" pointerEvents="none" transform={`translate(${selectedGeometryBounds.cx} ${selectedGeometryBounds.minZ - labelOffset})`}>
+                <g className="sketch-geometry-dimension" display={showMeasurements ? undefined : "none"} pointerEvents="none" transform={`translate(${selectedGeometryBounds.cx} ${selectedGeometryBounds.minZ - labelOffset})`}>
                   <rect x={-widthPill.width / 2} y={-widthPill.height / 2} width={widthPill.width} height={widthPill.height} rx={widthPill.radius} />
                   <text y={5 * screenUnit} fontSize={13 * screenUnit}>{widthLabel}</text>
                 </g>
-                <g className="sketch-geometry-dimension" pointerEvents="none" transform={`translate(${selectedGeometryBounds.maxX + 34 * screenUnit} ${selectedGeometryBounds.cz})`}>
+                <g className="sketch-geometry-dimension" display={showMeasurements ? undefined : "none"} pointerEvents="none" transform={`translate(${selectedGeometryBounds.maxX + 34 * screenUnit} ${selectedGeometryBounds.cz})`}>
                   <rect x={-depthPill.width / 2} y={-depthPill.height / 2} width={depthPill.width} height={depthPill.height} rx={depthPill.radius} />
                   <text y={5 * screenUnit} fontSize={13 * screenUnit}>{depthLabel}</text>
                 </g>
@@ -1453,7 +1524,7 @@ export function SketchWorkspace({
                     onToggleSelect({ kind: "point", id: point.id });
                   } else if (event.button === 0 && tool === "select") {
                     onPointPress(point.id);
-                    beginEntityDrag(event, { kind: "move-point", pointerId: event.pointerId, pointId: point.id, current: { x: point.x, z: point.z } });
+                    beginEntityDrag(event, { kind: "move-point", pointerId: event.pointerId, pointId: point.id, origin: { x: point.x, z: point.z }, current: { x: point.x, z: point.z } });
                   } else if (event.button === 0) {
                     onPointPress(point.id);
                   }
@@ -1471,7 +1542,7 @@ export function SketchWorkspace({
                 height={selectedImage.depth}
                 pointerEvents="none"
               />
-              <g className="sketch-image-dimension width" pointerEvents="none" transform={`translate(${selectedImage.x} ${selectedImageBounds.minZ - labelOffset})`}>
+              <g className="sketch-image-dimension width" display={showMeasurements ? undefined : "none"} pointerEvents="none" transform={`translate(${selectedImage.x} ${selectedImageBounds.minZ - labelOffset})`}>
                 {(() => {
                   const label = formatDimension(selectedImage.width, workspace.accuracy);
                   const pill = dimensionPillSize(label, screenUnit, 18);
@@ -1483,7 +1554,7 @@ export function SketchWorkspace({
                   );
                 })()}
               </g>
-              <g className="sketch-image-dimension depth" pointerEvents="none" transform={`translate(${selectedImageBounds.maxX + 34 * screenUnit} ${selectedImage.z})`}>
+              <g className="sketch-image-dimension depth" display={showMeasurements ? undefined : "none"} pointerEvents="none" transform={`translate(${selectedImageBounds.maxX + 34 * screenUnit} ${selectedImage.z})`}>
                 {(() => {
                   const label = formatDimension(selectedImage.depth, workspace.accuracy);
                   const pill = dimensionPillSize(label, screenUnit, 18);
