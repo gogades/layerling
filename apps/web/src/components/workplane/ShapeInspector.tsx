@@ -1496,6 +1496,7 @@ export function ShapeInspector({
   onSnapGridAwayChange,
   proportionLock = false,
   onProportionLockChange,
+  onBentTubeSegmentChange,
 }: {
   shape: WorkplaneShape;
   snap: GridSize;
@@ -1519,6 +1520,8 @@ export function ShapeInspector({
   /** With the lock on, changing one of width, depth and height scales the other two by the same factor. */
   proportionLock?: boolean;
   onProportionLockChange?: (locked: boolean) => void;
+  /** The segment the bent tube's settings are about, or null when none is shown; the workplane lights it up on the tube. */
+  onBentTubeSegmentChange?: (shapeId: string, segment: number | null) => void;
 }) {
   useLanguage();
   const solidColor = shape.color;
@@ -1944,6 +1947,7 @@ export function ShapeInspector({
           locked={locked}
           onUpdate={onUpdate}
           onInteractionActiveChange={onInteractionActiveChange}
+          onSegmentChange={onBentTubeSegmentChange}
         />
       ) : null}
       {!shapeIgnoresTaper ? (
@@ -2127,12 +2131,14 @@ function BentTubeSegmentsCard({
   locked,
   onUpdate,
   onInteractionActiveChange,
+  onSegmentChange,
 }: {
   shape: WorkplaneShape;
   workspace: WorkplaneWorkspaceSettings;
   locked: boolean;
   onUpdate: ShapeInspectorUpdate;
   onInteractionActiveChange?: (active: boolean) => void;
+  onSegmentChange?: (shapeId: string, segment: number | null) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [selected, setSelected] = useState(0);
@@ -2148,6 +2154,13 @@ function BentTubeSegmentsCard({
   }, [selfIntersectionKey]);
 
   useEffect(() => setSelected(0), [shape.id]);
+
+  // While the card is open, the chosen segment is lit up on the tube itself.
+  const shapeId = shape.id;
+  useEffect(() => {
+    onSegmentChange?.(shapeId, open ? index : null);
+    return () => onSegmentChange?.(shapeId, null);
+  }, [index, onSegmentChange, open, shapeId]);
 
   const writeSegments = (next: typeof segments) => onUpdate(bentTubeParameterPatch(shape, { bentTubeSegments: next }));
   const changeSegment = (changes: Partial<(typeof segments)[number]>) => {

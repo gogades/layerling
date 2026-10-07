@@ -53,7 +53,7 @@ import { createTeardropGeometry } from "@/lib/teardropGeometry";
 import { createScrewHoleGeometry } from "@/lib/screwHoleGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
-import { createBentTubeGeometry } from "@/lib/bentTubeGeometry";
+import { createBentTubeGeometry, createBentTubeSegmentGeometry } from "@/lib/bentTubeGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { createTextGeometry } from "@/lib/textGeometry";
@@ -462,6 +462,8 @@ type ThreeState = {
   workplanePreviewLayer: THREE.Group;
   /** The face "Lay flat" would turn down, drawn while the pointer is over it. */
   layFlatHoverLayer?: THREE.Group;
+  /** The bent-tube segment the settings are about, drawn over the tube. */
+  bentTubeSegmentLayer?: THREE.Group;
   shapeLayer: THREE.Group;
   helperLayer: THREE.Group;
   splitLayer: THREE.Group;
@@ -4196,6 +4198,13 @@ export function WorkplaneViewport({
   const marqueeRef = useRef<MarqueeState | null>(null);
   const transformRef = useRef<TransformDragState | null>(null);
   const lastResizeAnchorRef = useRef<ResizeAnchorMemory | null>(null);
+  const [bentTubeSegment, setBentTubeSegment] = useState<{ shapeId: string; index: number } | null>(null);
+  const changeBentTubeSegment = useCallback((shapeId: string, index: number | null) => {
+    setBentTubeSegment((current) => {
+      if (index === null) return current && current.shapeId === shapeId ? null : current;
+      return current && current.shapeId === shapeId && current.index === index ? current : { shapeId, index };
+    });
+  }, []);
   const [proportionLock, setProportionLock] = useState(false);
   const proportionLockRef = useRef(false);
   useEffect(() => {
@@ -4301,6 +4310,9 @@ export function WorkplaneViewport({
   });
 
   const selectedShape = useMemo(() => (selectedIds.length === 1 ? shapes.find((shape) => shape.id === selectedIds[0]) ?? null : null), [selectedIds, shapes]);
+  useEffect(() => {
+    syncBentTubeSegment(threeRef.current, selectedShape, bentTubeSegment);
+  }, [bentTubeSegment, selectedShape]);
   const renderSelectionIds = useCallback(
     (ids = selectedIdsRef.current) => (
       workplaneModeRef.current || splitActiveRef.current || (modifierActiveRef.current && !modifierPreviewActiveRef.current) ? [] : ids
@@ -5095,6 +5107,7 @@ export function WorkplaneViewport({
       const helpers: Array<THREE.Object3D | null> = [
         state.workplanePreviewLayer,
         state.layFlatHoverLayer ?? null,
+        state.bentTubeSegmentLayer ?? null,
         state.helperLayer,
         state.transformGuideLayer,
         state.moveDimensionLayer,
@@ -5251,6 +5264,9 @@ export function WorkplaneViewport({
       }
       if (state.layFlatHoverLayer) {
         disposeChildren(state.layFlatHoverLayer);
+      }
+      if (state.bentTubeSegmentLayer) {
+        disposeChildren(state.bentTubeSegmentLayer);
       }
       disposeChildren(state.shapeLayer);
       state.shapeRecords.clear();
@@ -9135,6 +9151,7 @@ export function WorkplaneViewport({
           }}
           proportionLock={proportionLock}
           onProportionLockChange={changeProportionLock}
+          onBentTubeSegmentChange={changeBentTubeSegment}
           onSnapChange={chooseSnapGrid}
           onSnapOpenChange={setSnapOpen}
           onObjectSnapChange={changeObjectSnap}
@@ -11504,6 +11521,68 @@ function syncLayFlatHover(
   layer.userData.key = key;
   layer.visible = true;
   state.needsRender = true;
+}
+
+/**
+ * Lights up one segment of a bent tube: a slightly wider sleeve over that
+ * piece of the tube, placed like the shape itself. Drawn again whenever the
+ * shape or the chosen segment changes; nothing is drawn for another shape.
+ */
+function syncBentTubeSegment(state: ThreeState | null, shape: WorkplaneShape | null, segment: { shapeId: string; index: number } | null) {
+  if (!state) return;
+  let layer = state.bentTubeSegmentLayer;
+  if (!layer) {
+    layer = new THREE.Group();
+    layer.name = "BentTubeSegment";
+    layer.layers.set(RENDER_LAYER_PREVIEWS);
+    layer.visible = false;
+    state.bentTubeSegmentLayer = layer;
+    state.scene.add(layer);
+  }
+  disposeChildren(layer);
+  layer.visible = false;
+  state.needsRender = true;
+  if (!shape || shape.kind !== "bentTube" || !segment || segment.shapeId !== shape.id) return;
+
+  const geometry = createBentTubeSegmentGeometry({
+    width: shapeWidth(shape),
+    depth: shapeDepth(shape),
+    height: shape.height,
+    bentTubeProfile: shape.bentTubeProfile,
+    bentTubeInnerProfile: shape.bentTubeInnerProfile,
+    bentTubeSize: shape.bentTubeSize,
+    bentTubeWall: shape.bentTubeWall,
+    bentTubeQuality: shape.bentTubeQuality,
+    bentTubeSegments: shape.bentTubeSegments,
+  }, segment.index);
+  if (!geometry) return;
+
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: "#ff9a2e",
+      transparent: true,
+      opacity: 0.6,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    }),
+  );
+  mesh.layers.set(RENDER_LAYER_PREVIEWS);
+  mesh.renderOrder = 955;
+  mesh.raycast = () => undefined;
+  mesh.position.y -= shape.height / 2;
+  layer.position.set(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z);
+  layer.rotation.set(
+    THREE.MathUtils.degToRad(shape.rotationX ?? 0),
+    THREE.MathUtils.degToRad(shape.rotation),
+    THREE.MathUtils.degToRad(shape.rotationZ ?? 0),
+  );
+  layer.scale.set(mirrorSign(shape.mirrorX), mirrorSign(shape.mirrorY), mirrorSign(shape.mirrorZ));
+  layer.add(mesh);
+  layer.visible = true;
 }
 
 function findShapeObject(state: ThreeState, id: string) {

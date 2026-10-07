@@ -613,6 +613,48 @@ export function createBentTubeGeometry(options: BentTubeGeometryOptions) {
 }
 
 /**
+ * Just the walls of one segment, a hair wider than the tube, in the same local
+ * frame as the tube's own geometry. The editor draws it over the tube to show
+ * which segment the settings are about. Null for a segment that has no length
+ * and no bend.
+ */
+export function createBentTubeSegmentGeometry(options: BentTubeGeometryOptions, segmentIndex: number, margin = 0.4) {
+  const settings = bentTubeSettings(options);
+  if (!Number.isInteger(segmentIndex) || segmentIndex < 0 || segmentIndex >= settings.segments.length) return null;
+  const toLocal = localFrame(buildBentTubeMesh(settings), options.width, options.depth, options.height);
+  const before = bentTubeStations({ ...settings, segments: settings.segments.slice(0, segmentIndex) });
+  const through = bentTubeStations({ ...settings, segments: settings.segments.slice(0, segmentIndex + 1) });
+  // The stations of a shorter chain are the first stations of a longer one.
+  const stations = through.slice(before.length - 1);
+  if (stations.length < 2) return null;
+  const ring = profilePoints(settings.profile, bentTubeProfileRadii(settings).outer + margin, settings.quality);
+  const positions: number[] = [];
+  stations.forEach((station) => ring.forEach(([a, b]) => {
+    const local = toLocal([
+      station.point[0] + station.u[0] * a + station.v[0] * b,
+      station.point[1] + station.u[1] * a + station.v[1] * b,
+      station.point[2] + station.u[2] * a + station.v[2] * b,
+    ]);
+    positions.push(local[0], local[1], local[2]);
+  }));
+  const indices: number[] = [];
+  for (let station = 0; station + 1 < stations.length; station += 1) {
+    for (let corner = 0; corner < ring.length; corner += 1) {
+      const a = station * ring.length + corner;
+      const b = station * ring.length + ((corner + 1) % ring.length);
+      const c = (station + 1) * ring.length + ((corner + 1) % ring.length);
+      const d = (station + 1) * ring.length + corner;
+      indices.push(a, b, c, a, c, d);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(Float32Array.from(positions), 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/**
  * True when two cross-sections that are not neighbours on the path overlap,
  * i.e. the chain of segments runs back into itself. Local folding at a bend is
  * already excluded by the minimum bend radius; this catches the global case.
