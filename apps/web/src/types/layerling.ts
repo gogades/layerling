@@ -606,4 +606,10 @@ export type WorkplaneNote = {
   anchor?: WorkplaneNoteAnchor;
   /** Zugeklappt zeigt die Notiz nur ihre Nadel mit der Nummer. */
   collapsed?: boolean;
+  /**
+   * "point" makes this a reference point instead of a note: a mark in space
+   * that other shapes snap to. It has no text and no anchor, is not counted as
+   * a note, and travels with the design exactly like one (history, file, server).
+   */
+  kind?: "point";
 };

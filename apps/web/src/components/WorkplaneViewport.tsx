@@ -57,7 +57,7 @@ import { createBentTubeGeometry, createBentTubeSegmentGeometry } from "@/lib/ben
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { createTextGeometry } from "@/lib/textGeometry";
-import { displayStepFromMillimeters, displayToMillimeters, formatLengthMm, lengthDisplayUnit, millimetersToDisplay, parseLengthMm, parseMeasurementInput, resolveLengthMm, setLengthUnit } from "@/lib/measurementUnits";
+import { displayStepFromMillimeters, displayToMillimeters, formatLengthMm, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseLengthMm, parseMeasurementInput, resolveLengthMm, setLengthUnit } from "@/lib/measurementUnits";
 import {
   computeCornerRulerRelativeCoordinates,
   cornerRulerDimensionMatchesFromCorner,
@@ -128,7 +128,7 @@ import {
   type TransformOverlayState,
 } from "@/components/workplane/TransformOverlay";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, MeasurementAccuracy, ShapeAsset, WorkplaneNote, WorkplaneNoteAnchor, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
-import { NOTE_TEXT_LIMIT } from "@/lib/workplaneNotes";
+import { NOTE_TEXT_LIMIT, referencePoints } from "@/lib/workplaneNotes";
 import { planarFaceCentroid, planarFaceTriangles, type PivotPoint } from "@/lib/rotationPivot";
 import { outwardFaceNormal } from "@/lib/layFlat";
 import { OVERHANG_PLATE_TOLERANCE, overhangDownwardLimit } from "@/lib/overhangLimits";
@@ -592,6 +592,11 @@ type NoteOverlayItem = {
   text: string;
   collapsed: boolean;
   attached: boolean;
+  /** A reference point, not a note: shown as a mark with its coordinates. */
+  point: boolean;
+  x: number;
+  y: number;
+  z: number;
   screenX: number;
   screenY: number;
   behind: boolean;
@@ -1879,15 +1884,21 @@ function syncNoteOverlay(
   }
   const rect = state.renderer.domElement.getBoundingClientRect();
   state.camera.updateMatrixWorld();
+  // Only notes are numbered; the reference points among them are not.
+  let noteNumber = 0;
   const next: NoteOverlayState = {
-    notes: notes.map((note, index) => {
+    notes: notes.map((note) => {
       const projected = noteWorldPosition(state, note).project(state.camera);
       return {
         id: note.id,
-        index: index + 1,
+        index: note.kind === "point" ? 0 : ++noteNumber,
         text: note.text,
         collapsed: Boolean(note.collapsed),
         attached: Boolean(note.anchor),
+        point: note.kind === "point",
+        x: note.x,
+        y: note.y,
+        z: note.z,
         screenX: ((projected.x + 1) / 2) * rect.width,
         screenY: ((1 - projected.y) / 2) * rect.height,
         behind: projected.z > 1,
@@ -1905,6 +1916,10 @@ function syncNoteOverlay(
         && note.text === candidate.text
         && note.collapsed === candidate.collapsed
         && note.attached === candidate.attached
+        && note.point === candidate.point
+        && note.x === candidate.x
+        && note.y === candidate.y
+        && note.z === candidate.z
         && note.behind === candidate.behind
         && note.flipped === candidate.flipped
         && Math.abs(note.screenX - candidate.screenX) < 0.2
@@ -1970,6 +1985,51 @@ function NoteText({
   );
 }
 
+/** One coordinate of a reference point, typed in the workspace's unit; Enter or leaving the field applies it. */
+function PointCoordinateField({ label, value, workspace, onCommit }: {
+  label: string;
+  value: number;
+  workspace: WorkplaneWorkspaceSettings;
+  onCommit: (millimeters: number) => void;
+}) {
+  const shown = formatMeasurementNumber(millimetersToDisplay(value, workspace), workspace.accuracy);
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    const parsed = parseMeasurementInput(draft ?? shown);
+    if (Number.isFinite(parsed)) onCommit(displayToMillimeters(parsed, workspace));
+    setDraft(null);
+  };
+  return (
+    <label className="point-field">
+      <span>{label}</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft ?? shown}
+        onFocus={(event) => {
+          setDraft(shown);
+          event.currentTarget.select();
+        }}
+        onChange={(event) => setDraft(event.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.blur();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            setDraft(null);
+            event.currentTarget.blur();
+          }
+        }}
+      />
+      <small>{lengthDisplayUnit(workspace).label}</small>
+    </label>
+  );
+}
+
 /**
  * Die Notizen ueber der Leinwand. Sie sind bewusst HTML und keine Textur in der
  * Szene: So bleibt die Schrift bei jeder Zoomstufe scharf, laesst sich markieren
@@ -1987,8 +2047,12 @@ function NoteOverlay({
   onDetach,
   onRemove,
   onEditingIdChange,
+  workspace,
+  onPointChange,
 }: {
   overlay: NoteOverlayState;
+  workspace: WorkplaneWorkspaceSettings;
+  onPointChange: (noteId: string, patch: { x?: number; y?: number; z?: number }) => void;
   editingId: string | null;
   onPinPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => void;
   onPinPointerMove: (event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => void;
@@ -2013,17 +2077,31 @@ function NoteOverlay({
           >
             <button
               type="button"
-              className={`note-pin ${note.attached ? "attached" : ""}`}
-              title={t("note.move")}
-              aria-label={`${t("editor.tool.note")} ${note.index}`}
+              className={`note-pin ${note.attached ? "attached" : ""} ${note.point ? "point-pin" : ""}`}
+              title={note.point ? t("point.move") : t("note.move")}
+              aria-label={note.point ? t("point.title") : `${t("editor.tool.note")} ${note.index}`}
               onPointerDown={(event) => onPinPointerDown(event, note.id)}
               onPointerMove={(event) => onPinPointerMove(event, note.id)}
               onPointerUp={(event) => onPinPointerUp(event, note.id)}
               onClick={() => onToggle(note.id)}
             >
-              {note.index}
+              {note.point ? <Crosshair size={15} strokeWidth={2.6} aria-hidden="true" /> : note.index}
             </button>
-            {open ? (
+            {open && note.point ? (
+              <div className="note-card point-card" onPointerDown={(event) => event.stopPropagation()}>
+                <strong>{t("point.title")}</strong>
+                <PointCoordinateField label={t("prop.positionX")} value={note.x} workspace={workspace} onCommit={(x) => onPointChange(note.id, { x })} />
+                <PointCoordinateField label={t("prop.positionY")} value={note.z} workspace={workspace} onCommit={(z) => onPointChange(note.id, { z })} />
+                <PointCoordinateField label={t("prop.positionZ")} value={note.y} workspace={workspace} onCommit={(y) => onPointChange(note.id, { y })} />
+                <div className="note-card-actions">
+                  <span className="note-hint">{t("point.hint")}</span>
+                  <span className="note-card-end">
+                    <GuideHelpLink section="notes" className="note-help-link" iconSize={16} />
+                    <button type="button" className="note-action danger" onClick={() => onRemove(note.id)}>{t("common.delete")}</button>
+                  </span>
+                </div>
+              </div>
+            ) : open ? (
               <div className="note-card" onPointerDown={(event) => event.stopPropagation()}>
                 <NoteText
                   value={note.text}
@@ -6857,7 +6935,9 @@ export function WorkplaneViewport({
     const anchor = resolveNoteAnchor(event.clientX, event.clientY);
     if (!anchor) return;
     drag.moved = true;
-    onNoteUpdate?.(noteId, { x: anchor.x, y: anchor.y, z: anchor.z, anchor: anchor.anchor }, true);
+    // A reference point goes where it is dropped and never sticks to a body.
+    const isPoint = notesRef.current.find((candidate) => candidate.id === noteId)?.kind === "point";
+    onNoteUpdate?.(noteId, isPoint ? { x: anchor.x, y: anchor.y, z: anchor.z } : { x: anchor.x, y: anchor.y, z: anchor.z, anchor: anchor.anchor }, true);
   }, [onNoteUpdate, resolveNoteAnchor]);
 
   const handleNotePinPointerUp = useCallback((event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => {
@@ -6906,6 +6986,7 @@ export function WorkplaneViewport({
       const corners = visible.flatMap((shape) => shapeBoxCornersWorld(shape));
       const modelVertex = visible.length ? pickModelTapeCandidate(state, visible.map((shape) => shape.id), clientX, clientY) : null;
       if (modelVertex?.attachment?.kind === "vertex") corners.push(new THREE.Vector3(modelVertex.x, modelVertex.y, modelVertex.z));
+      if (notesVisibleRef.current) referencePoints(notesRef.current).forEach((point) => corners.push(new THREE.Vector3(point.x, point.y, point.z)));
       let nearest: { point: THREE.Vector3; distance: number } | null = null;
       corners.forEach((corner) => {
         const screen = projectToScreen(corner, state);
@@ -7516,9 +7597,15 @@ export function WorkplaneViewport({
           const entry = shapeById.get(item.id);
           return entry ? [worldSnapBox(entry)] : [];
         }));
-        dragRef.current.snapTargets = shapesRef.current
-          .filter((entry) => !dragged.has(entry.id) && !entry.hidden)
-          .map(worldSnapBox);
+        dragRef.current.snapTargets = [
+          ...shapesRef.current
+            .filter((entry) => !dragged.has(entry.id) && !entry.hidden)
+            .map(worldSnapBox),
+          // A reference point is a box with no size: its edges and centre are one line.
+          ...(notesVisibleRef.current
+            ? referencePoints(notesRef.current).map((point) => ({ minX: point.x, maxX: point.x, minZ: point.z, maxZ: point.z }))
+            : []),
+        ];
       }
       if (moveDimensionsEnabledRef.current && usesWorldHorizontalAxes) {
         const dragFrame = selectionFrameForShapes(shapesRef.current, items.map((item) => item.id));
@@ -9038,6 +9125,8 @@ export function WorkplaneViewport({
               onDetach={(id) => onNoteUpdate?.(id, { anchor: undefined })}
               onRemove={(id) => onNoteRemove?.(id)}
               onEditingIdChange={setEditingNoteId}
+              workspace={workspace}
+              onPointChange={(id, patch) => onNoteUpdate?.(id, patch)}
             />
           ) : null}
           {!workplaneMode && !splitActive && alignOverlay ? <AlignOverlay overlay={alignOverlay} onAlign={onAlignSelection} onPreview={onAlignPreview} onPreviewClear={onAlignPreviewClear} /> : null}

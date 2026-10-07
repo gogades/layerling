@@ -6928,6 +6928,52 @@ html[data-theme="dark"] .inspector-bundle-note {
   box-shadow: var(--shadow), 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
+/* A reference point is a small round mark, not a numbered pin. */
+.note-pin.point-pin {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #ff9a2e;
+  color: #1b1b1b;
+  border-width: 2px;
+}
+
+.note-pin-anchor.flipped .note-pin.point-pin {
+  border-radius: 999px;
+}
+
+.note-card.point-card {
+  width: 190px;
+}
+
+.point-field {
+  display: grid;
+  grid-template-columns: 54px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font: 600 12px/1.2 var(--font-ui);
+  color: var(--foreground);
+}
+
+.point-field input {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--tile);
+  color: var(--foreground);
+  font: 500 13px/1.2 var(--font-ui);
+  padding: 5px 7px;
+  text-align: right;
+}
+
+.point-field input:focus-visible {
+  outline: 2px solid var(--primary);
+}
+
+.point-field small {
+  color: var(--muted);
+}
+
 .note-card {
   width: 210px;
   padding: 8px;

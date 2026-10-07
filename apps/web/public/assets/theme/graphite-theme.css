@@ -2805,6 +2805,29 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .inspector-bundle-note 
   box-shadow: var(--shadow), 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .note-pin.point-pin {
+  background: #ff9a2e;
+  color: #1b1b1b;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .point-field {
+  color: var(--foreground);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .point-field input {
+  border: 1px solid var(--border);
+  background: var(--tile);
+  color: var(--foreground);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .point-field input:focus-visible {
+  outline: 2px solid var(--primary);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .point-field small {
+  color: var(--muted);
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .note-card {
   border: 1px solid var(--border-strong);
   background: var(--panel);

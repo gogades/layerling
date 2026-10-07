@@ -39,4 +39,16 @@ describe("objectSnapOffset", () => {
     const xGuides = result.guides.filter((guide) => guide.axis === "x");
     expect(xGuides).toEqual([{ axis: "x", value: 10, from: -30, to: 30 }]);
   });
+  it("snaps the centre, and each edge, to a reference point, which is a box with no size", () => {
+    const point = box(40, 40, 15, 15);
+    // A 20 wide part whose centre (at x = 39.6) is close to the point's x of 40.
+    const centre = objectSnapOffset(box(29.6, 49.6, 0, 10), [point], 1);
+    expect(centre.dx).toBeCloseTo(0.4);
+    // Its right edge (at 29.6 + 20 = 49.6 here shifted) can snap too: edge at 40.3 -> 40.
+    const edge = objectSnapOffset(box(20.3, 40.3, 0, 10), [point], 1);
+    expect(edge.dx).toBeCloseTo(-0.3);
+    // z: the box 8..22 has its centre at 15, exactly on the point already.
+    expect(objectSnapOffset(box(100, 120, 8, 22), [point], 1).dz).toBeCloseTo(0);
+    expect(edge.guides.some((guide) => guide.axis === "x" && Math.abs(guide.value - 40) < 1e-6)).toBe(true);
+  });
 });

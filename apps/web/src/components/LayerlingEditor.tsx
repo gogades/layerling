@@ -185,7 +185,8 @@ import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
 import { DEFAULT_TAPER_DIMENSION_MAX, keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import { MCP_SHAPE_SETTING_KEYS, mcpThreadSizeName, mcpThreadSizeParams } from "@/lib/mcpShapeSettings";
-import { createNoteId, detachNotesFromMissingShapes, normalizeNotes, NOTE_COUNT_LIMIT, NOTE_TEXT_LIMIT } from "@/lib/workplaneNotes";
+import { createNoteId, detachNotesFromMissingShapes, normalizeNotes, NOTE_COUNT_LIMIT, NOTE_TEXT_LIMIT, referencePoints } from "@/lib/workplaneNotes";
+import { newReferencePositions, referencePointsForBox, unionReferenceBoxes, type ReferencePointSpot, type ReferencePosition } from "@/lib/referencePoints";
 import {
   normalizePlacementWorkplane,
   placementPatchForNewShape,
@@ -6434,6 +6435,12 @@ function mcpString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
+/** A reference point as an AI sees it: x and z on the plate, elevation as the height. */
+function mcpPointInfo(note: WorkplaneNote) {
+  const round = (value: number) => Number(value.toFixed(4));
+  return { id: note.id, x: round(note.x), z: round(note.z), elevation: round(note.y) };
+}
+
 function mcpStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
@@ -7799,6 +7806,44 @@ export function LayerlingEditor({
   );
 
   /**
+   * Reference points: bare marks in space that shapes snap to. They live among
+   * the notes (so they are saved, undone and shared like them) but are not notes.
+   */
+  const addReferencePoints = useCallback(
+    (positions: ReferencePosition[]) => {
+      const fresh = newReferencePositions(notesRef.current, positions);
+      if (fresh.length === 0) {
+        setNotice(t("status.pointsExist"));
+        return [] as string[];
+      }
+      const room = NOTE_COUNT_LIMIT - notesRef.current.length;
+      if (room <= 0) {
+        setNotice(t("status.noteLimitReached", { count: NOTE_COUNT_LIMIT }));
+        return [] as string[];
+      }
+      const created: WorkplaneNote[] = fresh.slice(0, room).map((position) => ({
+        id: createNoteId(),
+        text: "",
+        ...position,
+        kind: "point",
+        collapsed: true,
+      }));
+      setNotesVisible(true);
+      commitNotes([...notesRef.current, ...created], t("status.pointsAdded", { count: created.length }));
+      return created.map((point) => point.id);
+    },
+    [commitNotes, setNotice],
+  );
+
+  const markSelectionPoints = useCallback(
+    (spot: ReferencePointSpot) => {
+      const box = unionReferenceBoxes(selectedShapes.filter((shape) => !shape.hole).map(meshAabb));
+      if (box) addReferencePoints(referencePointsForBox(box, spot));
+    },
+    [addReferencePoints, selectedShapes],
+  );
+
+  /**
    * Beim Tippen und beim Ziehen faellt pro Anschlag eine Aenderung an. Jede
    * davon in den Verlauf zu legen, machte Rueckgaengig unbrauchbar - also geht
    * ein solcher Zwischenstand nur in den Zustand, und der Verlauf bekommt ihn,
@@ -7842,8 +7887,9 @@ export function LayerlingEditor({
         noteCommitTimerRef.current = null;
       }
       const current = notesRef.current;
-      if (!current.some((note) => note.id === id)) return;
-      commitNotes(current.filter((note) => note.id !== id), t("status.noteRemoved"));
+      const removed = current.find((note) => note.id === id);
+      if (!removed) return;
+      commitNotes(current.filter((note) => note.id !== id), t(removed.kind === "point" ? "status.pointRemoved" : "status.noteRemoved"));
     },
     [commitNotes],
   );
@@ -11676,6 +11722,53 @@ export function LayerlingEditor({
         };
       }
 
+      if (command.action === "add_reference_points") {
+        let positions: ReferencePosition[];
+        if (Array.isArray(params.points)) {
+          positions = params.points.map((entry) => {
+            const point = (entry ?? {}) as Record<string, unknown>;
+            const x = Number(point.x);
+            const z = Number(point.z);
+            const y = Number(point.elevation ?? 0);
+            if (![x, y, z].every(Number.isFinite)) throw new Error("Each point needs a number for x and z, and optionally for elevation");
+            return { x, y, z };
+          });
+        } else {
+          const spot = params.at ?? "center";
+          if (spot !== "center" && spot !== "corners" && spot !== "midpoints") throw new Error("at must be center, corners or midpoints");
+          const requestedIds = mcpStringArray(params.ids ?? params.id);
+          const pickIds = requestedIds.length ? requestedIds : selectedIdsRef.current;
+          const targets = currentShapes().filter((shape) => pickIds.includes(shape.id) && !shape.hole);
+          if (targets.length === 0) throw new Error("Name the objects to mark with ids, or select some, or pass points");
+          const box = unionReferenceBoxes(targets.map(meshAabb));
+          if (!box) throw new Error("The objects have no size to mark");
+          positions = referencePointsForBox(box, spot);
+        }
+        if (positions.length === 0) throw new Error("No points given");
+        const createdIds = addReferencePoints(positions);
+        const created = referencePoints(notesRef.current).filter((point) => createdIds.includes(point.id)).map(mcpPointInfo);
+        return {
+          added: created.length,
+          points: created,
+          note: created.length === 0
+            ? "Nothing added: these points are already marked, or the design holds as many notes and points as it can."
+            : "Points on the top face of the objects (elevation is the height). Shapes snap to them when dragged, and the corner ruler snaps to them.",
+        };
+      }
+
+      if (command.action === "list_reference_points") {
+        return { points: referencePoints(notesRef.current).map(mcpPointInfo) };
+      }
+
+      if (command.action === "remove_reference_points") {
+        const ids = mcpStringArray(params.ids ?? params.id);
+        const current = notesRef.current;
+        const targets = referencePoints(current).filter((point) => ids.length === 0 || ids.includes(point.id));
+        if (ids.length > 0 && targets.length === 0) throw new Error("No reference point has these ids");
+        if (targets.length > 0) commitNotes(current.filter((note) => !targets.includes(note)), t("status.pointRemoved"));
+        return { removed: targets.length };
+      }
+
       if (command.action === "estimate_print") {
         // Dieselbe Rechnung wie das Feld "Material" im Exportfenster.
         const requestedIds = mcpStringArray(params.ids ?? params.id);
@@ -11843,6 +11936,8 @@ export function LayerlingEditor({
     }
   }, [
     buildSectionSvg,
+    addReferencePoints,
+    commitNotes,
     workspaceSettings.width,
     workspaceSettings.depth,
     applyCadModifierForMcp,
@@ -13147,8 +13242,15 @@ export function LayerlingEditor({
         { key: "hollow", label: t("editor.tool.hollow"), onSelect: startShellTool },
       );
     }
+    if (!allHoles) {
+      items.push(
+        { key: "markCenter", label: t("contextMenu.markCenter"), separated: true, onSelect: () => markSelectionPoints("center") },
+        { key: "markCorners", label: t("contextMenu.markCorners"), onSelect: () => markSelectionPoints("corners") },
+        { key: "markMidpoints", label: t("contextMenu.markMidpoints"), onSelect: () => markSelectionPoints("midpoints") },
+      );
+    }
     items.push(
-      { key: "hide", label: t("contextMenu.hide"), shortcut: "Ctrl+H", separated: !single, onSelect: toggleHidden },
+      { key: "hide", label: t("contextMenu.hide"), shortcut: "Ctrl+H", separated: true, onSelect: toggleHidden },
       { key: "lock", label: t(allLocked ? "contextMenu.unlock" : "contextMenu.lock"), shortcut: "Ctrl+L", onSelect: toggleLocked },
       { key: "drop", label: t("contextMenu.drop"), shortcut: "D", onSelect: dropSelectedToWorkplane },
       { key: "delete", label: t("common.delete"), shortcut: t("contextMenu.deleteKey"), danger: true, separated: true, onSelect: deleteSelected },

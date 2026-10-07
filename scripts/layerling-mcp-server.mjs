@@ -137,6 +137,12 @@ async function callTool(name, args) {
       return bridgeCommand("show_overhangs", args, 30000);
     case "layerling_estimate_print":
       return bridgeCommand("estimate_print", args, 30000);
+    case "layerling_add_reference_points":
+      return bridgeCommand("add_reference_points", args);
+    case "layerling_list_reference_points":
+      return bridgeCommand("list_reference_points", args);
+    case "layerling_remove_reference_points":
+      return bridgeCommand("remove_reference_points", args);
     case "layerling_set_section_view":
       return bridgeCommand("set_section_view", args);
     case "layerling_show_workplane":
