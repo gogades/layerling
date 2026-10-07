@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, LoaderCircle, X } from "lucide-react";
+import { Check, LoaderCircle, MousePointerClick, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import { SPLIT_AXIS_DISPLAY_ORDER, splitAxisLabel, splitRotationAxes, type SplitRotation } from "@/lib/modelSplit";
@@ -21,6 +21,8 @@ export function SplitPanel({
   workspace,
   busy,
   error,
+  picking,
+  onPickToggle,
   onAxisChange,
   onRotationChange,
   onPositionChange,
@@ -36,6 +38,9 @@ export function SplitPanel({
   workspace: WorkplaneWorkspaceSettings;
   busy: boolean;
   error: string | null;
+  /** The next click on a face moves the plane there. */
+  picking: boolean;
+  onPickToggle: () => void;
   onAxisChange: (axis: AlignAxis) => void;
   onRotationChange: (index: 0 | 1, rotation: number) => void;
   onPositionChange: (position: number) => void;
@@ -132,6 +137,17 @@ export function SplitPanel({
               }}
             />
             <small id="split-position-unit">{unit}</small>
+            <button
+              type="button"
+              className={`split-position-pick ${picking ? "active" : ""}`}
+              aria-pressed={picking}
+              aria-label={t("split.pickFace")}
+              title={t("split.pickFaceHint")}
+              disabled={busy}
+              onClick={onPickToggle}
+            >
+              <MousePointerClick size={17} />
+            </button>
           </span>
         </span>
         <input

@@ -270,6 +270,11 @@ type WorkplaneViewportProps = {
   mirrorReferenceShapes: WorkplaneShape[];
   splitActive?: boolean;
   splitPlane?: ModelSplitPlane | null;
+  /** Dragging the plane's arrow head moves the plane along its normal. */
+  onSplitPositionChange?: (position: number) => void;
+  /** The next click on a face sets the split plane there; a blue plane follows the faces under the pointer. */
+  splitSurfacePick?: boolean;
+  onSplitSurfacePick?: (point: [number, number, number], normal: [number, number, number]) => void;
   placementWorkplane: PlacementWorkplane;
   /** Die gesetzte Arbeitsebene gilt weiter, wird aber nicht gezeichnet. */
   workplaneHidden?: boolean;
@@ -511,6 +516,14 @@ type MoveDimensionSession = {
 
 type MoveDimensionOverlayState = MoveDimensionOverlayData & {
   active: boolean;
+};
+
+type SplitPlaneDragState = {
+  pointerId: number;
+  axisOrigin: THREE.Vector3;
+  axisNormal: THREE.Vector3;
+  startParameter: number;
+  startPosition: number;
 };
 
 type MarqueeState = {
@@ -3986,6 +3999,9 @@ export function WorkplaneViewport({
   mirrorReferenceShapes,
   splitActive = false,
   splitPlane = null,
+  onSplitPositionChange,
+  splitSurfacePick = false,
+  onSplitSurfacePick,
   placementWorkplane,
   workplaneHidden = false,
   onToggleWorkplaneHidden,
@@ -4212,6 +4228,15 @@ export function WorkplaneViewport({
   workplaneModeRef.current = workplaneMode;
   splitActiveRef.current = splitActive;
   splitPlaneRef.current = splitPlane;
+  const onSplitPositionChangeRef = useRef(onSplitPositionChange);
+  onSplitPositionChangeRef.current = onSplitPositionChange;
+  const splitSurfacePickRef = useRef(splitSurfacePick);
+  splitSurfacePickRef.current = splitSurfacePick;
+  const onSplitSurfacePickRef = useRef(onSplitSurfacePick);
+  onSplitSurfacePickRef.current = onSplitSurfacePick;
+  const [splitPickOverFace, setSplitPickOverFace] = useState(false);
+  const splitDragRef = useRef<SplitPlaneDragState | null>(null);
+  const [splitHandleState, setSplitHandleState] = useState<"hover" | "drag" | null>(null);
   const perfRef = useRef({
     fps: 0,
     frameMs: 0,
@@ -4837,8 +4862,28 @@ export function WorkplaneViewport({
   }, [clearMoveDimensions, renderSelectionIds, splitActive, workplaneMode]);
 
   useEffect(() => {
-    syncSplitPlane(threeRef.current, splitPlane);
-  }, [splitPlane]);
+    if (splitActive) return;
+    setSplitHandleState(null);
+    if (!splitDragRef.current) return;
+    splitDragRef.current = null;
+    if (threeRef.current) threeRef.current.controls.enabled = true;
+    onInteractionActiveChange?.(false);
+  }, [onInteractionActiveChange, splitActive]);
+
+  useEffect(() => {
+    if (splitSurfacePick) {
+      setSplitHandleState(null);
+      return;
+    }
+    setSplitPickOverFace(false);
+    if (!workplaneModeRef.current) {
+      syncWorkplaneHoverPreview(threeRef.current, null, workspaceRef.current, resolvedThemeRef.current);
+    }
+  }, [splitSurfacePick]);
+
+  useEffect(() => {
+    syncSplitPlane(threeRef.current, splitPlane, splitHandleState !== null);
+  }, [splitHandleState, splitPlane]);
 
   useLayoutEffect(() => {
     // The plane label carries the project name, so a rename has to redraw it.
@@ -6678,6 +6723,8 @@ export function WorkplaneViewport({
 
     return {
       shapeId,
+      point: hit.point.clone(),
+      normal,
       workplane: snapPlacementWorkplaneOrigin(workplane, snapStep(snapRef.current)),
     };
   }, []);
@@ -7010,7 +7057,7 @@ export function WorkplaneViewport({
         const wantsCamera = touchPointersRef.current.size >= 2 || touchRotateRef.current;
         // Wer gerade an einem Anfasser zieht, meint auch das - dann bleibt
         // alles, wie es ist.
-        if (wantsCamera && !transformRef.current) {
+        if (wantsCamera && !transformRef.current && !splitDragRef.current) {
           cancelGestureForCamera();
           cameraTouchRef.current = true;
           handOverTouchToCamera();
@@ -7025,7 +7072,31 @@ export function WorkplaneViewport({
       if (event.button !== 0 || event.ctrlKey || event.metaKey) {
         return;
       }
-      if (splitActiveRef.current) return;
+      if (splitActiveRef.current) {
+        if (splitSurfacePickRef.current) {
+          const surface = pickPlacementSurface(event.clientX, event.clientY, false);
+          if (!surface) return;
+          event.preventDefault();
+          onSplitSurfacePickRef.current?.(
+            [surface.point.x, surface.point.y, surface.point.z],
+            [surface.normal.x, surface.normal.y, surface.normal.z],
+          );
+          return;
+        }
+        const plane = splitPlaneRef.current;
+        if (!plane || !pickSplitPlaneHandle(state, event.clientX, event.clientY)) return;
+        const axisOrigin = new THREE.Vector3(...plane.origin);
+        const axisNormal = new THREE.Vector3(...plane.normal).normalize();
+        const startParameter = splitAxisParameter(state, event.clientX, event.clientY, axisOrigin, axisNormal);
+        if (startParameter === null) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        splitDragRef.current = { pointerId: event.pointerId, axisOrigin, axisNormal, startParameter, startPosition: plane.position };
+        setSplitHandleState("drag");
+        state.controls.enabled = false;
+        onInteractionActiveChange?.(true);
+        return;
+      }
       clearMoveDimensions();
       const rect = state.renderer.domElement.getBoundingClientRect();
 
@@ -7433,7 +7504,29 @@ export function WorkplaneViewport({
       // schweben oder zu ziehen - die Finger bewegen die Ansicht.
       if (cameraTouchRef.current) return;
       if (cruiseAssetRef.current) moveCruiseGhost(event.clientX, event.clientY);
-      if (splitActiveRef.current) return;
+      if (splitActiveRef.current) {
+        const state = threeRef.current;
+        if (!state) return;
+        if (splitSurfacePickRef.current) {
+          const surface = pickPlacementSurface(event.clientX, event.clientY, false);
+          syncWorkplaneHoverPreview(state, surface?.workplane ?? null, workspaceRef.current, resolvedThemeRef.current);
+          setSplitPickOverFace(Boolean(surface));
+          return;
+        }
+        const drag = splitDragRef.current;
+        if (drag) {
+          if (drag.pointerId !== event.pointerId) return;
+          const parameter = splitAxisParameter(state, event.clientX, event.clientY, drag.axisOrigin, drag.axisNormal);
+          if (parameter === null) return;
+          // The panel's slider steps in tenths of a millimetre; the drag keeps to them.
+          const position = Math.round((drag.startPosition + parameter - drag.startParameter) * 10) / 10;
+          onSplitPositionChangeRef.current?.(position);
+        } else if (event.buttons === 0) {
+          const hovering = pickSplitPlaneHandle(state, event.clientX, event.clientY);
+          setSplitHandleState(hovering ? "hover" : null);
+        }
+        return;
+      }
       if (workplaneModeRef.current) {
         const surface = pickPlacementSurface(event.clientX, event.clientY, event.shiftKey);
         let preview = surface?.workplane ?? null;
@@ -7679,6 +7772,10 @@ export function WorkplaneViewport({
       syncWorkplaneHoverPreview(threeRef.current, null, workspaceRef.current, resolvedThemeRef.current);
     }
     if (modifierActiveRef.current) clearModifierEdgeHover();
+    if (splitSurfacePickRef.current) {
+      syncWorkplaneHoverPreview(threeRef.current, null, workspaceRef.current, resolvedThemeRef.current);
+      setSplitPickOverFace(false);
+    }
   }, [clearModifierEdgeHover]);
 
   const finishDrag = useCallback(
@@ -7698,6 +7795,18 @@ export function WorkplaneViewport({
         if (touchPointersRef.current.size === 0) cameraTouchRef.current = false;
       }
       const state = threeRef.current;
+      const splitDrag = splitDragRef.current;
+      if (splitDrag) {
+        if (splitDrag.pointerId !== event.pointerId) return;
+        if (event.currentTarget.hasPointerCapture(splitDrag.pointerId)) {
+          event.currentTarget.releasePointerCapture(splitDrag.pointerId);
+        }
+        splitDragRef.current = null;
+        setSplitHandleState(state && pickSplitPlaneHandle(state, event.clientX, event.clientY) ? "hover" : null);
+        if (state) state.controls.enabled = true;
+        onInteractionActiveChange?.(false);
+        return;
+      }
       const transform = transformRef.current;
       if (transform) {
         if (event.currentTarget.hasPointerCapture(transform.pointerId)) {
@@ -8781,7 +8890,7 @@ export function WorkplaneViewport({
         )}
       </div>
 
-      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${splitActive ? "split-mode" : ""} ${cruiseAsset ? "cruising" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${pivotPickMode || layFlatPickMode ? "pivot-pick-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""} ${sectionMeasureMode && sectionSettings.enabled ? "section-measure-mode" : ""}`} aria-label={t("aria.workplane")}>
+      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${splitActive ? "split-mode" : ""} ${splitHandleState ? `split-handle-${splitHandleState}` : ""} ${splitSurfacePick ? "split-picking" : ""} ${splitSurfacePick && splitPickOverFace ? "split-pick-over-face" : ""} ${cruiseAsset ? "cruising" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${pivotPickMode || layFlatPickMode ? "pivot-pick-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""} ${sectionMeasureMode && sectionSettings.enabled ? "section-measure-mode" : ""}`} aria-label={t("aria.workplane")}>
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
@@ -12613,7 +12722,7 @@ function createHalfSphereGeometry(width: number, height: number, depth: number, 
   return geometry;
 }
 
-function syncSplitPlane(state: ThreeState | null, plane: ModelSplitPlane | null) {
+function syncSplitPlane(state: ThreeState | null, plane: ModelSplitPlane | null, handleActive = false) {
   if (!state) return;
   disposeChildren(state.splitLayer);
   if (!plane) {
@@ -12660,12 +12769,13 @@ function syncSplitPlane(state: ThreeState | null, plane: ModelSplitPlane | null)
   root.add(cross);
 
   const normalLength = Math.max(8, size * 0.18);
+  const headLength = Math.max(2.5, normalLength * 0.18);
   const normalGuide = new THREE.ArrowHelper(
     new THREE.Vector3(0, 0, 1),
     new THREE.Vector3(0, 0, -normalLength / 2),
     normalLength,
-    0xb35f07,
-    Math.max(2.5, normalLength * 0.18),
+    handleActive ? 0xff9a2e : 0xb35f07,
+    headLength,
     Math.max(1.5, normalLength * 0.1),
   );
   [normalGuide.line.material, normalGuide.cone.material].forEach((material) => {
@@ -12676,10 +12786,45 @@ function syncSplitPlane(state: ThreeState | null, plane: ModelSplitPlane | null)
   normalGuide.renderOrder = 903;
   root.add(normalGuide);
 
+  // The cone alone is a small target; this invisible ball around it takes the
+  // pointer for dragging the plane along its normal.
+  const handleHit = new THREE.Mesh(
+    new THREE.SphereGeometry(headLength, 12, 8),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  handleHit.position.set(0, 0, normalLength / 2 - headLength / 2);
+  handleHit.userData.splitPlaneHandle = true;
+  root.add(handleHit);
+
   root.traverse((child) => child.layers.set(RENDER_LAYER_PREVIEWS));
   state.splitLayer.add(root);
   state.splitLayer.visible = true;
   state.needsRender = true;
+}
+
+function pointerRayFor(state: ThreeState, clientX: number, clientY: number) {
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  state.raycaster.setFromCamera(state.pointer, state.camera);
+  return state.raycaster.ray;
+}
+
+function pickSplitPlaneHandle(state: ThreeState, clientX: number, clientY: number) {
+  if (!state.splitLayer.visible) return false;
+  pointerRayFor(state, clientX, clientY);
+  state.raycaster.layers.set(RENDER_LAYER_PREVIEWS);
+  return state.raycaster.intersectObjects(state.splitLayer.children, true).some((hit) => hit.object.userData.splitPlaneHandle === true);
+}
+
+/** Where along the plane's normal line the pointer ray passes closest, or null when the view looks along that line. */
+function splitAxisParameter(state: ThreeState, clientX: number, clientY: number, axisOrigin: THREE.Vector3, axisNormal: THREE.Vector3) {
+  const ray = pointerRayFor(state, clientX, clientY);
+  const between = new THREE.Vector3().subVectors(axisOrigin, ray.origin);
+  const alignment = axisNormal.dot(ray.direction);
+  const denominator = 1 - alignment * alignment;
+  if (denominator < 1e-4) return null;
+  return (alignment * between.dot(ray.direction) - between.dot(axisNormal)) / denominator;
 }
 
 function disposeChildren(group: THREE.Group) {

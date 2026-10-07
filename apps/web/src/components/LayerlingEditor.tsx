@@ -89,8 +89,8 @@ import { circleStepDegrees, clampArrayCount, rotateAroundVertical, rowOffset, ty
 import { bedOverhangs, printerPresetById, type BedOverhang } from "@/lib/printBed";
 import { SplitPanel } from "./workplane/SplitPanel";
 import { groupedContentScale, scaleGroupedVertices } from "@/lib/groupScale";
-import { unionSplitManifoldComponents } from "@/lib/manifoldSplit";
-import { NO_SPLIT_ROTATION, modelSplitPlane, splitAxisFromLabel, splitAxisLabel, splitPlaneIntersectsPoints, splitRotationAxes, splitShapeFromWorldPositions, type ModelSplitPlane, type SplitRotation } from "@/lib/modelSplit";
+import { dropSplitSlivers, unionSplitManifoldComponents } from "@/lib/manifoldSplit";
+import { NO_SPLIT_ROTATION, modelSplitPlane, snapSplitPositionToVertices, splitOrientationForNormal, splitAxisFromLabel, splitAxisLabel, splitPlaneIntersectsPoints, splitRotationAxes, splitShapeFromWorldPositions, type ModelSplitPlane, type SplitRotation } from "@/lib/modelSplit";
 import { GuideModal } from "./workplane/GuideModal";
 import { ShortcutsModal } from "./workplane/ShortcutsModal";
 import { ShapeContextMenu, type ShapeContextMenuItem } from "./workplane/ShapeContextMenu";
@@ -270,6 +270,8 @@ type SplitSession = {
   sourceFingerprint: string;
   busy: boolean;
   error: string | null;
+  /** The next click on a face sets the plane's position. */
+  picking: boolean;
 };
 
 type EdgeModifierComponentPreview = {
@@ -4842,10 +4844,16 @@ async function splitShapeByPlane(shape: WorkplaneShape, plane: Pick<ModelSplitPl
       return { parts: null, error: t("split.error.overlapping") };
     }
     solid = normalized.solid;
-    const [positive, negative] = solid.splitByPlane(plane.normal, plane.position);
-    created.push(positive, negative);
+    const [rawPositive, rawNegative] = solid.splitByPlane(plane.normal, plane.position);
+    created.push(rawPositive, rawNegative);
+    const trimmedPositive = dropSplitSlivers(runtime, rawPositive);
+    const trimmedNegative = dropSplitSlivers(runtime, rawNegative);
+    created.push(...trimmedPositive.created, ...trimmedNegative.created);
+    const positive = trimmedPositive.solid;
+    const negative = trimmedNegative.solid;
     if (
-      positive.status() !== "NoError" || negative.status() !== "NoError"
+      !positive || !negative
+      || positive.status() !== "NoError" || negative.status() !== "NoError"
       || positive.numTri() < 1 || negative.numTri() < 1
     ) {
       return { parts: null, error: t("split.error.emptyHalf") };
@@ -9091,6 +9099,7 @@ export function LayerlingEditor({
       sourceFingerprint: projectShapesFingerprint(shapesRef.current),
       busy: false,
       error: null,
+      picking: false,
     });
     setNotice(t("status.splitReady"));
   }, [cancelSplit, canSplitSelection, invalidateCadModifierSession, selectedShapes, splitSession]);
@@ -9114,6 +9123,29 @@ export function LayerlingEditor({
       const plane = modelSplitPlane(splitTargetPoints, current.axis, position, current.rotation);
       return plane ? { ...current, position: plane.position, pivot: plane.origin, error: null } : current;
     });
+  }, [splitTargetPoints]);
+
+  const toggleSplitPick = useCallback(() => {
+    if (!splitSession || splitSession.busy) return;
+    const picking = !splitSession.picking;
+    setSplitSession({ ...splitSession, picking });
+    setNotice(t(picking ? "status.splitPick" : "status.splitReady"));
+  }, [splitSession]);
+
+  // The plane lies down on the face that was clicked: its turn, through the clicked point.
+  const pickSplitSurface = useCallback((point: [number, number, number], normal: [number, number, number]) => {
+    const orientation = splitOrientationForNormal(normal);
+    if (!orientation) return;
+    setSplitSession((current) => {
+      if (!current || current.busy || !current.picking) return current;
+      const centeredPlane = modelSplitPlane(splitTargetPoints, orientation.axis, undefined, orientation.rotation);
+      if (!centeredPlane) return current;
+      const picked = centeredPlane.normal[0] * point[0] + centeredPlane.normal[1] * point[1] + centeredPlane.normal[2] * point[2];
+      const position = snapSplitPositionToVertices(splitTargetPoints, centeredPlane.normal, picked);
+      const plane = modelSplitPlane(splitTargetPoints, orientation.axis, position, orientation.rotation);
+      return plane ? { ...current, axis: plane.axis, rotation: plane.rotation, position: plane.position, pivot: plane.origin, picking: false, error: null } : current;
+    });
+    setNotice(t("status.splitReady"));
   }, [splitTargetPoints]);
 
   const changeSplitRotation = useCallback((index: 0 | 1, rotation: number) => {
@@ -9152,7 +9184,7 @@ export function LayerlingEditor({
 
     const runId = splitRunRef.current + 1;
     splitRunRef.current = runId;
-    setSplitSession({ ...session, busy: true, error: null });
+    setSplitSession({ ...session, busy: true, error: null, picking: false });
     const outcome = await splitShapesByPlane(splitTargetShapes, plane, () => splitRunRef.current === runId && sourceContextIsCurrent());
     if (splitRunRef.current !== runId) return;
     if (outcome.status === "stale" || !sourceContextIsCurrent()) {
@@ -9196,7 +9228,12 @@ export function LayerlingEditor({
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
-        cancelSplit();
+        if (splitSession.picking) {
+          setSplitSession((current) => current ? { ...current, picking: false } : current);
+          setNotice(t("status.splitReady"));
+        } else {
+          cancelSplit();
+        }
         return;
       }
       const target = event.target instanceof HTMLElement ? event.target : null;
@@ -13334,6 +13371,9 @@ export function LayerlingEditor({
           mirrorReferenceShapes={shapes}
           splitActive={Boolean(splitSession)}
           splitPlane={splitPlane}
+          onSplitPositionChange={changeSplitPosition}
+          splitSurfacePick={Boolean(splitSession?.picking)}
+          onSplitSurfacePick={pickSplitSurface}
           placementWorkplane={placementWorkplane}
           workplaneHidden={workplaneHidden}
           onToggleWorkplaneHidden={() => {
@@ -13471,6 +13511,8 @@ export function LayerlingEditor({
           workspace={workspaceSettings}
           busy={splitSession.busy}
           error={splitSession.error}
+          picking={splitSession.picking}
+          onPickToggle={toggleSplitPick}
           onAxisChange={changeSplitAxis}
           onRotationChange={changeSplitRotation}
           onPositionChange={changeSplitPosition}
