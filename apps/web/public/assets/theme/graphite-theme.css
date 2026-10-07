@@ -366,6 +366,29 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   color: #194a20;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-update-preview-toggle {
+  color: #1a6424;
+  text-decoration: underline;
+  background: transparent;
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-update-preview-toggle:hover {
+  color: #0f4016;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-update-preview-body {
+  border-top: 1px solid #b7e2bc;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-update-preview .whats-new-version h2 {
+  color: #2a8334;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-update-preview .whats-new-version li span {
+  color: inherit;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-legal a {
   color: #595959;
   text-decoration: none;
@@ -4828,6 +4851,22 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-update-dismi
 html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-update-dismiss:hover {
   background: #204025;
   color: #a4e5ab;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-update-preview-toggle {
+  color: #78d482;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-update-preview-toggle:hover {
+  color: #9eedab;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-update-preview-body {
+  border-top-color: #2e6634;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .dashboard-update-preview .whats-new-version h2 {
+  color: #78d482;
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .store-move-targets button {

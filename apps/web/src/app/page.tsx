@@ -18,6 +18,7 @@ import { localizedError } from "@/lib/userErrors";
 import { WelcomeGuideBody } from "@/components/WelcomeGuide";
 import { InstallAppHint } from "@/components/InstallAppHint";
 import { WhatsNewCard } from "@/components/WhatsNewCard";
+import { UpdatePreview } from "@/components/UpdatePreview";
 import { useWhatsNew } from "@/lib/useWhatsNew";
 import { TabPresenceNotice } from "@/components/TabPresenceNotice";
 import { duplicateName, type DuplicateNamePatterns } from "@/lib/duplicateName";
@@ -2310,6 +2311,7 @@ function Dashboard({
               >
                 <X size={16} />
               </button>
+              <UpdatePreview update={update} currentVersion={LYL_CREATED_WITH_VERSION} />
             </aside>
           ) : null}
           {dashboardSection === "shared" ? (

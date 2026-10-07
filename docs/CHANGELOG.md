@@ -4,14 +4,12 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.43.0
 
 - **New since your last visit:** When you open layerling again after an update, a card on the start page lists what has been added since you were last here: the newest version first, older ones behind a button, in the interface language. Closing it remembers the version; "What is new?" in the footer shows the latest additions again. The browser keeps the last version seen, nothing is sent anywhere, and a first-time visitor is told nothing. The list is written by hand with each release (`apps/web/src/lib/whatsNew.ts`), a few lines for what users can do now.
-
+- **Preview in the update notice:** On a copy that asks GitHub for new releases (a local installation, Docker, a web server of your own), the "Update available" notice has a new button, "Preview: what does the update bring?". It lists the highlights between your version and the new one, in the interface language, before you install anything. The list is read from the release itself (`whatsNew.json` at the release tag, from raw.githubusercontent.com) and only when the button is pressed; if it cannot be fetched, the notice is as before. It works for updates from 1.43.0 on.
 - **Command search (Ctrl+K):** Press Ctrl+K, or click the magnifying glass in the Help area, and type what you are looking for: a tool ("fillet", "mirror"), a shape ("cylinder") or a command ("export", "undo"). Arrow keys and Enter run the entry; it shows the keyboard shortcut and the toolbar area next to it. English and German words work in both interface languages, capital letters and umlauts do not matter, and greyed-out tools stay in the list so you can see where they are. A shape's name adds that shape, as clicking it in the shapes menu does. It works in sketch mode with the sketch tools. With an empty field it lists the commands you used last on top, and typing the name of a body in your design finds that body and selects it. Added to the keyboard shortcuts, the quick guide, the guide and the start page.
-
 - **Docker update steps in the README:** It now says that the image tags are plain version numbers without a "v" (`1.42.0`, not `v1.42.0`) and that an existing container keeps running the old image until it is removed and created again, with the four commands to do that. Reported by @frogsuk (#133).
-
 - **The card of a reference point can be moved:** Drag it away from its point by its title when it covers something you want to see; a double-click on the title puts it back. It opens where you left it.
 
 ## 1.42.0

@@ -6,6 +6,29 @@ import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import type { WhatsNewView } from "@/lib/useWhatsNew";
+import type { WhatsNewEntry } from "@/lib/whatsNew";
+
+/** The versions with their highlights, in the interface language. */
+export function WhatsNewList({ entries }: { entries: readonly WhatsNewEntry[] }) {
+  const language = useLanguage();
+  return (
+    <>
+      {entries.map((entry) => (
+        <section className="whats-new-version" key={entry.version}>
+          <h2>{t("whatsNew.version", { version: entry.version })}</h2>
+          <ul>
+            {entry.items.map((item) => (
+              <li key={item.title.en}>
+                <strong>{item.title[language]}</strong>
+                <span>{item.body[language]}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </>
+  );
+}
 
 /**
  * What came with the versions since the last visit, on the start page. The
@@ -14,7 +37,7 @@ import type { WhatsNewView } from "@/lib/useWhatsNew";
  * version, so it does not come back until the next update.
  */
 export function WhatsNewCard({ view, current, onClose }: { view: WhatsNewView; current: string; onClose: () => void }) {
-  const language = useLanguage();
+  useLanguage();
   const [showOlder, setShowOlder] = useState(false);
   const [newest, ...older] = view.entries;
   const visible = showOlder ? view.entries : [newest];
@@ -35,19 +58,7 @@ export function WhatsNewCard({ view, current, onClose }: { view: WhatsNewView; c
         </button>
       </header>
       <div className="whats-new-body">
-        {visible.map((entry) => (
-          <section className="whats-new-version" key={entry.version}>
-            <h2>{t("whatsNew.version", { version: entry.version })}</h2>
-            <ul>
-              {entry.items.map((item) => (
-                <li key={item.title.en}>
-                  <strong>{item.title[language]}</strong>
-                  <span>{item.body[language]}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        <WhatsNewList entries={visible} />
       </div>
       <footer className="whats-new-footer">
         {older.length > 0 && !showOlder ? (

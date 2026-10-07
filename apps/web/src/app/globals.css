@@ -1227,6 +1227,7 @@ button {
 
 .dashboard-update-notice {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1333,6 +1334,52 @@ button {
 .dashboard-update-dismiss:hover {
   background: #d8eedb;
   color: #194a20;
+}
+
+/* Under the notice: a button that opens what the update brings. */
+.dashboard-update-preview {
+  display: grid;
+  flex: 0 0 100%;
+  gap: 8px;
+}
+
+.dashboard-update-preview-toggle {
+  justify-self: start;
+  padding: 0;
+  color: #1a6424;
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.dashboard-update-preview-toggle:hover {
+  color: #0f4016;
+}
+
+.dashboard-update-preview-body {
+  display: grid;
+  gap: 12px;
+  max-height: min(50vh, 420px);
+  padding-top: 8px;
+  overflow-y: auto;
+  border-top: 1px solid #b7e2bc;
+}
+
+.dashboard-update-preview-body p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.dashboard-update-preview .whats-new-version h2 {
+  color: #2a8334;
+}
+
+.dashboard-update-preview .whats-new-version li span {
+  color: inherit;
+  opacity: 0.88;
 }
 
 .dashboard-legal a {
@@ -11292,6 +11339,22 @@ html[data-theme="dark"] .dashboard-update-dismiss {
 html[data-theme="dark"] .dashboard-update-dismiss:hover {
   background: #204025;
   color: #a4e5ab;
+}
+
+html[data-theme="dark"] .dashboard-update-preview-toggle {
+  color: #78d482;
+}
+
+html[data-theme="dark"] .dashboard-update-preview-toggle:hover {
+  color: #9eedab;
+}
+
+html[data-theme="dark"] .dashboard-update-preview-body {
+  border-top-color: #2e6634;
+}
+
+html[data-theme="dark"] .dashboard-update-preview .whats-new-version h2 {
+  color: #78d482;
 }
 
 html[data-theme="dark"] .store-move-targets button {
