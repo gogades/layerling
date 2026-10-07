@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.45.1
 
 - **AI control of a copy on a NAS over plain http works:** The editor page of a copy opened as `http://192.168.x.x:3000` could not connect (every poll got 403), because browsers send `Sec-Fetch-Site` only to secure contexts (https or localhost). Without it, a matching `Origin` header now counts; with neither, the request is still refused, and a present `Sec-Fetch-Site` still has to be `same-origin`. Found on a Synology, with the fix and its test by @brauwers1981 in #142.
 - **The history bar can be moved:** Drag it by its title to get it off whatever it covers; a double-click on the title puts it back, and the spot is remembered.

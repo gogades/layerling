@@ -1,5 +1,40 @@
 [
   {
+    "version": "1.45.1",
+    "items": [
+      {
+        "title": {
+          "de": "Weniger Hänger bei großen Entwürfen",
+          "en": "Fewer stalls with big designs"
+        },
+        "body": {
+          "de": "Wer in einem Entwurf mit langem Verlauf und vielen Teilen mehrmals hintereinander etwas verschob, wartete zwischendurch. Das Speichern startet jetzt erst in einer Pause und ist bei solchen Entwürfen deutlich schneller.",
+          "en": "If you moved something several times in a row in a design with a long history and many parts, it stalled in between. Saving now starts in a pause and is much faster for such designs."
+        }
+      },
+      {
+        "title": {
+          "de": "KI-Steuerung auf dem NAS auch über http",
+          "en": "AI control on a NAS also over plain http"
+        },
+        "body": {
+          "de": "Die KI-Steuerung für eine selbst betriebene Kopie klappt jetzt auch, wenn du layerling im Heimnetz über eine Adresse wie http://192.168.x.x öffnest. Bisher blieb der Editor dort unsichtbar.",
+          "en": "The AI control for a copy you host yourself now also works when you open layerling at home through an address like http://192.168.x.x. Until now the editor stayed invisible there."
+        }
+      },
+      {
+        "title": {
+          "de": "Verlaufsleiste verschiebbar",
+          "en": "History bar can be moved"
+        },
+        "body": {
+          "de": "Die Leiste unten, mit der du durch den Verlauf schiebst, lässt sich an ihrem Titel wegziehen, wenn sie etwas verdeckt. Ein Doppelklick holt sie zurück.",
+          "en": "The bar at the bottom that you slide through the history with can be dragged away by its title if it covers something. A double-click brings it back."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.45.0",
     "items": [
       {
