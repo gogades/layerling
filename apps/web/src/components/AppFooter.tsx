@@ -6,6 +6,7 @@ import { t, type Language } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { SOURCE_CODE_URL, type AppUpdateInfo } from "@/lib/appUpdate";
 import { useAppUpdate } from "@/lib/useAppUpdate";
+import { SupportNudge } from "@/components/SupportNudge";
 
 export { SOURCE_CODE_URL };
 
@@ -118,6 +119,8 @@ export function AppFooter({
   }, []);
 
   return (
+    <>
+    {SPONSOR_LINK ? <SupportNudge href={SPONSOR_LINK.href} /> : null}
     <footer className={variant === "editor" ? "dashboard-legal editor-legal" : "dashboard-legal"}>
       <div className="dashboard-legal-group">
         {joinWithDots([
@@ -184,5 +187,6 @@ export function AppFooter({
         ])}
       </div>
     </footer>
+    </>
   );
 }

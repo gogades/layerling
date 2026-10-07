@@ -419,6 +419,46 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   background: #e6e6e6;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .support-nudge {
+  background: #f7f7f7;
+  border: 1px solid #d4d4d4;
+  box-shadow: 0 8px 24px rgba(40, 40, 40, 0.18);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .support-nudge-icon {
+  color: #bf6508;
+  background: #e8e8e8;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .support-nudge-text strong {
+  color: #414141;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .support-nudge-text span {
+  color: #595959;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .support-nudge-link {
+  color: #ffffff;
+  text-decoration: none;
+  background: #bf6508;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .support-nudge-link:hover {
+  background: #a95805;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .support-nudge-close {
+  color: #717171;
+  background: transparent;
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .support-nudge-close:hover {
+  color: #414141;
+  background: #e6e6e6;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-action-tile {
   color: #414141;
   background: #ffffff;
@@ -4436,9 +4476,29 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .store-trail button.dro
   box-shadow: inset 0 0 0 1px #f3a452;
 }
 
-html[data-theme="dark"]:where([data-palette="graphite"]) .install-app-hint {
+html[data-theme="dark"]:where([data-palette="graphite"]) .install-app-hint,
+html[data-theme="dark"]:where([data-palette="graphite"]) .support-nudge {
   background: var(--panel);
   border-color: #4a4a4a;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .support-nudge-icon {
+  color: #f3a452;
+  background: #2d2d2d;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .support-nudge-text strong {
+  color: #ebebeb;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .support-nudge-text span,
+html[data-theme="dark"]:where([data-palette="graphite"]) .support-nudge-close {
+  color: #929292;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .support-nudge-close:hover {
+  color: #ebebeb;
+  background: #2d2d2d;
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .install-app-hint-icon {

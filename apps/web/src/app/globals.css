@@ -1451,6 +1451,89 @@ button {
   }
 }
 
+/* The reminder about supporting the project: a small card above the footer,
+   shown at most every two weeks and only where a support address is set. */
+.support-nudge {
+  position: fixed;
+  right: 16px;
+  bottom: 52px;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(380px, calc(100vw - 32px));
+  padding: 14px 10px 14px 14px;
+  background: #fff8ee;
+  border: 1px solid #f0d9b8;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(60, 40, 10, 0.18);
+}
+
+.support-nudge-icon {
+  display: grid;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #bf6508;
+  background: #fdebd3;
+  border-radius: 9px;
+}
+
+.support-nudge-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+
+.support-nudge-text strong {
+  color: #573f26;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.support-nudge-text span {
+  color: #7a6650;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.support-nudge-link {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 7px 12px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  background: #bf6508;
+  border-radius: 8px;
+}
+
+.support-nudge-link:hover {
+  background: #a95805;
+}
+
+.support-nudge-close {
+  display: grid;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: #96816a;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.support-nudge-close:hover {
+  color: #573f26;
+  background: #f6e9d6;
+}
+
 .dashboard-action-tile {
   display: flex;
   min-width: 0;
@@ -10649,9 +10732,29 @@ html[data-theme="dark"] .store-trail button.drop-target:not(:disabled) {
   box-shadow: inset 0 0 0 1px #f3a452;
 }
 
-html[data-theme="dark"] .install-app-hint {
+html[data-theme="dark"] .install-app-hint,
+html[data-theme="dark"] .support-nudge {
   background: var(--panel);
   border-color: #6a4a26;
+}
+
+html[data-theme="dark"] .support-nudge-icon {
+  color: #f3a452;
+  background: #3a2c16;
+}
+
+html[data-theme="dark"] .support-nudge-text strong {
+  color: #f3ede3;
+}
+
+html[data-theme="dark"] .support-nudge-text span,
+html[data-theme="dark"] .support-nudge-close {
+  color: #bda78e;
+}
+
+html[data-theme="dark"] .support-nudge-close:hover {
+  color: #f3ede3;
+  background: #3a2c16;
 }
 
 html[data-theme="dark"] .install-app-hint-icon {
