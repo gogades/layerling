@@ -6946,6 +6946,19 @@ html[data-theme="dark"] .inspector-bundle-note {
   width: 190px;
 }
 
+/* The title bar of the card: drag it away from the pin, double-click to bring it back. */
+.point-card-handle {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  padding: 2px 0 4px;
+  font: 700 13px/1.2 var(--font-ui);
+}
+
+.point-card-handle:active {
+  cursor: grabbing;
+}
+
 .point-field {
   display: grid;
   grid-template-columns: 54px 1fr auto;

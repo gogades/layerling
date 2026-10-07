@@ -386,6 +386,20 @@ function readMoveDimensionsEnabled() {
 }
 
 const PROPORTION_LOCK_STORAGE_KEY = "layerling.editor.keepProportions";
+const POINT_CARD_OFFSET_STORAGE_KEY = "layerling.editor.pointCardOffset";
+
+type PointCardOffset = { x: number; y: number };
+
+/** The card of a reference point, as far as the person has moved it from its pin. */
+function readPointCardOffset(): PointCardOffset {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(POINT_CARD_OFFSET_STORAGE_KEY) ?? "null") as Partial<PointCardOffset> | null;
+    if (parsed && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) return { x: Number(parsed.x), y: Number(parsed.y) };
+  } catch {
+    // Without storage the card simply opens beside its pin.
+  }
+  return { x: 0, y: 0 };
+}
 
 function readProportionLock() {
   try {
@@ -2049,8 +2063,12 @@ function NoteOverlay({
   onEditingIdChange,
   workspace,
   onPointChange,
+  pointCardOffset,
+  onPointCardOffsetChange,
 }: {
   overlay: NoteOverlayState;
+  pointCardOffset: PointCardOffset;
+  onPointCardOffsetChange: (offset: PointCardOffset, final: boolean) => void;
   workspace: WorkplaneWorkspaceSettings;
   onPointChange: (noteId: string, patch: { x?: number; y?: number; z?: number }) => void;
   editingId: string | null;
@@ -2064,6 +2082,7 @@ function NoteOverlay({
   onRemove: (noteId: string) => void;
   onEditingIdChange: (noteId: string | null) => void;
 }) {
+  const pointCardDrag = useRef<{ pointerId: number; startX: number; startY: number; origin: PointCardOffset } | null>(null);
   return (
     <div className="note-overlay" aria-label={t("editor.tool.note")}>
       {overlay.notes.map((note) => {
@@ -2088,8 +2107,34 @@ function NoteOverlay({
               {note.point ? <Crosshair size={15} strokeWidth={2.6} aria-hidden="true" /> : note.index}
             </button>
             {open && note.point ? (
-              <div className="note-card point-card" onPointerDown={(event) => event.stopPropagation()}>
-                <strong>{t("point.title")}</strong>
+              <div
+                className="note-card point-card"
+                style={{ transform: `translate(${pointCardOffset.x}px, ${pointCardOffset.y}px)` }}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <strong
+                  className="point-card-handle"
+                  title={t("panel.moveHint")}
+                  onPointerDown={(event) => {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    pointCardDrag.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: pointCardOffset };
+                  }}
+                  onPointerMove={(event) => {
+                    const drag = pointCardDrag.current;
+                    if (!drag || drag.pointerId !== event.pointerId) return;
+                    onPointCardOffsetChange({ x: drag.origin.x + event.clientX - drag.startX, y: drag.origin.y + event.clientY - drag.startY }, false);
+                  }}
+                  onPointerUp={(event) => {
+                    const drag = pointCardDrag.current;
+                    if (!drag || drag.pointerId !== event.pointerId) return;
+                    pointCardDrag.current = null;
+                    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+                    onPointCardOffsetChange({ x: drag.origin.x + event.clientX - drag.startX, y: drag.origin.y + event.clientY - drag.startY }, true);
+                  }}
+                  onDoubleClick={() => onPointCardOffsetChange({ x: 0, y: 0 }, true)}
+                >
+                  {t("point.title")}
+                </strong>
                 <PointCoordinateField label={t("prop.positionX")} value={note.x} workspace={workspace} onCommit={(x) => onPointChange(note.id, { x })} />
                 <PointCoordinateField label={t("prop.positionY")} value={note.z} workspace={workspace} onCommit={(z) => onPointChange(note.id, { z })} />
                 <PointCoordinateField label={t("prop.positionZ")} value={note.y} workspace={workspace} onCommit={(y) => onPointChange(note.id, { y })} />
@@ -4283,8 +4328,21 @@ export function WorkplaneViewport({
       return current && current.shapeId === shapeId && current.index === index ? current : { shapeId, index };
     });
   }, []);
+  const [pointCardOffset, setPointCardOffset] = useState<PointCardOffset>({ x: 0, y: 0 });
+  const changePointCardOffset = useCallback((offset: PointCardOffset, final: boolean) => {
+    setPointCardOffset(offset);
+    if (!final) return;
+    try {
+      window.localStorage.setItem(POINT_CARD_OFFSET_STORAGE_KEY, JSON.stringify(offset));
+    } catch {
+      // The card keeps its place for this session when storage is unavailable.
+    }
+  }, []);
   const [proportionLock, setProportionLock] = useState(false);
   const proportionLockRef = useRef(false);
+  useEffect(() => {
+    setPointCardOffset(readPointCardOffset());
+  }, []);
   useEffect(() => {
     const stored = readProportionLock();
     proportionLockRef.current = stored;
@@ -9127,6 +9185,8 @@ export function WorkplaneViewport({
               onEditingIdChange={setEditingNoteId}
               workspace={workspace}
               onPointChange={(id, patch) => onNoteUpdate?.(id, patch)}
+              pointCardOffset={pointCardOffset}
+              onPointCardOffsetChange={changePointCardOffset}
             />
           ) : null}
           {!workplaneMode && !splitActive && alignOverlay ? <AlignOverlay overlay={alignOverlay} onAlign={onAlignSelection} onPreview={onAlignPreview} onPreviewClear={onAlignPreviewClear} /> : null}

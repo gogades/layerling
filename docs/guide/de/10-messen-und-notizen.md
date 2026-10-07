@@ -62,7 +62,7 @@ Notizen werden im Entwurf gespeichert, tauchen in keinem Export auf und lassen s
 
 Ein Bezugspunkt ist eine bloße Markierung im Raum, wie ein Bleistiftstrich oder ein Anreißpunkt in der Werkstatt: Er gehört zu keinem Körper, wird nie gedruckt, und andere Dinge rasten an ihm ein. Klicke einen Körper mit der rechten Maustaste an und wähle {{ui:contextMenu.markCenter}}, {{ui:contextMenu.markCorners}} oder {{ui:contextMenu.markMidpoints}}: Die Punkte erscheinen auf der Oberseite des Körpers (der ganzen Auswahl, wenn du mehrere gewählt hast).
 
-- Ziehe einen Punkt, um ihn zu verschieben, oder klicke ihn an, um seine Koordinaten zu sehen und neue einzutippen; sie gelten in der eingestellten Einheit. {{ui:common.delete}} entfernt ihn.
+- Ziehe einen Punkt, um ihn zu verschieben, oder klicke ihn an, um seine Koordinaten zu sehen und neue einzutippen; sie gelten in der eingestellten Einheit. Die Karte lässt sich am Titel wegziehen, wenn sie etwas verdeckt, und ein Doppelklick auf den Titel holt sie zurück. {{ui:common.delete}} entfernt ihn.
 - Ziehst du eine Form, rasten ihre Kanten und ihre Mitte an einem Punkt ein, wie sie an anderen Formen einrasten ({{ui:workspace.objectSnap}}). Auch das Winkellineal rastet an Punkten ein.
 - Punkte werden im Entwurf gespeichert, tauchen in keinem Export auf und werden zusammen mit den Notizen über {{ui:visibility.notes}} ein- und ausgeblendet.
 - Eine KI kann sie mit `layerling_add_reference_points`, `layerling_list_reference_points` und `layerling_remove_reference_points` setzen, auflisten und entfernen.
