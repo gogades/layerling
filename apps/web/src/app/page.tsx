@@ -17,6 +17,9 @@ import { detectLanguage, setLanguage, t, translate, type Language } from "@/lib/
 import { localizedError } from "@/lib/userErrors";
 import { WelcomeGuideBody } from "@/components/WelcomeGuide";
 import { InstallAppHint } from "@/components/InstallAppHint";
+import { WhatsNewCard } from "@/components/WhatsNewCard";
+import { UpdatePreview } from "@/components/UpdatePreview";
+import { useWhatsNew } from "@/lib/useWhatsNew";
 import { TabPresenceNotice } from "@/components/TabPresenceNotice";
 import { duplicateName, type DuplicateNamePatterns } from "@/lib/duplicateName";
 import { migrateLegacyProjectShapes, migrateLegacyStorageKeys, PROJECT_SHAPES_DB_NAME } from "@/lib/storageMigration";
@@ -2175,6 +2178,7 @@ function Dashboard({
 }) {
   const language = useLanguage();
   const { update, isDismissed, dismiss: dismissUpdate } = useAppUpdate(LYL_CREATED_WITH_VERSION);
+  const whatsNew = useWhatsNew(LYL_CREATED_WITH_VERSION);
   const [openProjectMenuId, setOpenProjectMenuId] = useState<string | null>(null);
   const [openSharedProjectMenuKey, setOpenSharedProjectMenuKey] = useState<string | null>(null);
   const [projectPendingDeleteId, setProjectPendingDeleteId] = useState<string | null>(null);
@@ -2355,6 +2359,7 @@ function Dashboard({
               >
                 <X size={16} />
               </button>
+              <UpdatePreview update={update} currentVersion={LYL_CREATED_WITH_VERSION} />
             </aside>
           ) : null}
           {dashboardSection === "shared" ? (
@@ -2677,6 +2682,7 @@ function Dashboard({
                   {dashboardNotice}
                 </div>
               ) : null}
+              {whatsNew.view ? <WhatsNewCard view={whatsNew.view} current={LYL_CREATED_WITH_VERSION} onClose={whatsNew.dismiss} /> : null}
               <InstallAppHint />
 
               <div className="dashboard-section-header">

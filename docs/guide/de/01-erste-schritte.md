@@ -41,6 +41,12 @@ Als Beispiel bauen wir einen Würfel mit einer Bohrung.
 
 Genau so entstehen Bohrungen, Nuten und Taschen. Das Kapitel [Körper und Aussparungen](chapter:koerper-und-aussparungen) erklärt das ausführlich.
 
+## Neu seit deinem letzten Besuch
+
+Wenn du layerling nach einer Aktualisierung wieder öffnest, zeigt dir eine Karte auf der Startseite, was seit deinem letzten Besuch dazugekommen ist, die neueste Version zuerst und ältere hinter einem Knopf. Mit {{ui:whatsNew.dismiss}} schließt du sie, und sie bleibt bis zur nächsten Aktualisierung weg. {{ui:whatsNew.footerLink}} in der Fußzeile der Startseite zeigt die letzten Neuerungen jederzeit wieder. Der Browser merkt sich die zuletzt gesehene Version, und nichts über dich verlässt ihn.
+
+Bei einer Kopie von layerling auf deinem eigenen Rechner oder Server hat der Hinweis „Update verfügbar“ einen Knopf, {{ui:update.previewShow}}, der auflistet, was das Update bringt, bevor du es einspielst. Die Liste wird nur beim Drücken des Knopfs von GitHub geholt.
+
 ## Vom Entwurf zum Druck
 
 Wenn dein Teil fertig ist, klickst du auf {{ui:editor.export}}, wählst STL oder 3MF und lädst die Datei herunter. Die öffnest du in deinem Slicer, zum Beispiel in Bambu Studio, PrusaSlicer, OrcaSlicer oder Cura. Wer seinen Drucker in den Einstellungen wählt, sieht schon beim Bauen, ob das Teil auf die Druckplatte passt. Mehr dazu im Kapitel [Drucken](chapter:drucken).

@@ -57,6 +57,8 @@ You will recognise everything: the plate, the shapes, solids and holes, group an
 - **A real build plate** – grid, snapping, handles for moving, resizing and rotating, and a panel with the exact numbers when you need them.
 - **Type a position** – the Position card puts a body at exact X, Y and Z, and parts can be parked beside the plate, as in Tinkercad.
 - **Snap to other shapes** – while moving, a shape locks its edges or centre onto the edges and centres of the shapes around it, with a guide line, so parts sit flush without typing numbers. Alt during the drag pauses it; Shift keeps the move on one axis, and Alt held from the start drags a copy, as in Tinkercad.
+- **Reference points** – right-click a body to mark its centre, corners or edge middles with points that nothing prints and that dragged shapes snap to; drag a point or type its coordinates, and the marks are saved with the design.
+- **Command search** – press Ctrl+K and type a tool, a shape or a command ("fillet", "mirror", "cylinder") to jump straight to it; it understands English and German words and shows the keyboard shortcuts beside each entry.
 - **Millimetres or inches** – with Imperial units every measure is shown in inches, as fractions like Tinkercad (1 5/8) or as decimals, the snap grid steps from 1/64 to 1 inch, and the plate's grid is drawn in inches.
 - **Your printer's plate** – pick one of 190 common printers and the plate takes its size. Its name and build volume show in the corner of the workplane, and a warning appears when a body reaches past the edge.
 - **Overhangs and filament** – "Show overhangs" hatches every face steeper than 45° (or your printer's own angle) that would need supports, and the export window shows volume, weight and metres of filament before you slice.
@@ -65,7 +67,7 @@ You will recognise everything: the plate, the shapes, solids and holes, group an
 - **Solids and holes** – turn shapes into cutters and group them into the final geometry. Edit group (**E**) lays a group's parts loose to change them and rebuilds it with Done – also a group inside a group, as deep as the design goes.
 - **Bundle** – Ctrl+B holds parts together like Tinkercad's bundle: they move, turn and scale as one, but keep their colours and stay separate bodies in the export – handy for multicolour prints.
 - **Intersection** – keep only what two or more selected solids have in common, or where solids and holes overlap.
-- **Split** – cut solids or holes in two with a plane; a hollowed body keeps its cavity. Turn the plane for an angled cut.
+- **Split** – cut solids or holes in two with a plane; a hollowed body keeps its cavity. Turn the plane for an angled cut, drag its arrow, or lay it on any face with "Pick face".
 
 ### Refining
 
@@ -161,6 +163,17 @@ docker run -d --name layerling -p 3000:3000 --restart unless-stopped ghcr.io/hen
 ```
 
 On a NAS with a container manager (Synology Container Manager, Unraid, Portainer), add the image `ghcr.io/henmedia/layerling:latest` and map port 3000. To update, pull the image again and recreate the container (or let Watchtower do it).
+
+The image tags are plain version numbers **without a "v"**: `ghcr.io/henmedia/layerling:1.42.0`, while the GitHub release is called `v1.42.0`. A pull only fetches the new image; a container that already exists keeps running the old one until it is removed and created again:
+
+```bash
+docker pull ghcr.io/henmedia/layerling:latest
+docker stop layerling
+docker rm layerling
+docker run -d --name layerling -p 3000:3000 --restart unless-stopped ghcr.io/henmedia/layerling:latest
+```
+
+`docker inspect layerling | grep image.version` shows which version the container really runs. If you mounted a folder for the server storage, add the same `-v` option again.
 
 To build the image yourself instead, use the included [`Dockerfile`](docker/Dockerfile) and [`compose.yml`](docker/compose.yml):
 

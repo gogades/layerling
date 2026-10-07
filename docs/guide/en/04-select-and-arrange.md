@@ -58,7 +58,7 @@ You rotate with the curved arrows on the shape, with the numbers in the settings
 
 ## Laying flat on a face
 
-Should a part lie on its best side for printing? Select it, click {{ui:editor.tool.layFlat}} and then the face that should go down. The part turns so that this face rests on the workplane.
+Should a part lie on its best side for printing? Select it, click {{ui:editor.tool.layFlat}} and then the face that should go down. While you move the pointer over the part, the face under it lights up, so you see which one you are about to pick; turn the view to check the other sides. The part turns so that this face rests on the workplane.
 
 Just as simple are {{ui:editor.tool.dropToWorkplane}} ([[D]]), which drops the selection onto the workplane, and {{ui:editor.tool.centerOnWorkplane}}.
 

@@ -93,8 +93,13 @@ export function renderFooter({ language, messages, environment, version }) {
   const external = ' rel="noopener"';
   const fallback = language === "de" ? { imprint: "Impressum", privacy: "Datenschutz" } : { imprint: "Imprint", privacy: "Privacy Policy" };
   const left = [];
-  const sponsorUrl = environment.NEXT_PUBLIC_SPONSOR_URL?.trim();
-  if (sponsorUrl) left.push(link(sponsorUrl.startsWith("/") ? `${sponsorUrl}${sponsorUrl.includes("?") ? "&" : "?"}lang=${language}` : sponsorUrl, environment.NEXT_PUBLIC_SPONSOR_LABEL?.trim() || messages["dashboard.sponsor"], external));
+  // Same rule as the program: an address of the operator's own wins, otherwise
+  // the project's support page, unless NEXT_PUBLIC_SUPPORT_HINT=off.
+  const ownSponsorUrl = environment.NEXT_PUBLIC_SPONSOR_URL?.trim();
+  const supportOff = environment.NEXT_PUBLIC_SUPPORT_HINT?.trim().toLowerCase() === "off";
+  const sponsorUrl = ownSponsorUrl || (supportOff ? "" : "https://layerling.com/support.html");
+  const sponsorNeedsLang = !ownSponsorUrl || sponsorUrl.startsWith("/");
+  if (sponsorUrl) left.push(link(sponsorNeedsLang ? `${sponsorUrl}${sponsorUrl.includes("?") ? "&" : "?"}lang=${language}` : sponsorUrl, environment.NEXT_PUBLIC_SPONSOR_LABEL?.trim() || messages["dashboard.sponsor"], external));
   left.push(link(GUIDE_LANGUAGES[language].forumUrl, messages["dashboard.forum"], external));
   const imprintUrl = environment.NEXT_PUBLIC_IMPRINT_URL?.trim();
   if (imprintUrl) left.push(link(imprintUrl, environment.NEXT_PUBLIC_IMPRINT_LABEL?.trim() || fallback.imprint));

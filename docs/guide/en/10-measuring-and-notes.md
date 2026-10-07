@@ -1,6 +1,6 @@
 ---
 title: Measuring and notes
-summary: Tape measure, ruler and framing square, distances to the origin, and notes that stay attached to a part.
+summary: Tape measure, ruler and framing square, distances to the origin, notes that stay attached to a part, and reference points that things snap to.
 ---
 
 To build a part exactly, you need to measure. layerling has several tools for that. None of them ends up in an export. Wall thickness and gaps inside a part are best measured in the [section view](chapter:view-and-workplane) with {{ui:camera.sectionMeasure}}.
@@ -57,3 +57,12 @@ A note records what the geometry does not say: "This screw is 0.3 mm too tight",
 - Dragging moves the note, a click opens it for editing.
 
 Notes are saved in the design, appear in no export and can be shown or hidden with {{ui:visibility.notes}}.
+
+## Reference points
+
+A reference point is a bare mark in space, like a pencil mark or a layout point in a workshop: it belongs to no body, is never printed, and other things snap to it. Right-click a body and choose {{ui:contextMenu.markCenter}}, {{ui:contextMenu.markCorners}} or {{ui:contextMenu.markMidpoints}}: the points appear on the top face of the body (of the whole selection, if you selected several).
+
+- Drag a point to move it, or click it to see its coordinates and type new ones; they use the unit you set. The card can be dragged away by its title if it covers something, and a double-click on the title puts it back. {{ui:common.delete}} removes it.
+- When you drag a shape, its edges and its centre snap to a point, like they snap to other shapes ({{ui:workspace.objectSnap}}). The framing square snaps to points too.
+- Points are saved in the design, appear in no export, and are shown or hidden together with the notes by {{ui:visibility.notes}}.
+- An AI can mark, list and remove them with `layerling_add_reference_points`, `layerling_list_reference_points` and `layerling_remove_reference_points`.

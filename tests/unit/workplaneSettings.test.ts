@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, normalizeScaleForUnits, parseMeasurementInput, resolveMeasurementInput, scaleOptionsForUnits } from "@/lib/measurementUnits";
-import { canBeginShapeDrag, DEFAULT_ORBIT_ZOOM_SPEED, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
+import { canBeginShapeDrag, customSnapGridLabel, DEFAULT_ORBIT_ZOOM_SPEED, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, keyboardNudgeStep, normalizeShapeCustomizations, snapGridForUnits, snapGridOptions, snapGridStep, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, shapeDimensionLimit, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { toolbarShapeAssets } from "@/lib/shapeCatalog";
 
 describe("workplane settings helpers", () => {
@@ -232,5 +232,47 @@ describe("workplane settings helpers", () => {
     expect(hydratedCommit).toEqual({ shouldSync: false, pendingFingerprint: null });
 
     expect(workspaceHydrationSyncDecision(hydratedCommit.pendingFingerprint, projectTwo).shouldSync).toBe(true);
+  });
+});
+
+describe("custom snap grids", () => {
+  const keyUnit = { name: "MX Key Unit", size: 19.05 };
+
+  it("offers each measure whole, halved and quartered after the fixed steps", () => {
+    const options = snapGridOptions("Metric (Default)", [keyUnit]);
+    expect(options.slice(-3)).toEqual(["custom:19.05:1", "custom:19.05:2", "custom:19.05:4"]);
+    expect(options.slice(0, -3)).toEqual(snapGridOptions("Metric (Default)"));
+    expect(snapGridOptions("Imperial", [keyUnit]).slice(-3)).toEqual(options.slice(-3));
+  });
+
+  it("steps by the measure divided by the divisor", () => {
+    expect(snapGridStep("custom:19.05:1")).toBeCloseTo(19.05, 9);
+    expect(snapGridStep("custom:19.05:2")).toBeCloseTo(9.525, 9);
+    expect(snapGridStep("custom:19.05:4")).toBeCloseTo(4.7625, 9);
+    expect(keyboardNudgeStep("custom:19.05:4", false)).toBeCloseTo(4.7625, 9);
+  });
+
+  it("names a step after its measure, and after its size once the measure is gone", () => {
+    expect(customSnapGridLabel("custom:19.05:1", [keyUnit])).toBe("1 × MX Key Unit");
+    expect(customSnapGridLabel("custom:19.05:4", [keyUnit])).toBe("¼ × MX Key Unit");
+    expect(customSnapGridLabel("custom:19.05:2", [])).toBe("½ × 19.05 mm");
+    expect(customSnapGridLabel("1.0 mm", [keyUnit])).toBeNull();
+  });
+
+  it("keeps a custom step through loading and a change of units, and refuses a malformed one", () => {
+    expect(normalizeSnapGrid("custom:19.05:4")).toBe("custom:19.05:4");
+    expect(snapGridForUnits("Imperial", "custom:19.05:4")).toBe("custom:19.05:4");
+    expect(normalizeSnapGrid("custom:19.05:3")).toBe("1.0 mm");
+    expect(normalizeSnapGrid("custom:0:1")).toBe("1.0 mm");
+    expect(normalizeSnapGrid("custom:abc:1")).toBe("1.0 mm");
+    expect(normalizeSnapGrid("custom:99999:1")).toBe("1.0 mm");
+  });
+
+  it("cleans the stored list", () => {
+    expect(normalizeWorkspaceSettings({}).customSnapGrids).toEqual([]);
+    expect(normalizeWorkspaceSettings({
+      customSnapGrids: [{ name: "  MX Key Unit ", size: 19.05 }, { name: 7, size: 5 }, { name: "bad", size: -1 }, "nonsense", { name: "huge", size: 1e9 }],
+    }).customSnapGrids).toEqual([{ name: "MX Key Unit", size: 19.05 }, { name: "", size: 5 }, { name: "huge", size: 1000 }]);
+    expect(normalizeWorkspaceSettings({ customSnapGrids: Array.from({ length: 40 }, (_unused, index) => ({ name: `n${index}`, size: index + 1 })) }).customSnapGrids).toHaveLength(12);
   });
 });

@@ -41,6 +41,12 @@ As an example, we build a cube with a hole.
 
 This is how bores, slots and pockets are made. The chapter [Solids and holes](chapter:solids-and-holes) explains it in detail.
 
+## New since your last visit
+
+When you open layerling again after an update, a card on the start page lists what has been added since you were last here, the newest version first and older ones behind a button. Close it with {{ui:whatsNew.dismiss}} and it stays away until the next update. {{ui:whatsNew.footerLink}} in the footer of the start page shows the latest additions again at any time. The browser remembers the last version you saw, and nothing about you leaves it.
+
+On a copy of layerling on your own computer or server, the notice "Update available" has a button, {{ui:update.previewShow}}, that lists what the update brings before you install it. The list is fetched from GitHub only when you press the button.
+
 ## From design to print
 
 When your part is done, click {{ui:editor.export}}, choose STL or 3MF and download the file. Open it in your slicer, for example Bambu Studio, PrusaSlicer, OrcaSlicer or Cura. If you choose your printer in the settings, you can see while building whether the part fits on the print bed. More in [Printing](chapter:printing).

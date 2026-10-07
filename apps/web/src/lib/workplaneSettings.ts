@@ -1,5 +1,5 @@
 import { DEFAULT_OVERHANG_ANGLE, normalizeOverhangAngle } from "@/lib/overhangLimits";
-import type { GridSize, HistoryRetentionLimit, MeasurementAccuracy, ShapeCustomization, ShapeCustomizationMap, ShapeKind, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { CustomSnapGrid, CustomSnapGridSize, GridSize, HistoryRetentionLimit, MeasurementAccuracy, ShapeCustomization, ShapeCustomizationMap, ShapeKind, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { normalizeScaleForUnits } from "@/lib/measurementUnits";
 import { DEFAULT_IMPERIAL_GRID_BLOCK_PRESET, DEFAULT_METRIC_GRID_BLOCK_PRESET, DEFAULT_WORKPLANE_GRID_COLOR, inchGridPresetMm } from "@/lib/workplaneGrid";
 import { isThreadProfile } from "@/lib/threadProfiles";
@@ -37,6 +37,7 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   scale: "1:1 (millimeters)",
   accuracy: 2,
   historyLimit: 100,
+  customSnapGrids: [],
   shapeCustomizations: {},
 };
 
@@ -69,11 +70,72 @@ export function zoomDistanceScale(step: number, slider: number): number {
 
 const METRIC_SNAP_GRIDS: GridSize[] = ["Off", "0.1 mm", "0.25 mm", "0.5 mm", "1.0 mm", "2.0 mm", "5.0 mm", "Brick"];
 const IMPERIAL_SNAP_GRIDS: GridSize[] = ["Off", "1/64 in", "1/32 in", "1/16 in", "1/8 in", "1/4 in", "1/2 in", "1 in"];
-const snapGridOptions: GridSize[] = [...METRIC_SNAP_GRIDS, ...IMPERIAL_SNAP_GRIDS.filter((size) => size !== "Off")];
+const fixedSnapGrids: GridSize[] = [...METRIC_SNAP_GRIDS, ...IMPERIAL_SNAP_GRIDS.filter((size) => size !== "Off")];
+
+export const MIN_CUSTOM_SNAP_GRID = 0.01;
+export const MAX_CUSTOM_SNAP_GRID = 1000;
+export const MAX_CUSTOM_SNAP_GRIDS = 12;
+export const MAX_CUSTOM_SNAP_GRID_NAME = 32;
+/** A custom measure snaps whole, halved and quartered: 1U, 0.5U and 0.25U (and with it 0.75U). */
+export const CUSTOM_SNAP_GRID_DIVISORS = [1, 2, 4] as const;
+const CUSTOM_SNAP_GRID_FRACTIONS: Record<number, string> = { 1: "1", 2: "½", 4: "¼" };
+
+function cleanCustomSnapSize(value: number) {
+  return Number(Math.min(MAX_CUSTOM_SNAP_GRID, Math.max(MIN_CUSTOM_SNAP_GRID, value)).toFixed(4));
+}
+
+export function customSnapGridSize(size: number, divisor: number): CustomSnapGridSize {
+  return `custom:${cleanCustomSnapSize(size)}:${divisor}`;
+}
+
+/** The measure and divisor a custom snap step stands for, or null for any other value. */
+export function parseCustomSnapGrid(value: unknown): { size: number; divisor: number } | null {
+  if (typeof value !== "string") return null;
+  const match = /^custom:(\d+(?:\.\d+)?):(\d+)$/.exec(value);
+  if (!match) return null;
+  const size = Number(match[1]);
+  const divisor = Number(match[2]);
+  if (!(CUSTOM_SNAP_GRID_DIVISORS as readonly number[]).includes(divisor)) return null;
+  if (!Number.isFinite(size) || size < MIN_CUSTOM_SNAP_GRID || size > MAX_CUSTOM_SNAP_GRID) return null;
+  return { size, divisor };
+}
+
+export function normalizeCustomSnapGrids(value: unknown, fallback: CustomSnapGrid[] = []): CustomSnapGrid[] {
+  if (!Array.isArray(value)) return fallback;
+  const grids: CustomSnapGrid[] = [];
+  for (const entry of value) {
+    if (grids.length >= MAX_CUSTOM_SNAP_GRIDS) break;
+    if (!entry || typeof entry !== "object") continue;
+    const { name, size } = entry as { name?: unknown; size?: unknown };
+    if (typeof size !== "number" || !Number.isFinite(size) || size <= 0) continue;
+    grids.push({
+      name: typeof name === "string" ? name.trim().slice(0, MAX_CUSTOM_SNAP_GRID_NAME) : "",
+      size: cleanCustomSnapSize(size),
+    });
+  }
+  return grids;
+}
 
 /** The snap steps offered for a unit system: inch fractions for Imperial, millimetres otherwise. */
 export function snapGridOptionsForUnits(units: string): GridSize[] {
   return units === "Imperial" ? IMPERIAL_SNAP_GRIDS : METRIC_SNAP_GRIDS;
+}
+
+/** The snap menu: the steps of the unit system, then each custom measure whole, halved and quartered. */
+export function snapGridOptions(units: string, customGrids: CustomSnapGrid[] = []): GridSize[] {
+  const custom = customGrids.flatMap((grid) => CUSTOM_SNAP_GRID_DIVISORS.map((divisor) => customSnapGridSize(grid.size, divisor)));
+  return [...snapGridOptionsForUnits(units), ...new Set(custom)];
+}
+
+/**
+ * What a custom snap step is called in a menu: "½ × MX Key Unit". A step whose
+ * measure is no longer in the list keeps working and shows its millimetres.
+ */
+export function customSnapGridLabel(value: unknown, customGrids: CustomSnapGrid[] = []): string | null {
+  const parsed = parseCustomSnapGrid(value);
+  if (!parsed) return null;
+  const name = customGrids.find((grid) => grid.size === parsed.size)?.name.trim() || `${parsed.size} mm`;
+  return `${CUSTOM_SNAP_GRID_FRACTIONS[parsed.divisor] ?? `1/${parsed.divisor}`} × ${name}`;
 }
 
 /**
@@ -95,6 +157,8 @@ export function gridBlockForUnits(units: string, preset: string, size: number): 
 
 /** Keeps the current snap step when the unit system offers it, else the usual default (1.0 mm or 1/8 in). */
 export function snapGridForUnits(units: string, snap: GridSize): GridSize {
+  // A measure of the user's own is millimetres whatever the plate is ruled in.
+  if (parseCustomSnapGrid(snap)) return snap;
   if (snapGridOptionsForUnits(units).includes(snap)) return snap;
   return units === "Imperial" ? "1/8 in" : DEFAULT_SNAP_GRID;
 }
@@ -332,7 +396,8 @@ export function shapeDimensionLimit(workspace: WorkplaneWorkspaceSettings, kind:
 }
 
 export function normalizeSnapGrid(value: unknown, fallback: GridSize = DEFAULT_SNAP_GRID): GridSize {
-  return snapGridOptions.includes(value as GridSize) ? (value as GridSize) : fallback;
+  if (parseCustomSnapGrid(value)) return value as GridSize;
+  return fixedSnapGrids.includes(value as GridSize) ? (value as GridSize) : fallback;
 }
 
 /** Step the snap grid setting represents, in millimetres. "Off" yields 0. */
@@ -343,6 +408,8 @@ export function snapGridStep(size: GridSize) {
   if (size === "Brick") {
     return BRICK_SNAP_STEP;
   }
+  const custom = parseCustomSnapGrid(size);
+  if (custom) return custom.size / custom.divisor;
   const inch = /^(\d+)(?:\/(\d+))? in$/.exec(size);
   if (inch) return (Number(inch[1]) / Number(inch[2] ?? 1)) * 25.4;
   return Number.parseFloat(size) || 1;
@@ -407,6 +474,7 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     scale: normalizeScaleForUnits(units, stringOrDefault(candidate.scale, fallback.scale)),
     accuracy: accuracyOrDefault(candidate.accuracy, fallback.accuracy),
     historyLimit: historyLimitOrDefault(candidate.historyLimit, fallback.historyLimit),
+    customSnapGrids: normalizeCustomSnapGrids(candidate.customSnapGrids, fallback.customSnapGrids),
     shapeCustomizations: normalizeShapeCustomizations(candidate.shapeCustomizations, fallback.shapeCustomizations),
   };
 }

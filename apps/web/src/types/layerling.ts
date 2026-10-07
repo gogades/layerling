@@ -74,7 +74,15 @@ export type ProjectAsset = {
   sha256: string;
 };
 
-export type GridSize = "Off" | "0.1 mm" | "0.25 mm" | "0.5 mm" | "1.0 mm" | "2.0 mm" | "5.0 mm" | "1/64 in" | "1/32 in" | "1/16 in" | "1/8 in" | "1/4 in" | "1/2 in" | "1 in" | "Brick";
+/**
+ * A snap step of the user's own: a measure with a name, such as the 19.05 mm
+ * one key takes up on a keyboard. The snap menu offers it whole, halved and
+ * quartered.
+ */
+export type CustomSnapGrid = { name: string; size: number };
+/** "custom:<size in mm>:<divisor>" - the step is the size divided by the divisor, so it needs no lookup. */
+export type CustomSnapGridSize = `custom:${number}:${number}`;
+export type GridSize = "Off" | "0.1 mm" | "0.25 mm" | "0.5 mm" | "1.0 mm" | "2.0 mm" | "5.0 mm" | "1/64 in" | "1/32 in" | "1/16 in" | "1/8 in" | "1/4 in" | "1/2 in" | "1 in" | "Brick" | CustomSnapGridSize;
 export type MeasurementAccuracy = 1 | 2 | 3;
 export type HistoryRetentionLimit = "unlimited" | number;
 
@@ -206,6 +214,8 @@ export type WorkplaneWorkspaceSettings = {
   scale: string;
   accuracy: MeasurementAccuracy;
   historyLimit: HistoryRetentionLimit;
+  /** Snap steps of the user's own, offered in the snap menu next to the fixed ones. */
+  customSnapGrids: CustomSnapGrid[];
   shapeCustomizations: ShapeCustomizationMap;
 };
 
@@ -596,4 +606,10 @@ export type WorkplaneNote = {
   anchor?: WorkplaneNoteAnchor;
   /** Zugeklappt zeigt die Notiz nur ihre Nadel mit der Nummer. */
   collapsed?: boolean;
+  /**
+   * "point" makes this a reference point instead of a note: a mark in space
+   * that other shapes snap to. It has no text and no anchor, is not counted as
+   * a note, and travels with the design exactly like one (history, file, server).
+   */
+  kind?: "point";
 };

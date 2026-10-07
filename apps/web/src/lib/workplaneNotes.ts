@@ -47,6 +47,12 @@ export function normalizeNote(value: unknown): WorkplaneNote | null {
     y: finiteNumber(raw.y),
     z: finiteNumber(raw.z),
   };
+  if (raw.kind === "point") {
+    // A reference point is a bare mark: no text, no anchor; open, it shows its coordinates.
+    const point: WorkplaneNote = { id, text: "", x: note.x, y: note.y, z: note.z, kind: "point" };
+    if (raw.collapsed) point.collapsed = true;
+    return point;
+  }
   const anchor = normalizeAnchor(raw.anchor);
   if (anchor) note.anchor = anchor;
   if (raw.collapsed) note.collapsed = true;
@@ -102,6 +108,16 @@ export function notesSignature(notes: WorkplaneNote[]) {
       note.anchor ? `${note.anchor.shapeId}@${note.anchor.normalized.map((value) => value.toFixed(4)).join(",")}` : "free",
       `${note.x.toFixed(3)},${note.y.toFixed(3)},${note.z.toFixed(3)}`,
       note.collapsed ? "c" : "",
+      note.kind === "point" ? "point" : "",
     ].join("|"))
     .join("\n");
+}
+
+/** The reference points among the notes, and the notes proper. */
+export function isReferencePoint(note: WorkplaneNote) {
+  return note.kind === "point";
+}
+
+export function referencePoints(notes: readonly WorkplaneNote[]) {
+  return notes.filter(isReferencePoint);
 }

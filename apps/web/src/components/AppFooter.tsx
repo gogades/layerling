@@ -6,6 +6,9 @@ import { t, type Language } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { SOURCE_CODE_URL, type AppUpdateInfo } from "@/lib/appUpdate";
 import { useAppUpdate } from "@/lib/useAppUpdate";
+import { SHOW_WHATS_NEW_EVENT } from "@/lib/useWhatsNew";
+import { SupportNudge } from "@/components/SupportNudge";
+import { supportCardEnabled, supportLink, type SupportSettings } from "@/lib/supportLink";
 
 export { SOURCE_CODE_URL };
 
@@ -56,14 +59,14 @@ function legalLinks(language: Language) {
   })).filter((link) => link.href.length > 0);
 }
 
-// Whoever runs an installation may want to ask for support. The address is
-// theirs, not the project's, so it comes from a build-time variable just like
-// the legal pages - without one the button does not appear at all.
-const SPONSOR_LINK = (() => {
-  const href = process.env.NEXT_PUBLIC_SPONSOR_URL?.trim();
-  if (!href) return null;
-  return { href, label: process.env.NEXT_PUBLIC_SPONSOR_LABEL?.trim() || "" };
-})();
+// Everyone sees the way to support the project. Whoever runs an installation
+// may name an address of their own through build-time variables, just like the
+// legal pages, or switch the built-in link and the reminder card off.
+const SUPPORT_SETTINGS: SupportSettings = {
+  url: process.env.NEXT_PUBLIC_SPONSOR_URL,
+  label: process.env.NEXT_PUBLIC_SPONSOR_LABEL,
+  hint: process.env.NEXT_PUBLIC_SUPPORT_HINT,
+};
 
 // The footer reads as two halves: what this installation is on the left, where
 // the project lives on the right. Middle dots separate the parts and sit in
@@ -107,6 +110,7 @@ export function AppFooter({
   onBugReport?: () => void;
 }) {
   const language = useLanguage();
+  const sponsor = supportLink(SUPPORT_SETTINGS, language);
   const { update: hookUpdate } = useAppUpdate(version);
   const update = updateInfo !== undefined ? updateInfo : hookUpdate;
   // On someone's own computer the release page does not say how to update,
@@ -118,19 +122,21 @@ export function AppFooter({
   }, []);
 
   return (
+    <>
+    {sponsor && supportCardEnabled(SUPPORT_SETTINGS) ? <SupportNudge href={sponsor.href} /> : null}
     <footer className={variant === "editor" ? "dashboard-legal editor-legal" : "dashboard-legal"}>
       <div className="dashboard-legal-group">
         {joinWithDots([
-          SPONSOR_LINK ? (
+          sponsor ? (
             <a
               className="dashboard-legal-sponsor"
-              href={SPONSOR_LINK.href}
+              href={sponsor.href}
               target="_blank"
               rel="noreferrer"
               key="sponsor"
             >
               <Heart size={13} aria-hidden="true" />
-              {SPONSOR_LINK.label || t("dashboard.sponsor")}
+              {sponsor.label || t("dashboard.sponsor")}
             </a>
           ) : null,
           <a href={t("welcome.guideUrl")} target="_blank" rel="noreferrer" key="guide">
@@ -165,6 +171,20 @@ export function AppFooter({
           <a href={readmeUrl(language)} target="_blank" rel="noreferrer" key="readme">
             {t("dashboard.projectOnGitHub")}
           </a>,
+          // Only on the start page, where the list is shown.
+          variant === "dashboard" ? (
+            <a
+              href="#"
+              role="button"
+              key="whats-new"
+              onClick={(event) => {
+                event.preventDefault();
+                window.dispatchEvent(new Event(SHOW_WHATS_NEW_EVENT));
+              }}
+            >
+              {t("whatsNew.footerLink")}
+            </a>
+          ) : null,
           <a href={releaseNotesUrl()} target="_blank" rel="noreferrer" key="releases">
             {t("dashboard.releaseNotes", { version })}
           </a>,
@@ -184,5 +204,6 @@ export function AppFooter({
         ])}
       </div>
     </footer>
+    </>
   );
 }

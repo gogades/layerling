@@ -117,9 +117,17 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    title: "shortcuts.group.help",
+    mode: "geometry",
+    shortcuts: [
+      { combos: ["Ctrl+K"], label: "shortcuts.commandSearch" },
+    ],
+  },
+  {
     title: "shortcuts.group.sketch",
     mode: "sketch",
     shortcuts: [
+      { combos: ["Ctrl+K"], label: "shortcuts.commandSearch" },
       { combos: ["Esc"], label: "shortcuts.sketchEscape" },
       { combos: ["Delete", "Backspace"], label: "shortcuts.sketchDelete" },
       { combos: ["Ctrl+C"], label: "shortcuts.copy" },

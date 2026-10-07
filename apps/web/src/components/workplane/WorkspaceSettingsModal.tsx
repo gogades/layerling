@@ -2,7 +2,7 @@
 
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { MAX_OVERHANG_ANGLE, MIN_OVERHANG_ANGLE } from "@/lib/overhangLimits";
-import { Box as BoxIcon, ChevronDown, Grid3X3, History, Palette, RotateCcw, Ruler, X } from "lucide-react";
+import { Box as BoxIcon, ChevronDown, Grid3X3, History, Palette, Plus, RotateCcw, Ruler, Trash2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
@@ -64,9 +64,9 @@ import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
-import { DEFAULT_WORKPLANE_WORKSPACE, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_CUSTOM_SHAPE_DIMENSION, gridBlockForUnits, snapGridForUnits, snapGridOptionsForUnits } from "@/lib/workplaneSettings";
+import { DEFAULT_WORKPLANE_WORKSPACE, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_CUSTOM_SHAPE_DIMENSION, gridBlockForUnits, snapGridForUnits, CUSTOM_SNAP_GRID_DIVISORS, DEFAULT_SNAP_GRID, MAX_CUSTOM_SNAP_GRID, MAX_CUSTOM_SNAP_GRID_NAME, MAX_CUSTOM_SNAP_GRIDS, MIN_CUSTOM_SNAP_GRID, customSnapGridLabel, customSnapGridSize, parseCustomSnapGrid, snapGridOptions } from "@/lib/workplaneSettings";
 import { IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm } from "@/lib/workplaneGrid";
-import type { BentTubeProfile, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { BentTubeProfile, CustomSnapGrid, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
@@ -710,11 +710,22 @@ export function WorkspaceSettingsModal({
                   <WorkspaceSelect
                     label={t("workspace.snapGrid")}
                     value={snap}
-                    options={snapGridOptionsForUnits(workspace.units)}
-                    optionLabel={measurementOptionLabel}
+                    options={snapGridOptions(workspace.units, workspace.customSnapGrids)}
+                    optionLabel={(option) => customSnapGridLabel(option, workspace.customSnapGrids) ?? measurementOptionLabel(option)}
                     onChange={(next) => {
                       setDefaultSaved(false);
                       onSnapChange(next as GridSize);
+                    }}
+                  />
+                  <CustomSnapGridList
+                    grids={workspace.customSnapGrids}
+                    onChange={(customSnapGrids, resized) => {
+                      patchWorkspace({ customSnapGrids });
+                      // The step in use follows its measure: resized with it, back to the usual step when it goes.
+                      const current = parseCustomSnapGrid(snap);
+                      if (!current) return;
+                      if (resized && resized.from === current.size) onSnapChange(customSnapGridSize(resized.to, current.divisor));
+                      else if (!customSnapGrids.some((grid) => grid.size === current.size)) onSnapChange(workspace.units === "Imperial" ? "1/8 in" : DEFAULT_SNAP_GRID);
                     }}
                   />
                 </>
@@ -1263,6 +1274,99 @@ function WorkspaceToggle({
       </span>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.currentTarget.checked)} />
     </label>
+  );
+}
+
+/**
+ * The user's own snap measures: a name and a size in millimetres each. The
+ * snap menu then offers every one whole, halved and quartered - for a key
+ * unit of 19.05 mm that is 1U, 0.5U and 0.25U.
+ */
+function CustomSnapGridList({
+  grids,
+  onChange,
+}: {
+  grids: CustomSnapGrid[];
+  /** `resized` names the measure whose size changed, so a snap step set to it can follow. */
+  onChange: (grids: CustomSnapGrid[], resized?: { from: number; to: number }) => void;
+}) {
+  const [sizeDrafts, setSizeDrafts] = useState<Record<number, string>>({});
+  const [nameDrafts, setNameDrafts] = useState<Record<number, string>>({});
+  const commitSize = (index: number) => {
+    const draft = sizeDrafts[index];
+    setSizeDrafts(({ [index]: _committed, ...rest }) => rest);
+    if (draft === undefined) return;
+    const parsed = Number(draft.replace(",", "."));
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    const size = Number(clamp(parsed, MIN_CUSTOM_SNAP_GRID, MAX_CUSTOM_SNAP_GRID).toFixed(4));
+    const from = grids[index].size;
+    if (size === from) return;
+    onChange(grids.map((grid, at) => (at === index ? { ...grid, size } : grid)), { from, to: size });
+  };
+  return (
+    <div className="workspace-custom-snap">
+      <div className="workspace-custom-snap-heading">
+        <strong>{t("workspace.customSnapGrids")}</strong>
+        <span>{t("workspace.customSnapGridsHint")}</span>
+      </div>
+      {grids.map((grid, index) => (
+        <div className="workspace-custom-snap-row" key={index}>
+          <input
+            type="text"
+            value={nameDrafts[index] ?? grid.name}
+            maxLength={MAX_CUSTOM_SNAP_GRID_NAME}
+            placeholder={t("workspace.customSnapGridName")}
+            aria-label={t("workspace.customSnapGridName")}
+            onChange={(event) => {
+              // The settings come back a moment later; the field shows what is typed meanwhile.
+              const name = event.currentTarget.value;
+              setNameDrafts((drafts) => ({ ...drafts, [index]: name }));
+              onChange(grids.map((entry, at) => (at === index ? { ...entry, name } : entry)));
+            }}
+            onBlur={() => setNameDrafts(({ [index]: _committed, ...rest }) => rest)}
+          />
+          <label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={sizeDrafts[index] ?? String(grid.size)}
+              aria-label={t("workspace.customSnapGridSize")}
+              onChange={(event) => {
+                // Read now: by the time the updater runs, the event has let go of its target.
+                const value = event.currentTarget.value;
+                setSizeDrafts((drafts) => ({ ...drafts, [index]: value }));
+              }}
+              onBlur={() => commitSize(index)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+              }}
+            />
+            <span>mm</span>
+          </label>
+          <span className="workspace-custom-snap-steps" aria-hidden="true">
+            {CUSTOM_SNAP_GRID_DIVISORS.map((divisor) => Number((grid.size / divisor).toFixed(4))).join(" · ")}
+          </span>
+          <button
+            type="button"
+            aria-label={t("workspace.customSnapGridRemove")}
+            title={t("workspace.customSnapGridRemove")}
+            onClick={() => {
+              setSizeDrafts({});
+              setNameDrafts({});
+              onChange(grids.filter((_entry, at) => at !== index));
+            }}
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ))}
+      {grids.length < MAX_CUSTOM_SNAP_GRIDS ? (
+        <button type="button" className="workspace-custom-snap-add" onClick={() => onChange([...grids, { name: "", size: 10 }])}>
+          <Plus size={15} />
+          <span>{t("workspace.customSnapGridAdd")}</span>
+        </button>
+      ) : null}
+    </div>
   );
 }
 

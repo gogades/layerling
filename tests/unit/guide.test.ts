@@ -116,6 +116,14 @@ describe("guide footer", () => {
     expect(bare).not.toMatch(/Imprint|Privacy|impressum/i);
     expect(bare).toContain("Discussions");
   });
+
+  it("links the project's support page by default and drops it when switched off", async () => {
+    const messages = await loadMessages("en");
+    const byDefault = renderFooter({ language: "en", messages, version: "1.0.0", environment: {} });
+    expect(byDefault).toContain("https://layerling.com/support.html?lang=en");
+    const off = renderFooter({ language: "en", messages, version: "1.0.0", environment: { NEXT_PUBLIC_SUPPORT_HINT: "off" } });
+    expect(off).not.toContain("support.html");
+  });
 });
 
 describe("guide content", () => {

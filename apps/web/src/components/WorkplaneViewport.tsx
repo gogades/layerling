@@ -8,7 +8,6 @@ import { computeSectionPlaneVector, DEFAULT_SECTION_SETTINGS, getSectionBounds, 
 import { projectSectionPoint, type SectionLoop, type SectionPoint } from "@/lib/sectionSvg";
 import { sectionMeasurement, sectionPointToWorld, snapSectionPoint, type SectionSnap } from "@/lib/sectionMeasure";
 import * as THREE from "three";
-import { Brush, Evaluator, HOLLOW_INTERSECTION } from "three-bvh-csg";
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from "three-mesh-bvh";
 import { triangleTouchesRect, type ScreenRect } from "@/lib/screenRectHit";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -54,11 +53,11 @@ import { createTeardropGeometry } from "@/lib/teardropGeometry";
 import { createScrewHoleGeometry } from "@/lib/screwHoleGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
-import { createBentTubeGeometry } from "@/lib/bentTubeGeometry";
+import { createBentTubeGeometry, createBentTubeSegmentGeometry } from "@/lib/bentTubeGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { createTextGeometry } from "@/lib/textGeometry";
-import { displayStepFromMillimeters, displayToMillimeters, formatLengthMm, lengthDisplayUnit, millimetersToDisplay, parseLengthMm, parseMeasurementInput, resolveLengthMm, setLengthUnit } from "@/lib/measurementUnits";
+import { displayStepFromMillimeters, displayToMillimeters, formatLengthMm, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseLengthMm, parseMeasurementInput, resolveLengthMm, setLengthUnit } from "@/lib/measurementUnits";
 import {
   computeCornerRulerRelativeCoordinates,
   cornerRulerDimensionMatchesFromCorner,
@@ -129,8 +128,8 @@ import {
   type TransformOverlayState,
 } from "@/components/workplane/TransformOverlay";
 import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, MeasurementAccuracy, ShapeAsset, WorkplaneNote, WorkplaneNoteAnchor, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
-import { NOTE_TEXT_LIMIT } from "@/lib/workplaneNotes";
-import { planarFaceCentroid, type PivotPoint } from "@/lib/rotationPivot";
+import { NOTE_TEXT_LIMIT, referencePoints } from "@/lib/workplaneNotes";
+import { planarFaceCentroid, planarFaceTriangles, type PivotPoint } from "@/lib/rotationPivot";
 import { outwardFaceNormal } from "@/lib/layFlat";
 import { OVERHANG_PLATE_TOLERANCE, overhangDownwardLimit } from "@/lib/overhangLimits";
 import { directionIsOwnShapeAxis, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
@@ -215,7 +214,6 @@ function fitCameraDepthRange(camera: THREE.Camera, target: THREE.Vector3) {
 const CAMERA_HOME = new THREE.Vector3(118, 96, 118);
 const CAMERA_TARGET = new THREE.Vector3(0, 0, 0);
 const MIN_SHAPE_SIZE = 0.01;
-const CUT_PREVIEW_PADDING = 0.01;
 const MIN_ELEVATION = -180;
 const MAX_ELEVATION = 220;
 /** World-space offset from the height handle to the lift handle, as a fraction of selection height. */
@@ -225,8 +223,9 @@ const CAMERA_MAX_TARGET_Y = 120;
 const ROTATION_PROTRACTOR_OUTER_RADIUS = 94;
 const RENDER_LAYER_WORKPLANE = 0;
 const RENDER_LAYER_SHAPES = 1;
-/** How far beside a body a press may land and still mean it, in screen pixels. */
+/** How far beside a body a press may land and still mean it, in screen pixels: a fingertip covers more than a mouse pointer. */
 const PICK_TOLERANCE_PIXELS = 6;
+const PICK_TOLERANCE_PIXELS_TOUCH = 16;
 const PICK_TOLERANCE_RAYS = 8;
 const RENDER_LAYER_HELPERS = 2;
 const RENDER_LAYER_MODIFIERS = 3;
@@ -271,6 +270,11 @@ type WorkplaneViewportProps = {
   mirrorReferenceShapes: WorkplaneShape[];
   splitActive?: boolean;
   splitPlane?: ModelSplitPlane | null;
+  /** Dragging the plane's arrow head moves the plane along its normal. */
+  onSplitPositionChange?: (position: number) => void;
+  /** The next click on a face sets the split plane there; a blue plane follows the faces under the pointer. */
+  splitSurfacePick?: boolean;
+  onSplitSurfacePick?: (point: [number, number, number], normal: [number, number, number]) => void;
   placementWorkplane: PlacementWorkplane;
   /** Die gesetzte Arbeitsebene gilt weiter, wird aber nicht gezeichnet. */
   workplaneHidden?: boolean;
@@ -381,6 +385,59 @@ function readMoveDimensionsEnabled() {
   return window.localStorage.getItem(MOVE_DIMENSIONS_ENABLED_STORAGE_KEY) !== "false";
 }
 
+const PROPORTION_LOCK_STORAGE_KEY = "layerling.editor.keepProportions";
+const POINT_CARD_OFFSET_STORAGE_KEY = "layerling.editor.pointCardOffset";
+
+type PointCardOffset = { x: number; y: number };
+
+/** The card of a reference point, as far as the person has moved it from its pin. */
+function readPointCardOffset(): PointCardOffset {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(POINT_CARD_OFFSET_STORAGE_KEY) ?? "null") as Partial<PointCardOffset> | null;
+    if (parsed && Number.isFinite(parsed.x) && Number.isFinite(parsed.y)) return { x: Number(parsed.x), y: Number(parsed.y) };
+  } catch {
+    // Without storage the card simply opens beside its pin.
+  }
+  return { x: 0, y: 0 };
+}
+
+function readProportionLock() {
+  try {
+    return window.localStorage.getItem(PROPORTION_LOCK_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Typing one measure with the proportion lock on: the other two follow by the
+ * same factor. `patch` is what the inspector decided for the typed measure -
+ * with all its shape-specific rules - and the remaining axes are scaled on top
+ * of that, the bottom of the shape staying where it is.
+ */
+function patchWithKeptProportions(
+  shape: WorkplaneShape,
+  patch: Partial<WorkplaneShape>,
+  axis: ShapeInspectorUpdateOptions["resizeAxis"],
+): Partial<WorkplaneShape> {
+  if (!axis || "x" in patch || "z" in patch || "elevation" in patch) return patch;
+  const draft = { ...shape, ...patch } as WorkplaneShape;
+  const before = axis === "width" ? shapeWidth(shape) : axis === "depth" ? shapeDepth(shape) : shape.height;
+  const after = axis === "width" ? shapeWidth(draft) : axis === "depth" ? shapeDepth(draft) : draft.height;
+  if (!(before > 0) || !(after > 0)) return patch;
+  const factor = after / before;
+  if (Math.abs(factor - 1) < 1e-6) return patch;
+  const widthStep = factor * shapeWidth(shape) / Math.max(MIN_SHAPE_SIZE, shapeWidth(draft));
+  const depthStep = factor * shapeDepth(shape) / Math.max(MIN_SHAPE_SIZE, shapeDepth(draft));
+  const heightStep = factor * shape.height / Math.max(MIN_SHAPE_SIZE, draft.height);
+  const horizontal = Math.abs(widthStep - 1) > 1e-6 || Math.abs(depthStep - 1) > 1e-6
+    ? { ...patch, ...scaledHorizontalShapePatch(draft, widthStep, depthStep) }
+    : patch;
+  const frame = selectionFrameForShapes([shape], [shape.id]);
+  if (!frame) return horizontal;
+  return patchWithUniformHeightScale(shape, horizontal, heightStep, selectionWorldYBounds(frame).min);
+}
+
 function readOriginDimensionsEnabled() {
   if (typeof window === "undefined") {
     return true;
@@ -417,6 +474,10 @@ type ThreeState = {
   controls: OrbitControls;
   workplaneLayer: THREE.Group;
   workplanePreviewLayer: THREE.Group;
+  /** The face "Lay flat" would turn down, drawn while the pointer is over it. */
+  layFlatHoverLayer?: THREE.Group;
+  /** The bent-tube segment the settings are about, drawn over the tube. */
+  bentTubeSegmentLayer?: THREE.Group;
   shapeLayer: THREE.Group;
   helperLayer: THREE.Group;
   splitLayer: THREE.Group;
@@ -512,6 +573,14 @@ type MoveDimensionOverlayState = MoveDimensionOverlayData & {
   active: boolean;
 };
 
+type SplitPlaneDragState = {
+  pointerId: number;
+  axisOrigin: THREE.Vector3;
+  axisNormal: THREE.Vector3;
+  startParameter: number;
+  startPosition: number;
+};
+
 type MarqueeState = {
   pointerId: number;
   startX: number;
@@ -537,6 +606,11 @@ type NoteOverlayItem = {
   text: string;
   collapsed: boolean;
   attached: boolean;
+  /** A reference point, not a note: shown as a mark with its coordinates. */
+  point: boolean;
+  x: number;
+  y: number;
+  z: number;
   screenX: number;
   screenY: number;
   behind: boolean;
@@ -698,10 +772,6 @@ function previewShapesForDrag(shapes: WorkplaneShape[], drag: DragState | null) 
     const preview = previewById.get(shape.id);
     return preview ? { ...shape, x: preview.nextX, z: preview.nextZ, elevation: preview.nextElevation } : shape;
   });
-}
-
-function shouldBuildCutPreviews(transform: TransformDragState | null, drag: DragState | null) {
-  return !drag && (!transform || transform.kind === "scale" || transform.kind === "height");
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -1828,15 +1898,21 @@ function syncNoteOverlay(
   }
   const rect = state.renderer.domElement.getBoundingClientRect();
   state.camera.updateMatrixWorld();
+  // Only notes are numbered; the reference points among them are not.
+  let noteNumber = 0;
   const next: NoteOverlayState = {
-    notes: notes.map((note, index) => {
+    notes: notes.map((note) => {
       const projected = noteWorldPosition(state, note).project(state.camera);
       return {
         id: note.id,
-        index: index + 1,
+        index: note.kind === "point" ? 0 : ++noteNumber,
         text: note.text,
         collapsed: Boolean(note.collapsed),
         attached: Boolean(note.anchor),
+        point: note.kind === "point",
+        x: note.x,
+        y: note.y,
+        z: note.z,
         screenX: ((projected.x + 1) / 2) * rect.width,
         screenY: ((1 - projected.y) / 2) * rect.height,
         behind: projected.z > 1,
@@ -1854,6 +1930,10 @@ function syncNoteOverlay(
         && note.text === candidate.text
         && note.collapsed === candidate.collapsed
         && note.attached === candidate.attached
+        && note.point === candidate.point
+        && note.x === candidate.x
+        && note.y === candidate.y
+        && note.z === candidate.z
         && note.behind === candidate.behind
         && note.flipped === candidate.flipped
         && Math.abs(note.screenX - candidate.screenX) < 0.2
@@ -1919,6 +1999,51 @@ function NoteText({
   );
 }
 
+/** One coordinate of a reference point, typed in the workspace's unit; Enter or leaving the field applies it. */
+function PointCoordinateField({ label, value, workspace, onCommit }: {
+  label: string;
+  value: number;
+  workspace: WorkplaneWorkspaceSettings;
+  onCommit: (millimeters: number) => void;
+}) {
+  const shown = formatMeasurementNumber(millimetersToDisplay(value, workspace), workspace.accuracy);
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    const parsed = parseMeasurementInput(draft ?? shown);
+    if (Number.isFinite(parsed)) onCommit(displayToMillimeters(parsed, workspace));
+    setDraft(null);
+  };
+  return (
+    <label className="point-field">
+      <span>{label}</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft ?? shown}
+        onFocus={(event) => {
+          setDraft(shown);
+          event.currentTarget.select();
+        }}
+        onChange={(event) => setDraft(event.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.blur();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            setDraft(null);
+            event.currentTarget.blur();
+          }
+        }}
+      />
+      <small>{lengthDisplayUnit(workspace).label}</small>
+    </label>
+  );
+}
+
 /**
  * Die Notizen ueber der Leinwand. Sie sind bewusst HTML und keine Textur in der
  * Szene: So bleibt die Schrift bei jeder Zoomstufe scharf, laesst sich markieren
@@ -1936,8 +2061,16 @@ function NoteOverlay({
   onDetach,
   onRemove,
   onEditingIdChange,
+  workspace,
+  onPointChange,
+  pointCardOffset,
+  onPointCardOffsetChange,
 }: {
   overlay: NoteOverlayState;
+  pointCardOffset: PointCardOffset;
+  onPointCardOffsetChange: (offset: PointCardOffset, final: boolean) => void;
+  workspace: WorkplaneWorkspaceSettings;
+  onPointChange: (noteId: string, patch: { x?: number; y?: number; z?: number }) => void;
   editingId: string | null;
   onPinPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => void;
   onPinPointerMove: (event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => void;
@@ -1949,6 +2082,7 @@ function NoteOverlay({
   onRemove: (noteId: string) => void;
   onEditingIdChange: (noteId: string | null) => void;
 }) {
+  const pointCardDrag = useRef<{ pointerId: number; startX: number; startY: number; origin: PointCardOffset } | null>(null);
   return (
     <div className="note-overlay" aria-label={t("editor.tool.note")}>
       {overlay.notes.map((note) => {
@@ -1962,17 +2096,57 @@ function NoteOverlay({
           >
             <button
               type="button"
-              className={`note-pin ${note.attached ? "attached" : ""}`}
-              title={t("note.move")}
-              aria-label={`${t("editor.tool.note")} ${note.index}`}
+              className={`note-pin ${note.attached ? "attached" : ""} ${note.point ? "point-pin" : ""}`}
+              title={note.point ? t("point.move") : t("note.move")}
+              aria-label={note.point ? t("point.title") : `${t("editor.tool.note")} ${note.index}`}
               onPointerDown={(event) => onPinPointerDown(event, note.id)}
               onPointerMove={(event) => onPinPointerMove(event, note.id)}
               onPointerUp={(event) => onPinPointerUp(event, note.id)}
               onClick={() => onToggle(note.id)}
             >
-              {note.index}
+              {note.point ? <Crosshair size={15} strokeWidth={2.6} aria-hidden="true" /> : note.index}
             </button>
-            {open ? (
+            {open && note.point ? (
+              <div
+                className="note-card point-card"
+                style={{ transform: `translate(${pointCardOffset.x}px, ${pointCardOffset.y}px)` }}
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <strong
+                  className="point-card-handle"
+                  title={t("panel.moveHint")}
+                  onPointerDown={(event) => {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    pointCardDrag.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: pointCardOffset };
+                  }}
+                  onPointerMove={(event) => {
+                    const drag = pointCardDrag.current;
+                    if (!drag || drag.pointerId !== event.pointerId) return;
+                    onPointCardOffsetChange({ x: drag.origin.x + event.clientX - drag.startX, y: drag.origin.y + event.clientY - drag.startY }, false);
+                  }}
+                  onPointerUp={(event) => {
+                    const drag = pointCardDrag.current;
+                    if (!drag || drag.pointerId !== event.pointerId) return;
+                    pointCardDrag.current = null;
+                    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+                    onPointCardOffsetChange({ x: drag.origin.x + event.clientX - drag.startX, y: drag.origin.y + event.clientY - drag.startY }, true);
+                  }}
+                  onDoubleClick={() => onPointCardOffsetChange({ x: 0, y: 0 }, true)}
+                >
+                  {t("point.title")}
+                </strong>
+                <PointCoordinateField label={t("prop.positionX")} value={note.x} workspace={workspace} onCommit={(x) => onPointChange(note.id, { x })} />
+                <PointCoordinateField label={t("prop.positionY")} value={note.z} workspace={workspace} onCommit={(z) => onPointChange(note.id, { z })} />
+                <PointCoordinateField label={t("prop.positionZ")} value={note.y} workspace={workspace} onCommit={(y) => onPointChange(note.id, { y })} />
+                <div className="note-card-actions">
+                  <span className="note-hint">{t("point.hint")}</span>
+                  <span className="note-card-end">
+                    <GuideHelpLink section="notes" className="note-help-link" iconSize={16} />
+                    <button type="button" className="note-action danger" onClick={() => onRemove(note.id)}>{t("common.delete")}</button>
+                  </span>
+                </div>
+              </div>
+            ) : open ? (
               <div className="note-card" onPointerDown={(event) => event.stopPropagation()}>
                 <NoteText
                   value={note.text}
@@ -3989,6 +4163,9 @@ export function WorkplaneViewport({
   mirrorReferenceShapes,
   splitActive = false,
   splitPlane = null,
+  onSplitPositionChange,
+  splitSurfacePick = false,
+  onSplitSurfacePick,
   placementWorkplane,
   workplaneHidden = false,
   onToggleWorkplaneHidden,
@@ -4144,6 +4321,42 @@ export function WorkplaneViewport({
   const marqueeRef = useRef<MarqueeState | null>(null);
   const transformRef = useRef<TransformDragState | null>(null);
   const lastResizeAnchorRef = useRef<ResizeAnchorMemory | null>(null);
+  const [bentTubeSegment, setBentTubeSegment] = useState<{ shapeId: string; index: number } | null>(null);
+  const changeBentTubeSegment = useCallback((shapeId: string, index: number | null) => {
+    setBentTubeSegment((current) => {
+      if (index === null) return current && current.shapeId === shapeId ? null : current;
+      return current && current.shapeId === shapeId && current.index === index ? current : { shapeId, index };
+    });
+  }, []);
+  const [pointCardOffset, setPointCardOffset] = useState<PointCardOffset>({ x: 0, y: 0 });
+  const changePointCardOffset = useCallback((offset: PointCardOffset, final: boolean) => {
+    setPointCardOffset(offset);
+    if (!final) return;
+    try {
+      window.localStorage.setItem(POINT_CARD_OFFSET_STORAGE_KEY, JSON.stringify(offset));
+    } catch {
+      // The card keeps its place for this session when storage is unavailable.
+    }
+  }, []);
+  const [proportionLock, setProportionLock] = useState(false);
+  const proportionLockRef = useRef(false);
+  useEffect(() => {
+    setPointCardOffset(readPointCardOffset());
+  }, []);
+  useEffect(() => {
+    const stored = readProportionLock();
+    proportionLockRef.current = stored;
+    setProportionLock(stored);
+  }, []);
+  const changeProportionLock = useCallback((locked: boolean) => {
+    proportionLockRef.current = locked;
+    setProportionLock(locked);
+    try {
+      window.localStorage.setItem(PROPORTION_LOCK_STORAGE_KEY, String(locked));
+    } catch {
+      // The lock still applies to this editor session when storage is unavailable.
+    }
+  }, []);
   const suppressNextLiftEditRef = useRef(false);
   const suppressNextCornerEditRef = useRef(false);
   const snapRef = useRef(snap);
@@ -4215,6 +4428,15 @@ export function WorkplaneViewport({
   workplaneModeRef.current = workplaneMode;
   splitActiveRef.current = splitActive;
   splitPlaneRef.current = splitPlane;
+  const onSplitPositionChangeRef = useRef(onSplitPositionChange);
+  onSplitPositionChangeRef.current = onSplitPositionChange;
+  const splitSurfacePickRef = useRef(splitSurfacePick);
+  splitSurfacePickRef.current = splitSurfacePick;
+  const onSplitSurfacePickRef = useRef(onSplitSurfacePick);
+  onSplitSurfacePickRef.current = onSplitSurfacePick;
+  const [splitPickOverFace, setSplitPickOverFace] = useState(false);
+  const splitDragRef = useRef<SplitPlaneDragState | null>(null);
+  const [splitHandleState, setSplitHandleState] = useState<"hover" | "drag" | null>(null);
   const perfRef = useRef({
     fps: 0,
     frameMs: 0,
@@ -4224,6 +4446,9 @@ export function WorkplaneViewport({
   });
 
   const selectedShape = useMemo(() => (selectedIds.length === 1 ? shapes.find((shape) => shape.id === selectedIds[0]) ?? null : null), [selectedIds, shapes]);
+  useEffect(() => {
+    syncBentTubeSegment(threeRef.current, selectedShape, bentTubeSegment);
+  }, [bentTubeSegment, selectedShape]);
   const renderSelectionIds = useCallback(
     (ids = selectedIdsRef.current) => (
       workplaneModeRef.current || splitActiveRef.current || (modifierActiveRef.current && !modifierPreviewActiveRef.current) ? [] : ids
@@ -4520,7 +4745,6 @@ export function WorkplaneViewport({
       threeRef.current,
       shapes,
       renderSelectionIds(),
-      shouldBuildCutPreviews(transformRef.current, dragRef.current),
       modifierActiveRef.current,
       placementWorkplaneRef.current,
     );
@@ -4602,7 +4826,6 @@ export function WorkplaneViewport({
       threeRef.current,
       shapesRef.current,
       renderSelectionIds(selectedIds),
-      shouldBuildCutPreviews(transformRef.current, dragRef.current),
       modifierActiveRef.current,
       placementWorkplaneRef.current,
     );
@@ -4644,7 +4867,6 @@ export function WorkplaneViewport({
       threeRef.current,
       shapesRef.current,
       renderSelectionIds(),
-      !transformRef.current && !dragRef.current,
       modifierActive,
       placementWorkplaneRef.current,
     );
@@ -4657,7 +4879,6 @@ export function WorkplaneViewport({
       threeRef.current,
       shapesRef.current,
       renderSelectionIds(),
-      !transformRef.current && !dragRef.current,
       modifierActiveRef.current,
       placementWorkplaneRef.current,
     );
@@ -4769,6 +4990,10 @@ export function WorkplaneViewport({
     pivotPickModeRef.current = pivotPickMode;
   }, [pivotPickMode]);
 
+  useEffect(() => {
+    if (!layFlatPickMode) syncLayFlatHover(threeRef.current, [], resolvedThemeRef.current, null, null);
+  }, [layFlatPickMode]);
+
   useLayoutEffect(() => {
     rotationPivotRef.current = rotationPivot;
     const state = threeRef.current;
@@ -4796,7 +5021,6 @@ export function WorkplaneViewport({
       state,
       shapesRef.current,
       renderSelectionIds(),
-      shouldBuildCutPreviews(transformRef.current, dragRef.current),
       modifierActiveRef.current,
       placementWorkplaneRef.current,
     );
@@ -4841,8 +5065,28 @@ export function WorkplaneViewport({
   }, [clearMoveDimensions, renderSelectionIds, splitActive, workplaneMode]);
 
   useEffect(() => {
-    syncSplitPlane(threeRef.current, splitPlane);
-  }, [splitPlane]);
+    if (splitActive) return;
+    setSplitHandleState(null);
+    if (!splitDragRef.current) return;
+    splitDragRef.current = null;
+    if (threeRef.current) threeRef.current.controls.enabled = true;
+    onInteractionActiveChange?.(false);
+  }, [onInteractionActiveChange, splitActive]);
+
+  useEffect(() => {
+    if (splitSurfacePick) {
+      setSplitHandleState(null);
+      return;
+    }
+    setSplitPickOverFace(false);
+    if (!workplaneModeRef.current) {
+      syncWorkplaneHoverPreview(threeRef.current, null, workspaceRef.current, resolvedThemeRef.current);
+    }
+  }, [splitSurfacePick]);
+
+  useEffect(() => {
+    syncSplitPlane(threeRef.current, splitPlane, splitHandleState !== null);
+  }, [splitHandleState, splitPlane]);
 
   useLayoutEffect(() => {
     // The plane label carries the project name, so a rename has to redraw it.
@@ -4961,12 +5205,12 @@ export function WorkplaneViewport({
     state.workplaneLayer.visible = !workplaneLayerHiddenRef.current;
     window.layerlingCaptureCanvas = () => {
       state.camera.updateMatrixWorld();
-      state.renderer.render(state.scene, state.camera);
+      renderFrame(state);
       return state.renderer.domElement.toDataURL("image/png");
     };
     window.layerlingCaptureCanvasAsync = () => {
       state.camera.updateMatrixWorld();
-      state.renderer.render(state.scene, state.camera);
+      renderFrame(state);
       return thumbnailPngDataUrl(state.renderer.domElement);
     };
     window.layerlingCaptureView = (face = "current") => {
@@ -4978,7 +5222,7 @@ export function WorkplaneViewport({
       syncViewCube(state, viewCubeRef.current);
       fitCameraDepthRange(state.camera, state.controls.target);
       state.camera.updateMatrixWorld();
-      state.renderer.render(state.scene, state.camera);
+      renderFrame(state);
       return state.renderer.domElement.toDataURL("image/png");
     };
     /*
@@ -4994,10 +5238,12 @@ export function WorkplaneViewport({
       const factor = Math.max(0.25, Math.min(scale, 4096 / Math.max(cssWidth, cssHeight)));
       const width = Math.round(cssWidth * factor);
       const height = Math.round(cssHeight * factor);
-      const target = new THREE.WebGLRenderTarget(width, height, { samples: 4 });
+      const target = new THREE.WebGLRenderTarget(width, height, { samples: 4, stencilBuffer: true });
       target.texture.colorSpace = THREE.SRGBColorSpace;
       const helpers: Array<THREE.Object3D | null> = [
         state.workplanePreviewLayer,
+        state.layFlatHoverLayer ?? null,
+        state.bentTubeSegmentLayer ?? null,
         state.helperLayer,
         state.transformGuideLayer,
         state.moveDimensionLayer,
@@ -5019,7 +5265,7 @@ export function WorkplaneViewport({
         fitCameraDepthRange(state.camera, state.controls.target);
         state.camera.updateMatrixWorld();
         state.renderer.setRenderTarget(target);
-        state.renderer.render(state.scene, state.camera);
+        renderFrame(state);
         const pixels = new Uint8Array(width * height * 4);
         state.renderer.readRenderTargetPixels(target, 0, 0, width, height, pixels);
         const out = document.createElement("canvas");
@@ -5059,7 +5305,7 @@ export function WorkplaneViewport({
     };
     perfRef.current.lastSample = performance.now();
     resetCamera(state);
-    rebuildShapes(state, shapesRef.current, renderSelectionIds(), true, false, placementWorkplaneRef.current);
+    rebuildShapes(state, shapesRef.current, renderSelectionIds(), false, placementWorkplaneRef.current);
     syncSplitPlane(state, splitPlaneRef.current);
 
     const animate = () => {
@@ -5124,7 +5370,7 @@ export function WorkplaneViewport({
       }
       const renderStart = performance.now();
       fitCameraDepthRange(state.camera, state.controls.target);
-      state.renderer.render(state.scene, state.camera);
+      renderFrame(state);
       const frameMs = performance.now() - renderStart;
       const perf = perfRef.current;
       perf.frameMs = frameMs;
@@ -5152,6 +5398,12 @@ export function WorkplaneViewport({
       if (state.workplanePreviewLayer) {
         disposeChildren(state.workplanePreviewLayer);
       }
+      if (state.layFlatHoverLayer) {
+        disposeChildren(state.layFlatHoverLayer);
+      }
+      if (state.bentTubeSegmentLayer) {
+        disposeChildren(state.bentTubeSegmentLayer);
+      }
       disposeChildren(state.shapeLayer);
       state.shapeRecords.clear();
       disposeChildren(state.helperLayer);
@@ -5165,6 +5417,7 @@ export function WorkplaneViewport({
         disposeObject(state.sectionPlaneHelper);
         state.sectionPlaneHelper = null;
       }
+      disposeCutPreviewResources();
       state.renderer.dispose();
       host.replaceChildren();
       if (window.layerlingCaptureCanvas) {
@@ -5838,9 +6091,6 @@ export function WorkplaneViewport({
         setRotationReadout(null);
       }
       if (state) {
-        if (kind !== "scale" && kind !== "height") {
-          clearCutPreviewOverlays(state);
-        }
         state.needsRender = true;
         state.controls.enabled = false;
       }
@@ -5995,11 +6245,11 @@ export function WorkplaneViewport({
         }
         if (transform.items.length === 1) {
           const maxSize = shapeDimensionLimit(workspaceRef.current, transform.startShape.kind, 220);
-          const next = resizeShapeFromFrameHandle(transform, worldPoint, transform.handleKey, shiftKey, altKey, step, maxSize);
+          const next = resizeShapeFromFrameHandle(transform, worldPoint, transform.handleKey, shiftKey || proportionLockRef.current, altKey, step, maxSize);
           onUpdateShape(transform.id, next);
         } else {
           const maxSize = Math.max(...transform.items.map((item) => shapeDimensionLimit(workspaceRef.current, item.startShape.kind, 260)));
-          resizeSelectionFromHandle(transform, worldPoint, transform.handleKey, shiftKey, altKey, step, maxSize).forEach(({ id, patch }) => onUpdateShape(id, patch));
+          resizeSelectionFromHandle(transform, worldPoint, transform.handleKey, shiftKey || proportionLockRef.current, altKey, step, maxSize).forEach(({ id, patch }) => onUpdateShape(id, patch));
         }
         return true;
       }
@@ -6148,7 +6398,6 @@ export function WorkplaneViewport({
     setPinnedRotationWheelView(null);
     setRotationReadout(null);
     if (threeRef.current) {
-      syncCutPreviewOverlays(threeRef.current, shapesRef.current);
       setSelectionHelpersVisible(threeRef.current, true);
       threeRef.current.controls.enabled = true;
       threeRef.current.needsRender = true;
@@ -6573,11 +6822,12 @@ export function WorkplaneViewport({
     setActiveRotationWheel(false);
   }, []);
 
-  const pickShape = useCallback((clientX: number, clientY: number) => {
+  const pickShape = useCallback((clientX: number, clientY: number, pointerType = "mouse") => {
     const state = threeRef.current;
     if (!state) {
       return null;
     }
+    const tolerance = pointerType === "touch" ? PICK_TOLERANCE_PIXELS_TOUCH : PICK_TOLERANCE_PIXELS;
 
     const rect = state.renderer.domElement.getBoundingClientRect();
     state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -6605,8 +6855,8 @@ export function WorkplaneViewport({
     let nearestDistance = Number.POSITIVE_INFINITY;
     for (let step = 0; step < PICK_TOLERANCE_RAYS; step += 1) {
       const angle = (step / PICK_TOLERANCE_RAYS) * Math.PI * 2;
-      state.pointer.x = ((clientX + Math.cos(angle) * PICK_TOLERANCE_PIXELS - rect.left) / rect.width) * 2 - 1;
-      state.pointer.y = -((clientY + Math.sin(angle) * PICK_TOLERANCE_PIXELS - rect.top) / rect.height) * 2 + 1;
+      state.pointer.x = ((clientX + Math.cos(angle) * tolerance - rect.left) / rect.width) * 2 - 1;
+      state.pointer.y = -((clientY + Math.sin(angle) * tolerance - rect.top) / rect.height) * 2 + 1;
       state.raycaster.setFromCamera(state.pointer, state.camera);
       const near = state.raycaster.intersectObjects(state.shapeLayer.children, true).find(pickable);
       if (near && near.distance < nearestDistance) {
@@ -6680,6 +6930,8 @@ export function WorkplaneViewport({
 
     return {
       shapeId,
+      point: hit.point.clone(),
+      normal,
       workplane: snapPlacementWorkplaneOrigin(workplane, snapStep(snapRef.current)),
     };
   }, []);
@@ -6741,7 +6993,9 @@ export function WorkplaneViewport({
     const anchor = resolveNoteAnchor(event.clientX, event.clientY);
     if (!anchor) return;
     drag.moved = true;
-    onNoteUpdate?.(noteId, { x: anchor.x, y: anchor.y, z: anchor.z, anchor: anchor.anchor }, true);
+    // A reference point goes where it is dropped and never sticks to a body.
+    const isPoint = notesRef.current.find((candidate) => candidate.id === noteId)?.kind === "point";
+    onNoteUpdate?.(noteId, isPoint ? { x: anchor.x, y: anchor.y, z: anchor.z } : { x: anchor.x, y: anchor.y, z: anchor.z, anchor: anchor.anchor }, true);
   }, [onNoteUpdate, resolveNoteAnchor]);
 
   const handleNotePinPointerUp = useCallback((event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => {
@@ -6790,6 +7044,7 @@ export function WorkplaneViewport({
       const corners = visible.flatMap((shape) => shapeBoxCornersWorld(shape));
       const modelVertex = visible.length ? pickModelTapeCandidate(state, visible.map((shape) => shape.id), clientX, clientY) : null;
       if (modelVertex?.attachment?.kind === "vertex") corners.push(new THREE.Vector3(modelVertex.x, modelVertex.y, modelVertex.z));
+      if (notesVisibleRef.current) referencePoints(notesRef.current).forEach((point) => corners.push(new THREE.Vector3(point.x, point.y, point.z)));
       let nearest: { point: THREE.Vector3; distance: number } | null = null;
       corners.forEach((corner) => {
         const screen = projectToScreen(corner, state);
@@ -7012,7 +7267,7 @@ export function WorkplaneViewport({
         const wantsCamera = touchPointersRef.current.size >= 2 || touchRotateRef.current;
         // Wer gerade an einem Anfasser zieht, meint auch das - dann bleibt
         // alles, wie es ist.
-        if (wantsCamera && !transformRef.current) {
+        if (wantsCamera && !transformRef.current && !splitDragRef.current) {
           cancelGestureForCamera();
           cameraTouchRef.current = true;
           handOverTouchToCamera();
@@ -7027,7 +7282,31 @@ export function WorkplaneViewport({
       if (event.button !== 0 || event.ctrlKey || event.metaKey) {
         return;
       }
-      if (splitActiveRef.current) return;
+      if (splitActiveRef.current) {
+        if (splitSurfacePickRef.current) {
+          const surface = pickPlacementSurface(event.clientX, event.clientY, false);
+          if (!surface) return;
+          event.preventDefault();
+          onSplitSurfacePickRef.current?.(
+            [surface.point.x, surface.point.y, surface.point.z],
+            [surface.normal.x, surface.normal.y, surface.normal.z],
+          );
+          return;
+        }
+        const plane = splitPlaneRef.current;
+        if (!plane || !pickSplitPlaneHandle(state, event.clientX, event.clientY)) return;
+        const axisOrigin = new THREE.Vector3(...plane.origin);
+        const axisNormal = new THREE.Vector3(...plane.normal).normalize();
+        const startParameter = splitAxisParameter(state, event.clientX, event.clientY, axisOrigin, axisNormal);
+        if (startParameter === null) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        splitDragRef.current = { pointerId: event.pointerId, axisOrigin, axisNormal, startParameter, startPosition: plane.position };
+        setSplitHandleState("drag");
+        state.controls.enabled = false;
+        onInteractionActiveChange?.(true);
+        return;
+      }
       clearMoveDimensions();
       const rect = state.renderer.domElement.getBoundingClientRect();
 
@@ -7247,16 +7526,13 @@ export function WorkplaneViewport({
         } else {
           setRotationReadout(null);
         }
-        if (handle.kind !== "scale" && handle.kind !== "height") {
-          clearCutPreviewOverlays(state);
-        }
         state.needsRender = true;
         state.controls.enabled = false;
         onInteractionActiveChange?.(true);
         return;
       }
 
-      const id = pickShape(event.clientX, event.clientY);
+      const id = pickShape(event.clientX, event.clientY, event.pointerType);
       const additive = event.shiftKey;
       if (!id) {
         const startX = event.clientX - rect.left;
@@ -7379,9 +7655,15 @@ export function WorkplaneViewport({
           const entry = shapeById.get(item.id);
           return entry ? [worldSnapBox(entry)] : [];
         }));
-        dragRef.current.snapTargets = shapesRef.current
-          .filter((entry) => !dragged.has(entry.id) && !entry.hidden)
-          .map(worldSnapBox);
+        dragRef.current.snapTargets = [
+          ...shapesRef.current
+            .filter((entry) => !dragged.has(entry.id) && !entry.hidden)
+            .map(worldSnapBox),
+          // A reference point is a box with no size: its edges and centre are one line.
+          ...(notesVisibleRef.current
+            ? referencePoints(notesRef.current).map((point) => ({ minX: point.x, maxX: point.x, minZ: point.z, maxZ: point.z }))
+            : []),
+        ];
       }
       if (moveDimensionsEnabledRef.current && usesWorldHorizontalAxes) {
         const dragFrame = selectionFrameForShapes(shapesRef.current, items.map((item) => item.id));
@@ -7438,7 +7720,29 @@ export function WorkplaneViewport({
       // schweben oder zu ziehen - die Finger bewegen die Ansicht.
       if (cameraTouchRef.current) return;
       if (cruiseAssetRef.current) moveCruiseGhost(event.clientX, event.clientY);
-      if (splitActiveRef.current) return;
+      if (splitActiveRef.current) {
+        const state = threeRef.current;
+        if (!state) return;
+        if (splitSurfacePickRef.current) {
+          const surface = pickPlacementSurface(event.clientX, event.clientY, false);
+          syncWorkplaneHoverPreview(state, surface?.workplane ?? null, workspaceRef.current, resolvedThemeRef.current);
+          setSplitPickOverFace(Boolean(surface));
+          return;
+        }
+        const drag = splitDragRef.current;
+        if (drag) {
+          if (drag.pointerId !== event.pointerId) return;
+          const parameter = splitAxisParameter(state, event.clientX, event.clientY, drag.axisOrigin, drag.axisNormal);
+          if (parameter === null) return;
+          // The panel's slider steps in tenths of a millimetre; the drag keeps to them.
+          const position = Math.round((drag.startPosition + parameter - drag.startParameter) * 10) / 10;
+          onSplitPositionChangeRef.current?.(position);
+        } else if (event.buttons === 0) {
+          const hovering = pickSplitPlaneHandle(state, event.clientX, event.clientY);
+          setSplitHandleState(hovering ? "hover" : null);
+        }
+        return;
+      }
       if (workplaneModeRef.current) {
         const surface = pickPlacementSurface(event.clientX, event.clientY, event.shiftKey);
         let preview = surface?.workplane ?? null;
@@ -7466,6 +7770,10 @@ export function WorkplaneViewport({
           workspaceRef.current,
           resolvedThemeRef.current,
         );
+        return;
+      }
+      if (layFlatPickModeRef.current) {
+        syncLayFlatHover(threeRef.current, selectedIdsRef.current, resolvedThemeRef.current, event.clientX, event.clientY);
         return;
       }
       if (modifierActiveRef.current) {
@@ -7576,7 +7884,6 @@ export function WorkplaneViewport({
           resolvedThemeRef.current,
           workspaceRef.current.dimensionsAlwaysVisible,
         );
-        syncCutPreviewOverlays(threeRef.current, previewShapes);
         syncMoveDimensionOverlay(
           threeRef.current,
           moveDimensionSession,
@@ -7670,7 +7977,6 @@ export function WorkplaneViewport({
       clearMoveDimensions();
       if (state) {
         syncObjectSnapGuides(state, [], 0);
-        syncCutPreviewOverlays(state, shapesRef.current);
       }
     }
     if (state) state.needsRender = true;
@@ -7682,6 +7988,10 @@ export function WorkplaneViewport({
       syncWorkplaneHoverPreview(threeRef.current, null, workspaceRef.current, resolvedThemeRef.current);
     }
     if (modifierActiveRef.current) clearModifierEdgeHover();
+    if (splitSurfacePickRef.current) {
+      syncWorkplaneHoverPreview(threeRef.current, null, workspaceRef.current, resolvedThemeRef.current);
+      setSplitPickOverFace(false);
+    }
   }, [clearModifierEdgeHover]);
 
   const finishDrag = useCallback(
@@ -7690,7 +8000,7 @@ export function WorkplaneViewport({
       if (event.button === 2 && rightPress) {
         rightPressRef.current = null;
         if (onShapeContextMenu && Math.hypot(event.clientX - rightPress.x, event.clientY - rightPress.y) < 5) {
-          const shapeId = pickShape(event.clientX, event.clientY);
+          const shapeId = pickShape(event.clientX, event.clientY, event.pointerType);
           if (shapeId && !selectedIdsRef.current.includes(shapeId)) onSelectShape(shapeId);
           onShapeContextMenu({ shapeId, clientX: event.clientX, clientY: event.clientY });
         }
@@ -7701,6 +8011,18 @@ export function WorkplaneViewport({
         if (touchPointersRef.current.size === 0) cameraTouchRef.current = false;
       }
       const state = threeRef.current;
+      const splitDrag = splitDragRef.current;
+      if (splitDrag) {
+        if (splitDrag.pointerId !== event.pointerId) return;
+        if (event.currentTarget.hasPointerCapture(splitDrag.pointerId)) {
+          event.currentTarget.releasePointerCapture(splitDrag.pointerId);
+        }
+        splitDragRef.current = null;
+        setSplitHandleState(state && pickSplitPlaneHandle(state, event.clientX, event.clientY) ? "hover" : null);
+        if (state) state.controls.enabled = true;
+        onInteractionActiveChange?.(false);
+        return;
+      }
       const transform = transformRef.current;
       if (transform) {
         if (event.currentTarget.hasPointerCapture(transform.pointerId)) {
@@ -7723,7 +8045,6 @@ export function WorkplaneViewport({
         setActiveTransformKind(null);
         setRotationReadout(null);
         if (state) {
-          syncCutPreviewOverlays(state, shapesRef.current);
           setSelectionHelpersVisible(state, true);
           state.controls.enabled = true;
           state.needsRender = true;
@@ -7825,11 +8146,6 @@ export function WorkplaneViewport({
       }
       dragRef.current = null;
       if (state) {
-        // A moved shape triggers the shapes effect, which rebuilds this preview.
-        // Running it here as well makes cylinder/hole CSG execute twice on release.
-        if (!movedShape) {
-          syncCutPreviewOverlays(state, shapesRef.current);
-        }
         syncMoveDimensionOverlay(
           state,
           moveDimensionSessionRef.current,
@@ -8790,7 +9106,7 @@ export function WorkplaneViewport({
         )}
       </div>
 
-      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${splitActive ? "split-mode" : ""} ${cruiseAsset ? "cruising" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${pivotPickMode || layFlatPickMode ? "pivot-pick-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""} ${sectionMeasureMode && sectionSettings.enabled ? "section-measure-mode" : ""}`} aria-label={t("aria.workplane")}>
+      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${splitActive ? "split-mode" : ""} ${splitHandleState ? `split-handle-${splitHandleState}` : ""} ${splitSurfacePick ? "split-picking" : ""} ${splitSurfacePick && splitPickOverFace ? "split-pick-over-face" : ""} ${cruiseAsset ? "cruising" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${pivotPickMode || layFlatPickMode ? "pivot-pick-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""} ${sectionMeasureMode && sectionSettings.enabled ? "section-measure-mode" : ""}`} aria-label={t("aria.workplane")}>
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
@@ -8867,6 +9183,10 @@ export function WorkplaneViewport({
               onDetach={(id) => onNoteUpdate?.(id, { anchor: undefined })}
               onRemove={(id) => onNoteRemove?.(id)}
               onEditingIdChange={setEditingNoteId}
+              workspace={workspace}
+              onPointChange={(id, patch) => onNoteUpdate?.(id, patch)}
+              pointCardOffset={pointCardOffset}
+              onPointCardOffsetChange={changePointCardOffset}
             />
           ) : null}
           {!workplaneMode && !splitActive && alignOverlay ? <AlignOverlay overlay={alignOverlay} onAlign={onAlignSelection} onPreview={onAlignPreview} onPreviewClear={onAlignPreviewClear} /> : null}
@@ -8975,8 +9295,12 @@ export function WorkplaneViewport({
             // Der Inspektor rechnet in der Urform; ein gedrehter Koerper wird
             // daraus neu gebaut, also muss auch der Anker daher kommen.
             const inspected = shapeWithParametricSource(selectedShape);
-            onUpdateShape(selectedShape.id, patchWithResizeAnchor(inspected, patch, options?.resizeAxis, lastResizeAnchorRef.current));
+            const resized = proportionLockRef.current ? patchWithKeptProportions(inspected, patch, options?.resizeAxis) : patch;
+            onUpdateShape(selectedShape.id, patchWithResizeAnchor(inspected, resized, options?.resizeAxis, lastResizeAnchorRef.current));
           }}
+          proportionLock={proportionLock}
+          onProportionLockChange={changeProportionLock}
+          onBentTubeSegmentChange={changeBentTubeSegment}
           onSnapChange={chooseSnapGrid}
           onSnapOpenChange={setSnapOpen}
           onObjectSnapChange={changeObjectSnap}
@@ -8994,6 +9318,7 @@ export function WorkplaneViewport({
         <div className="grid-settings">
           <SnapGridControl
             units={workspace.units}
+            customGrids={workspace.customSnapGrids}
             snap={snap}
             snapOpen={snapOpen}
             onSnapChange={chooseSnapGrid}
@@ -9027,7 +9352,7 @@ export function WorkplaneViewport({
 }
 
 function createThreeScene(host: HTMLDivElement): ThreeState {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: false });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: false, stencil: true });
   renderer.localClippingEnabled = true;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(host.clientWidth, host.clientHeight);
@@ -9795,218 +10120,254 @@ function linesFromPoints(points: number[], material: THREE.LineBasicMaterial) {
   return lines;
 }
 
-type CutPreviewShapeFrame = {
-  shape: WorkplaneShape;
-  worldBounds: THREE.Box3;
+// The cut a hole makes in a body is drawn from depth textures rather than from a
+// boolean. A hole fragment lies inside a body when it falls between the body's
+// near and its far depth at that pixel, and a body fragment lies inside a hole
+// the same way; four depth textures carry those bounds. Nothing runs on the CPU
+// for it, so the preview keeps up with a shape while it is being dragged, and no
+// result has to be cached or dropped when a gesture starts.
+const CUT_PREVIEW_COLOR = 0x30363a;
+const CUT_PREVIEW_OPACITY = 0.34;
+// Window depth is not linear, so a bias in window units opens a gap where the cut
+// meets the surface that grows as the view is pulled back. The band is widened by it
+// rather than narrowed, so a hole flush with a face stays visible - the cutter pads
+// by 0.05 the same way - and the bias only has to be big enough to break a tie.
+const CUT_PREVIEW_DEPTH_BIAS = 1e-7;
+
+type CutPreviewResources = {
+  bodiesNear: THREE.WebGLRenderTarget;
+  bodiesFar: THREE.WebGLRenderTarget;
+  frontDepth: THREE.MeshBasicMaterial;
+  backDepth: THREE.MeshBasicMaterial;
+  // The hole shaded where it lies inside a body: what is going to be cut out,
+  // drawn on the hole itself. Nothing has to know the shape of either body - only
+  // whether a fragment sits between the near and the far depth of the other one.
+  ink: THREE.ShaderMaterial;
+  width: number;
+  height: number;
 };
 
-function shapeCutPreviewFrames(state: ThreeState, shapes: WorkplaneShape[]) {
-  return shapes.reduce<Record<string, CutPreviewShapeFrame>>((frames, shape) => {
-    const object = findShapeObject(state, shape.id);
-    if (!object) {
-      return frames;
-    }
-    object.updateMatrixWorld(true);
-    const worldBounds = new THREE.Box3().setFromObject(object);
-    if (!worldBounds.isEmpty()) {
-      frames[shape.id] = { shape, worldBounds };
-    }
-    return frames;
-  }, {});
-}
+let cutPreviewResources: CutPreviewResources | null = null;
 
-type CutPreviewBrushCacheEntry = {
-  signature: string;
-  brush: Brush;
-};
-
-const cutPreviewBrushCache = new WeakMap<THREE.Object3D, CutPreviewBrushCacheEntry>();
-const cutPreviewEvaluator = new Evaluator();
-cutPreviewEvaluator.useGroups = false;
-cutPreviewEvaluator.attributes = ["position", "normal"];
-
-function cutPreviewObjectSignature(root: THREE.Object3D) {
-  const parts: string[] = [];
-  root.updateMatrixWorld(true);
-  const inverseRoot = root.matrixWorld.clone().invert();
-  root.traverse((child) => {
-    if (!(child instanceof THREE.Mesh) || !child.visible || !(child.geometry instanceof THREE.BufferGeometry)) {
-      return;
-    }
-    const relativeMatrix = inverseRoot.clone().multiply(child.matrixWorld);
-    parts.push(child.geometry.uuid, ...relativeMatrix.elements.map((value) => value.toFixed(5)));
+function cutPreviewInkMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    // Both sides, so the far wall of a hole that goes right through fills the cut.
+    // The stencil keeps one layer per pixel, so the two walls cannot add up to a
+    // darker ring.
+    side: THREE.DoubleSide,
+    stencilWrite: true,
+    stencilFunc: THREE.NotEqualStencilFunc,
+    stencilRef: 1,
+    stencilFail: THREE.KeepStencilOp,
+    stencilZFail: THREE.KeepStencilOp,
+    stencilZPass: THREE.ReplaceStencilOp,
+    uniforms: {
+      nearDepth: { value: null },
+      farDepth: { value: null },
+      resolution: { value: new THREE.Vector2(1, 1) },
+      // Written straight into the frame, so the tint keeps the values it was
+      // given instead of being converted twice.
+      tint: { value: new THREE.Color().setHex(CUT_PREVIEW_COLOR, THREE.LinearSRGBColorSpace) },
+      opacity: { value: CUT_PREVIEW_OPACITY },
+      bias: { value: CUT_PREVIEW_DEPTH_BIAS },
+    },
+    vertexShader: [
+      "void main() {",
+      "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);",
+      "}",
+    ].join("\n"),
+    fragmentShader: [
+      "uniform sampler2D nearDepth;",
+      "uniform sampler2D farDepth;",
+      "uniform vec2 resolution;",
+      "uniform vec3 tint;",
+      "uniform float opacity;",
+      "uniform float bias;",
+      "void main() {",
+      "  // Both sides are window-space depth, so they compare directly.",
+      "  float depth = gl_FragCoord.z;",
+      "  vec2 uv = gl_FragCoord.xy / resolution;",
+      "  float near = texture2D(nearDepth, uv).r;",
+      "  float far = texture2D(farDepth, uv).r;",
+      "  if (depth < near - bias || depth > far + bias) {",
+      "    discard;",
+      "  }",
+      "  gl_FragColor = vec4(tint, opacity);",
+      "}",
+    ].join("\n"),
   });
-  return parts.join(":");
 }
 
-function cutPreviewBrushFromObject(root: THREE.Object3D) {
-  const signature = cutPreviewObjectSignature(root);
-  const cached = cutPreviewBrushCache.get(root);
-  if (cached?.signature === signature) {
-    cached.brush.matrixAutoUpdate = false;
-    cached.brush.matrix.copy(root.matrixWorld);
-    cached.brush.matrixWorld.copy(root.matrixWorld);
-    return cached.brush;
-  }
-
-  const positions: number[] = [];
-  const point = new THREE.Vector3();
-  const inverseRoot = root.matrixWorld.clone().invert();
-  root.traverse((child) => {
-    if (!(child instanceof THREE.Mesh) || !child.visible || !(child.geometry instanceof THREE.BufferGeometry)) {
-      return;
-    }
-
-    const position = child.geometry.getAttribute("position");
-    if (!position) {
-      return;
-    }
-    const index = child.geometry.getIndex();
-    const count = index?.count ?? position.count;
-    const relativeMatrix = inverseRoot.clone().multiply(child.matrixWorld);
-    const mirrored = relativeMatrix.determinant() < 0;
-    for (let offset = 0; offset + 2 < count; offset += 3) {
-      const triangle = [0, 1, 2].map((corner) => {
-        const vertexIndex = index ? index.getX(offset + corner) : offset + corner;
-        return point
-          .set(position.getX(vertexIndex), position.getY(vertexIndex), position.getZ(vertexIndex))
-          .applyMatrix4(relativeMatrix)
-          .toArray();
-      });
-      if (mirrored) {
-        [triangle[1], triangle[2]] = [triangle[2], triangle[1]];
-      }
-      positions.push(...triangle[0], ...triangle[1], ...triangle[2]);
-    }
+function cutPreviewDepthTarget(width: number, height: number) {
+  const depthTexture = new THREE.DepthTexture(width, height);
+  depthTexture.format = THREE.DepthFormat;
+  depthTexture.type = THREE.UnsignedIntType;
+  const target = new THREE.WebGLRenderTarget(width, height, {
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+    depthBuffer: true,
+    stencilBuffer: false,
+    depthTexture,
   });
-
-  if (positions.length < 9) {
-    return null;
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.computeVertexNormals();
-  const brush = new Brush(geometry);
-  brush.matrixAutoUpdate = false;
-  brush.matrix.copy(root.matrixWorld);
-  brush.matrixWorld.copy(root.matrixWorld);
-  if (cached) {
-    cached.brush.geometry.dispose();
-  }
-  cutPreviewBrushCache.set(root, { signature, brush });
-  return brush;
+  target.texture.colorSpace = THREE.NoColorSpace;
+  return target;
 }
 
-function cutPreviewActualIntersectionGeometry(state: ThreeState, solid: WorkplaneShape, hole: WorkplaneShape) {
-  const solidObject = findShapeObject(state, solid.id);
-  const holeObject = findShapeObject(state, hole.id);
-  if (!solidObject || !holeObject) {
-    return null;
+function disposeCutPreviewResources() {
+  if (!cutPreviewResources) {
+    return;
   }
-
-  const solidBrush = cutPreviewBrushFromObject(solidObject);
-  const holeBrush = cutPreviewBrushFromObject(holeObject);
-  if (!solidBrush || !holeBrush) {
-    return null;
-  }
-
-  // Equal-height cylinders have coplanar caps. Feeding those surfaces directly
-  // to three-bvh-csg can turn a few hundred input triangles into hundreds of
-  // thousands of preview triangles. A tiny local expansion preserves the
-  // visible cut while keeping the preview topology bounded.
-  const holeScale = new THREE.Matrix4().makeScale(
-    (shapeWidth(hole) + CUT_PREVIEW_PADDING * 2) / Math.max(MIN_SHAPE_SIZE, shapeWidth(hole)),
-    (hole.height + CUT_PREVIEW_PADDING * 2) / Math.max(MIN_SHAPE_SIZE, hole.height),
-    (shapeDepth(hole) + CUT_PREVIEW_PADDING * 2) / Math.max(MIN_SHAPE_SIZE, shapeDepth(hole)),
+  [cutPreviewResources.bodiesNear, cutPreviewResources.bodiesFar].forEach((target) =>
+    target.dispose(),
   );
-  const paddedHoleMatrix = holeBrush.matrix.clone().multiply(holeScale);
-  holeBrush.matrix.copy(paddedHoleMatrix);
-  holeBrush.matrixWorld.copy(paddedHoleMatrix);
+  [
+    cutPreviewResources.frontDepth,
+    cutPreviewResources.backDepth,
+    cutPreviewResources.ink,
+  ].forEach((material) => material.dispose());
+  cutPreviewResources = null;
+}
 
-  try {
-    const result = cutPreviewEvaluator.evaluate(solidBrush, holeBrush, HOLLOW_INTERSECTION);
-    const position = result.geometry.getAttribute("position");
-    if (!position || position.count < 3) {
-      result.geometry.dispose();
-      return null;
-    }
-    const geometry = result.geometry.clone();
-    geometry.applyMatrix4(result.matrixWorld);
-    result.geometry.dispose();
-    geometry.computeVertexNormals();
-    return geometry;
-  } catch {
-    return null;
+function cutPreviewResourcesFor(width: number, height: number) {
+  if (
+    cutPreviewResources &&
+    cutPreviewResources.width === width &&
+    cutPreviewResources.height === height
+  ) {
+    return cutPreviewResources;
   }
+  disposeCutPreviewResources();
+  cutPreviewResources = {
+    bodiesNear: cutPreviewDepthTarget(width, height),
+    bodiesFar: cutPreviewDepthTarget(width, height),
+    frontDepth: new THREE.MeshBasicMaterial({
+      colorWrite: false,
+      depthWrite: true,
+      depthTest: true,
+      depthFunc: THREE.LessDepth,
+      side: THREE.FrontSide,
+    }),
+    backDepth: new THREE.MeshBasicMaterial({
+      colorWrite: false,
+      depthWrite: true,
+      depthTest: true,
+      depthFunc: THREE.LessDepth,
+      side: THREE.BackSide,
+    }),
+    ink: cutPreviewInkMaterial(),
+    width,
+    height,
+  };
+  return cutPreviewResources;
 }
 
-function addCutPreviewOverlays(state: ThreeState, holeFrame: CutPreviewShapeFrame, solidFrames: CutPreviewShapeFrame[]) {
-  solidFrames.forEach((solidFrame) => {
-    if (!holeFrame.worldBounds.intersectsBox(solidFrame.worldBounds)) {
+function drawCutPreviews(state: ThreeState) {
+  const bodies: THREE.Object3D[] = [];
+  const holes: THREE.Object3D[] = [];
+  state.shapeRecords.forEach((record) => {
+    const object = record.object;
+    if (!object || record.shape.hidden || !object.visible) {
       return;
     }
-
-    const geometry = cutPreviewActualIntersectionGeometry(state, solidFrame.shape, holeFrame.shape);
-    if (!geometry) {
-      return;
-    }
-    const preview = new THREE.Mesh(
-      geometry,
-      new THREE.MeshBasicMaterial({
-        color: "#30363a",
-        transparent: true,
-        opacity: 0.34,
-        depthTest: false,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      }),
-    );
-    preview.name = "CutPreviewOverlay";
-    preview.renderOrder = 18;
-    preview.userData.cutPreview = true;
-    preview.raycast = () => undefined;
-    setObjectRenderLayer(preview, RENDER_LAYER_PREVIEWS);
-    freezeStaticObjectMatrices(preview);
-    state.shapeLayer.add(preview);
-  });
-}
-
-function clearCutPreviewOverlays(state: ThreeState) {
-  const overlays: THREE.Object3D[] = [];
-  state.shapeLayer.traverse((child) => {
-    if (child.userData.cutPreview) {
-      overlays.push(child);
+    if (record.shape.hole) {
+      holes.push(object);
+    } else {
+      bodies.push(object);
     }
   });
-  overlays.forEach((overlay) => {
-    overlay.parent?.remove(overlay);
-    disposeObject(overlay);
-  });
-}
-
-function syncCutPreviewOverlays(state: ThreeState, shapes: WorkplaneShape[]) {
-  clearCutPreviewOverlays(state);
-  const visibleShapes = shapes.filter((shape) => !shape.hidden);
-  const cutFrames = shapeCutPreviewFrames(state, visibleShapes);
-  const solidFrames = visibleShapes
-    .filter((shape) => !shape.hole)
-    .map((shape) => cutFrames[shape.id])
-    .filter((frame): frame is CutPreviewShapeFrame => Boolean(frame));
-
-  if (solidFrames.length === 0) {
+  if (bodies.length === 0 || holes.length === 0) {
     return;
   }
 
-  visibleShapes.forEach((shape) => {
-    if (!shape.hole) {
-      return;
+  const renderer = state.renderer;
+  const scene = state.scene;
+  const camera = state.camera;
+  const frameTarget = renderer.getRenderTarget();
+  const size = frameTarget
+    ? new THREE.Vector2(frameTarget.width, frameTarget.height)
+    : renderer.getDrawingBufferSize(new THREE.Vector2());
+  const resources = cutPreviewResourcesFor(size.x, size.y);
+
+  const shapes = [...bodies, ...holes];
+  const wasVisible = new Map(shapes.map((object) => [object, object.visible] as const));
+  const previousAutoClear = renderer.autoClear;
+  const previousOverride = scene.overrideMaterial;
+  const previousBackground = scene.background;
+  const previousMask = camera.layers.mask;
+
+  const renderSet = (visible: THREE.Object3D[]) => {
+    const wanted = new Set(visible);
+    shapes.forEach((object) => {
+      object.visible = wanted.has(object);
+    });
+  };
+
+  try {
+    renderer.autoClear = false;
+    camera.layers.set(RENDER_LAYER_SHAPES);
+    // A scene background is repainted by every render() call, and this renders
+    // the scene four more times; left alone it would wipe the frame.
+    scene.background = null;
+
+    // The section plane clips per material, and these are the preview's own: without
+    // it the depth textures keep the geometry that was cut away, and the ink lands in
+    // the removed half. Where the plane is gone the depth reads 1.0, which discards
+    // the ink there by itself.
+    const sectionPlane = state.sectionPlane ?? null;
+    for (const material of [resources.frontDepth, resources.backDepth]) {
+      if ((material.clippingPlanes?.[0] ?? null) !== sectionPlane) {
+        material.clippingPlanes = sectionPlane ? [sectionPlane] : null;
+        material.needsUpdate = true;
+      }
     }
-    const holeFrame = cutFrames[shape.id];
-    if (holeFrame) {
-      addCutPreviewOverlays(state, holeFrame, solidFrames);
-    }
-  });
+
+    const depthPass = (
+      visible: THREE.Object3D[],
+      material: THREE.Material,
+      target: THREE.WebGLRenderTarget,
+    ) => {
+      renderSet(visible);
+      renderer.setRenderTarget(target);
+      renderer.clear(true, true, false);
+      scene.overrideMaterial = material;
+      renderer.render(scene, camera);
+    };
+
+    depthPass(bodies, resources.frontDepth, resources.bodiesNear);
+    depthPass(bodies, resources.backDepth, resources.bodiesFar);
+
+    // The hole is drawn once, over the frame, and shaded where it lies inside a
+    // body. The stencil decides which of its fragments gets a pixel: one layer, so
+    // the shading stays even wherever the hole turns back on itself.
+    resources.ink.uniforms.nearDepth.value = resources.bodiesNear.depthTexture;
+    resources.ink.uniforms.farDepth.value = resources.bodiesFar.depthTexture;
+    (resources.ink.uniforms.resolution.value as THREE.Vector2).set(
+      resources.width,
+      resources.height,
+    );
+    renderSet(holes);
+    renderer.setRenderTarget(frameTarget);
+    renderer.clear(false, false, true);
+    scene.overrideMaterial = resources.ink;
+    renderer.render(scene, camera);
+  } finally {
+    shapes.forEach((object) => {
+      object.visible = wasVisible.get(object) ?? true;
+    });
+    scene.overrideMaterial = previousOverride;
+    scene.background = previousBackground;
+    camera.layers.mask = previousMask;
+    renderer.autoClear = previousAutoClear;
+    renderer.setRenderTarget(frameTarget);
+  }
+}
+
+function renderFrame(state: ThreeState) {
+  state.renderer.render(state.scene, state.camera);
+  drawCutPreviews(state);
 }
 
 function updateShapeObjectTransform(object: THREE.Group, shape: WorkplaneShape) {
@@ -10254,7 +10615,6 @@ function rebuildShapes(
   state: ThreeState | null,
   shapes: WorkplaneShape[],
   selectedIds: string[],
-  showCutPreviews = true,
   useOfficialModifierRendering = false,
   workplane: PlacementWorkplane = horizontalPlacementWorkplane(),
 ) {
@@ -10262,7 +10622,6 @@ function rebuildShapes(
     return;
   }
 
-  clearCutPreviewOverlays(state);
   const selected = new Set(selectedIds);
   const visibleShapes = shapes.filter((shape) => !shape.hidden);
 
@@ -10276,9 +10635,6 @@ function rebuildShapes(
       }, false);
       state.shapeLayer.add(object);
     });
-    if (showCutPreviews) {
-      syncCutPreviewOverlays(state, visibleShapes);
-    }
     rebuildSelectionHelpers(state, shapes, selectedIds, workplane);
     if (state.sectionPlane) {
       applySectionClipping(state, state.sectionPlane);
@@ -10349,9 +10705,6 @@ function rebuildShapes(
     record.selected = selectedShape;
   });
 
-  if (showCutPreviews) {
-    syncCutPreviewOverlays(state, visibleShapes);
-  }
 
   rebuildSelectionHelpers(state, shapes, selectedIds, workplane);
   if (state.sectionPlane) {
@@ -11202,6 +11555,183 @@ function pickLayFlatFace(state: ThreeState, clientX: number, clientY: number): L
   const corner = (index: number) => new THREE.Vector3().fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld);
   const normal = outwardFaceNormal(corner(hit.face.a), corner(hit.face.b), corner(hit.face.c), state.raycaster.ray.direction);
   return normal ? { shapeId: mesh.userData.shapeId as string, normal } : null;
+}
+
+/**
+ * While "Lay flat" waits for a click, shows the face the click would turn
+ * down: the flat face under the pointer, if it belongs to the selection. The
+ * face is looked up again only when the pointer moves onto another triangle.
+ */
+function syncLayFlatHover(
+  state: ThreeState | null,
+  selectedIds: readonly string[],
+  theme: ResolvedAppTheme,
+  clientX: number | null,
+  clientY: number | null,
+) {
+  if (!state) return;
+  let layer = state.layFlatHoverLayer;
+  if (!layer) {
+    layer = new THREE.Group();
+    layer.name = "LayFlatHover";
+    layer.layers.set(RENDER_LAYER_PREVIEWS);
+    layer.visible = false;
+    state.layFlatHoverLayer = layer;
+    state.scene.add(layer);
+  }
+  const clear = () => {
+    if (layer.userData.key === undefined) return;
+    disposeChildren(layer);
+    layer.userData.key = undefined;
+    layer.visible = false;
+    state.needsRender = true;
+  };
+  if (clientX === null || clientY === null) {
+    clear();
+    return;
+  }
+
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  state.raycaster.setFromCamera(state.pointer, state.camera);
+  state.raycaster.layers.set(RENDER_LAYER_SHAPES);
+  const hit = state.raycaster
+    .intersectObjects(state.shapeLayer.children, true)
+    .find((entry) => {
+      if (state.sectionPlane && state.sectionPlane.distanceToPoint(entry.point) < -0.001) return false;
+      return entry.object instanceof THREE.Mesh && entry.faceIndex !== undefined && entry.faceIndex !== null && typeof entry.object.userData.shapeId === "string";
+    });
+  const mesh = hit?.object as THREE.Mesh<THREE.BufferGeometry> | undefined;
+  if (!hit || !mesh || hit.faceIndex === undefined || hit.faceIndex === null || !selectedIds.includes(mesh.userData.shapeId as string)) {
+    clear();
+    return;
+  }
+
+  const key = `${mesh.uuid}:${hit.faceIndex}:${theme}`;
+  if (layer.userData.key === key) return;
+
+  mesh.updateWorldMatrix(true, false);
+  const position = mesh.geometry.getAttribute("position");
+  const index = mesh.geometry.getIndex();
+  const cornerCount = index ? index.count : position.count;
+  const corner = new THREE.Vector3();
+  const worldCorner = (offset: number) =>
+    corner.fromBufferAttribute(position, index ? index.getX(offset) : offset).applyMatrix4(mesh.matrixWorld);
+  let triangles: number[] = [hit.faceIndex];
+  let positions: ArrayLike<number>;
+  // A very dense mesh is too slow to search on every move: show the one facet.
+  if (cornerCount <= 600000) {
+    const world = new Float64Array(cornerCount * 3);
+    for (let offset = 0; offset < cornerCount; offset += 1) {
+      worldCorner(offset);
+      world[offset * 3] = corner.x;
+      world[offset * 3 + 1] = corner.y;
+      world[offset * 3 + 2] = corner.z;
+    }
+    positions = world;
+    triangles = planarFaceTriangles(world, hit.faceIndex)?.triangles ?? triangles;
+  } else {
+    const world = new Float64Array(9);
+    for (let offset = 0; offset < 3; offset += 1) {
+      worldCorner(hit.faceIndex * 3 + offset);
+      world[offset * 3] = corner.x;
+      world[offset * 3 + 1] = corner.y;
+      world[offset * 3 + 2] = corner.z;
+    }
+    positions = world;
+    triangles = [0];
+  }
+
+  const vertices = new Float32Array(triangles.length * 9);
+  triangles.forEach((triangle, slot) => {
+    for (let offset = 0; offset < 9; offset += 1) vertices[slot * 9 + offset] = positions[triangle * 9 + offset];
+  });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
+  const highlight = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: theme === "dark" ? "#69d9ff" : "#079bc6",
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -3,
+    }),
+  );
+  highlight.layers.set(RENDER_LAYER_PREVIEWS);
+  highlight.renderOrder = 960;
+  highlight.raycast = () => undefined;
+  disposeChildren(layer);
+  layer.add(highlight);
+  layer.userData.key = key;
+  layer.visible = true;
+  state.needsRender = true;
+}
+
+/**
+ * Lights up one segment of a bent tube: a slightly wider sleeve over that
+ * piece of the tube, placed like the shape itself. Drawn again whenever the
+ * shape or the chosen segment changes; nothing is drawn for another shape.
+ */
+function syncBentTubeSegment(state: ThreeState | null, shape: WorkplaneShape | null, segment: { shapeId: string; index: number } | null) {
+  if (!state) return;
+  let layer = state.bentTubeSegmentLayer;
+  if (!layer) {
+    layer = new THREE.Group();
+    layer.name = "BentTubeSegment";
+    layer.layers.set(RENDER_LAYER_PREVIEWS);
+    layer.visible = false;
+    state.bentTubeSegmentLayer = layer;
+    state.scene.add(layer);
+  }
+  disposeChildren(layer);
+  layer.visible = false;
+  state.needsRender = true;
+  if (!shape || shape.kind !== "bentTube" || !segment || segment.shapeId !== shape.id) return;
+
+  const geometry = createBentTubeSegmentGeometry({
+    width: shapeWidth(shape),
+    depth: shapeDepth(shape),
+    height: shape.height,
+    bentTubeProfile: shape.bentTubeProfile,
+    bentTubeInnerProfile: shape.bentTubeInnerProfile,
+    bentTubeSize: shape.bentTubeSize,
+    bentTubeWall: shape.bentTubeWall,
+    bentTubeQuality: shape.bentTubeQuality,
+    bentTubeSegments: shape.bentTubeSegments,
+  }, segment.index);
+  if (!geometry) return;
+
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: "#ff9a2e",
+      transparent: true,
+      opacity: 0.6,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    }),
+  );
+  mesh.layers.set(RENDER_LAYER_PREVIEWS);
+  mesh.renderOrder = 955;
+  mesh.raycast = () => undefined;
+  mesh.position.y -= shape.height / 2;
+  layer.position.set(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z);
+  layer.rotation.set(
+    THREE.MathUtils.degToRad(shape.rotationX ?? 0),
+    THREE.MathUtils.degToRad(shape.rotation),
+    THREE.MathUtils.degToRad(shape.rotationZ ?? 0),
+  );
+  layer.scale.set(mirrorSign(shape.mirrorX), mirrorSign(shape.mirrorY), mirrorSign(shape.mirrorZ));
+  layer.add(mesh);
+  layer.visible = true;
 }
 
 function findShapeObject(state: ThreeState, id: string) {
@@ -12478,7 +13008,7 @@ function createHalfSphereGeometry(width: number, height: number, depth: number, 
   return geometry;
 }
 
-function syncSplitPlane(state: ThreeState | null, plane: ModelSplitPlane | null) {
+function syncSplitPlane(state: ThreeState | null, plane: ModelSplitPlane | null, handleActive = false) {
   if (!state) return;
   disposeChildren(state.splitLayer);
   if (!plane) {
@@ -12525,12 +13055,13 @@ function syncSplitPlane(state: ThreeState | null, plane: ModelSplitPlane | null)
   root.add(cross);
 
   const normalLength = Math.max(8, size * 0.18);
+  const headLength = Math.max(2.5, normalLength * 0.18);
   const normalGuide = new THREE.ArrowHelper(
     new THREE.Vector3(0, 0, 1),
     new THREE.Vector3(0, 0, -normalLength / 2),
     normalLength,
-    0xb35f07,
-    Math.max(2.5, normalLength * 0.18),
+    handleActive ? 0xff9a2e : 0xb35f07,
+    headLength,
     Math.max(1.5, normalLength * 0.1),
   );
   [normalGuide.line.material, normalGuide.cone.material].forEach((material) => {
@@ -12541,10 +13072,45 @@ function syncSplitPlane(state: ThreeState | null, plane: ModelSplitPlane | null)
   normalGuide.renderOrder = 903;
   root.add(normalGuide);
 
+  // The cone alone is a small target; this invisible ball around it takes the
+  // pointer for dragging the plane along its normal.
+  const handleHit = new THREE.Mesh(
+    new THREE.SphereGeometry(headLength, 12, 8),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  handleHit.position.set(0, 0, normalLength / 2 - headLength / 2);
+  handleHit.userData.splitPlaneHandle = true;
+  root.add(handleHit);
+
   root.traverse((child) => child.layers.set(RENDER_LAYER_PREVIEWS));
   state.splitLayer.add(root);
   state.splitLayer.visible = true;
   state.needsRender = true;
+}
+
+function pointerRayFor(state: ThreeState, clientX: number, clientY: number) {
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  state.raycaster.setFromCamera(state.pointer, state.camera);
+  return state.raycaster.ray;
+}
+
+function pickSplitPlaneHandle(state: ThreeState, clientX: number, clientY: number) {
+  if (!state.splitLayer.visible) return false;
+  pointerRayFor(state, clientX, clientY);
+  state.raycaster.layers.set(RENDER_LAYER_PREVIEWS);
+  return state.raycaster.intersectObjects(state.splitLayer.children, true).some((hit) => hit.object.userData.splitPlaneHandle === true);
+}
+
+/** Where along the plane's normal line the pointer ray passes closest, or null when the view looks along that line. */
+function splitAxisParameter(state: ThreeState, clientX: number, clientY: number, axisOrigin: THREE.Vector3, axisNormal: THREE.Vector3) {
+  const ray = pointerRayFor(state, clientX, clientY);
+  const between = new THREE.Vector3().subVectors(axisOrigin, ray.origin);
+  const alignment = axisNormal.dot(ray.direction);
+  const denominator = 1 - alignment * alignment;
+  if (denominator < 1e-4) return null;
+  return (alignment * between.dot(ray.direction) - between.dot(axisNormal)) / denominator;
 }
 
 function disposeChildren(group: THREE.Group) {

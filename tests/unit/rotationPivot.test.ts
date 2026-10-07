@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planarFaceCentroid } from "@/lib/rotationPivot";
+import { planarFaceCentroid, planarFaceTriangles } from "@/lib/rotationPivot";
 
 type Point = [number, number, number];
 
@@ -76,5 +76,22 @@ describe("planarFaceCentroid", () => {
   it("rejects a hit outside the mesh or on a collapsed triangle", () => {
     expect(planarFaceCentroid([0, 0, 0, 1, 0, 0, 0, 1, 0], 1)).toBeNull();
     expect(planarFaceCentroid([0, 0, 0, 1, 0, 0, 2, 0, 0], 0)).toBeNull();
+  });
+});
+
+describe("planarFaceTriangles", () => {
+  // A square lying in y = 0 (two triangles) next to a square standing in x = 1 (two triangles).
+  const floor = [0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1];
+  const wall = [1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 1];
+  const positions = [...floor, ...wall];
+
+  it("returns both triangles of the flat face that was hit and nothing of the wall", () => {
+    const face = planarFaceTriangles(positions, 0);
+    expect(face?.triangles.sort()).toEqual([0, 1]);
+    expect(planarFaceTriangles(positions, 3)?.triangles.sort()).toEqual([2, 3]);
+  });
+
+  it("gives nothing for a triangle that is not in the mesh", () => {
+    expect(planarFaceTriangles(positions, 9)).toBeNull();
   });
 });

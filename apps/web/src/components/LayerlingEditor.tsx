@@ -1,7 +1,7 @@
 "use client";
 
 import { GuideHelpLink } from "@/components/GuideHelpLink";
-import { AlertTriangle, Check, Circle as CircleIcon, CloudUpload, Download, Eye, EyeOff, FilePlus2, FolderOpen, Hexagon as HexagonIcon, Info, ListTree, Pencil, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
+import { AlertTriangle, Check, Circle as CircleIcon, CloudUpload, Download, Eye, EyeOff, FilePlus2, FolderOpen, Hexagon as HexagonIcon, Info, ListTree, Pencil, Search, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
 import { ObjectListPanel } from "@/components/workplane/ObjectListPanel";
 import type manifoldModule from "manifold-3d";
 import type { ManifoldToplevel } from "manifold-3d";
@@ -89,11 +89,14 @@ import { shellMaxThickness } from "@/lib/shellLimits";
 import { circleStepDegrees, clampArrayCount, rotateAroundVertical, rowOffset, type ArraySettings } from "@/lib/shapeArray";
 import { bedOverhangs, printerPresetById, type BedOverhang } from "@/lib/printBed";
 import { SplitPanel } from "./workplane/SplitPanel";
-import { unionSplitManifoldComponents } from "@/lib/manifoldSplit";
-import { NO_SPLIT_ROTATION, modelSplitPlane, splitAxisFromLabel, splitAxisLabel, splitPlaneIntersectsPoints, splitRotationAxes, splitShapeFromWorldPositions, type ModelSplitPlane, type SplitRotation } from "@/lib/modelSplit";
+import { groupedContentScale, scaleGroupedVertices } from "@/lib/groupScale";
+import { dropSplitSlivers, unionSplitManifoldComponents } from "@/lib/manifoldSplit";
+import { NO_SPLIT_ROTATION, modelSplitPlane, snapSplitPositionToVertices, splitOrientationForNormal, splitAxisFromLabel, splitAxisLabel, splitPlaneIntersectsPoints, splitRotationAxes, splitShapeFromWorldPositions, type ModelSplitPlane, type SplitRotation } from "@/lib/modelSplit";
 import { GuideModal } from "./workplane/GuideModal";
 import { HistoryViewOverlay, historyStateNameSuffix } from "./workplane/HistoryViewOverlay";
 import { ShortcutsModal } from "./workplane/ShortcutsModal";
+import { CommandPalette, type PaletteCommand } from "./workplane/CommandPalette";
+import { COMMAND_KEYWORDS, SHAPE_KEYWORDS } from "@/lib/commandKeywords";
 import { ShapeContextMenu, type ShapeContextMenuItem } from "./workplane/ShapeContextMenu";
 import {
   canonicalizeShape,
@@ -186,7 +189,8 @@ import { importedShapeFromSvg, invalidSvgMeshReason } from "@/lib/svgImport";
 import { toSvgProjection, type SvgProjectionLayer } from "@/lib/svgExport";
 import { DEFAULT_TAPER_DIMENSION_MAX, keyboardNudgeStep, normalizeShapeCustomizations, normalizeSnapGrid, normalizeWorkspaceSettings, shapeDimensionLimit, workplaneSettingsFingerprint } from "@/lib/workplaneSettings";
 import { MCP_SHAPE_SETTING_KEYS, mcpThreadSizeName, mcpThreadSizeParams } from "@/lib/mcpShapeSettings";
-import { createNoteId, detachNotesFromMissingShapes, normalizeNotes, NOTE_COUNT_LIMIT, NOTE_TEXT_LIMIT } from "@/lib/workplaneNotes";
+import { createNoteId, detachNotesFromMissingShapes, normalizeNotes, NOTE_COUNT_LIMIT, NOTE_TEXT_LIMIT, referencePoints } from "@/lib/workplaneNotes";
+import { newReferencePositions, referencePointsForBox, unionReferenceBoxes, type ReferencePointSpot, type ReferencePosition } from "@/lib/referencePoints";
 import {
   normalizePlacementWorkplane,
   placementPatchForNewShape,
@@ -291,6 +295,8 @@ type SplitSession = {
   sourceFingerprint: string;
   busy: boolean;
   error: string | null;
+  /** The next click on a face sets the plane's position. */
+  picking: boolean;
 };
 
 type EdgeModifierComponentPreview = {
@@ -2571,7 +2577,10 @@ function meshForShape(shape: WorkplaneShape): MeshData {
       const childMesh = meshForShape(child);
       appendMeshData(vertices, faces, childMesh);
     });
-    return transformMesh({ name: sanitizeName(shape.name), vertices, faces }, shape);
+    // Without the stretch, split, export and alignment would see a resized
+    // group at the size it had when it was grouped.
+    const scaled = scaleGroupedVertices(vertices, groupedContentScale(shape, localGroupBounds(shape.groupedShapes)));
+    return transformMesh({ name: sanitizeName(shape.name), vertices: scaled, faces }, shape);
   }
 
   const raw =
@@ -4813,11 +4822,20 @@ function shapeToManifoldSolid(runtime: ManifoldToplevel, shape: WorkplaneShape, 
   }
 
   const mesh = meshDataToManifoldMesh(runtime, meshForShape(shape));
+  let solid: ManifoldSolid;
   try {
-    return runtime.Manifold.ofMesh(mesh);
+    solid = runtime.Manifold.ofMesh(mesh);
   } finally {
     disposeManifold(mesh);
   }
+  if (solid.status() !== "NoError") return solid;
+  // A group of solids is the loose pile of its parts' surfaces, and parts that
+  // overlap or lie on top of one another (a frame whose posts stand in its
+  // rails) are several shells in one mesh. A cut through such a pile comes out
+  // wrong, so the shells are joined into one body first.
+  const normalized = unionSplitManifoldComponents(runtime, solid);
+  created.push(solid, ...normalized.created);
+  return normalized.solid ?? solid;
 }
 
 function shapesToManifoldUnion(runtime: ManifoldToplevel, shapes: WorkplaneShape[], created: ManifoldSolid[], useBoxPrimitive = false) {
@@ -4860,10 +4878,16 @@ async function splitShapeByPlane(shape: WorkplaneShape, plane: Pick<ModelSplitPl
       return { parts: null, error: t("split.error.overlapping") };
     }
     solid = normalized.solid;
-    const [positive, negative] = solid.splitByPlane(plane.normal, plane.position);
-    created.push(positive, negative);
+    const [rawPositive, rawNegative] = solid.splitByPlane(plane.normal, plane.position);
+    created.push(rawPositive, rawNegative);
+    const trimmedPositive = dropSplitSlivers(runtime, rawPositive);
+    const trimmedNegative = dropSplitSlivers(runtime, rawNegative);
+    created.push(...trimmedPositive.created, ...trimmedNegative.created);
+    const positive = trimmedPositive.solid;
+    const negative = trimmedNegative.solid;
     if (
-      positive.status() !== "NoError" || negative.status() !== "NoError"
+      !positive || !negative
+      || positive.status() !== "NoError" || negative.status() !== "NoError"
       || positive.numTri() < 1 || negative.numTri() < 1
     ) {
       return { parts: null, error: t("split.error.emptyHalf") };
@@ -5042,9 +5066,17 @@ function manifoldMeshToMeshData(mesh: InstanceType<ManifoldToplevel["Mesh"]>, na
  * wenn die Vereinigung nicht gelingt, geht die Ausfuhr trotzdem durch - nur
  * eben mit den einzelnen Koerpern und einem Hinweis.
  */
+/**
+ * A group of solids without holes is the loose pile of its parts' surfaces,
+ * so its parts overlap each other even when nothing else does.
+ */
+function isPileOfSolids(shape: WorkplaneShape) {
+  return Boolean(shape.groupedShapes && shape.groupedShapes.length > 1 && !shape.importedMesh);
+}
+
 async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: MeshData[]) {
   const gruppen = overlappingExportClusters(meshes.map((mesh) => meshBounds(mesh.vertices)));
-  if (!gruppen.some((gruppe) => gruppe.length > 1)) {
+  if (!gruppen.some((gruppe) => gruppe.length > 1 || isPileOfSolids(shapes[gruppe[0]]))) {
     return { meshes, quellen: meshes.map((_, index) => index), verschmolzen: 0, gescheitert: 0 };
   }
   const runtime = await getManifoldRuntime().catch(() => null);
@@ -5055,7 +5087,7 @@ async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: Me
   let verschmolzen = 0;
   let gescheitert = 0;
   for (const gruppe of gruppen) {
-    if (gruppe.length === 1) {
+    if (gruppe.length === 1 && !isPileOfSolids(shapes[gruppe[0]])) {
       ergebnis.push(meshes[gruppe[0]]);
       quellen.push(gruppe[0]);
       continue;
@@ -5075,7 +5107,7 @@ async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: Me
     if (vereinigt && vereinigt.faces.length > 0) {
       ergebnis.push(vereinigt);
       quellen.push(gruppe[0]);
-      verschmolzen += gruppe.length;
+      if (gruppe.length > 1) verschmolzen += gruppe.length;
     } else {
       gruppe.forEach((index) => {
         ergebnis.push(meshes[index]);
@@ -6037,13 +6069,7 @@ function restoreGroupedChildren(group: WorkplaneShape): WorkplaneShape[] {
     return [];
   }
 
-  const bounds = localGroupBounds(children);
-  const baseWidth = group.groupedBaseWidth ?? Math.max(0.001, bounds.maxX - bounds.minX);
-  const baseHeight = group.groupedBaseHeight ?? Math.max(0.001, bounds.maxY - bounds.minY);
-  const baseDepth = group.groupedBaseDepth ?? Math.max(0.001, bounds.maxZ - bounds.minZ);
-  const sx = shapeWidth(group) / Math.max(0.001, baseWidth);
-  const sy = group.height / Math.max(0.001, baseHeight);
-  const sz = shapeDepth(group) / Math.max(0.001, baseDepth);
+  const [sx, sy, sz] = groupedContentScale(group, localGroupBounds(children));
   const groupQuaternion = quaternionForShape(group);
   const groupReflection = new THREE.Matrix4().makeScale(mirrorSign(group.mirrorX), mirrorSign(group.mirrorY), mirrorSign(group.mirrorZ));
   const groupCenter = new THREE.Vector3(group.x, (group.elevation ?? 0) + group.height / 2, group.z);
@@ -6431,6 +6457,12 @@ function applyMcpThreadSettings(
 
 function mcpString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+/** A reference point as an AI sees it: x and z on the plate, elevation as the height. */
+function mcpPointInfo(note: WorkplaneNote) {
+  const round = (value: number) => Number(value.toFixed(4));
+  return { id: note.id, x: round(note.x), z: round(note.z), elevation: round(note.y) };
 }
 
 function mcpStringArray(value: unknown): string[] {
@@ -7829,6 +7861,44 @@ export function LayerlingEditor({
   );
 
   /**
+   * Reference points: bare marks in space that shapes snap to. They live among
+   * the notes (so they are saved, undone and shared like them) but are not notes.
+   */
+  const addReferencePoints = useCallback(
+    (positions: ReferencePosition[]) => {
+      const fresh = newReferencePositions(notesRef.current, positions);
+      if (fresh.length === 0) {
+        setNotice(t("status.pointsExist"));
+        return [] as string[];
+      }
+      const room = NOTE_COUNT_LIMIT - notesRef.current.length;
+      if (room <= 0) {
+        setNotice(t("status.noteLimitReached", { count: NOTE_COUNT_LIMIT }));
+        return [] as string[];
+      }
+      const created: WorkplaneNote[] = fresh.slice(0, room).map((position) => ({
+        id: createNoteId(),
+        text: "",
+        ...position,
+        kind: "point",
+        collapsed: true,
+      }));
+      setNotesVisible(true);
+      commitNotes([...notesRef.current, ...created], t("status.pointsAdded", { count: created.length }));
+      return created.map((point) => point.id);
+    },
+    [commitNotes, setNotice],
+  );
+
+  const markSelectionPoints = useCallback(
+    (spot: ReferencePointSpot) => {
+      const box = unionReferenceBoxes(selectedShapes.filter((shape) => !shape.hole).map(meshAabb));
+      if (box) addReferencePoints(referencePointsForBox(box, spot));
+    },
+    [addReferencePoints, selectedShapes],
+  );
+
+  /**
    * Beim Tippen und beim Ziehen faellt pro Anschlag eine Aenderung an. Jede
    * davon in den Verlauf zu legen, machte Rueckgaengig unbrauchbar - also geht
    * ein solcher Zwischenstand nur in den Zustand, und der Verlauf bekommt ihn,
@@ -7872,8 +7942,9 @@ export function LayerlingEditor({
         noteCommitTimerRef.current = null;
       }
       const current = notesRef.current;
-      if (!current.some((note) => note.id === id)) return;
-      commitNotes(current.filter((note) => note.id !== id), t("status.noteRemoved"));
+      const removed = current.find((note) => note.id === id);
+      if (!removed) return;
+      commitNotes(current.filter((note) => note.id !== id), t(removed.kind === "point" ? "status.pointRemoved" : "status.noteRemoved"));
     },
     [commitNotes],
   );
@@ -9220,6 +9291,7 @@ export function LayerlingEditor({
       sourceFingerprint: projectShapesFingerprint(shapesRef.current),
       busy: false,
       error: null,
+      picking: false,
     });
     setNotice(t("status.splitReady"));
   }, [cancelSplit, canSplitSelection, invalidateCadModifierSession, selectedShapes, splitSession]);
@@ -9243,6 +9315,29 @@ export function LayerlingEditor({
       const plane = modelSplitPlane(splitTargetPoints, current.axis, position, current.rotation);
       return plane ? { ...current, position: plane.position, pivot: plane.origin, error: null } : current;
     });
+  }, [splitTargetPoints]);
+
+  const toggleSplitPick = useCallback(() => {
+    if (!splitSession || splitSession.busy) return;
+    const picking = !splitSession.picking;
+    setSplitSession({ ...splitSession, picking });
+    setNotice(t(picking ? "status.splitPick" : "status.splitReady"));
+  }, [splitSession]);
+
+  // The plane lies down on the face that was clicked: its turn, through the clicked point.
+  const pickSplitSurface = useCallback((point: [number, number, number], normal: [number, number, number]) => {
+    const orientation = splitOrientationForNormal(normal);
+    if (!orientation) return;
+    setSplitSession((current) => {
+      if (!current || current.busy || !current.picking) return current;
+      const centeredPlane = modelSplitPlane(splitTargetPoints, orientation.axis, undefined, orientation.rotation);
+      if (!centeredPlane) return current;
+      const picked = centeredPlane.normal[0] * point[0] + centeredPlane.normal[1] * point[1] + centeredPlane.normal[2] * point[2];
+      const position = snapSplitPositionToVertices(splitTargetPoints, centeredPlane.normal, picked);
+      const plane = modelSplitPlane(splitTargetPoints, orientation.axis, position, orientation.rotation);
+      return plane ? { ...current, axis: plane.axis, rotation: plane.rotation, position: plane.position, pivot: plane.origin, picking: false, error: null } : current;
+    });
+    setNotice(t("status.splitReady"));
   }, [splitTargetPoints]);
 
   const changeSplitRotation = useCallback((index: 0 | 1, rotation: number) => {
@@ -9281,7 +9376,7 @@ export function LayerlingEditor({
 
     const runId = splitRunRef.current + 1;
     splitRunRef.current = runId;
-    setSplitSession({ ...session, busy: true, error: null });
+    setSplitSession({ ...session, busy: true, error: null, picking: false });
     const outcome = await splitShapesByPlane(splitTargetShapes, plane, () => splitRunRef.current === runId && sourceContextIsCurrent());
     if (splitRunRef.current !== runId) return;
     if (outcome.status === "stale" || !sourceContextIsCurrent()) {
@@ -9325,7 +9420,12 @@ export function LayerlingEditor({
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
-        cancelSplit();
+        if (splitSession.picking) {
+          setSplitSession((current) => current ? { ...current, picking: false } : current);
+          setNotice(t("status.splitReady"));
+        } else {
+          cancelSplit();
+        }
         return;
       }
       const target = event.target instanceof HTMLElement ? event.target : null;
@@ -11751,6 +11851,53 @@ export function LayerlingEditor({
         };
       }
 
+      if (command.action === "add_reference_points") {
+        let positions: ReferencePosition[];
+        if (Array.isArray(params.points)) {
+          positions = params.points.map((entry) => {
+            const point = (entry ?? {}) as Record<string, unknown>;
+            const x = Number(point.x);
+            const z = Number(point.z);
+            const y = Number(point.elevation ?? 0);
+            if (![x, y, z].every(Number.isFinite)) throw new Error("Each point needs a number for x and z, and optionally for elevation");
+            return { x, y, z };
+          });
+        } else {
+          const spot = params.at ?? "center";
+          if (spot !== "center" && spot !== "corners" && spot !== "midpoints") throw new Error("at must be center, corners or midpoints");
+          const requestedIds = mcpStringArray(params.ids ?? params.id);
+          const pickIds = requestedIds.length ? requestedIds : selectedIdsRef.current;
+          const targets = currentShapes().filter((shape) => pickIds.includes(shape.id) && !shape.hole);
+          if (targets.length === 0) throw new Error("Name the objects to mark with ids, or select some, or pass points");
+          const box = unionReferenceBoxes(targets.map(meshAabb));
+          if (!box) throw new Error("The objects have no size to mark");
+          positions = referencePointsForBox(box, spot);
+        }
+        if (positions.length === 0) throw new Error("No points given");
+        const createdIds = addReferencePoints(positions);
+        const created = referencePoints(notesRef.current).filter((point) => createdIds.includes(point.id)).map(mcpPointInfo);
+        return {
+          added: created.length,
+          points: created,
+          note: created.length === 0
+            ? "Nothing added: these points are already marked, or the design holds as many notes and points as it can."
+            : "Points on the top face of the objects (elevation is the height). Shapes snap to them when dragged, and the corner ruler snaps to them.",
+        };
+      }
+
+      if (command.action === "list_reference_points") {
+        return { points: referencePoints(notesRef.current).map(mcpPointInfo) };
+      }
+
+      if (command.action === "remove_reference_points") {
+        const ids = mcpStringArray(params.ids ?? params.id);
+        const current = notesRef.current;
+        const targets = referencePoints(current).filter((point) => ids.length === 0 || ids.includes(point.id));
+        if (ids.length > 0 && targets.length === 0) throw new Error("No reference point has these ids");
+        if (targets.length > 0) commitNotes(current.filter((note) => !targets.includes(note)), t("status.pointRemoved"));
+        return { removed: targets.length };
+      }
+
       if (command.action === "estimate_print") {
         // Dieselbe Rechnung wie das Feld "Material" im Exportfenster.
         const requestedIds = mcpStringArray(params.ids ?? params.id);
@@ -11918,6 +12065,8 @@ export function LayerlingEditor({
     }
   }, [
     buildSectionSvg,
+    addReferencePoints,
+    commitNotes,
     workspaceSettings.width,
     workspaceSettings.depth,
     applyCadModifierForMcp,
@@ -13266,8 +13415,15 @@ export function LayerlingEditor({
         { key: "hollow", label: t("editor.tool.hollow"), onSelect: startShellTool },
       );
     }
+    if (!allHoles) {
+      items.push(
+        { key: "markCenter", label: t("contextMenu.markCenter"), separated: true, onSelect: () => markSelectionPoints("center") },
+        { key: "markCorners", label: t("contextMenu.markCorners"), onSelect: () => markSelectionPoints("corners") },
+        { key: "markMidpoints", label: t("contextMenu.markMidpoints"), onSelect: () => markSelectionPoints("midpoints") },
+      );
+    }
     items.push(
-      { key: "hide", label: t("contextMenu.hide"), shortcut: "Ctrl+H", separated: !single, onSelect: toggleHidden },
+      { key: "hide", label: t("contextMenu.hide"), shortcut: "Ctrl+H", separated: true, onSelect: toggleHidden },
       { key: "lock", label: t(allLocked ? "contextMenu.unlock" : "contextMenu.lock"), shortcut: "Ctrl+L", onSelect: toggleLocked },
       { key: "drop", label: t("contextMenu.drop"), shortcut: "D", onSelect: dropSelectedToWorkplane },
       { key: "delete", label: t("common.delete"), shortcut: t("contextMenu.deleteKey"), danger: true, separated: true, onSelect: deleteSelected },
@@ -13385,6 +13541,8 @@ export function LayerlingEditor({
           setTopPanel((current) => (current === panel ? null : panel));
           setMenuOpen(false);
         }}
+        objects={shapes.map((shape) => ({ id: shape.id, name: displayShapeName(shape), kind: shape.kind, hidden: Boolean(shape.hidden) }))}
+        onSelectObject={(id) => selectShape(id)}
         renderMyShapes={(close) => (
           <MyShapesSection
             shapes={customShapeEntries}
@@ -13510,6 +13668,9 @@ export function LayerlingEditor({
           mirrorReferenceShapes={shapes}
           splitActive={Boolean(splitSession) || historyViewState !== null}
           splitPlane={splitPlane}
+          onSplitPositionChange={changeSplitPosition}
+          splitSurfacePick={Boolean(splitSession?.picking)}
+          onSplitSurfacePick={pickSplitSurface}
           placementWorkplane={historyViewState ? historyViewState.placementWorkplane : placementWorkplane}
           workplaneHidden={workplaneHidden}
           onToggleWorkplaneHidden={() => {
@@ -13662,6 +13823,8 @@ export function LayerlingEditor({
           workspace={workspaceSettings}
           busy={splitSession.busy}
           error={splitSession.error}
+          picking={splitSession.picking}
+          onPickToggle={toggleSplitPick}
           onAxisChange={changeSplitAxis}
           onRotationChange={changeSplitRotation}
           onPositionChange={changeSplitPosition}
@@ -13862,6 +14025,53 @@ const sketchShapeMenuItems = [
   { primitive: "boltCircle", label: "sketch.boltCircle", icon: SketchBoltCircleIcon },
 ] satisfies Array<{ primitive: SketchPrimitive; label: MessageKey; icon: ComponentType<SVGProps<SVGSVGElement>> }>;
 
+/** The keys that do what a toolbar button does, shown beside it in the command search. */
+const COMMAND_SHORTCUTS: Readonly<Record<string, string>> = {
+  copy: "Ctrl+C",
+  paste: "Ctrl+V",
+  duplicate: "Ctrl+D",
+  delete: "Delete",
+  undo: "Ctrl+Z",
+  redo: "Ctrl+Y",
+  outliner: "Ctrl+Shift+O",
+  "toggle-hidden": "Ctrl+H",
+  "show-hidden": "Ctrl+Shift+H",
+  group: "Ctrl+G",
+  bundle: "Ctrl+B",
+  ungroup: "Ctrl+Shift+G",
+  align: "L",
+  mirror: "M",
+  drop: "D",
+  note: "N",
+  import: "Ctrl+I",
+  export: "Ctrl+E",
+  "sketch-copy": "Ctrl+C",
+  "sketch-paste": "Ctrl+V",
+  "sketch-duplicate": "Ctrl+D",
+  "sketch-delete": "Delete",
+  "sketch-undo": "Ctrl+Z",
+  "sketch-redo": "Ctrl+Y",
+};
+
+type SketchIconName = Parameters<typeof SketchReferenceIcon>[0]["name"];
+
+/** A sketch tool's picture as a component of its own, for the command search. */
+function sketchPaletteIcon(name: SketchIconName) {
+  return function SketchPaletteIcon() {
+    return <SketchReferenceIcon name={name} />;
+  };
+}
+
+const SKETCH_PALETTE_ICONS = {
+  line: sketchPaletteIcon("line"),
+  bezier: sketchPaletteIcon("bezier"),
+  smooth: sketchPaletteIcon("smooth"),
+  select: sketchPaletteIcon("select"),
+  image: sketchPaletteIcon("image"),
+  refine: sketchPaletteIcon("refine"),
+  erase: sketchPaletteIcon("erase"),
+};
+
 function SecondaryToolbar({
   toolbarMode,
   projectName,
@@ -13954,6 +14164,8 @@ function SecondaryToolbar({
   overhangAngle,
   onToggleOverhangs,
   renderMyShapes,
+  objects,
+  onSelectObject,
 }: {
   toolbarMode: ToolbarMode;
   projectName: string;
@@ -14047,6 +14259,9 @@ function SecondaryToolbar({
   onToggleOverhangs: () => void;
   /** Custom shapes above the library; gets the way to close the menu. */
   renderMyShapes?: (close: () => void) => ReactNode;
+  /** The bodies of the design, so the command search can find them by name. */
+  objects: ReadonlyArray<{ id: string; name: string; kind: string; hidden: boolean }>;
+  onSelectObject: (id: string) => void;
 }) {
   const [shapesOpen, setShapesOpen] = useState(false);
   const [sketchCreateOpen, setSketchCreateOpen] = useState(false);
@@ -14126,6 +14341,27 @@ function SecondaryToolbar({
     setSketchCreateOpen(false);
     onStartSketch(operation);
   };
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const openPalette = () => {
+    setShapesOpen(false);
+    setSketchCreateOpen(false);
+    setVisibilityOpen(false);
+    setPaletteOpen(true);
+  };
+  const openPaletteRef = useRef(openPalette);
+  openPaletteRef.current = openPalette;
+  useEffect(() => {
+    // Ctrl/Cmd+K opens the command search from anywhere in the editor, also
+    // while a field has the focus - the browsers' own use of the key (a search
+    // bar) is not worth keeping here.
+    const openOnShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      openPaletteRef.current();
+    };
+    window.addEventListener("keydown", openOnShortcut);
+    return () => window.removeEventListener("keydown", openOnShortcut);
+  }, []);
   useEffect(() => {
     if (!sketchCreateOpen) return;
     const closeOnPointerDown = (event: PointerEvent) => {
@@ -14286,8 +14522,128 @@ function SecondaryToolbar({
     );
   };
 
+  // Everything the toolbar and its menus can do, as entries of the command
+  // search. Built from the same lists as the buttons, so a new tool shows up in
+  // both without a second place to remember; only built while the search is open.
+  const buildPaletteCommands = (): PaletteCommand[] => {
+    const fromTool = (
+      tool: { id: string; label: string; icon: PaletteCommand["icon"]; action: () => void; enabled: boolean; active?: boolean },
+      group: string,
+    ): PaletteCommand => ({
+      id: tool.id,
+      label: tool.label,
+      group,
+      keywords: COMMAND_KEYWORDS[tool.id],
+      shortcut: COMMAND_SHORTCUTS[tool.id],
+      icon: tool.icon,
+      enabled: tool.enabled,
+      active: tool.active,
+      run: () => tool.action(),
+    });
+    const plain = (
+      id: string,
+      label: string,
+      group: string,
+      enabled: boolean,
+      run: () => void,
+      extra: Partial<PaletteCommand> = {},
+    ): PaletteCommand => ({ id, label, group, keywords: COMMAND_KEYWORDS[id], shortcut: COMMAND_SHORTCUTS[id], enabled, run, ...extra });
+    const helpGroup = t("editor.group.help");
+    const helpCommands = [
+      plain("guide", t("editor.guide"), helpGroup, true, onGuide, { icon: ToolbarGuideIcon }),
+      plain("shortcuts", t("editor.keyboardShortcuts"), helpGroup, true, onShortcuts, { icon: ToolbarKeyboardIcon }),
+    ];
+    if (toolbarMode === "sketch") {
+      const modeGroup = t("palette.group.mode");
+      const modeCommand = plain("mode-geometry", t("palette.switchGeometry"), modeGroup, true, () => selectToolbarMode("geometry"));
+      if (!sketchActive) {
+        const createGroup = t("sketch.group.create");
+        return [
+          plain("sketch-extrude", t("sketch.extrude"), createGroup, true, () => startSketch("extrude")),
+          plain("sketch-revolve", t("sketch.revolve"), createGroup, true, () => startSketch("revolve")),
+          plain("sketch-edit", t("sketch.editTo3d"), createGroup, canEditSketch, onEditSketch),
+          modeCommand,
+          ...helpCommands,
+        ];
+      }
+      const drawGroup = t("sketch.group.draw");
+      const selectGroup = t("sketch.group.select");
+      const finishGroup = t("sketch.group.finish");
+      return [
+        plain("sketch-line", t("sketch.line"), drawGroup, true, () => onSketchTool("line"), { icon: SKETCH_PALETTE_ICONS.line, active: sketchTool === "line" }),
+        plain("sketch-bezier", t("sketch.bezier"), drawGroup, true, () => onSketchTool("bezier"), { icon: SKETCH_PALETTE_ICONS.bezier, active: sketchTool === "bezier" }),
+        plain("sketch-smooth", t("sketch.smooth"), drawGroup, true, () => onSketchTool("smooth"), { icon: SKETCH_PALETTE_ICONS.smooth, active: sketchTool === "smooth" }),
+        ...sketchShapeMenuItems.map(({ primitive, label, icon }) => plain(
+          `sketch-shape-${primitive}`,
+          t("palette.addShape", { shape: t(label) }),
+          t("sketch.group.shapes"),
+          true,
+          () => onSketchPrimitive(primitive),
+          { icon, keywords: [primitive] },
+        )),
+        plain("sketch-select", t("sketch.select"), selectGroup, true, () => onSketchTool("select"), { icon: SKETCH_PALETTE_ICONS.select, active: sketchTool === "select" }),
+        plain("sketch-image", t("sketch.addImage"), selectGroup, sketchTool === "select", onSketchImage, { icon: SKETCH_PALETTE_ICONS.image }),
+        plain("sketch-refine", t("sketch.refine"), selectGroup, true, () => onSketchTool("refine"), { icon: SKETCH_PALETTE_ICONS.refine, active: sketchTool === "refine" }),
+        plain("sketch-fillet", t("sketch.filletCorner"), selectGroup, Boolean(canFilletSketchPoint), () => onSketchCornerDialog?.(sketchCornerDialog === "fillet" ? null : "fillet"), { icon: ToolbarFilletIcon, active: sketchCornerDialog === "fillet" }),
+        plain("sketch-chamfer", t("sketch.chamferCorner"), selectGroup, Boolean(canFilletSketchPoint), () => onSketchCornerDialog?.(sketchCornerDialog === "chamfer" ? null : "chamfer"), { icon: ToolbarChamferIcon, active: sketchCornerDialog === "chamfer" }),
+        plain("sketch-erase", t("sketch.erase"), selectGroup, true, () => onSketchTool("erase"), { icon: SKETCH_PALETTE_ICONS.erase, active: sketchTool === "erase" }),
+        ...sketchClipboardTools.map((tool) => fromTool(tool, t("editor.group.clipboard"))),
+        plain("sketch-undo", t("editor.tool.undo"), t("editor.group.history"), sketchCanUndo, onSketchUndo, { icon: ToolbarUndoIcon }),
+        plain("sketch-redo", t("editor.tool.redo"), t("editor.group.history"), sketchCanRedo, onSketchRedo, { icon: ToolbarRedoIcon }),
+        plain("sketch-finish", sketchOperation === "revolve" ? t("sketch.finishRevolve") : t("sketch.finishSketch"), finishGroup, true, onSketchFinish),
+        plain("sketch-cancel", t("sketch.cancel"), finishGroup, true, onSketchCancel),
+        modeCommand,
+        ...helpCommands,
+      ];
+    }
+    const shapesGroup = t("editor.group.shapes");
+    const visibilityGroup = t("editor.group.visibility");
+    const manageGroup = t("editor.group.manage");
+    return [
+      ...leftTools.slice(0, 4).map((tool) => fromTool(tool, t("editor.group.clipboard"))),
+      ...leftTools.slice(4).map((tool) => fromTool(tool, t("editor.group.history"))),
+      ...toolbarShapeAssets.map((shape) => plain(
+        `shape-${shape.id}`,
+        t("palette.addShape", { shape: shapeAssetMenuLabel(shape) }),
+        shapesGroup,
+        true,
+        () => addShapeFromMenu(shape),
+        { image: shape.menuIcon, keywords: [shape.id, shape.name, ...(SHAPE_KEYWORDS[shape.id] ?? [])] },
+      )),
+      ...visibilityTools.map((tool) => fromTool(tool, visibilityGroup)),
+      plain(
+        "show-hidden",
+        hiddenShapeCount === 0 ? t("visibility.nothingHidden") : t("visibility.showAllHidden", { count: hiddenShapeCount }),
+        visibilityGroup,
+        hiddenShapeCount > 0,
+        onShowHidden,
+        { icon: Eye },
+      ),
+      plain("notes", t("visibility.notes"), visibilityGroup, noteCount > 0, onToggleNotes, { icon: notesVisible ? Eye : EyeOff, active: notesVisible }),
+      plain("overhangs", t("visibility.overhangs", { angle: overhangAngle }), visibilityGroup, true, onToggleOverhangs, { icon: AlertTriangle, active: overhangsVisible }),
+      ...combineTools.map((tool) => fromTool(tool, t("editor.group.combine"))),
+      ...modifyTools.map((tool) => fromTool(tool, t("editor.group.modify"))),
+      ...arrangeTools.map((tool) => fromTool(tool, t("editor.group.arrange"))),
+      plain("note", t("editor.tool.note"), manageGroup, true, onNoteTool, { icon: ToolbarNoteIcon, active: noteMode }),
+      plain("import", t("editor.import"), manageGroup, true, () => onTopPanel("import"), { icon: ToolbarImportIcon }),
+      plain("export", t("editor.export"), manageGroup, true, () => onTopPanel("export"), { icon: ToolbarVectorExportIcon }),
+      plain("settings", t("editor.workspaceSettings"), manageGroup, true, () => window.dispatchEvent(new Event("layerling:open-workspace-settings")), { icon: ToolbarSettingsIcon }),
+      plain("mode-sketch", t("palette.switchSketch"), t("palette.group.mode"), true, () => selectToolbarMode("sketch")),
+      ...helpCommands,
+      ...objects.map((object) => plain(
+        `object-${object.id}`,
+        t("palette.selectObject", { name: object.name }),
+        t("palette.group.objects"),
+        true,
+        () => onSelectObject(object.id),
+        { keywords: [object.name, object.kind, ...(object.hidden ? ["hidden", "ausgeblendet", "versteckt"] : [])], searchOnly: true, transient: true },
+      )),
+    ];
+  };
+
   return (
     <div className="secondary-toolbar">
+      {paletteOpen ? <CommandPalette commands={buildPaletteCommands()} onClose={() => setPaletteOpen(false)} /> : null}
       <div ref={toolbarContentRef} className={`toolbar-mode-content ${toolbarMode}`}>
         {toolbarMode === "geometry" ? (
           <>
@@ -14537,6 +14893,9 @@ function SecondaryToolbar({
       <div className="toolbar-section toolbar-actions-section" data-group="help">
         <div className="toolbar-section-label">{t("editor.group.help")}</div>
         <div className="action-buttons">
+          <button className="action-icon-button" aria-label={t("palette.open")} title={t("palette.open")} aria-haspopup="dialog" data-layerling-tool="command-search" onClick={openPalette}>
+            <Search className="toolbar-search-icon" aria-hidden="true" />
+          </button>
           <button className="action-icon-button" aria-label={t("editor.guide")} title={t("editor.guide")} onClick={onGuide}>
             <ToolbarGuideIcon />
           </button>
@@ -14733,6 +15092,9 @@ function SecondaryToolbar({
             <div className="toolbar-section toolbar-actions-section" data-group="help">
               <div className="toolbar-section-label">{t("editor.group.help")}</div>
               <div className="action-buttons">
+                <button className="action-icon-button" aria-label={t("palette.open")} title={t("palette.open")} aria-haspopup="dialog" data-layerling-tool="command-search" onClick={openPalette}>
+                  <Search className="toolbar-search-icon" aria-hidden="true" />
+                </button>
                 <button className="action-icon-button" aria-label={t("editor.guide")} title={t("editor.guide")} onClick={onGuide}>
                   <ToolbarGuideIcon />
                 </button>
