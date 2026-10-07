@@ -34,7 +34,7 @@ The settings sit docked at the right edge. If they cover something you want to s
 
 - **{{ui:inspector.solid}} or {{ui:inspector.hole}}:** A solid stays, a hole takes material away. A click on {{ui:inspector.solid}} opens the colours; colours of your own that you mix there wait under {{ui:inspector.recentColors}} afterwards, the last eight. More in [Solids and holes](chapter:solids-and-holes).
 - **{{ui:inspector.transparent}}:** Lets you see through the body, for example to spot a shape behind it.
-- **{{ui:inspector.properties}}:** The dimensions and everything that belongs to this shape. For a cylinder the diameter, the height and the number of sides. For a gear the teeth, for a spring the turns.
+- **{{ui:inspector.properties}}:** The dimensions and everything that belongs to this shape. For a cylinder the diameter, the height and the number of sides. For a gear the teeth, for a spring the turns. A value you have moved away from its default gets a small arrow next to its name: a click takes just that value back, whatever else you did since, unlike Undo. {{ui:inspector.saveDefaults}} at the bottom makes the current values the start values of this kind of shape (the same as {{ui:workspace.shapeDefaults}} in the settings), and {{ui:inspector.resetDefaults}} goes back to the app's own.
 - **{{ui:inspector.taper}}:** Different sizes at the top and bottom, for example for a slope or a funnel.
 - **{{ui:inspector.twist}}:** Twists the top against the bottom or shifts it sideways. That gives twisted columns and leaning towers.
 

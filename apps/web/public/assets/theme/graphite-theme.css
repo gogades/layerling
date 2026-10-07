@@ -3710,6 +3710,38 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .inspector-bundle-note 
   color: #5e5e5e;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .property-reset {
+  color: #c46b12;
+  background: transparent;
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .property-reset:hover,
+:where(html[data-theme="dark"][data-palette="graphite"]) .property-reset:focus-visible {
+  background: #e1e1e1;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .property-defaults-actions button {
+  color: #535353;
+  background: #fff;
+  border: 1px solid #c8c8c8;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .property-reset {
+  color: #e0a15a;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .property-reset:hover,
+html[data-theme="dark"]:where([data-palette="graphite"]) .property-reset:focus-visible {
+  background: rgba(224, 161, 90, 0.18);
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .property-defaults-actions button {
+  color: #e1e1e1;
+  background: #2b2b2b;
+  border-color: #4c4c4c;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .range-value-control {
   color: #595959;
   background: #fff;

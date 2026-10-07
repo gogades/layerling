@@ -2,7 +2,7 @@
 
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { guideChapterForShape, guideSectionForShape } from "@/lib/guideLinks";
-import { ChevronDown, ChevronUp, Cylinder, Eye, EyeOff, Lock, Pencil, Split, Unlock } from "lucide-react";
+import { ChevronDown, ChevronUp, Cylinder, Eye, EyeOff, Lock, Pencil, RotateCcw, Split, Unlock } from "lucide-react";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import {
   DEFAULT_GEAR_HELIX_ANGLE,
@@ -127,7 +127,8 @@ import {
 } from "@/lib/bentTubeGeometry";
 import { displayStepFromMillimeters, formatFractionalInches, showsInchFractions, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, measurementOptionLabel, millimetersToDisplay, parseMeasurementInput, resolveMeasurementInput } from "@/lib/measurementUnits";
 import { t, type MessageKey } from "@/lib/i18n";
-import { displayShapeName, renamedShapeName } from "@/lib/shapeCatalog";
+import { displayShapeName, makeShapeFromAsset, renamedShapeName } from "@/lib/shapeCatalog";
+import { shapeDefaultsAsset, shapeDefaultsFromShape } from "@/lib/shapeDefaults";
 import { MAX_SCREW_HOLE_ANGLE, MIN_SCREW_HOLE_ANGLE, normalizeScrewHoleAngle, normalizeScrewHoleHeadDepth, normalizeScrewHoleShaft } from "@/lib/screwHoleGeometry";
 import { MAX_TEARDROP_TIP_ANGLE, MIN_TEARDROP_TIP_ANGLE, normalizeTeardropTipAngle, teardropHeightForTipAngle, teardropTipAngle } from "@/lib/teardropGeometry";
 import { MAX_DOVETAIL_CLEARANCE, normalizeDovetailClearance, normalizeDovetailNeckWidth } from "@/lib/dovetailGeometry";
@@ -152,7 +153,7 @@ import {
 } from "@/lib/springGeometry";
 import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
 import { DEFAULT_TAPER_DIMENSION_MAX, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, customSnapGridLabel, shapeDimensionLimit, snapGridOptions } from "@/lib/workplaneSettings";
-import type { BentTubeInnerProfile, BentTubeProfile, CustomSnapGrid, GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { BentTubeInnerProfile, BentTubeProfile, CustomSnapGrid, GearType, GridSize, MeasurementAccuracy, ShapeCustomization, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 import { useRecentColors } from "@/lib/recentColors";
 
@@ -1497,6 +1498,7 @@ export function ShapeInspector({
   proportionLock = false,
   onProportionLockChange,
   onBentTubeSegmentChange,
+  onShapeDefaultsChange,
 }: {
   shape: WorkplaneShape;
   snap: GridSize;
@@ -1522,11 +1524,19 @@ export function ShapeInspector({
   onProportionLockChange?: (locked: boolean) => void;
   /** The segment the bent tube's settings are about, or null when none is shown; the workplane lights it up on the tube. */
   onBentTubeSegmentChange?: (shapeId: string, segment: number | null) => void;
+  /** Saves the shape's values as the defaults of its kind, or removes them (null): the same "Shape defaults" the settings hold. */
+  onShapeDefaultsChange?: (kind: WorkplaneShape["kind"], entry: ShapeCustomization | null) => void;
 }) {
   useLanguage();
   const solidColor = shape.color;
   const locked = Boolean(shape.locked);
   const properties = getShapeProperties(shape, onUpdate, workspace);
+  // What each value would be on a shape of this kind made new, with the saved defaults: the
+  // small arrow next to a changed value takes it back there.
+  const propertyDefaults = useMemo(() => shapePropertyDefaults(shape.kind, workspace), [shape.kind, workspace]);
+  const savedDefaults = workspace.shapeCustomizations[shape.kind];
+  const defaultsToSave = shapeDefaultsFromShape(shape, workspace.shapeCustomizations);
+  const sameDefaults = JSON.stringify(defaultsToSave ?? null) === JSON.stringify(savedDefaults && Object.keys(savedDefaults).length > 0 ? savedDefaults : null);
   const gearType = shape.kind === "gear" ? normalizeGearType(shape.gearType) : null;
   const isThread = shape.kind === "thread";
   /*
@@ -1919,7 +1929,17 @@ export function ShapeInspector({
                 onChange={onProportionLockChange}
               />
             ) : null}
-            <ShapePropertyRows properties={primaryProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
+            <ShapePropertyRows properties={primaryProperties} defaults={propertyDefaults?.main} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
+            {onShapeDefaultsChange && propertyDefaults ? (
+              <div className="property-defaults-actions">
+                <button type="button" disabled={locked || sameDefaults} title={t("inspector.saveDefaultsHint")} onClick={() => onShapeDefaultsChange(shape.kind, defaultsToSave)}>
+                  {t("inspector.saveDefaults")}
+                </button>
+                <button type="button" disabled={!savedDefaults || Object.keys(savedDefaults).length === 0} title={t("inspector.resetDefaultsHint")} onClick={() => onShapeDefaultsChange(shape.kind, null)}>
+                  {t("inspector.resetDefaults")}
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -1964,7 +1984,7 @@ export function ShapeInspector({
           </button>
           {taperOpen ? (
             <div className="property-list" id={`taper-${shape.id}`}>
-              <ShapePropertyRows properties={taperProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
+              <ShapePropertyRows properties={taperProperties} defaults={propertyDefaults?.taper} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
             </div>
           ) : null}
         </div>
@@ -1983,7 +2003,7 @@ export function ShapeInspector({
           </button>
           {twistOpen ? (
             <div className="property-list" id={`twist-${shape.id}`}>
-              <ShapePropertyRows properties={twistProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
+              <ShapePropertyRows properties={twistProperties} defaults={propertyDefaults?.twist} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
             </div>
           ) : null}
         </div>
@@ -2260,13 +2280,50 @@ function BentTubeSegmentsCard({
   );
 }
 
+type PropertyDefaultValues = ReadonlyMap<string, number | string | boolean>;
+
+/**
+ * The values a shape of this kind has when it is made new, with the defaults saved in the
+ * settings, by property id. The main list, the taper card and the twist card each have
+ * their own, as some ids (a pyramid's top width) mean different things in them. Null for
+ * a shape that is not made from the toolbar: a sketch, a mesh, a group.
+ */
+function shapePropertyDefaults(kind: WorkplaneShape["kind"], workspace: WorkplaneWorkspaceSettings) {
+  const asset = shapeDefaultsAsset(kind);
+  if (!asset) return null;
+  try {
+    const fresh = makeShapeFromAsset(asset, undefined, workspace.shapeCustomizations[kind]);
+    const main = new Map<string, number | string | boolean>();
+    getShapeProperties(fresh, () => undefined, workspace).forEach((property) => {
+      if (property.type !== "text") main.set(property.id, property.value);
+    });
+    const taperSize = shapeTaperDimensions(fresh);
+    const taper = new Map<string, number | string | boolean>([
+      ["topLength", taperSize.topDepth],
+      ["topWidth", taperSize.topWidth],
+      ["bottomLength", taperSize.bottomDepth],
+      ["bottomWidth", taperSize.bottomWidth],
+    ]);
+    const twist = new Map<string, number | string | boolean>([["extrudeTwist", 0], ["extrudeTopOffsetX", 0], ["extrudeTopOffsetZ", 0]]);
+    return { main, taper, twist };
+  } catch {
+    return null;
+  }
+}
+
+/** Values a reset arrow does not belong to: they are not settings of the shape's look. */
+const NO_RESET_PROPERTY_IDS = new Set(["color", "name"]);
+
 function ShapePropertyRows({
   properties,
+  defaults,
   workspace,
   disabled,
   onInteractionActiveChange,
 }: {
   properties: ShapePropertyConfig[];
+  /** What each value was when the shape was new; a value that differs gets a reset arrow. */
+  defaults?: PropertyDefaultValues | null;
   workspace: WorkplaneWorkspaceSettings;
   disabled?: boolean;
   onInteractionActiveChange?: (active: boolean) => void;
@@ -2275,14 +2332,40 @@ function ShapePropertyRows({
     if (property.type === "text") {
       return <TextProperty {...property} key={property.id} disabled={disabled} onInteractionActiveChange={onInteractionActiveChange} />;
     }
+    const fallback = disabled || NO_RESET_PROPERTY_IDS.has(property.id) ? undefined : defaults?.get(property.id);
     if (property.type === "select") {
-      return <SelectProperty {...property} key={property.id} disabled={disabled} />;
+      const onReset = typeof fallback === "string" && fallback !== property.value ? () => property.onChange(fallback) : undefined;
+      return <SelectProperty {...property} key={property.id} disabled={disabled} onReset={onReset} />;
     }
     if (property.type === "toggle") {
-      return <ToggleProperty {...property} key={property.id} disabled={disabled} />;
+      const onReset = typeof fallback === "boolean" && fallback !== property.value ? () => property.onChange(fallback) : undefined;
+      return <ToggleProperty {...property} key={property.id} disabled={disabled} onReset={onReset} />;
     }
-    return <RangeProperty {...property} key={property.id} workspace={workspace} disabled={disabled || property.disabled} onInteractionActiveChange={onInteractionActiveChange} />;
+    const differs = typeof fallback === "number" && Math.abs(fallback - property.value) > Math.max(1e-6, (property.step ?? 0.01) / 10);
+    const onReset = differs ? () => property.onChange(fallback as number) : undefined;
+    return <RangeProperty {...property} key={property.id} workspace={workspace} disabled={disabled || property.disabled} onReset={onReset} onInteractionActiveChange={onInteractionActiveChange} />;
   });
+}
+
+/** The small arrow next to a value that differs from its default. */
+function PropertyResetButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="property-reset"
+      title={t("inspector.resetProperty")}
+      aria-label={t("inspector.resetProperty")}
+      // Inside a label: neither focus nor the label's own click should reach the slider.
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+      }}
+    >
+      <RotateCcw size={12} strokeWidth={2.4} aria-hidden="true" />
+    </button>
+  );
 }
 
 export function SnapGridControl({
@@ -2412,8 +2495,9 @@ function RangeProperty({
   workspace,
   disabled,
   onChange,
+  onReset,
   onInteractionActiveChange,
-}: RangePropertyConfig & { workspace: WorkplaneWorkspaceSettings; disabled?: boolean; onInteractionActiveChange?: (active: boolean) => void }) {
+}: RangePropertyConfig & { workspace: WorkplaneWorkspaceSettings; disabled?: boolean; onReset?: () => void; onInteractionActiveChange?: (active: boolean) => void }) {
   const holdInteraction = useInteractionHold(onInteractionActiveChange);
   const allowsAboveSliderMax = ["length", "width", "height", "starOuterSize", "starInnerSize", "crescentThickness", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "bentTubeSize", "bentTubeBendRadius"].includes(id) || id.endsWith("Length") || id.endsWith("Width");
   const isLength = propertyUsesLengthUnit(id);
@@ -2455,7 +2539,7 @@ function RangeProperty({
   return (
     <label className="range-property" style={{ "--slider-pos": `${position}%` } as CSSProperties}>
       <span className="range-property-header">
-        <span className="range-property-name">{label}</span>
+        <span className="range-property-name">{label}{onReset ? <PropertyResetButton onClick={onReset} /> : null}</span>
         <span className="range-value-control">
           <input
             type="text"
@@ -2521,7 +2605,7 @@ function TextProperty({ label, value, disabled, onChange, onInteractionActiveCha
   );
 }
 
-function SelectProperty({ label, value, options, hint, disabled, onChange }: Omit<SelectPropertyConfig, "id"> & { id?: string } & { disabled?: boolean }) {
+function SelectProperty({ label, value, options, hint, disabled, onChange, onReset }: Omit<SelectPropertyConfig, "id"> & { id?: string } & { disabled?: boolean; onReset?: () => void }) {
   // Aufeinanderfolgende Eintraege mit derselben Ueberschrift werden zu einem
   // Block; ohne Ueberschrift stehen sie fuer sich.
   const blocks: Array<{ group?: string; items: SelectPropertyOption[] }> = [];
@@ -2532,7 +2616,7 @@ function SelectProperty({ label, value, options, hint, disabled, onChange }: Omi
   });
   return (
     <label className="select-property">
-      <span>{label}</span>
+      <span>{label}{onReset ? <PropertyResetButton onClick={onReset} /> : null}</span>
       <select value={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)}>
         {blocks.map((block) => (
           block.group ? (
@@ -2555,11 +2639,11 @@ function SelectProperty({ label, value, options, hint, disabled, onChange }: Omi
   );
 }
 
-function ToggleProperty({ label, value, disabled, onChange }: Omit<TogglePropertyConfig, "id" | "type"> & { disabled?: boolean }) {
+function ToggleProperty({ label, value, disabled, onChange, onReset }: Omit<TogglePropertyConfig, "id" | "type"> & { disabled?: boolean; onReset?: () => void }) {
   return (
     <label className="check-property">
       <input type="checkbox" checked={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.checked)} />
-      <span>{label}</span>
+      <span>{label}{onReset ? <PropertyResetButton onClick={onReset} /> : null}</span>
     </label>
   );
 }

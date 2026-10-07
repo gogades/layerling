@@ -9020,6 +9020,65 @@ html[data-theme="dark"] .inspector-bundle-note {
   white-space: nowrap;
 }
 
+.property-reset {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0;
+  place-items: center;
+  vertical-align: -3px;
+  color: #c46b12;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.property-reset:hover,
+.property-reset:focus-visible {
+  background: #f3e3cf;
+}
+
+.property-defaults-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.property-defaults-actions button {
+  flex: 1 1 0;
+  min-height: 30px;
+  padding: 0 8px;
+  color: #745e48;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid #d8c8b7;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.property-defaults-actions button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+html[data-theme="dark"] .property-reset {
+  color: #e0a15a;
+}
+
+html[data-theme="dark"] .property-reset:hover,
+html[data-theme="dark"] .property-reset:focus-visible {
+  background: rgba(224, 161, 90, 0.18);
+}
+
+html[data-theme="dark"] .property-defaults-actions button {
+  color: #ede4d4;
+  background: #342618;
+  border-color: #5b4b3a;
+}
+
 .range-value-control {
   display: flex;
   flex: 0 0 auto;
