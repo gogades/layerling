@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Cutting a group of overlapping solids no longer breaks it:** A group of solids whose parts overlap or lie on top of each other (a frame whose posts stand in its rails, say) came out wrong when a hole was grouped with it or when it was intersected: parts of it went missing and the surface was full of stray triangles. The overlapping parts are now joined into one body before the cut. Reported by @makinglayerschannel in #132.
 - **Keep proportions:** A new switch at the top of a shape's properties keeps the proportions without holding a key: the corner handles then always scale width, depth and height together, and typing one of the three scales the other two by the same factor. It helps on a tablet, where there is no Shift key, and the setting is remembered. Asked for by @smarshal4568-eng in #131.
 - **Lay flat on face shows the face first:** While "Lay flat on face" waits for your click, the flat face under the pointer now lights up, so you see which side will go down before you click, and you can turn the view to look at the others. Asked for by @Jeff-Haas in #130.
 - **A resized group keeps its new size:** A group of solids resized after grouping was still split, exported to STL, 3MF and OBJ, aligned and snapped at the size it had when it was grouped. Splitting it also turned the halves back to that size, and the split plane could not go past the old height. All of these now use the size the group shows. By @gogades in #127.

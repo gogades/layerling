@@ -4797,11 +4797,20 @@ function shapeToManifoldSolid(runtime: ManifoldToplevel, shape: WorkplaneShape, 
   }
 
   const mesh = meshDataToManifoldMesh(runtime, meshForShape(shape));
+  let solid: ManifoldSolid;
   try {
-    return runtime.Manifold.ofMesh(mesh);
+    solid = runtime.Manifold.ofMesh(mesh);
   } finally {
     disposeManifold(mesh);
   }
+  if (solid.status() !== "NoError") return solid;
+  // A group of solids is the loose pile of its parts' surfaces, and parts that
+  // overlap or lie on top of one another (a frame whose posts stand in its
+  // rails) are several shells in one mesh. A cut through such a pile comes out
+  // wrong, so the shells are joined into one body first.
+  const normalized = unionSplitManifoldComponents(runtime, solid);
+  created.push(solid, ...normalized.created);
+  return normalized.solid ?? solid;
 }
 
 function shapesToManifoldUnion(runtime: ManifoldToplevel, shapes: WorkplaneShape[], created: ManifoldSolid[], useBoxPrimitive = false) {

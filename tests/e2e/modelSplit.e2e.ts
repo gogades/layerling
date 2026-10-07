@@ -165,4 +165,33 @@ describe("model split topology (real Manifold kernel)", () => {
     expect(trimmedBottom.solid?.volume()).toBeCloseTo(20 * 20 * 2, 5);
     dispose(created);
   });
+  it("cuts a pile of overlapping shells correctly only after the shells are joined", async () => {
+    const runtime = await Module();
+    runtime.setup();
+    // What a group of solids hands to the kernel: the surfaces of its parts in one
+    // mesh. Two 20 mm cubes, one standing 10 mm inside the other, a third lying exactly on the first.
+    const cubes = [[0, 0], [10, 0], [0, 0]].map(([x, z]) => runtime.Manifold.cube([20, 20, 20], false).translate([x, 0, z]));
+    const meshes = cubes.map((cube) => cube.getMesh());
+    const vertProperties: number[] = [];
+    const triVerts: number[] = [];
+    meshes.forEach((mesh) => {
+      const offset = vertProperties.length / 3;
+      vertProperties.push(...Array.from(mesh.vertProperties));
+      triVerts.push(...Array.from(mesh.triVerts).map((index) => index + offset));
+    });
+    const pile = new runtime.Mesh({ numProp: 3, vertProperties: Float32Array.from(vertProperties), triVerts: Uint32Array.from(triVerts) });
+    const solid = runtime.Manifold.ofMesh(pile);
+    const cutter = runtime.Manifold.cube([40, 40, 40], false).translate([15, -5, -5]);
+    const created: ManifoldSolid[] = [...cubes, solid, cutter];
+
+    const normalized = unionSplitManifoldComponents(runtime, solid);
+    created.push(...normalized.created);
+    expect(normalized.solid).not.toBeNull();
+    const cut = normalized.solid!.subtract(cutter);
+    created.push(cut);
+    // The union of the cubes is 30 x 20 x 20 = 12 000; the cutter takes everything right of x = 15.
+    expect(cut.volume()).toBeCloseTo(15 * 20 * 20, 5);
+    expect(cut.decompose().length).toBe(1);
+    dispose(created);
+  });
 });
