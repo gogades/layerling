@@ -73,6 +73,10 @@ Unter {{ui:workspace.customSnapGrids}} an derselben Stelle legst du eigene Raste
 
 Größe, Gitterweite und Farbe der Platte änderst du in den Einstellungen (das Zahnrad im Menüband): Dort liegen die Bereiche {{ui:workspace.appearance}}, {{ui:workspace.measurement}}, {{ui:workspace.workplane}}, {{ui:workspace.shapeDefaults}} und {{ui:workspace.history}}. Unter {{ui:workspace.appearance}} gibt es zum Beispiel die Schalter {{ui:workspace.startInPerspective}} und {{ui:workspace.showShadows}}, unter {{ui:workspace.workplane}} {{ui:workspace.showGrid}}. Die Farben des Arbeitsbereichs stellst du ebenfalls unter {{ui:workspace.appearance}} ein: {{ui:workspace.backgroundColor}} und {{ui:workspace.surfaceColor}} für das helle Thema (die dunklen Themen behalten ihre eigenen), die Rasterfarbe liegt unter {{ui:workspace.workplane}}. {{ui:workspace.edgeLines}} zeichnet an jedem Körper eine Umrisslinie in der Farbe von {{ui:workspace.edgeColor}} (zunächst Schwarz, wie bei Tinkercad): Das hilft, wenn dunkle Farben ineinander verschwimmen. Es ist zunächst aus, und sehr große importierte Netze bleiben ausgenommen. Das Gitter läuft immer durch den Nullpunkt, sodass die kräftigen Linien auf den Achsen liegen, wie groß die Platte auch ist.
 
+![Die Einstellungen unter Darstellung: Hintergrund- und Arbeitsebenenfarbe für das helle Thema und der Schalter für Kantenlinien an allen Körpern.](shot:settings-appearance)
+
+![Drei dunkle Körper mit eingeschalteten Kantenlinien: Die Umrisse halten sie auseinander.](shot:edge-lines)
+
 ![Der Editor im dunklen Farbschema. Das Farbschema stellst du oben rechts ein: System, Hell, Dunkel oder Graphit.](shot:editor-dark)
 
 > **Tipp:** Dreh die Ansicht nicht mehr, wenn du Teile genau aneinander setzt. Wechsle mit den Zifferntasten in die gerade Ansicht von oben oder von vorn und schalte mit [[O]] auf die flache Darstellung um. So erkennst du sofort, ob zwei Kanten wirklich bündig sind.

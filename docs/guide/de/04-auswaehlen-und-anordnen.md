@@ -73,6 +73,8 @@ Für Lochraster, Lochkreise und Zahnkränze gibt es das {{ui:editor.tool.array}}
 
 Tipp: Setze vorher mit {{ui:editor.tool.rotationPivot}} den Drehpunkt auf eine Fläche, dann liegt der Mittelpunkt des Kreises genau dort.
 
+![Das Muster im Modus „Kreis" mit Anstieg und Radiusänderung pro Kopie: Die Kopien steigen und weiten sich wie eine Spirale.](shot:pattern-spiral)
+
 Die Kopien erscheinen zuerst als Vorschau. Erst {{ui:array.apply}} legt sie an. Sind die Kopien Aussparungen, gruppierst du sie danach mit dem Körper, in den sie schneiden sollen.
 
 ## Rückgängig machen

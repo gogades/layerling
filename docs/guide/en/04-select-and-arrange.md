@@ -73,6 +73,8 @@ For hole grids, bolt circles and rings of teeth there is the {{ui:editor.tool.ar
 
 Tip: first set the pivot on a face with {{ui:editor.tool.rotationPivot}}, then the centre of the circle lies exactly there.
 
+![The pattern in "Circle" mode with a rise and a radius change per copy: the copies climb and widen like a spiral.](shot:pattern-spiral)
+
 The copies first appear as a preview. Only {{ui:array.apply}} creates them. If the copies are holes, group them afterwards with the body they should cut into.
 
 ## Undoing

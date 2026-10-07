@@ -289,3 +289,99 @@ scenes["quick-guide"] = async (ctx) => {
   await ctx.wait(1200);
   await ctx.shot("quick-guide");
 };
+
+/** Switches the settings switch for edge lines on, through the open settings window. */
+async function switchEdgeLinesOn(ctx) {
+  const done = await ctx.evaluate(`(() => {
+    const wanted = ${JSON.stringify(ctx.t("workspace.edgeLines"))};
+    const row = [...document.querySelectorAll(".workspace-modal-body label, .workspace-modal-body div")].find((element) =>
+      element.textContent.trim().startsWith(wanted) && element.querySelector("input[type=checkbox]"));
+    const box = row?.querySelector("input[type=checkbox]");
+    if (!box) return false;
+    if (!box.checked) box.click();
+    return true;
+  })()`);
+  if (!done) throw new Error("Edge lines switch not found");
+  await ctx.wait(800);
+}
+
+/** Types a value into a panel slider's number field, which takes it when the field is left. */
+async function setSliderValue(ctx, label, value) {
+  const done = await ctx.evaluate(`(() => {
+    const wanted = ${JSON.stringify(label)};
+    const name = [...document.querySelectorAll(".array-panel label, .array-panel span, .array-panel div")].find((element) =>
+      element.children.length < 3 && element.textContent.trim() === wanted && element.getBoundingClientRect().width > 0);
+    let scope = name;
+    let input = null;
+    for (let depth = 0; depth < 4 && !input; depth += 1) {
+      scope = scope?.parentElement;
+      input = scope?.querySelector("input:not([type=range]):not([type=checkbox])");
+    }
+    if (!input) return false;
+    input.focus();
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    setter.call(input, ${JSON.stringify(String(value))});
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.blur();
+    return true;
+  })()`);
+  if (!done) throw new Error(`Slider "${label}" not found`);
+  await ctx.wait(700);
+}
+
+scenes["pattern-spiral"] = async (ctx) => {
+  await freshEditor(ctx);
+  const post = await create(ctx, { kind: "box", x: 22, z: 0, width: 10, depth: 10, height: 6, color: ORANGE });
+  await select(ctx, [post]);
+  await ctx.click(ctx.t("editor.tool.array"));
+  // The development server builds the panel the first time it is opened.
+  await ctx.wait(3000);
+  await ctx.click(ctx.t("array.mode.circle"));
+  await ctx.wait(800);
+  await setSliderValue(ctx, ctx.t("array.count"), 14);
+  await setSliderValue(ctx, ctx.t("array.rise"), 3);
+  await setSliderValue(ctx, ctx.t("array.radiusChange"), 1);
+  await ctx.wait(1500);
+  await ctx.shot("pattern-spiral");
+};
+
+scenes["property-reset"] = async (ctx) => {
+  // A taller window, so the arrows and the two buttons at the bottom of Properties are in one picture.
+  await ctx.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 1180, deviceScaleFactor: 1, mobile: false });
+  await freshEditor(ctx);
+  // A cone as the toolbar makes it, then two values moved away from their defaults: each gets its arrow.
+  const cone = await create(ctx, { kind: "cone", x: 0, z: 0, color: BLUE });
+  await ctx.mcp("update_object", { id: cone, height: 34, topRadius: 5 });
+  await select(ctx, [cone]);
+  await quiet(ctx);
+  await ctx.shot("property-reset");
+  await ctx.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+};
+
+scenes["settings-appearance"] = async (ctx) => {
+  await freshEditor(ctx);
+  await sampleParts(ctx);
+  await ctx.evaluate(`window.dispatchEvent(new Event("layerling:open-workspace-settings")); true`);
+  await ctx.wait(1000);
+  await ctx.click(ctx.t("workspace.appearance"), "button, [role=tab]");
+  await ctx.wait(800);
+  await switchEdgeLinesOn(ctx);
+  await ctx.shot("settings-appearance");
+};
+
+scenes["edge-lines"] = async (ctx) => {
+  await freshEditor(ctx);
+  await ctx.evaluate(`window.dispatchEvent(new Event("layerling:open-workspace-settings")); true`);
+  await ctx.wait(1000);
+  await ctx.click(ctx.t("workspace.appearance"), "button, [role=tab]");
+  await ctx.wait(800);
+  await switchEdgeLinesOn(ctx);
+  await ctx.click(ctx.t("workspace.close"));
+  await ctx.wait(800);
+  await create(ctx, { kind: "box", x: -34, z: 0, width: 28, depth: 28, height: 24, color: "#1f3a5f" });
+  await create(ctx, { kind: "cylinder", x: 4, z: 0, width: 28, depth: 28, height: 24, color: "#2e5e3e" });
+  await create(ctx, { kind: "cone", x: 42, z: 0, width: 28, depth: 28, height: 24, color: "#6b1f2a" });
+  await select(ctx, []);
+  await quiet(ctx);
+  await ctx.shot("edge-lines");
+};

@@ -73,6 +73,10 @@ Under {{ui:workspace.customSnapGrids}} in the same place you add snap steps of y
 
 Size, grid width and colour of the plate are changed in the settings (the cogwheel in the ribbon): the areas are {{ui:workspace.appearance}}, {{ui:workspace.measurement}}, {{ui:workspace.workplane}}, {{ui:workspace.shapeDefaults}} and {{ui:workspace.history}}. Under {{ui:workspace.appearance}} you find switches such as {{ui:workspace.startInPerspective}} and {{ui:workspace.showShadows}}, under {{ui:workspace.workplane}} {{ui:workspace.showGrid}}. The colours of the work area are set under {{ui:workspace.appearance}} too: {{ui:workspace.backgroundColor}} and {{ui:workspace.surfaceColor}} for the light theme (the dark themes keep their own), next to the grid colour under {{ui:workspace.workplane}}. {{ui:workspace.edgeLines}} draws an outline on every body, in the colour of {{ui:workspace.edgeColor}} (black to begin with, as in Tinkercad): it helps when dark colours run into each other. It is off by default, and very large imported meshes are left out. The grid always runs through the origin, so the stronger lines lie on the axes whatever the plate measures.
 
+![The settings under Appearance: background and workplane colours for the light theme, and the switch for edge lines on all bodies.](shot:settings-appearance)
+
+![Three dark bodies with edge lines switched on: the outlines keep them apart.](shot:edge-lines)
+
 ![The editor in the dark colour scheme. You set the colour scheme at the top right: System, Light, Dark or Graphite.](shot:editor-dark)
 
 > **Tip:** Stop rotating the view when you fit parts together exactly. Use the number keys to go to the straight view from top or front and press [[O]] for the flat display. Then you see at once whether two edges are really flush.
