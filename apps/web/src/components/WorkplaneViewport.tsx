@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownToLine, ChevronLeft, ChevronRight, Crosshair, Cuboid, Download, Eye, EyeOff, FlipHorizontal, GripVertical, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Rotate3d, RotateCcw, Rows3, Ruler, RulerDimensionLine, Slice, X } from "lucide-react";
+import { ArrowDownToLine, ChevronLeft, ChevronRight, Crosshair, Cuboid, Download, Eye, EyeOff, FlipHorizontal, GripVertical, Home, Minus, MousePointer2, PanelsTopLeft, Plus, Rotate3d, RotateCcw, Rows3, Ruler, RulerDimensionLine, Slice, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type DragEvent, type MouseEvent as ReactMouseEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent, type ReactNode, type SetStateAction, type WheelEvent as ReactWheelEvent } from "react";
 import { objectSnapOffset, shiftSnapBox, type ObjectSnapGuide, type SnapBox } from "@/lib/objectSnap";
 import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel";
@@ -288,6 +288,8 @@ type WorkplaneViewportProps = {
   onDropMyShape?: (id: string, point: PlacementPoint) => void;
   /** Shape following the cursor until a click drops it. Null places immediately. */
   cruiseAsset?: ShapeAsset | null;
+  /** Puts down the shape on the pointer when a tool here takes over the click. */
+  onCancelCruise?: () => void;
   onAlignAnchorChange: (id: string) => void;
   onAlignPreview: (axis: AlignAxis, target: AlignTarget) => void;
   onAlignPreviewClear: () => void;
@@ -4203,6 +4205,7 @@ export function WorkplaneViewport({
   onAddShape,
   onDropMyShape,
   cruiseAsset = null,
+  onCancelCruise,
   onAlignAnchorChange,
   onAlignPreview,
   onAlignPreviewClear,
@@ -4277,6 +4280,7 @@ export function WorkplaneViewport({
   const [tapeDeleteMode, setTapeDeleteMode] = useState(false);
   const [tapeMoveMode, setTapeMoveMode] = useState(false);
   const [tapeToolsOpen, setTapeToolsOpen] = useState(false);
+  const [tapeClearPending, setTapeClearPending] = useState(false);
   const [cameraControlsCollapsed, setCameraControlsCollapsed] = useState(false);
   const language = useLanguage();
   const [orthographicView, setOrthographicView] = useState(false);
@@ -5745,6 +5749,21 @@ export function WorkplaneViewport({
     }
   }, [storeTapeModel]);
 
+  // A shape taken up for placing puts down the measuring tools that would
+  // otherwise catch its click (the editor does the same for its own tools).
+  useEffect(() => {
+    if (!cruiseAsset) return;
+    setTapeActive(false);
+    tapeDeleteModeRef.current = false;
+    setTapeDeleteMode(false);
+    tapeMoveModeRef.current = false;
+    setTapeMoveMode(false);
+    tapePointDragRef.current = null;
+    cornerRulerModeRef.current = false;
+    setCornerRulerMode(false);
+    setSectionMeasureMode(false);
+  }, [cruiseAsset, setTapeActive]);
+
   const resolveTapeCandidate = useCallback(
     (clientX: number, clientY: number, ignoredPointId?: string): TapeCandidate | null => {
       const state = threeRef.current;
@@ -5938,6 +5957,23 @@ export function WorkplaneViewport({
     },
     [storeTapeModel],
   );
+
+  // Clearing every measurement cannot be undone, so it asks first - but only
+  // when there is a measurement to lose; a lone start point goes silently.
+  const requestClearTape = useCallback(() => {
+    const current = tapeModelRef.current;
+    if (current.segments.length > 0) {
+      setTapeClearPending(true);
+    } else if (current.points.length > 0) {
+      storeTapeModel({ ...current, points: [], segments: [], startPointId: null });
+    }
+  }, [storeTapeModel]);
+
+  const confirmClearTape = useCallback(() => {
+    tapePointDragRef.current = null;
+    storeTapeModel({ points: [], segments: [], startPointId: null, hover: null });
+    setTapeClearPending(false);
+  }, [storeTapeModel]);
 
   const setMarqueeFromState = useCallback((marquee: MarqueeState | null) => {
     if (!marquee) {
@@ -7183,9 +7219,10 @@ export function WorkplaneViewport({
   const toggleCornerRulerTool = useCallback(() => {
     if (splitActiveRef.current) return;
     const next = !cornerRulerModeRef.current;
+    if (next) onCancelCruise?.();
     cornerRulerModeRef.current = next;
     setCornerRulerMode(next);
-  }, []);
+  }, [onCancelCruise]);
 
   /** Der Griff ist immer direkt ziehbar, ohne eigenen Verschieben-Modus - wie bei einer Notiz-Nadel, nicht wie beim Massband (das mehrere Punkte je Strecke verwaltet und deshalb einen Modus braucht). Ein Klick ohne Zug dreht die Instanz um 90 Grad - wie in Tinkercad. */
   const handleCornerRulerHandlePointerDown = useCallback((event: ReactPointerEvent<SVGCircleElement>, id: string) => {
@@ -8419,7 +8456,8 @@ export function WorkplaneViewport({
     setTapeMoveMode(false);
     setTapeActive(true);
     onWorkplaneModeChange(false);
-  }, [onWorkplaneModeChange, setTapeActive]);
+    onCancelCruise?.();
+  }, [onCancelCruise, onWorkplaneModeChange, setTapeActive]);
 
   const activateTapeDelete = useCallback(() => {
     if (splitActiveRef.current) return;
@@ -8429,7 +8467,8 @@ export function WorkplaneViewport({
     tapeDeleteModeRef.current = true;
     setTapeDeleteMode(true);
     onWorkplaneModeChange(false);
-  }, [onWorkplaneModeChange, setTapeActive]);
+    onCancelCruise?.();
+  }, [onCancelCruise, onWorkplaneModeChange, setTapeActive]);
 
   const activateTapeMove = useCallback(() => {
     if (splitActiveRef.current) return;
@@ -8439,8 +8478,9 @@ export function WorkplaneViewport({
     tapeMoveModeRef.current = true;
     setTapeMoveMode(true);
     onWorkplaneModeChange(false);
+    onCancelCruise?.();
     onSelectShape(null);
-  }, [onSelectShape, onWorkplaneModeChange, setTapeActive]);
+  }, [onCancelCruise, onSelectShape, onWorkplaneModeChange, setTapeActive]);
 
   const collapseCameraControls = useCallback(() => {
     setCameraControlsCollapsed(true);
@@ -8916,6 +8956,9 @@ export function WorkplaneViewport({
                   <button className={`tape-delete-button ${tapeDeleteMode ? "active" : ""}`} aria-label={t("camera.deleteMeasurement")} title={t("camera.deleteMeasurement")} aria-pressed={tapeDeleteMode} onClick={activateTapeDelete}>
                     <X size={20} strokeWidth={2.4} aria-hidden="true" />
                   </button>
+                  <button className="tape-clear-button" aria-label={t("camera.deleteAllMeasurements")} title={t("camera.deleteAllMeasurements")} onClick={requestClearTape}>
+                    <Trash2 size={19} strokeWidth={2.25} aria-hidden="true" />
+                  </button>
                   <GuideHelpLink section="tapeMeasure" className="tape-popover-help" iconSize={20} strokeWidth={2.25} />
                 </MovableTapePanel>
               ) : null}
@@ -9073,7 +9116,10 @@ export function WorkplaneViewport({
                           type="button"
                           className={`section-action-btn section-measure-btn ${sectionMeasureMode ? "active" : ""}`}
                           aria-pressed={sectionMeasureMode}
-                          onClick={() => setSectionMeasureMode((current) => !current)}
+                          onClick={() => {
+                            if (!sectionMeasureModeRef.current) onCancelCruise?.();
+                            setSectionMeasureMode((current) => !current);
+                          }}
                           title={t("camera.sectionMeasureHint")}
                         >
                           <Ruler size={14} strokeWidth={2.2} aria-hidden="true" />
@@ -9373,6 +9419,40 @@ export function WorkplaneViewport({
           onMakeDefault={makeWorkspaceDefault}
           onClose={() => setSettingsOpen(false)}
         />
+      ) : null}
+
+      {tapeClearPending ? (
+        <section
+          className="dashboard-confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-tape-title"
+          onKeyDown={(event) => {
+            // Escape only closes the question, not the tape measure behind it.
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            event.stopPropagation();
+            setTapeClearPending(false);
+          }}
+        >
+          <div className="dashboard-confirm-dialog">
+            <header>
+              <strong id="clear-tape-title">{t("confirm.clearTapeTitle")}</strong>
+              <button type="button" aria-label={t("confirm.clearTapeCancel")} onClick={() => setTapeClearPending(false)}>
+                <X size={18} />
+              </button>
+            </header>
+            <p>{t("confirm.clearTapeBody")}</p>
+            <div className="dashboard-confirm-actions">
+              <button className="dashboard-confirm-cancel" type="button" autoFocus onClick={() => setTapeClearPending(false)}>
+                {t("confirm.cancel")}
+              </button>
+              <button className="dashboard-confirm-delete" type="button" onClick={confirmClearTape}>
+                {t("confirm.delete")}
+              </button>
+            </div>
+          </div>
+        </section>
       ) : null}
     </main>
   );

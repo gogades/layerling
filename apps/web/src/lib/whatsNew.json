@@ -1,5 +1,50 @@
 [
   {
+    "version": "1.44.0",
+    "items": [
+      {
+        "title": {
+          "de": "Netze vereinfachen",
+          "en": "Simplify meshes"
+        },
+        "body": {
+          "de": "Ein importiertes Netz mit sehr vielen Dreiecken lässt sich im Bereich „Anpassen“ auf einen Bruchteil verkleinern, mit Vorher-Nachher-Ansicht. Das Laden und Ziehen großer Netze ist außerdem flüssiger.",
+          "en": "An imported mesh with a very large number of triangles can be reduced to a fraction in the Modify area, with a before-and-after view. Loading and dragging large meshes is also smoother."
+        }
+      },
+      {
+        "title": {
+          "de": "Klarere Symbole für Import und Export",
+          "en": "Clearer import and export symbols"
+        },
+        "body": {
+          "de": "Import und Export zeigen jetzt einen Würfel mit einem diagonalen Pfeil, hin zum Würfel und weg von ihm, statt zweier fast gleicher Ablagen.",
+          "en": "Import and Export now show a cube with a diagonal arrow, toward the cube and away from it, instead of two almost identical trays."
+        }
+      },
+      {
+        "title": {
+          "de": "Form und Werkzeug in die Quere",
+          "en": "Shapes and tools no longer clash"
+        },
+        "body": {
+          "de": "Wählst du eine Form zum Absetzen, während ein Werkzeug auf einen Klick wartet (etwa das Maßband), gewinnt das, was du zuletzt gewählt hast. Die Form bleibt nicht mehr bis Esc am Zeiger hängen.",
+          "en": "If you pick a shape to place while a tool is waiting for a click (the tape measure, for instance), whatever you chose last wins. The shape no longer stays on the pointer until Esc."
+        }
+      },
+      {
+        "title": {
+          "de": "Dreiecke und Dächer finden",
+          "en": "Finding triangles and roofs"
+        },
+        "body": {
+          "de": "Die Befehlssuche (Strg+K) findet Mehrkant und Keil auch unter „Dreieck“ und „Dach“. Die Anleitung erklärt, wie du ein Dreieck mit dreieckigem Loch baust.",
+          "en": "The command search (Ctrl+K) now finds the Polygon and the Wedge under \"triangle\" and \"roof\" too. The guide explains how to build a triangle with a triangular hole."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.43.0",
     "items": [
       {

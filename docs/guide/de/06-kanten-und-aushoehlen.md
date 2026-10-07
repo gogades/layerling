@@ -16,6 +16,8 @@ Scharfe Kanten sehen an einem gedruckten Teil selten gut aus, und sie sind auch 
 
 Das Fenster steht oben rechts. Verdeckt es Kanten, die du anklicken willst, ziehst du es an seiner Titelleiste weg; dort öffnet es sich auch beim nächsten Mal, und das gilt ebenso für {{ui:editor.tool.hollow}} und {{ui:editor.tool.array}}. Ein Doppelklick auf die Titelleiste bringt es zurück.
 
+Wählst du bei offenem Fenster eine Form aus der Formenliste, schließt es sich, ohne etwas anzuwenden, und die angeklickten Kanten sind vergessen. Der Klick setzt dann die neue Form ab, statt Kanten zu wählen.
+
 Im Fenster findest du:
 
 - {{ui:edge.allSharpEdges}} wählt sämtliche Kanten auf einmal, {{ui:edge.clear}} leert die Auswahl.

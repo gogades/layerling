@@ -11,7 +11,7 @@ Click {{ui:editor.addShape}} in the ribbon. The shape library opens.
 
 ![The shape library. Every little picture is rendered from the shape's real geometry.](shot:shape-menu)
 
-Pick a shape. It now hangs on the mouse pointer and lands where you click. [[Esc]] cancels placing. If you would rather have the shape appear in the middle of the plate, you can switch off placing by click in the settings (area {{ui:workspace.appearance}}, switch {{ui:workspace.cruise}}).
+Pick a shape. It now hangs on the mouse pointer and lands where you click. [[Esc]] cancels placing. A tool that waits for a click, such as the tape measure, the framing square, a note, {{ui:camera.placeWorkplane}}, {{ui:editor.tool.layFlat}} or the edge tools, is switched off when you pick a shape, so the click places the shape. The other way round, switching one of those tools on puts the shape down again. If you would rather have the shape appear in the middle of the plate, you can switch off placing by click in the settings (area {{ui:workspace.appearance}}, switch {{ui:workspace.cruise}}).
 
 What the library offers:
 
@@ -21,6 +21,8 @@ What the library offers:
 - **Lettering:** {{ui:shape.text}}, also along a circular arc. More in [Text](chapter:text).
 - **Mechanics:** {{ui:shape.thread}} (threaded rod, screw, nut and tapped hole), {{ui:shape.spring}}, {{ui:shape.gear}} and the {{ui:shape.knurl}} for grips. More in [Threads and mechanics](chapter:threads-and-mechanics).
 - **For constructions:** {{ui:shape.honeycomb}}, the print-in-place {{ui:shape.hinge}}, {{ui:shape.dovetail}}, the {{ui:shape.teardrop}} for horizontal holes, the {{ui:shape.counterbore}} and {{ui:shape.countersink}} for screw heads and the {{ui:shape.ruler}}, which is only a measuring tool and never shows up in an export.
+
+You get a triangle in two ways: the {{ui:shape.polygon}} with three sides is an isosceles triangle, the "Roof" of Tinkercad, and the {{ui:shape.wedge}} is a right triangle. Both are true triangular prisms. For a triangular hole, copy the shape, make the copy smaller, mark it as a hole and line it up with {{ui:editor.tool.centerOnWorkplane}} or {{ui:editor.tool.align}}. Both work with the shape's bounding box, the smallest box that encloses it, so a halved square still counts as a whole square. The command search ([[Ctrl]]+[[K]]) also finds both shapes under "triangle" or "roof".
 
 ## The shape's settings
 

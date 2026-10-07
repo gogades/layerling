@@ -11,7 +11,7 @@ Klicke im Menüband auf {{ui:editor.addShape}}. Es öffnet sich die Formenbiblio
 
 ![Die Formenbibliothek. Jedes Bildchen ist aus der echten Geometrie der Form gerendert.](shot:shape-menu)
 
-Wähle eine Form aus. Sie hängt jetzt am Mauszeiger und landet dort, wo du klickst. Drückst du [[Esc]], wird das Absetzen abgebrochen. Wer die Form lieber direkt in der Mitte der Platte haben möchte, kann das Absetzen per Klick in den Einstellungen abschalten (Bereich {{ui:workspace.appearance}}, Schalter {{ui:workspace.cruise}}).
+Wähle eine Form aus. Sie hängt jetzt am Mauszeiger und landet dort, wo du klickst. Drückst du [[Esc]], wird das Absetzen abgebrochen. Ein Werkzeug, das auf einen Klick wartet, etwa das Maßband, das Winkellineal, eine Notiz, {{ui:camera.placeWorkplane}}, {{ui:editor.tool.layFlat}} oder die Kantenwerkzeuge, wird beim Wählen einer Form abgeschaltet, damit der Klick die Form absetzt. Umgekehrt legt das Einschalten eines dieser Werkzeuge die Form wieder weg. Wer die Form lieber direkt in der Mitte der Platte haben möchte, kann das Absetzen per Klick in den Einstellungen abschalten (Bereich {{ui:workspace.appearance}}, Schalter {{ui:workspace.cruise}}).
 
 Was die Bibliothek bietet:
 
@@ -21,6 +21,8 @@ Was die Bibliothek bietet:
 - **Beschriftung:** {{ui:shape.text}}, auch auf einem Kreisbogen. Mehr im Kapitel [Text](chapter:text).
 - **Mechanik:** {{ui:shape.thread}} (Gewindestange, Schraube, Mutter und Gewindeloch), {{ui:shape.spring}}, {{ui:shape.gear}} und die {{ui:shape.knurl}} für Griffe. Mehr im Kapitel [Gewinde und Mechanik](chapter:gewinde-und-mechanik).
 - **Für Konstruktionen:** {{ui:shape.honeycomb}}, das druckbare {{ui:shape.hinge}}, {{ui:shape.dovetail}}, die {{ui:shape.teardrop}} für waagerechte Löcher, die {{ui:shape.counterbore}} und {{ui:shape.countersink}} für Schraubenköpfe und das {{ui:shape.ruler}}, das nur ein Messwerkzeug ist und in keinem Export auftaucht.
+
+Ein Dreieck bekommst du auf zwei Wegen: Der {{ui:shape.polygon}} mit drei Seiten ist ein gleichschenkliges Dreieck, das „Dach“ aus Tinkercad, der {{ui:shape.wedge}} ein rechtwinkliges. Beide sind echte Dreiecksprismen. Für ein dreieckiges Loch kopierst du die Form, machst die Kopie kleiner, markierst sie als Aussparung und richtest sie mit {{ui:editor.tool.centerOnWorkplane}} oder {{ui:editor.tool.align}} aus. Beides arbeitet mit dem Umgrenzungskasten der Form, also dem kleinsten Quader, der sie umschließt; ein halbiertes Quadrat gilt deshalb weiter als ganzes Quadrat. Mit der Befehlssuche ([[Strg]]+[[K]]) findest du beide Formen auch unter „Dreieck“ oder „Dach“.
 
 ## Die Einstellungen der Form
 

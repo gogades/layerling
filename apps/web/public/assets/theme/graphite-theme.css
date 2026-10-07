@@ -6089,13 +6089,13 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .shortcuts-or {
   color: #787878;
 }
 
-@media (max-width: 1599px) {
+@media (max-width: 1780px) {
   :root:where([data-theme="dark"][data-palette="graphite"]) {
     --toolbar-icon-size: 37px;
   }
 }
 
-@media (max-width: 1395px) {
+@media (max-width: 1510px) {
   :root:where([data-theme="dark"][data-palette="graphite"]) {
     --toolbar-icon-size: 34px;
   }

@@ -7,13 +7,14 @@ Wer ein Teil genau bauen will, muss messen können. layerling hat dafür mehrere
 
 ## Das Maßband
 
-Das Maßband liegt am unteren Ende der Kameraleiste am linken Rand ({{ui:camera.tapeTools}}). Es misst Abstände zwischen Ecken, Kanten und Flächen. Ein Klick darauf öffnet drei Schaltflächen. Verdecken sie, was du messen willst, ziehst du sie am Griff links frei über die Arbeitsfläche; ein Doppelklick auf den Griff bringt sie zurück:
+Das Maßband liegt am unteren Ende der Kameraleiste am linken Rand ({{ui:camera.tapeTools}}). Es misst Abstände zwischen Ecken, Kanten und Flächen. Ein Klick darauf öffnet vier Schaltflächen. Verdecken sie, was du messen willst, ziehst du sie am Griff links frei über die Arbeitsfläche; ein Doppelklick auf den Griff bringt sie zurück:
 
-![Das Maßband mit seinen drei Schaltflächen: Maß hinzufügen, Messpunkte verschieben, Maß entfernen.](shot:tape-menu)
+![Das Maßband mit seinen vier Schaltflächen: Maß hinzufügen, Messpunkte verschieben, Maß entfernen, alle Maße entfernen.](shot:tape-menu)
 
 1. **{{ui:camera.addMeasurement}}:** Klicke einen Punkt an, ziehe zum nächsten und klicke ihn an. Die Strecke wird beschriftet.
 2. **{{ui:camera.moveMeasurement}}:** Fasse die Punkte an und schiebe sie, die Zahl folgt.
 3. **{{ui:camera.deleteMeasurement}}:** Danach klickst du ein Maß an, um es zu entfernen.
+4. **{{ui:camera.deleteAllMeasurements}}:** Entfernt alle Maße auf einmal. Weil sich das nicht rückgängig machen lässt, fragt layerling vorher nach; gibt es keine Maße, passiert nichts.
 
 Mit [[Esc]] verlässt du den Messmodus.
 
