@@ -5,6 +5,17 @@ import { useEffect, useRef, type CSSProperties } from "react";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
+import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel";
+
+/**
+ * Die Leiste sitzt unten in der Mitte und laesst sich an der Kopfzeile ueber die
+ * Arbeitsflaeche ziehen, wenn sie etwas verdeckt; ein Doppelklick darauf holt
+ * sie zurueck.
+ */
+const HISTORY_BAR: MovablePanelOptions = {
+  floatingStyle: { right: "auto", bottom: "auto", margin: 0 },
+  area: (panel) => panel.ownerDocument.querySelector<HTMLElement>(".workplane-stage"),
+};
 
 /**
  * Wann ein Stand entstanden ist, in der Sprache der Oberflaeche. Staende aus
@@ -66,6 +77,7 @@ export function HistoryViewOverlay({
   onClose: () => void;
 }) {
   const language = useLanguage();
+  const movable = useMovablePanel<HTMLElement>("layerling.editor.historyViewPosition", HISTORY_BAR);
   const sliderRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     sliderRef.current?.focus({ preventScroll: true });
@@ -82,7 +94,9 @@ export function HistoryViewOverlay({
 
   return (
     <aside
-      className="history-view-bar"
+      ref={movable.panelRef}
+      className={`history-view-bar ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
+      style={movable.style}
       role="region"
       aria-label={t("historyView.title")}
       data-testid="history-view"
@@ -96,7 +110,7 @@ export function HistoryViewOverlay({
         }
       }}
     >
-      <div className="history-view-head">
+      <div className="history-view-head movable" title={t("panel.moveHint")} {...movable.handleProps}>
         <div className="history-view-heading">
           <strong>{t("historyView.title")}</strong>
           <span>{t("historyView.subtitle")}</span>

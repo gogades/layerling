@@ -53,11 +53,12 @@ describe("whatsNewSince", () => {
     expect(whatsNewSince("1.0.0", "1.43.0", ENTRIES, 2).map((e) => e.version)).toEqual(["1.43.0", "1.42.0"]);
   });
 
-  it("by default keeps a long absence in view: twenty versions, five when opened by hand", () => {
+  it("by default keeps a long absence in view: twenty versions, also when opened by hand", () => {
     const many = Array.from({ length: 30 }, (_unused, index) => entry(`1.${index + 1}.0`));
     expect(WHATS_NEW_MAX_VERSIONS).toBeGreaterThanOrEqual(20);
     expect(whatsNewSince("1.0.0", "1.30.0", many)).toHaveLength(WHATS_NEW_MAX_VERSIONS);
-    expect(latestWhatsNew("1.30.0", many)).toHaveLength(WHATS_NEW_MANUAL_VERSIONS);
+    expect(WHATS_NEW_MANUAL_VERSIONS).toBe(20);
+    expect(latestWhatsNew("1.30.0", many)).toHaveLength(20);
   });
 
   it("lists the latest versions for opening the list by hand", () => {

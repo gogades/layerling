@@ -24,6 +24,7 @@ import { TabPresenceNotice } from "@/components/TabPresenceNotice";
 import { duplicateName, type DuplicateNamePatterns } from "@/lib/duplicateName";
 import { migrateLegacyProjectShapes, migrateLegacyStorageKeys, PROJECT_SHAPES_DB_NAME } from "@/lib/storageMigration";
 import { useLanguage } from "@/lib/useLanguage";
+import { waitForInputPause, watchUserInput } from "@/lib/inputPause";
 import { createLocalId } from "@/lib/localIds";
 import type { HistoryProjectRequest } from "@/components/LayerlingEditor";
 import {
@@ -529,21 +530,41 @@ async function saveProjectShapes(projectId: string, entry: ProjectShapeCacheEntr
   });
 }
 
+/** The newest revision of each project that the editor has asked to be saved. */
+const newestRequestedRevision = new Map<string, number>();
+
 function saveProjectShapesWhenIdle(projectId: string, entry: ProjectShapeCacheEntry, context: ProjectShapeSaveContext) {
+  // Saves of one project run one after another. Each change queues one, so a
+  // run of quick changes would otherwise be written once per change, and a
+  // dense design takes over a second to write. An older state whose newer one
+  // is already waiting is skipped: the newer save holds everything it has.
+  const superseded = () => (newestRequestedRevision.get(projectId) ?? 0) > entry.revision;
   return new Promise<void>((resolve, reject) => {
     const save = () => {
+      if (superseded()) {
+        resolve();
+        return;
+      }
       void saveProjectShapes(projectId, entry, context).then(resolve, reject);
     };
+    if (superseded()) {
+      resolve();
+      return;
+    }
     // A hidden window may be frozen or closed before it is ever idle again.
     if (typeof window === "undefined" || document.visibilityState === "hidden") {
       save();
       return;
     }
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(save, { timeout: 1200 });
-      return;
-    }
-    globalThis.setTimeout(save, 32);
+    // Hold back while someone is dragging or typing; a click that comes in during a save has to wait for it.
+    watchUserInput();
+    void waitForInputPause().then(() => {
+      if ("requestIdleCallback" in window && document.visibilityState !== "hidden") {
+        window.requestIdleCallback(save, { timeout: 1200 });
+        return;
+      }
+      globalThis.setTimeout(save, 32);
+    });
   });
 }
 
@@ -1115,6 +1136,7 @@ export default function Home() {
   }) => {
     const revision = Math.max(Date.now(), nextProjectRevisionRef.current + 1);
     nextProjectRevisionRef.current = revision;
+    newestRequestedRevision.set(snapshot.projectId, revision);
     const entry = projectShapeCacheEntryFromEditor(revision, snapshot.shapes, snapshot.history, snapshot.historyIndex, snapshot.assets);
     setProjectShapesById((current) => {
       const existing = current[snapshot.projectId];

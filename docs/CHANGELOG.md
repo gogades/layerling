@@ -4,6 +4,13 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **The history bar can be moved:** Drag it by its title to get it off whatever it covers; a double-click on the title puts it back, and the spot is remembered.
+- **Dragging a dense design no longer stalls on the autosave:** A trace from a forum user showed that saving a dense design takes over a second on the main thread, started right after each move, so a click that came in meanwhile waited and the body jumped to its new place late. The autosave now holds back while you drag, type or scroll and runs in the first pause (at most 6 seconds later; a window that goes to the background is saved at once), and a save whose newer state is already waiting is skipped instead of written one by one.
+- **Saving repeats less work:** The exact-CAD text of a body (and of an imported STEP) was encoded and hashed again for every undo state on every save. The few most recent ones are now remembered.
+- **"What is new?" lists up to 20 versions when opened by hand,** as it already did after a long absence (it showed five).
+
 ## 1.45.0
 
 - **Look back with the history view:** The History button, next to Undo and Redo, shows any earlier state of the project without changing it. A slider runs through the states (or use the arrow keys), Esc returns, and from an earlier state you can export it or start a new project from it. While it is open, every tool that changes the design is switched off, in the ribbon, in the command search and for AI clients. The AI bridge has a new tool, `layerling_set_history_view`, that opens it at a state, so a picture can be taken of an earlier version. By @rmpel in #134.

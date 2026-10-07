@@ -28,8 +28,8 @@ export const WHATS_NEW: readonly WhatsNewEntry[] = whatsNewData as WhatsNewEntry
  */
 export const WHATS_NEW_MAX_VERSIONS = 20;
 
-/** How many versions "What is new?" lists when opened by hand. */
-export const WHATS_NEW_MANUAL_VERSIONS = 5;
+/** How many versions "What is new?" lists when opened by hand: as many as after a long absence. */
+export const WHATS_NEW_MANUAL_VERSIONS = WHATS_NEW_MAX_VERSIONS;
 
 /**
  * The version before this feature came with it: a browser that already holds

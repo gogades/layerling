@@ -407,6 +407,38 @@ function encodedAssetPayload(resource: object, encode: () => Uint8Array) {
   return pending;
 }
 
+// The exact-CAD text of a body (its B-rep) is a string, which a WeakMap cannot
+// key, yet every undo state of an unchanged body carries the very same string.
+// Without this each state encoded and hashed it again on every autosave. The
+// cache is small and keeps the most recently used few.
+const TEXT_PAYLOAD_CACHE_LIMIT = 6;
+const encodedTextPayloads = new Map<string, Promise<EncodedAssetPayload>>();
+
+function encodedTextPayload(text: string) {
+  const cached = encodedTextPayloads.get(text);
+  if (cached) {
+    encodedTextPayloads.delete(text);
+    encodedTextPayloads.set(text, cached);
+    return cached;
+  }
+  const pending = (async () => {
+    try {
+      const bytes = strToU8(text);
+      return { bytes, sha256: await sha256Hex(bytes) };
+    } catch (error) {
+      encodedTextPayloads.delete(text);
+      throw error;
+    }
+  })();
+  encodedTextPayloads.set(text, pending);
+  while (encodedTextPayloads.size > TEXT_PAYLOAD_CACHE_LIMIT) {
+    const oldest = encodedTextPayloads.keys().next();
+    if (oldest.done) break;
+    encodedTextPayloads.delete(oldest.value);
+  }
+  return pending;
+}
+
 class LylArchiveBuilder {
   readonly files: ArchiveFiles = {};
   readonly assets: LylAssetRecordV1[] = [];
@@ -450,6 +482,10 @@ class LylArchiveBuilder {
     options: { fileName?: string; sourceFormat?: ProjectAssetSourceFormat } = {},
   ) {
     return this.registerAsset(kind, { bytes, sha256: await sha256Hex(bytes) }, mediaType, options);
+  }
+
+  async addTextAsset(kind: LylAssetKind, text: string, mediaType: string) {
+    return this.registerAsset(kind, await encodedTextPayload(text), mediaType, {});
   }
 
   private async addCachedAsset(
@@ -611,7 +647,7 @@ async function serializeShapeNode(
     if (!canRegenerate) {
       meshAssetId = (await builder.addDerivedMesh(importedMesh)).id;
       if (importedMesh.brepStep) {
-        brepStepAssetId = (await builder.addAsset("brep", strToU8(importedMesh.brepStep), "application/step")).id;
+        brepStepAssetId = (await builder.addTextAsset("brep", importedMesh.brepStep, "application/step")).id;
       }
     }
     importedReference = {
@@ -627,7 +663,7 @@ async function serializeShapeNode(
   }
 
   let cadBrepAssetId: string | undefined;
-  if (cadBrep) cadBrepAssetId = (await builder.addAsset("brep", strToU8(cadBrep), "application/vnd.layerling.brep")).id;
+  if (cadBrep) cadBrepAssetId = (await builder.addTextAsset("brep", cadBrep, "application/vnd.layerling.brep")).id;
 
   const groupedShapeNodeIds: string[] = [];
   for (const child of groupedShapes ?? []) {

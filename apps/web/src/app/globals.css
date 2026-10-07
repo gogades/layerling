@@ -14192,7 +14192,10 @@ html[data-theme="dark"] .color-recent {
 .history-view-bar {
   position: fixed;
   bottom: calc(var(--editor-footer-height) + 16px);
-  left: 50%;
+  /* Centred by arithmetic, not by auto margins: the movable-panel hook reads
+     the docked spot from left/top, and a margin that goes away when the bar
+     floats would shift it. */
+  left: calc((100vw - min(760px, 100vw - 28px)) / 2);
   z-index: 46;
   display: grid;
   gap: 10px;
@@ -14204,7 +14207,16 @@ html[data-theme="dark"] .color-recent {
   border-radius: 12px;
   box-shadow: 0 14px 38px rgba(74, 53, 30, 0.2);
   backdrop-filter: blur(12px);
-  transform: translateX(-50%);
+}
+
+.history-view-head.movable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.history-view-bar.moving,
+.history-view-bar.moving .history-view-head.movable {
+  cursor: grabbing;
 }
 
 .history-view-head {
@@ -14369,6 +14381,7 @@ html[data-theme="dark"] .color-recent {
 
 @media (max-width: 640px) {
   .history-view-bar {
+    left: 8px;
     width: calc(100vw - 16px);
     padding: 10px 12px 12px;
   }
