@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **The size limit field of the shape defaults reads properly:** Its hint ("App limits") was set in the large bold type of a typed value and ran out of the narrow field. It is now smaller and fits.
+
 ## 1.46.0
 
 - **The sketch can be nudged, locked to an axis, and its lines dragged:** The arrow keys move the selected points, lines or image by one grid step ([[Shift]]: a larger step), as on the workplane. Holding Shift while dragging a point, line or selection keeps the move on one axis. A line can be dragged: it moves by its two ends, or the whole selection when it is part of one. A click on a line without dragging no longer writes an undo step. Asked for by @prmod3d in #144.

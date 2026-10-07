@@ -10651,6 +10651,16 @@ html[data-theme="dark"] .workspace-custom-snap-add:hover {
   flex: 0 0 132px;
 }
 
+/* The hint "App limits" has to fit the narrow field without the bold, large type of a typed value. */
+.workspace-shape-limit input {
+  font-size: 14px;
+}
+
+.workspace-shape-limit input::placeholder {
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .workspace-shape-note {
   margin: -4px 0 0;
   color: #907b66;
