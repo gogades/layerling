@@ -1198,7 +1198,7 @@ export function SketchWorkspace({
             {displayImages.map((image) => (
               <image
                 key={image.id}
-                data-sketch-entity="image"
+                data-sketch-entity={image.locked ? undefined : "image"}
                 className={image.locked ? "locked" : undefined}
                 aria-label={image.name}
                 href={image.dataUrl}
@@ -1210,6 +1210,10 @@ export function SketchWorkspace({
                 preserveAspectRatio="none"
                 pointerEvents={tool === "select" ? "auto" : "none"}
                 onPointerDown={(event) => {
+                  // A locked image is out of the way: a click goes through to the plate
+                  // below, so lines and points on it can be picked and a frame can be
+                  // dragged. Alt+click still selects it, to unlock it again.
+                  if (image.locked && event.button === 0 && !event.altKey) return;
                   event.preventDefault();
                   event.stopPropagation();
                   if (event.button === 1) {

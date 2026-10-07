@@ -51,7 +51,7 @@ When revolving, you draw half the cross-section **to the left of the axis** show
 
 ## A picture as template
 
-With {{ui:sketch.addImage}} you put a photo or a drawing under the sketch and trace it. You can set its size, opacity and position. Once the picture sits right, lock it with [[L]] so you do not move it by accident while drawing. If its settings at the right edge cover the picture, drag them away by their title bar; a double-click on it docks them again.
+With {{ui:sketch.addImage}} you put a photo or a drawing under the sketch and trace it. You can set its size, opacity and position. Once the picture sits right, lock it with [[L]] so you do not move it by accident while drawing. A locked image is out of the way: clicks go through it, so you can pick lines and points on top of it and drag a frame over them. To select it again, for example to unlock it, [[Alt]]+click it. If its settings at the right edge cover the picture, drag them away by their title bar; a double-click on it docks them again.
 
 ## Keys in sketch mode
 

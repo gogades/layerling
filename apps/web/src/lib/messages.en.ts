@@ -315,7 +315,7 @@ export const MESSAGES_EN = {
   "sketch.lockImage": "Lock sketch image",
   "sketch.unlockImage": "Unlock sketch image",
   "sketch.lockImageHint": "Lock image (L)",
-  "sketch.unlockImageHint": "Unlock image (L)",
+  "sketch.unlockImageHint": "Unlock image (L). A locked image lets clicks through; Alt+click selects it again.",
   "sketch.imageLocked": "Sketch image locked",
   "sketch.imageUnlocked": "Sketch image unlocked",
   "sketch.deleteImage": "Delete sketch image",

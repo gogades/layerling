@@ -314,7 +314,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "sketch.lockImage": "Vorlagenbild sperren",
   "sketch.unlockImage": "Vorlagenbild entsperren",
   "sketch.lockImageHint": "Bild sperren (L)",
-  "sketch.unlockImageHint": "Bild entsperren (L)",
+  "sketch.unlockImageHint": "Bild entsperren (L). Ein gesperrtes Bild lässt Klicks durch; mit Alt+Klick wählst du es wieder aus.",
   "sketch.imageLocked": "Vorlagenbild gesperrt",
   "sketch.imageUnlocked": "Vorlagenbild entsperrt",
   "sketch.deleteImage": "Vorlagenbild löschen",
