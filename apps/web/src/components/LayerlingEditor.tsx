@@ -5041,9 +5041,17 @@ function manifoldMeshToMeshData(mesh: InstanceType<ManifoldToplevel["Mesh"]>, na
  * wenn die Vereinigung nicht gelingt, geht die Ausfuhr trotzdem durch - nur
  * eben mit den einzelnen Koerpern und einem Hinweis.
  */
+/**
+ * A group of solids without holes is the loose pile of its parts' surfaces,
+ * so its parts overlap each other even when nothing else does.
+ */
+function isPileOfSolids(shape: WorkplaneShape) {
+  return Boolean(shape.groupedShapes && shape.groupedShapes.length > 1 && !shape.importedMesh);
+}
+
 async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: MeshData[]) {
   const gruppen = overlappingExportClusters(meshes.map((mesh) => meshBounds(mesh.vertices)));
-  if (!gruppen.some((gruppe) => gruppe.length > 1)) {
+  if (!gruppen.some((gruppe) => gruppe.length > 1 || isPileOfSolids(shapes[gruppe[0]]))) {
     return { meshes, quellen: meshes.map((_, index) => index), verschmolzen: 0, gescheitert: 0 };
   }
   const runtime = await getManifoldRuntime().catch(() => null);
@@ -5054,7 +5062,7 @@ async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: Me
   let verschmolzen = 0;
   let gescheitert = 0;
   for (const gruppe of gruppen) {
-    if (gruppe.length === 1) {
+    if (gruppe.length === 1 && !isPileOfSolids(shapes[gruppe[0]])) {
       ergebnis.push(meshes[gruppe[0]]);
       quellen.push(gruppe[0]);
       continue;
@@ -5074,7 +5082,7 @@ async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: Me
     if (vereinigt && vereinigt.faces.length > 0) {
       ergebnis.push(vereinigt);
       quellen.push(gruppe[0]);
-      verschmolzen += gruppe.length;
+      if (gruppe.length > 1) verschmolzen += gruppe.length;
     } else {
       gruppe.forEach((index) => {
         ergebnis.push(meshes[index]);
