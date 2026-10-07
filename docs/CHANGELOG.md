@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Delete all measurements at once:** The tape measure has a fourth button, a bin, that removes every measurement in the design. Because this cannot be undone, it asks first; with no measurements it does nothing.
+
 ## 1.44.0
 
 - **Dense meshes work faster, and you can simplify them:** An imported mesh with a very large number of triangles made the editor sluggish while loading and dragging, because bounds and part counts were worked out again and again. They are now kept per mesh and only shifted while you drag, and the undo states of a loaded project share one mesh. The new "Simplify mesh" tool in the Modify area, also in the right-click menu and as the MCP action `simplify_mesh`, reduces a mesh to a fraction of its triangles, with a before-and-after view; a body that came out of a group loses "Edit group" and "Separate parts" when simplified, and the panel says so in a warning line. In the workspace settings, "Cut imported meshes up to" now offers "Older computer (100,000)", "Normal (250,000, default)" and "Fast computer (1,000,000)" or a number of your own; the old fixed limit was 150,000, and the error text for a mesh over the limit names the triangle count and the limit. By @rmpel in #116.
