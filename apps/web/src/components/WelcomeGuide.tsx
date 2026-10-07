@@ -37,6 +37,7 @@ const MORE = [
   ["welcome.morePointsTitle", "welcome.morePointsBody"],
   ["welcome.moreSearchTitle", "welcome.moreSearchBody"],
   ["welcome.moreSimplifyTitle", "welcome.moreSimplifyBody"],
+  ["welcome.moreHistoryTitle", "welcome.moreHistoryBody"],
 ] as const satisfies ReadonlyArray<readonly [MessageKey, MessageKey]>;
 
 /** The body of the welcome panel on the start page. */

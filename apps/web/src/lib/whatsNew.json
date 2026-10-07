@@ -1,5 +1,50 @@
 [
   {
+    "version": "1.45.0",
+    "items": [
+      {
+        "title": {
+          "de": "Verlauf: auf frühere Stände zurückschauen",
+          "en": "History: look back at earlier states"
+        },
+        "body": {
+          "de": "Der Knopf „Verlauf“ neben Rückgängig zeigt jeden früheren Stand deines Projekts, ohne etwas zu ändern. Von dort lässt sich der Stand exportieren oder als neues Projekt anlegen.",
+          "en": "The \"History\" button next to Undo shows any earlier state of your project without changing anything. From there you can export that state or start a new project from it."
+        }
+      },
+      {
+        "title": {
+          "de": "Alle Maße auf einmal entfernen",
+          "en": "Delete all measurements at once"
+        },
+        "body": {
+          "de": "Das Maßband hat einen vierten Knopf, der alle Maße entfernt. Vorher fragt layerling nach, weil sich das nicht rückgängig machen lässt.",
+          "en": "The tape measure has a fourth button that removes every measurement. layerling asks first, because this cannot be undone."
+        }
+      },
+      {
+        "title": {
+          "de": "Kleine Verrundungen ohne Zacken",
+          "en": "Small fillets without a sawtooth"
+        },
+        "body": {
+          "de": "Verrundungen von etwa 0,2 bis 0,9 mm an großen runden Kanten sahen manchmal zackig aus, auch im Slicer. Sie werden jetzt feiner gerechnet und liegen auf der echten Kurve.",
+          "en": "Fillets of about 0.2 to 0.9 mm round large circular edges sometimes looked jagged, in the slicer as well. They are now worked out more finely and follow the true curve."
+        }
+      },
+      {
+        "title": {
+          "de": "KI-Steuerung auf NAS oder Heimserver",
+          "en": "AI control on a NAS or home server"
+        },
+        "body": {
+          "de": "Wer layerling selbst betreibt, auch als Docker-Image, kann einem KI-Client mit einem Zugriffsschlüssel erlauben, die offenen Editoren übers Netz zu steuern. Standardmäßig ist das aus.",
+          "en": "If you host layerling yourself, the Docker image included, you can let an AI client drive the open editors over the network with an access token. It is off by default."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.44.0",
     "items": [
       {

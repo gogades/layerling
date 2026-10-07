@@ -41,7 +41,7 @@ function guideSections(sharedStore: boolean): GuideSection[] {
     {
       title: "guide.group.select",
       chapter: "select",
-      lines: ["guide.select.click", "guide.select.position", "guide.select.group", "guide.select.align", "guide.select.pivot", "guide.select.layFlat", "guide.select.overhangs", "guide.select.pattern", "guide.select.notes"],
+      lines: ["guide.select.click", "guide.select.position", "guide.select.group", "guide.select.align", "guide.select.pivot", "guide.select.layFlat", "guide.select.overhangs", "guide.select.pattern", "guide.select.notes", "guide.select.history"],
     },
     {
       title: "guide.group.measure",

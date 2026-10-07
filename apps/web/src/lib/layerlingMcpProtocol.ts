@@ -119,6 +119,7 @@ export type LayerlingMcpCommandName =
   | "measure_section"
   | "bundle_objects"
   | "set_section_view"
+  | "set_history_view"
   | "show_workplane"
   | "export_section_svg"
   | "import_file"

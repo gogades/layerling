@@ -151,6 +151,8 @@ async function callTool(name, args) {
       return bridgeCommand("remove_reference_points", args);
     case "layerling_set_section_view":
       return bridgeCommand("set_section_view", args);
+    case "layerling_set_history_view":
+      return bridgeCommand("set_history_view", args);
     case "layerling_show_workplane":
       return bridgeCommand("show_workplane", args);
     case "layerling_export_section_svg":

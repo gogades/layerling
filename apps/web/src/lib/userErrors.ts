@@ -16,6 +16,10 @@ type ErrorRule = {
 };
 
 export const ERROR_RULES: ErrorRule[] = [
+  // History view (also the answers the AI bridge gives while it is open)
+  { pattern: /The history view is open/i, key: "error.historyViewOpen" },
+  { pattern: /no earlier state to look at/i, key: "error.noEarlierState" },
+  { pattern: /Finish the current action before opening the history view/i, key: "error.finishBeforeHistory" },
   // CAD kernel: stored and rebuilt bodies
   { pattern: /could not be restored as a valid solid/i, key: "error.storedBodyRestore" },
   { pattern: /The exact (profile|thread|spring|gear) body (is not|does not)/i, key: "error.exactBodyInvalid" },

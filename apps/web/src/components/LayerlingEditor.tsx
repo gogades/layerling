@@ -236,6 +236,23 @@ type TopPanel = "import" | "export" | null;
 /** Die Befehle der Suche, die im Verlaufsblick wach bleiben: sie aendern nichts am Entwurf. */
 const HISTORY_VIEW_COMMANDS = new Set(["history", "export", "guide", "shortcuts"]);
 
+/** MCP actions that only read or change the view, so they still work while the history view is open. */
+const HISTORY_VIEW_MCP_ACTIONS = new Set([
+  "get_scene",
+  "list_objects",
+  "list_custom_shapes",
+  "inspect_errors",
+  "estimate_print",
+  "list_reference_points",
+  "show_overhangs",
+  "measure_section",
+  "set_section_view",
+  "show_workplane",
+  "export_section_svg",
+  "capture_image",
+  "set_history_view",
+]);
+
 /**
  * Was der Verlaufsblick mitgibt, wenn aus einem frueheren Stand ein neues
  * Projekt werden soll. Die Uebersicht legt es an; der Editor bleibt, wo er ist.
@@ -11283,8 +11300,44 @@ export function LayerlingEditor({
 
     try {
       lastMcpErrorRef.current = null;
+      // The workplane shows an older state while the history view is open, so a change would land on a design nobody sees.
+      if (historyViewStateRef.current && !HISTORY_VIEW_MCP_ACTIONS.has(command.action)) {
+        throw new Error("The history view is open. Close it with layerling_set_history_view (open: false) before changing the design.");
+      }
       if (command.action === "get_scene") {
         return mcpSceneSnapshot(params.includeRawShapes === true);
+      }
+
+      if (command.action === "set_history_view") {
+        const entries = historyRef.current;
+        const showing = historyViewStateRef.current;
+        if (params.open === false) {
+          if (showing) closeHistoryView();
+          return { open: false, states: entries.length, current: historyIndexRef.current };
+        }
+        if (params.open === undefined && params.index === undefined) {
+          return showing
+            ? { open: true, index: showing.index, states: entries.length, current: historyIndexRef.current, recordedAt: showing.entry.at ?? null, shapeCount: showing.shapes.length }
+            : { open: false, states: entries.length, current: historyIndexRef.current };
+        }
+        if (entries.length <= 1) throw new Error("There is no earlier state to look at yet");
+        if (!showing) {
+          if (projectInteractionActiveRef.current) throw new Error("Finish the current action before opening the history view");
+          openHistoryView();
+        }
+        const requested = params.index === undefined ? historyIndexRef.current : Math.round(mcpNumber(params.index, historyIndexRef.current));
+        const state = historyStateAt(entries, requested);
+        if (!state) throw new Error("There is no earlier state to look at yet");
+        setHistoryViewIndex(state.index);
+        return {
+          open: true,
+          index: state.index,
+          states: entries.length,
+          current: historyIndexRef.current,
+          recordedAt: state.entry.at ?? null,
+          shapeCount: state.shapes.length,
+          objects: state.shapes.map((shape) => ({ id: shape.id, name: shape.name, kind: shape.kind, x: shape.x, z: shape.z, width: shape.width, depth: shape.depth, height: shape.height, hidden: Boolean(shape.hidden) })),
+        };
       }
 
       if (command.action === "list_objects") {
@@ -12270,6 +12323,8 @@ export function LayerlingEditor({
     setActivePlacementWorkplane,
     updateProjectWorkspaceSettings,
     sectionContours,
+    closeHistoryView,
+    openHistoryView,
     deleteMyShapeEntry,
     insertMyShape,
     refreshMyShapes,

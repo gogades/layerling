@@ -10,6 +10,7 @@ export const COMMAND_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
   paste: ["paste", "einfuegen", "einfügen"],
   duplicate: ["duplicate", "clone", "doppeln", "verdoppeln", "vervielfaeltigen"],
   delete: ["delete", "remove", "loeschen", "löschen", "entfernen", "weg"],
+  history: ["history", "look back", "earlier state", "previous version", "timeline", "verlauf", "zurueckschauen", "zurückschauen", "frueherer stand", "früherer stand", "version", "stand"],
   undo: ["undo", "back", "rueckgaengig", "zurueck", "zurück"],
   redo: ["redo", "wiederholen", "wiederherstellen", "vor"],
   outliner: ["outliner", "object list", "objektliste", "liste", "ebenen", "layers"],

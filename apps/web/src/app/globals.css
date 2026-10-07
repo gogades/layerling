@@ -12938,10 +12938,10 @@ html[data-theme="dark"] .shortcuts-or {
 /* Das Menueband traegt neun Gruppen. Zwischen Laptop und breitem Schirm passen
    sie nicht mehr in voller Groesse nebeneinander - bisher wurde die letzte
    Gruppe einfach abgeschnitten, jetzt gehen die Symbole eine Stufe zurueck.
-   Gemessen (mit Lupen- und Vereinfachen-Knopf): in voller Groesse braucht das
-   Band 1775 px, in der mittleren Stufe 1503 px, in der kleinen 1381 px. Jeder
-   neue Knopf verschiebt alle drei Schwellen: neu messen. */
-@media (max-width: 1780px) {
+   Gemessen (mit Lupen-, Vereinfachen- und Verlaufsknopf): in voller Groesse
+   braucht das Band 1818 px, in der mittleren Stufe 1540 px, in der kleinen
+   1415 px. Jeder neue Knopf verschiebt alle drei Schwellen: neu messen. */
+@media (max-width: 1825px) {
   :root {
     --toolbar-icon-size: 37px;
   }
@@ -12962,7 +12962,7 @@ html[data-theme="dark"] .shortcuts-or {
   }
 }
 
-@media (max-width: 1510px) {
+@media (max-width: 1547px) {
   :root {
     --toolbar-icon-size: 34px;
   }
@@ -12977,13 +12977,13 @@ html[data-theme="dark"] .shortcuts-or {
   }
 }
 
-/* Below the width even the smallest step needs (1381 px, measured with the
-   command search and simplify buttons; the middle step needs 1503 px) the groups
+/* Below the width even the smallest step needs (1415 px, measured with the
+   command search, simplify and history buttons; the middle step needs 1540 px) the groups
    wrap onto a further row instead of scrolling sideways: a scrolling bar
    hides tools and cuts off every menu that hangs beneath it. The bar grows,
    and the editor passes its real height on (see --editor-toolbar-height).
    A new button in the bar moves both thresholds up: measure again. */
-@media (max-width: 1390px) {
+@media (max-width: 1424px) {
   .toolbar-mode-content,
   .sketch-toolbar-ribbon {
     flex-wrap: wrap;
