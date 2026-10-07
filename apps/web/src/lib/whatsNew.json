@@ -1,5 +1,70 @@
 [
   {
+    "version": "1.46.0",
+    "items": [
+      {
+        "title": {
+          "de": "Skizze: feiner arbeiten",
+          "en": "Sketch: finer control"
+        },
+        "body": {
+          "de": "Die Pfeiltasten verschieben gewählte Punkte, Linien und das Bild in Rasterschritten, mit Umschalt in größeren. Beim Ziehen hält Umschalt die Bewegung auf einer Achse, und auch Linien lassen sich jetzt ziehen.",
+          "en": "The arrow keys move the selected points, lines and image in grid steps, in larger ones with Shift. While dragging, Shift keeps the move on one axis, and lines can be dragged now too."
+        }
+      },
+      {
+        "title": {
+          "de": "Maße in der Skizze ausblenden",
+          "en": "Hide the sketch measurements"
+        },
+        "body": {
+          "de": "Ein Knopf in der Seitenleiste der Skizze blendet die Maße aus und wieder ein, wenn sie beim Formen von Kurven stören.",
+          "en": "A button on the sketch's side bar hides and shows the measurements when they get in the way while shaping curves."
+        }
+      },
+      {
+        "title": {
+          "de": "Gesperrte Bilder stören nicht mehr",
+          "en": "Locked images stay out of the way"
+        },
+        "body": {
+          "de": "Ein gesperrtes Vorlagenbild lässt Klicks durch, so wählst du Linien und Punkte darauf an. Mit Alt+Klick wählst du es wieder aus, etwa zum Entsperren.",
+          "en": "A locked reference image lets clicks through, so you can pick lines and points on it. Alt+click selects it again, for example to unlock it."
+        }
+      },
+      {
+        "title": {
+          "de": "Spiralen und schräge Reihen im Muster",
+          "en": "Spirals and diagonal rows in patterns"
+        },
+        "body": {
+          "de": "Eine Reihe läuft jetzt in X, Y und Z zugleich. Ein Kreis kann pro Kopie ansteigen oder sich weiten, für Schrauben und Spiralen.",
+          "en": "A row now runs along X, Y and Z at once. A circle can rise or widen with every copy, for screws and spirals."
+        }
+      },
+      {
+        "title": {
+          "de": "Einzelne Werte zurücksetzen",
+          "en": "Reset single values"
+        },
+        "body": {
+          "de": "Neben jedem geänderten Wert einer Form steht ein kleiner Pfeil, der genau diesen Wert zurückholt. Unten speicherst du die aktuellen Werte als Vorgabe für diese Art von Form.",
+          "en": "A small arrow next to each changed value of a shape takes just that value back. At the bottom you save the current values as the defaults for that kind of shape."
+        }
+      },
+      {
+        "title": {
+          "de": "Farben und Kantenlinien",
+          "en": "Colours and edge lines"
+        },
+        "body": {
+          "de": "In den Einstellungen wählst du Hintergrund und Arbeitsebene im hellen Thema selbst. Ein Schalter zeichnet an jedem Körper eine Kantenlinie in einer Farbe deiner Wahl, damit dunkle Körper nicht verschwimmen.",
+          "en": "In the settings you pick the background and the workplane of the light theme yourself. A switch draws an edge line on every body in a colour of your choice, so dark bodies do not blur together."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.45.1",
     "items": [
       {
