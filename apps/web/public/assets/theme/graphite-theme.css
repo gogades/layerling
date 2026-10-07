@@ -459,6 +459,89 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   background: #e6e6e6;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-backdrop {
+  background: rgba(34, 34, 34, 0.34);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette {
+  color: var(--foreground);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 18px 48px rgba(34, 34, 34, 0.32);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-search {
+  color: var(--muted-strong);
+  border-bottom: 1px solid var(--border);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-search input {
+  color: var(--foreground);
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-search input::placeholder {
+  color: var(--muted-strong);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-close {
+  color: var(--muted-strong);
+  background: transparent;
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-close:hover {
+  color: var(--foreground);
+  background: var(--tile-hover);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-item.selected {
+  background: var(--tile-hover);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-item.active .command-palette-label::after {
+  color: var(--primary);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-icon svg,
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-icon .sketch-reference-icon {
+  color: var(--foreground);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-keys kbd {
+  color: var(--foreground);
+  background: var(--tile);
+  border: 1px solid var(--border-strong);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-group {
+  color: var(--muted-strong);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-empty {
+  color: var(--muted-strong);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-footer {
+  color: var(--muted-strong);
+  border-top: 1px solid var(--border);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .command-palette-blocked {
+  color: var(--primary);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-search-icon {
+  color: var(--toolbar-icon);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .action-buttons .action-icon-button:hover .toolbar-search-icon {
+  color: var(--group-color, var(--toolbar-icon));
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-action-tile {
   color: #414141;
   background: #ffffff;

@@ -1,7 +1,7 @@
 "use client";
 
 import { GuideHelpLink } from "@/components/GuideHelpLink";
-import { AlertTriangle, Check, Circle as CircleIcon, CloudUpload, Download, Eye, EyeOff, FilePlus2, FolderOpen, Hexagon as HexagonIcon, Info, ListTree, Pencil, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
+import { AlertTriangle, Check, Circle as CircleIcon, CloudUpload, Download, Eye, EyeOff, FilePlus2, FolderOpen, Hexagon as HexagonIcon, Info, ListTree, Pencil, Search, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
 import { ObjectListPanel } from "@/components/workplane/ObjectListPanel";
 import type manifoldModule from "manifold-3d";
 import type { ManifoldToplevel } from "manifold-3d";
@@ -93,6 +93,8 @@ import { dropSplitSlivers, unionSplitManifoldComponents } from "@/lib/manifoldSp
 import { NO_SPLIT_ROTATION, modelSplitPlane, snapSplitPositionToVertices, splitOrientationForNormal, splitAxisFromLabel, splitAxisLabel, splitPlaneIntersectsPoints, splitRotationAxes, splitShapeFromWorldPositions, type ModelSplitPlane, type SplitRotation } from "@/lib/modelSplit";
 import { GuideModal } from "./workplane/GuideModal";
 import { ShortcutsModal } from "./workplane/ShortcutsModal";
+import { CommandPalette, type PaletteCommand } from "./workplane/CommandPalette";
+import { COMMAND_KEYWORDS, SHAPE_KEYWORDS } from "@/lib/commandKeywords";
 import { ShapeContextMenu, type ShapeContextMenuItem } from "./workplane/ShapeContextMenu";
 import {
   canonicalizeShape,
@@ -13832,6 +13834,53 @@ const sketchShapeMenuItems = [
   { primitive: "boltCircle", label: "sketch.boltCircle", icon: SketchBoltCircleIcon },
 ] satisfies Array<{ primitive: SketchPrimitive; label: MessageKey; icon: ComponentType<SVGProps<SVGSVGElement>> }>;
 
+/** The keys that do what a toolbar button does, shown beside it in the command search. */
+const COMMAND_SHORTCUTS: Readonly<Record<string, string>> = {
+  copy: "Ctrl+C",
+  paste: "Ctrl+V",
+  duplicate: "Ctrl+D",
+  delete: "Delete",
+  undo: "Ctrl+Z",
+  redo: "Ctrl+Y",
+  outliner: "Ctrl+Shift+O",
+  "toggle-hidden": "Ctrl+H",
+  "show-hidden": "Ctrl+Shift+H",
+  group: "Ctrl+G",
+  bundle: "Ctrl+B",
+  ungroup: "Ctrl+Shift+G",
+  align: "L",
+  mirror: "M",
+  drop: "D",
+  note: "N",
+  import: "Ctrl+I",
+  export: "Ctrl+E",
+  "sketch-copy": "Ctrl+C",
+  "sketch-paste": "Ctrl+V",
+  "sketch-duplicate": "Ctrl+D",
+  "sketch-delete": "Delete",
+  "sketch-undo": "Ctrl+Z",
+  "sketch-redo": "Ctrl+Y",
+};
+
+type SketchIconName = Parameters<typeof SketchReferenceIcon>[0]["name"];
+
+/** A sketch tool's picture as a component of its own, for the command search. */
+function sketchPaletteIcon(name: SketchIconName) {
+  return function SketchPaletteIcon() {
+    return <SketchReferenceIcon name={name} />;
+  };
+}
+
+const SKETCH_PALETTE_ICONS = {
+  line: sketchPaletteIcon("line"),
+  bezier: sketchPaletteIcon("bezier"),
+  smooth: sketchPaletteIcon("smooth"),
+  select: sketchPaletteIcon("select"),
+  image: sketchPaletteIcon("image"),
+  refine: sketchPaletteIcon("refine"),
+  erase: sketchPaletteIcon("erase"),
+};
+
 function SecondaryToolbar({
   toolbarMode,
   projectName,
@@ -14090,6 +14139,27 @@ function SecondaryToolbar({
     setSketchCreateOpen(false);
     onStartSketch(operation);
   };
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const openPalette = () => {
+    setShapesOpen(false);
+    setSketchCreateOpen(false);
+    setVisibilityOpen(false);
+    setPaletteOpen(true);
+  };
+  const openPaletteRef = useRef(openPalette);
+  openPaletteRef.current = openPalette;
+  useEffect(() => {
+    // Ctrl/Cmd+K opens the command search from anywhere in the editor, also
+    // while a field has the focus - the browsers' own use of the key (a search
+    // bar) is not worth keeping here.
+    const openOnShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      openPaletteRef.current();
+    };
+    window.addEventListener("keydown", openOnShortcut);
+    return () => window.removeEventListener("keydown", openOnShortcut);
+  }, []);
   useEffect(() => {
     if (!sketchCreateOpen) return;
     const closeOnPointerDown = (event: PointerEvent) => {
@@ -14249,8 +14319,120 @@ function SecondaryToolbar({
     );
   };
 
+  // Everything the toolbar and its menus can do, as entries of the command
+  // search. Built from the same lists as the buttons, so a new tool shows up in
+  // both without a second place to remember; only built while the search is open.
+  const buildPaletteCommands = (): PaletteCommand[] => {
+    const fromTool = (
+      tool: { id: string; label: string; icon: PaletteCommand["icon"]; action: () => void; enabled: boolean; active?: boolean },
+      group: string,
+    ): PaletteCommand => ({
+      id: tool.id,
+      label: tool.label,
+      group,
+      keywords: COMMAND_KEYWORDS[tool.id],
+      shortcut: COMMAND_SHORTCUTS[tool.id],
+      icon: tool.icon,
+      enabled: tool.enabled,
+      active: tool.active,
+      run: () => tool.action(),
+    });
+    const plain = (
+      id: string,
+      label: string,
+      group: string,
+      enabled: boolean,
+      run: () => void,
+      extra: Partial<PaletteCommand> = {},
+    ): PaletteCommand => ({ id, label, group, keywords: COMMAND_KEYWORDS[id], shortcut: COMMAND_SHORTCUTS[id], enabled, run, ...extra });
+    const helpGroup = t("editor.group.help");
+    const helpCommands = [
+      plain("guide", t("editor.guide"), helpGroup, true, onGuide, { icon: ToolbarGuideIcon }),
+      plain("shortcuts", t("editor.keyboardShortcuts"), helpGroup, true, onShortcuts, { icon: ToolbarKeyboardIcon }),
+    ];
+    if (toolbarMode === "sketch") {
+      const modeGroup = t("palette.group.mode");
+      const modeCommand = plain("mode-geometry", t("palette.switchGeometry"), modeGroup, true, () => selectToolbarMode("geometry"));
+      if (!sketchActive) {
+        const createGroup = t("sketch.group.create");
+        return [
+          plain("sketch-extrude", t("sketch.extrude"), createGroup, true, () => startSketch("extrude")),
+          plain("sketch-revolve", t("sketch.revolve"), createGroup, true, () => startSketch("revolve")),
+          plain("sketch-edit", t("sketch.editTo3d"), createGroup, canEditSketch, onEditSketch),
+          modeCommand,
+          ...helpCommands,
+        ];
+      }
+      const drawGroup = t("sketch.group.draw");
+      const selectGroup = t("sketch.group.select");
+      const finishGroup = t("sketch.group.finish");
+      return [
+        plain("sketch-line", t("sketch.line"), drawGroup, true, () => onSketchTool("line"), { icon: SKETCH_PALETTE_ICONS.line, active: sketchTool === "line" }),
+        plain("sketch-bezier", t("sketch.bezier"), drawGroup, true, () => onSketchTool("bezier"), { icon: SKETCH_PALETTE_ICONS.bezier, active: sketchTool === "bezier" }),
+        plain("sketch-smooth", t("sketch.smooth"), drawGroup, true, () => onSketchTool("smooth"), { icon: SKETCH_PALETTE_ICONS.smooth, active: sketchTool === "smooth" }),
+        ...sketchShapeMenuItems.map(({ primitive, label, icon }) => plain(
+          `sketch-shape-${primitive}`,
+          t("palette.addShape", { shape: t(label) }),
+          t("sketch.group.shapes"),
+          true,
+          () => onSketchPrimitive(primitive),
+          { icon, keywords: [primitive] },
+        )),
+        plain("sketch-select", t("sketch.select"), selectGroup, true, () => onSketchTool("select"), { icon: SKETCH_PALETTE_ICONS.select, active: sketchTool === "select" }),
+        plain("sketch-image", t("sketch.addImage"), selectGroup, sketchTool === "select", onSketchImage, { icon: SKETCH_PALETTE_ICONS.image }),
+        plain("sketch-refine", t("sketch.refine"), selectGroup, true, () => onSketchTool("refine"), { icon: SKETCH_PALETTE_ICONS.refine, active: sketchTool === "refine" }),
+        plain("sketch-fillet", t("sketch.filletCorner"), selectGroup, Boolean(canFilletSketchPoint), () => onSketchCornerDialog?.(sketchCornerDialog === "fillet" ? null : "fillet"), { icon: ToolbarFilletIcon, active: sketchCornerDialog === "fillet" }),
+        plain("sketch-chamfer", t("sketch.chamferCorner"), selectGroup, Boolean(canFilletSketchPoint), () => onSketchCornerDialog?.(sketchCornerDialog === "chamfer" ? null : "chamfer"), { icon: ToolbarChamferIcon, active: sketchCornerDialog === "chamfer" }),
+        plain("sketch-erase", t("sketch.erase"), selectGroup, true, () => onSketchTool("erase"), { icon: SKETCH_PALETTE_ICONS.erase, active: sketchTool === "erase" }),
+        ...sketchClipboardTools.map((tool) => fromTool(tool, t("editor.group.clipboard"))),
+        plain("sketch-undo", t("editor.tool.undo"), t("editor.group.history"), sketchCanUndo, onSketchUndo, { icon: ToolbarUndoIcon }),
+        plain("sketch-redo", t("editor.tool.redo"), t("editor.group.history"), sketchCanRedo, onSketchRedo, { icon: ToolbarRedoIcon }),
+        plain("sketch-finish", sketchOperation === "revolve" ? t("sketch.finishRevolve") : t("sketch.finishSketch"), finishGroup, true, onSketchFinish),
+        plain("sketch-cancel", t("sketch.cancel"), finishGroup, true, onSketchCancel),
+        modeCommand,
+        ...helpCommands,
+      ];
+    }
+    const shapesGroup = t("editor.group.shapes");
+    const visibilityGroup = t("editor.group.visibility");
+    const manageGroup = t("editor.group.manage");
+    return [
+      ...leftTools.slice(0, 4).map((tool) => fromTool(tool, t("editor.group.clipboard"))),
+      ...leftTools.slice(4).map((tool) => fromTool(tool, t("editor.group.history"))),
+      ...toolbarShapeAssets.map((shape) => plain(
+        `shape-${shape.id}`,
+        t("palette.addShape", { shape: shapeAssetMenuLabel(shape) }),
+        shapesGroup,
+        true,
+        () => addShapeFromMenu(shape),
+        { image: shape.menuIcon, keywords: [shape.id, shape.name, ...(SHAPE_KEYWORDS[shape.id] ?? [])] },
+      )),
+      ...visibilityTools.map((tool) => fromTool(tool, visibilityGroup)),
+      plain(
+        "show-hidden",
+        hiddenShapeCount === 0 ? t("visibility.nothingHidden") : t("visibility.showAllHidden", { count: hiddenShapeCount }),
+        visibilityGroup,
+        hiddenShapeCount > 0,
+        onShowHidden,
+        { icon: Eye },
+      ),
+      plain("notes", t("visibility.notes"), visibilityGroup, noteCount > 0, onToggleNotes, { icon: notesVisible ? Eye : EyeOff, active: notesVisible }),
+      plain("overhangs", t("visibility.overhangs", { angle: overhangAngle }), visibilityGroup, true, onToggleOverhangs, { icon: AlertTriangle, active: overhangsVisible }),
+      ...combineTools.map((tool) => fromTool(tool, t("editor.group.combine"))),
+      ...modifyTools.map((tool) => fromTool(tool, t("editor.group.modify"))),
+      ...arrangeTools.map((tool) => fromTool(tool, t("editor.group.arrange"))),
+      plain("note", t("editor.tool.note"), manageGroup, true, onNoteTool, { icon: ToolbarNoteIcon, active: noteMode }),
+      plain("import", t("editor.import"), manageGroup, true, () => onTopPanel("import"), { icon: ToolbarImportIcon }),
+      plain("export", t("editor.export"), manageGroup, true, () => onTopPanel("export"), { icon: ToolbarVectorExportIcon }),
+      plain("settings", t("editor.workspaceSettings"), manageGroup, true, () => window.dispatchEvent(new Event("layerling:open-workspace-settings")), { icon: ToolbarSettingsIcon }),
+      plain("mode-sketch", t("palette.switchSketch"), t("palette.group.mode"), true, () => selectToolbarMode("sketch")),
+      ...helpCommands,
+    ];
+  };
+
   return (
     <div className="secondary-toolbar">
+      {paletteOpen ? <CommandPalette commands={buildPaletteCommands()} onClose={() => setPaletteOpen(false)} /> : null}
       <div ref={toolbarContentRef} className={`toolbar-mode-content ${toolbarMode}`}>
         {toolbarMode === "geometry" ? (
           <>
@@ -14500,6 +14682,9 @@ function SecondaryToolbar({
       <div className="toolbar-section toolbar-actions-section" data-group="help">
         <div className="toolbar-section-label">{t("editor.group.help")}</div>
         <div className="action-buttons">
+          <button className="action-icon-button" aria-label={t("palette.open")} title={t("palette.open")} aria-haspopup="dialog" data-layerling-tool="command-search" onClick={openPalette}>
+            <Search className="toolbar-search-icon" aria-hidden="true" />
+          </button>
           <button className="action-icon-button" aria-label={t("editor.guide")} title={t("editor.guide")} onClick={onGuide}>
             <ToolbarGuideIcon />
           </button>
@@ -14696,6 +14881,9 @@ function SecondaryToolbar({
             <div className="toolbar-section toolbar-actions-section" data-group="help">
               <div className="toolbar-section-label">{t("editor.group.help")}</div>
               <div className="action-buttons">
+                <button className="action-icon-button" aria-label={t("palette.open")} title={t("palette.open")} aria-haspopup="dialog" data-layerling-tool="command-search" onClick={openPalette}>
+                  <Search className="toolbar-search-icon" aria-hidden="true" />
+                </button>
                 <button className="action-icon-button" aria-label={t("editor.guide")} title={t("editor.guide")} onClick={onGuide}>
                   <ToolbarGuideIcon />
                 </button>

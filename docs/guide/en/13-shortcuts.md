@@ -9,4 +9,14 @@ In the editor, {{ui:editor.keyboardShortcuts}} in the {{ui:editor.group.help}} a
 
 ![The keyboard shortcuts window in the editor.](shot:shortcuts)
 
+## Command search
+
+Can't find a tool? Press [[Ctrl]]+[[K]] or click the magnifying glass in the {{ui:editor.group.help}} area, then type what you are looking for: a tool ("fillet", "mirror"), a shape ("cylinder") or a command ("export", "undo"). Move with the arrow keys and press [[Enter]], or click the entry.
+
+- The search understands the English and the German word alike and ignores capital letters and umlauts: "aushoehlen" finds {{ui:editor.tool.hollow}}.
+- Every entry shows the keys that do the same and the area of the toolbar it lives in, so you learn where it is.
+- Entries that are greyed out cannot run right now, mostly because nothing is selected. They stay in the list so the search still tells you where the tool is.
+- A shape's name adds that shape to the workplane, just like clicking it in the shapes menu.
+- It works in sketch mode as well, with the sketch tools.
+
 {{shortcuts}}

@@ -66,6 +66,7 @@ export const GUIDE_SECTIONS = {
   notes: { chapter: "measuring", de: "notizen", en: "notes" },
   sketchCorners: { chapter: "sketches", de: "ecken-runden-oder-fasen", en: "rounding-or-chamfering-corners" },
   sketchImage: { chapter: "sketches", de: "ein-bild-als-vorlage", en: "a-picture-as-template" },
+  commandSearch: { chapter: "shortcuts", de: "befehlssuche", en: "command-search" },
 } as const satisfies Record<string, { chapter: GuideChapter } & Record<Language, string>>;
 
 export type GuideSection = keyof typeof GUIDE_SECTIONS;

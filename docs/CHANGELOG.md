@@ -6,6 +6,8 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Command search (Ctrl+K):** Press Ctrl+K, or click the magnifying glass in the Help area, and type what you are looking for: a tool ("fillet", "mirror"), a shape ("cylinder") or a command ("export", "undo"). Arrow keys and Enter run the entry; it shows the keyboard shortcut and the toolbar area next to it. English and German words work in both interface languages, capital letters and umlauts do not matter, and greyed-out tools stay in the list so you can see where they are. A shape's name adds that shape, as clicking it in the shapes menu does. It works in sketch mode with the sketch tools. Added to the keyboard shortcuts, the quick guide, the guide and the start page.
+
 - **Docker update steps in the README:** It now says that the image tags are plain version numbers without a "v" (`1.42.0`, not `v1.42.0`) and that an existing container keeps running the old image until it is removed and created again, with the four commands to do that. Reported by @frogsuk (#133).
 
 - **The card of a reference point can be moved:** Drag it away from its point by its title when it covers something you want to see; a double-click on the title puts it back. It opens where you left it.
