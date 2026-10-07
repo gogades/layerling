@@ -230,6 +230,9 @@ export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
 type TopPanel = "import" | "export" | null;
 
+/** Die Befehle der Suche, die im Verlaufsblick wach bleiben: sie aendern nichts am Entwurf. */
+const HISTORY_VIEW_COMMANDS = new Set(["history", "export", "guide", "shortcuts"]);
+
 /**
  * Was der Verlaufsblick mitgibt, wenn aus einem frueheren Stand ein neues
  * Projekt werden soll. Die Uebersicht legt es an; der Editor bleibt, wo er ist.
@@ -7794,6 +7797,13 @@ export function LayerlingEditor({
 
   const commitShapes = useCallback(
     (next: WorkplaneShape[], nextSelection: string | string[] | null = selectedIds, message?: string) => {
+      // Solange der Verlaufsblick offen ist, zeigt die Flaeche nicht den
+      // Entwurf. Eine Aenderung, die jetzt noch durchkaeme - ueber einen
+      // Umweg, den die Leiste nicht kennt -, traefe etwas, das keiner sieht.
+      if (historyViewStateRef.current) {
+        setNotice(t("status.historyViewBlocksEdits"));
+        return;
+      }
       const canonicalNext = next.map(canonicalizeShape);
       const requestedSelection = Array.isArray(nextSelection) ? nextSelection : nextSelection ? [nextSelection] : [];
       const validSelection = requestedSelection.filter((id, index) => requestedSelection.indexOf(id) === index && canonicalNext.some((shape) => shape.id === id));
@@ -7834,6 +7844,10 @@ export function LayerlingEditor({
    */
   const commitNotes = useCallback(
     (next: WorkplaneNote[], message?: string) => {
+      if (historyViewStateRef.current) {
+        setNotice(t("status.historyViewBlocksEdits"));
+        return;
+      }
       const normalized = normalizeNotes(next);
       notesRef.current = normalized;
       setNotes(normalized);
@@ -13585,6 +13599,7 @@ export function LayerlingEditor({
       <div className="editor-body">
         {outlinerOpen ? (
           <ObjectListPanel
+            inert={historyViewState !== null}
             shapes={historyViewState?.shapes ?? shapes}
             selectedIds={historyViewState ? [] : selectedIds}
             onSelectShape={selectShape}
@@ -14341,6 +14356,11 @@ function SecondaryToolbar({
     setSketchCreateOpen(false);
     onStartSketch(operation);
   };
+  useEffect(() => {
+    if (!historyViewActive) return;
+    setShapesOpen(false);
+    setVisibilityOpen(false);
+  }, [historyViewActive]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const openPalette = () => {
     setShapesOpen(false);
@@ -14505,7 +14525,11 @@ function SecondaryToolbar({
     { id: "sketch-delete", label: t("editor.tool.delete"), icon: ToolbarTrashIcon, action: onSketchDelete, enabled: sketchHasSelection },
   ];
   const renderToolButton = (tool: (typeof leftTools)[number] | (typeof visibilityTools)[number] | (typeof combineTools)[number] | (typeof modifyTools)[number] | (typeof arrangeTools)[number]) => {
-    const { id, icon: Icon, action, enabled, label } = tool;
+    const { id, icon: Icon, action, label } = tool;
+    // Im Verlaufsblick schlaeft jedes Werkzeug ausser dem, das ihn beendet -
+    // wirklich, nicht nur im Aussehen: eine Auswahl aus der Zeit davor darf
+    // kein Loeschen freischalten, waehrend die Flaeche etwas anderes zeigt.
+    const enabled = tool.enabled && (!historyViewActive || id === "history");
     const active = "active" in tool && Boolean(tool.active);
     return (
       <button
@@ -14525,7 +14549,10 @@ function SecondaryToolbar({
   // Everything the toolbar and its menus can do, as entries of the command
   // search. Built from the same lists as the buttons, so a new tool shows up in
   // both without a second place to remember; only built while the search is open.
-  const buildPaletteCommands = (): PaletteCommand[] => {
+  const buildPaletteCommands = (): PaletteCommand[] => buildAllPaletteCommands().map((command) =>
+    historyViewActive && !HISTORY_VIEW_COMMANDS.has(command.id) ? { ...command, enabled: false } : command,
+  );
+  const buildAllPaletteCommands = (): PaletteCommand[] => {
     const fromTool = (
       tool: { id: string; label: string; icon: PaletteCommand["icon"]; action: () => void; enabled: boolean; active?: boolean },
       group: string,
@@ -14660,7 +14687,7 @@ function SecondaryToolbar({
         </div>
       ) : null}
       <div className="tool-group left">
-        <div className="toolbar-section" data-group="clipboard">
+        <div className="toolbar-section" data-group="clipboard" inert={historyViewActive}>
           <div className="toolbar-section-label">{t("editor.group.clipboard")}</div>
           <div className="toolbar-section-tools">{leftTools.slice(0, 4).map(renderToolButton)}</div>
         </div>
@@ -14668,7 +14695,7 @@ function SecondaryToolbar({
           <div className="toolbar-section-label">{t("editor.group.history")}</div>
           <div className="toolbar-section-tools">{leftTools.slice(4).map(renderToolButton)}</div>
         </div>
-        <div className="toolbar-section toolbar-shapes-section" data-group="shapes" ref={shapesMenuRef}>
+        <div className="toolbar-section toolbar-shapes-section" data-group="shapes" ref={shapesMenuRef} inert={historyViewActive}>
           <div className="toolbar-section-label">{t("editor.group.shapes")}</div>
           <div className="toolbar-section-tools">
             <button
@@ -14768,7 +14795,7 @@ function SecondaryToolbar({
         </div>
       </div>
       <div className="toolbar-spacer" />
-      <div className="tool-group right">
+      <div className="tool-group right" inert={historyViewActive}>
         <div className="toolbar-section compact toolbar-visibility-section" data-group="visibility" ref={visibilityMenuRef}>
           <div className="toolbar-section-label">{t("editor.group.visibility")}</div>
           <div className="toolbar-section-tools">
@@ -14876,10 +14903,11 @@ function SecondaryToolbar({
             aria-pressed={noteMode}
             title={t("editor.tool.note")}
             onClick={onNoteTool}
+            disabled={historyViewActive}
           >
             <ToolbarNoteIcon />
           </button>
-          <button className="action-icon-button" aria-label={t("editor.import")} title={t("editor.import")} onClick={() => onTopPanel("import")}>
+          <button className="action-icon-button" aria-label={t("editor.import")} title={t("editor.import")} onClick={() => onTopPanel("import")} disabled={historyViewActive}>
             <ToolbarImportIcon />
           </button>
           <button className="action-icon-button" aria-label={t("editor.export")} title={t("editor.export")} onClick={() => onTopPanel("export")}>
@@ -15132,6 +15160,7 @@ function SecondaryToolbar({
             role="tab"
             aria-selected={toolbarMode === "sketch"}
             onClick={() => selectToolbarMode("sketch")}
+            disabled={historyViewActive}
           >
             {t("editor.modeSketch")}
           </button>

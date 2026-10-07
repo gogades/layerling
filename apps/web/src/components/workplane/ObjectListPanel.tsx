@@ -11,6 +11,8 @@ import { hasMatchingPart as partMatchesSearch, normalizeObjectListQuery, shapeMa
 import type { WorkplaneShape } from "@/types/layerling";
 
 export interface ObjectListPanelProps {
+  /** Schlaeft: nichts darin laesst sich anklicken oder per Tastatur erreichen (Verlaufsblick). */
+  inert?: boolean;
   shapes: WorkplaneShape[];
   selectedIds: string[];
   onSelectShape: (id: string | string[], mode?: "replace" | "toggle") => void;
@@ -32,6 +34,7 @@ const OBJECT_LIST_PANEL: MovablePanelOptions = {
 };
 
 export function ObjectListPanel({
+  inert = false,
   shapes,
   selectedIds,
   onSelectShape,
@@ -188,6 +191,7 @@ export function ObjectListPanel({
       ref={movable.panelRef}
       className={`outliner-panel ${movable.dragging ? "moving" : ""} ${collapsed ? "collapsed" : ""}`}
       style={movable.style}
+      inert={inert}
       role="region"
       aria-label={t("outliner.title")}
     >

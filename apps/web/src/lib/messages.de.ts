@@ -771,6 +771,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "status.redo": "Wiederhergestellt",
   "status.historyViewOpened": "Zurückschauen. Schiebe zu einem früheren Stand; nichts ändert sich, bis du die Ansicht schließt.",
   "status.historyViewClosed": "Wieder beim aktuellen Stand",
+  "status.historyViewBlocksEdits": "Schließe erst die Verlaufsansicht, bevor du den Entwurf änderst",
   "status.historyViewEmpty": "Noch nichts zum Zurückschauen",
   "status.finishBeforeHistory": "Beende erst die laufende Aktion, bevor du zurückschaust",
   "status.historyProjectCreating": "Projekt aus diesem Stand wird angelegt…",

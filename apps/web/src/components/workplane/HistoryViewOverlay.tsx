@@ -81,7 +81,21 @@ export function HistoryViewOverlay({
       : (distance === 1 ? t("historyView.stepsAheadOne") : t("historyView.stepsAheadMany", { count: distance }));
 
   return (
-    <aside className="history-view-bar" role="region" aria-label={t("historyView.title")} data-testid="history-view">
+    <aside
+      className="history-view-bar"
+      role="region"
+      aria-label={t("historyView.title")}
+      data-testid="history-view"
+      onKeyDown={(event) => {
+        // Der Schieber hat den Fokus, und die Tastatur des Editors ueberhoert
+        // Felder - Escape muss also hier ankommen, sonst schliesst nur die Maus.
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }
+      }}
+    >
       <div className="history-view-head">
         <div className="history-view-heading">
           <strong>{t("historyView.title")}</strong>

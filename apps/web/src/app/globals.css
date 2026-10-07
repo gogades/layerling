@@ -14031,12 +14031,19 @@ html[data-theme="dark"] .color-recent {
   to { transform: rotate(360deg); }
 }
 
-/* Asleep while looking back: every tool but the one that ends the view. */
+/* Asleep while looking back: every tool but the one that ends the view. The
+   buttons are disabled and their sections inert in the markup; this only
+   shows it. */
 .layerling-editor.history-view-active .tool-group .toolbar-section:not([data-group="history"]),
 .layerling-editor.history-view-active .toolbar-section[data-group="history"] .toolbar-icon:not(.active),
 .layerling-editor.history-view-active .outliner-panel,
 .layerling-editor.history-view-active .toolbar-title-row-actions {
   pointer-events: none;
+  opacity: 0.45;
+}
+
+.layerling-editor.history-view-active :is(.action-icon-button, .toolbar-workspace-tabs button):disabled {
+  cursor: default;
   opacity: 0.45;
 }
 
