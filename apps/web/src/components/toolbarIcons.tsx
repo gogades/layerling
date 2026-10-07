@@ -112,12 +112,24 @@ export function ToolbarNoteIcon(props: IconProps) {
   );
 }
 
+/**
+ * Importieren und Exportieren sind zwei Würfel mit einem Pfeil, der schräg darauf
+ * zeigt oder davon weg zeigt. Ein Pfeil nach unten oder oben las sich bei beiden
+ * als "herunterladen" und war leicht zu verwechseln; hier sagt die Richtung zum
+ * Körper hin oder von ihm weg, was mit der Datei geschieht, und der Körper sagt,
+ * dass es ein Modell ist. Die Diagonale nutzt die ganze Höhe, und der Pfeil
+ * lässt einen Spalt zum Würfel, damit Spitze und Kante nicht verschmelzen.
+ */
+const MODEL_RIGHT = "M29 16l12.1 7v14L29 44l-12.1-7V23Z";
+const MODEL_LEFT = "M19 16l12.1 7v14L19 44 6.9 37V23Z";
+
 export function ToolbarImportIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>
-      <path d="M10 29v7a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3v-7" {...SOLID} />
-      <path d="M10 29v7a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3v-7" />
-      <path d="M24 8v20M17 21l7 7 7-7" />
+      <path d={MODEL_RIGHT} {...SOLID} />
+      <path d={MODEL_RIGHT} />
+      <path d="M29 30l-12.1-7M29 30l12.1-7M29 30v14" />
+      <path d="M5 4l13 13M11 17h7v-7" />
     </ToolbarVectorIcon>
   );
 }
@@ -125,9 +137,10 @@ export function ToolbarImportIcon(props: IconProps) {
 export function ToolbarVectorExportIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>
-      <path d="M10 29v7a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3v-7" {...SOLID} />
-      <path d="M10 29v7a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3v-7" />
-      <path d="M24 28V8M17 15l7-7 7 7" />
+      <path d={MODEL_LEFT} {...SOLID} />
+      <path d={MODEL_LEFT} />
+      <path d="M19 30 6.9 23M19 30l12.1-7M19 30v14" />
+      <path d="M32 19L44 7M37 7h7v7" />
     </ToolbarVectorIcon>
   );
 }
