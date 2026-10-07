@@ -1494,6 +1494,8 @@ export function ShapeInspector({
   onWrapAroundCylinder,
   onInteractionActiveChange,
   onSnapGridAwayChange,
+  proportionLock = false,
+  onProportionLockChange,
 }: {
   shape: WorkplaneShape;
   snap: GridSize;
@@ -1514,6 +1516,9 @@ export function ShapeInspector({
   /** The snap control lives in the expanded panel; collapsed, the workplane shows its own. */
   /** Called with true while the inspector does not carry the snap grid control (collapsed, or floating), so the workplane shows it. */
   onSnapGridAwayChange?: (away: boolean) => void;
+  /** With the lock on, changing one of width, depth and height scales the other two by the same factor. */
+  proportionLock?: boolean;
+  onProportionLockChange?: (locked: boolean) => void;
 }) {
   useLanguage();
   const solidColor = shape.color;
@@ -1901,6 +1906,14 @@ export function ShapeInspector({
                   preview: <ThreadHeadPreview head={option.value} />,
                 }))}
                 onChange={threadHeadProperty.onChange}
+              />
+            ) : null}
+            {onProportionLockChange && primaryProperties.some((property) => property.id === "height") && primaryProperties.some((property) => ["width", "length", "diameter"].includes(property.id)) ? (
+              <ToggleProperty
+                label={t("inspector.keepProportions")}
+                value={proportionLock}
+                disabled={locked}
+                onChange={onProportionLockChange}
               />
             ) : null}
             <ShapePropertyRows properties={primaryProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />

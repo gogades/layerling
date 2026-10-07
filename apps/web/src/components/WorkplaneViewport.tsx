@@ -385,6 +385,45 @@ function readMoveDimensionsEnabled() {
   return window.localStorage.getItem(MOVE_DIMENSIONS_ENABLED_STORAGE_KEY) !== "false";
 }
 
+const PROPORTION_LOCK_STORAGE_KEY = "layerling.editor.keepProportions";
+
+function readProportionLock() {
+  try {
+    return window.localStorage.getItem(PROPORTION_LOCK_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Typing one measure with the proportion lock on: the other two follow by the
+ * same factor. `patch` is what the inspector decided for the typed measure -
+ * with all its shape-specific rules - and the remaining axes are scaled on top
+ * of that, the bottom of the shape staying where it is.
+ */
+function patchWithKeptProportions(
+  shape: WorkplaneShape,
+  patch: Partial<WorkplaneShape>,
+  axis: ShapeInspectorUpdateOptions["resizeAxis"],
+): Partial<WorkplaneShape> {
+  if (!axis || "x" in patch || "z" in patch || "elevation" in patch) return patch;
+  const draft = { ...shape, ...patch } as WorkplaneShape;
+  const before = axis === "width" ? shapeWidth(shape) : axis === "depth" ? shapeDepth(shape) : shape.height;
+  const after = axis === "width" ? shapeWidth(draft) : axis === "depth" ? shapeDepth(draft) : draft.height;
+  if (!(before > 0) || !(after > 0)) return patch;
+  const factor = after / before;
+  if (Math.abs(factor - 1) < 1e-6) return patch;
+  const widthStep = factor * shapeWidth(shape) / Math.max(MIN_SHAPE_SIZE, shapeWidth(draft));
+  const depthStep = factor * shapeDepth(shape) / Math.max(MIN_SHAPE_SIZE, shapeDepth(draft));
+  const heightStep = factor * shape.height / Math.max(MIN_SHAPE_SIZE, draft.height);
+  const horizontal = Math.abs(widthStep - 1) > 1e-6 || Math.abs(depthStep - 1) > 1e-6
+    ? { ...patch, ...scaledHorizontalShapePatch(draft, widthStep, depthStep) }
+    : patch;
+  const frame = selectionFrameForShapes([shape], [shape.id]);
+  if (!frame) return horizontal;
+  return patchWithUniformHeightScale(shape, horizontal, heightStep, selectionWorldYBounds(frame).min);
+}
+
 function readOriginDimensionsEnabled() {
   if (typeof window === "undefined") {
     return true;
@@ -4157,6 +4196,22 @@ export function WorkplaneViewport({
   const marqueeRef = useRef<MarqueeState | null>(null);
   const transformRef = useRef<TransformDragState | null>(null);
   const lastResizeAnchorRef = useRef<ResizeAnchorMemory | null>(null);
+  const [proportionLock, setProportionLock] = useState(false);
+  const proportionLockRef = useRef(false);
+  useEffect(() => {
+    const stored = readProportionLock();
+    proportionLockRef.current = stored;
+    setProportionLock(stored);
+  }, []);
+  const changeProportionLock = useCallback((locked: boolean) => {
+    proportionLockRef.current = locked;
+    setProportionLock(locked);
+    try {
+      window.localStorage.setItem(PROPORTION_LOCK_STORAGE_KEY, String(locked));
+    } catch {
+      // The lock still applies to this editor session when storage is unavailable.
+    }
+  }, []);
   const suppressNextLiftEditRef = useRef(false);
   const suppressNextCornerEditRef = useRef(false);
   const snapRef = useRef(snap);
@@ -6038,11 +6093,11 @@ export function WorkplaneViewport({
         }
         if (transform.items.length === 1) {
           const maxSize = shapeDimensionLimit(workspaceRef.current, transform.startShape.kind, 220);
-          const next = resizeShapeFromFrameHandle(transform, worldPoint, transform.handleKey, shiftKey, altKey, step, maxSize);
+          const next = resizeShapeFromFrameHandle(transform, worldPoint, transform.handleKey, shiftKey || proportionLockRef.current, altKey, step, maxSize);
           onUpdateShape(transform.id, next);
         } else {
           const maxSize = Math.max(...transform.items.map((item) => shapeDimensionLimit(workspaceRef.current, item.startShape.kind, 260)));
-          resizeSelectionFromHandle(transform, worldPoint, transform.handleKey, shiftKey, altKey, step, maxSize).forEach(({ id, patch }) => onUpdateShape(id, patch));
+          resizeSelectionFromHandle(transform, worldPoint, transform.handleKey, shiftKey || proportionLockRef.current, altKey, step, maxSize).forEach(({ id, patch }) => onUpdateShape(id, patch));
         }
         return true;
       }
@@ -9075,8 +9130,11 @@ export function WorkplaneViewport({
             // Der Inspektor rechnet in der Urform; ein gedrehter Koerper wird
             // daraus neu gebaut, also muss auch der Anker daher kommen.
             const inspected = shapeWithParametricSource(selectedShape);
-            onUpdateShape(selectedShape.id, patchWithResizeAnchor(inspected, patch, options?.resizeAxis, lastResizeAnchorRef.current));
+            const resized = proportionLockRef.current ? patchWithKeptProportions(inspected, patch, options?.resizeAxis) : patch;
+            onUpdateShape(selectedShape.id, patchWithResizeAnchor(inspected, resized, options?.resizeAxis, lastResizeAnchorRef.current));
           }}
+          proportionLock={proportionLock}
+          onProportionLockChange={changeProportionLock}
           onSnapChange={chooseSnapGrid}
           onSnapOpenChange={setSnapOpen}
           onObjectSnapChange={changeObjectSnap}
