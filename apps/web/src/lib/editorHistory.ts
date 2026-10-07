@@ -442,6 +442,25 @@ export function appendEditorHistorySnapshot(
   return { entries: nextEntries, index: nextEntries.length - 1, changed: true };
 }
 
+/**
+ * Every save and every project snapshot runs the whole history through
+ * `hydrateEditorHistoryState`, and rebuilding an entry means serializing and
+ * hashing all of its shapes. A design with a long history and many bodies spent
+ * over half a second on that for states that had not changed since the last
+ * save. An entry that is the same object, with the same parts, comes out the
+ * same - so the result is remembered on the entry itself.
+ */
+const hydratedEntryCache = new WeakMap<object, {
+  shapes: unknown;
+  selectedIds: unknown;
+  notes: unknown;
+  placementWorkplane: unknown;
+  at: unknown;
+  /** Only matters for an entry without a workplane of its own, which takes the current one. */
+  inheritedWorkplane: string | null;
+  result: EditorHistoryEntry;
+}>();
+
 export function hydrateEditorHistoryState(
   currentShapes: WorkplaneShape[],
   storedEntries: EditorHistoryEntry[] | undefined,
@@ -456,15 +475,42 @@ export function hydrateEditorHistoryState(
   }
 
   try {
-    const normalized = storedEntries.map((entry) =>
-      editorHistoryEntry(
+    const inheritedWorkplane = currentWorkplane ? placementWorkplaneFingerprint(currentWorkplane) : "";
+    const normalized = storedEntries.map((entry) => {
+      const cacheable = entry !== null && typeof entry === "object";
+      const cached = cacheable ? hydratedEntryCache.get(entry) : undefined;
+      const inherited = entry?.placementWorkplane ? null : inheritedWorkplane;
+      if (
+        cached
+        && cached.shapes === entry.shapes
+        && cached.selectedIds === entry.selectedIds
+        && cached.notes === entry.notes
+        && cached.placementWorkplane === entry.placementWorkplane
+        && cached.at === entry.at
+        && cached.inheritedWorkplane === inherited
+      ) {
+        return cached.result;
+      }
+      const result = editorHistoryEntry(
         Array.isArray(entry?.shapes) ? entry.shapes : [],
         Array.isArray(entry?.selectedIds) ? entry.selectedIds.filter((id): id is string => typeof id === "string") : [],
         normalizeNotes(entry?.notes),
         entry?.placementWorkplane ?? currentWorkplane,
         typeof entry?.at === "number" && Number.isFinite(entry.at) ? entry.at : undefined,
-      ),
-    );
+      );
+      if (cacheable) {
+        hydratedEntryCache.set(entry, {
+          shapes: entry.shapes,
+          selectedIds: entry.selectedIds,
+          notes: entry.notes,
+          placementWorkplane: entry.placementWorkplane,
+          at: entry.at,
+          inheritedWorkplane: inherited,
+          result,
+        });
+      }
+      return result;
+    });
     const index = Number.isInteger(requestedIndex)
       ? Math.min(Math.max(0, requestedIndex as number), normalized.length - 1)
       : normalized.length - 1;

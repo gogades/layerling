@@ -439,11 +439,45 @@ function encodedTextPayload(text: string) {
   return pending;
 }
 
+const STATES_PLACEHOLDER = "@@layerling-states-placeholder-7f3a1c@@";
+
+/** The serialized text of a history state and the assets it used, remembered per history entry. */
+const serializedStateCache = new WeakMap<object, {
+  stateId: string;
+  sourceKey: string;
+  json: string;
+  used: Array<{ record: LylAssetRecordV1; bytes: Uint8Array }>;
+}>();
+
 class LylArchiveBuilder {
   readonly files: ArchiveFiles = {};
   readonly assets: LylAssetRecordV1[] = [];
   readonly sourceIdMap = new Map<string, string>();
   private readonly recordByKindAndHash = new Map<string, LylAssetRecordV1>();
+  private recorded: Array<{ record: LylAssetRecordV1; bytes: Uint8Array }> | null = null;
+
+  /** Runs `work` and returns which assets it registered, so a later save can register them again without redoing the work. */
+  async recording<T>(work: () => Promise<T>) {
+    const previous = this.recorded;
+    const used: Array<{ record: LylAssetRecordV1; bytes: Uint8Array }> = [];
+    this.recorded = used;
+    try {
+      return { result: await work(), used };
+    } finally {
+      this.recorded = previous;
+    }
+  }
+
+  /** Registers assets that a remembered state used; the first registration of an asset wins, as when it is made fresh. */
+  adopt(used: Array<{ record: LylAssetRecordV1; bytes: Uint8Array }>) {
+    for (const { record, bytes } of used) {
+      const key = `${record.kind}:${record.sha256}`;
+      if (this.recordByKindAndHash.has(key)) continue;
+      this.files[record.path] = bytes;
+      this.assets.push(record);
+      this.recordByKindAndHash.set(key, record);
+    }
+  }
 
   private registerAsset(
     kind: LylAssetKind,
@@ -455,7 +489,10 @@ class LylArchiveBuilder {
     if (bytes.byteLength > LYL_LIMITS.assetBytes) throw new Error(`${options.fileName ?? kind} exceeds the per-asset size limit`);
     const key = `${kind}:${sha256}`;
     const existing = this.recordByKindAndHash.get(key);
-    if (existing) return existing;
+    if (existing) {
+      this.recorded?.push({ record: existing, bytes: this.files[existing.path] ?? bytes });
+      return existing;
+    }
     const extension = extensionForAsset(kind, mediaType, options.sourceFormat);
     const id = `${kind}-${sha256.slice(0, 32)}`;
     const path = `assets/${kind}/${sha256}.${extension}`;
@@ -472,6 +509,7 @@ class LylArchiveBuilder {
     this.files[path] = bytes;
     this.assets.push(record);
     this.recordByKindAndHash.set(key, record);
+    this.recorded?.push({ record, bytes });
     return record;
   }
 
@@ -878,15 +916,31 @@ export async function exportLylProject(input: LylProjectExportInput) {
   const stateShapes = exportEntries.map((entry) => entry.shapes);
   await builder.addSources(input.assets, referencedSourceAssetIds(stateShapes));
   const sourceAssetsByArchiveId = new Map(builder.assets.filter((asset) => asset.kind === "source").map((asset) => [asset.id, asset]));
-  const states: LylStateV1[] = [];
+  // A state is serialized once and its text remembered on its history entry: the
+  // states of an unchanged history come out the same on every save, and a long
+  // history of a design with many bodies took most of a second to rebuild.
+  const sourceKey = [...builder.sourceIdMap].map(([id, archiveId]) => `${id}>${archiveId}`).join(",")
+    + "|" + [...sourceAssetsByArchiveId].map(([id, record]) => `${id}:${record.sourceFormat ?? ""}`).join(",");
+  const stateTexts: string[] = [];
+  const freshStates = new Map<string, LylStateV1>();
   const stateIdByFingerprint = new Map<string, string>();
   const historyEntries: LylProjectDocumentV1["history"]["entries"] = [];
 
   for (const entry of exportEntries) {
     let stateId = stateIdByFingerprint.get(entry.fingerprint);
     if (!stateId) {
-      stateId = `state-${states.length + 1}`;
-      states.push(await serializeState(stateId, entry.shapes, builder, sourceAssetsByArchiveId, normalizeNotes(entry.notes)));
+      stateId = `state-${stateTexts.length + 1}`;
+      const cached = serializedStateCache.get(entry);
+      if (cached && cached.stateId === stateId && cached.sourceKey === sourceKey) {
+        builder.adopt(cached.used);
+        stateTexts.push(cached.json);
+      } else {
+        const { result: state, used } = await builder.recording(() => serializeState(stateId as string, entry.shapes, builder, sourceAssetsByArchiveId, normalizeNotes(entry.notes)));
+        const json = JSON.stringify(state);
+        serializedStateCache.set(entry, { stateId, sourceKey, json, used });
+        freshStates.set(stateId, state);
+        stateTexts.push(json);
+      }
       stateIdByFingerprint.set(entry.fingerprint, stateId);
     }
     historyEntries.push({
@@ -898,13 +952,16 @@ export async function exportLylProject(input: LylProjectExportInput) {
   }
 
   const sceneStateId = historyEntries[hydrated.index]?.stateId;
-  const activeState = states.find((state) => state.id === sceneStateId);
+  const activeStateIndex = sceneStateId ? Number(sceneStateId.slice("state-".length)) - 1 : -1;
+  const activeState = sceneStateId && stateTexts[activeStateIndex] !== undefined
+    ? (freshStates.get(sceneStateId) ?? (JSON.parse(stateTexts[activeStateIndex]) as LylStateV1))
+    : undefined;
   if (!activeState) throw new Error("Could not identify the active project state");
   const indexes = activeProjectIndexes(activeState);
   const now = Date.now();
   const sketchPlacementWorkplane = normalizePlacementWorkplane(input.sketchPlacementWorkplane);
   const selectedWorkplaneId = placementWorkplaneIsBase(placementWorkplane) ? "workplane-base" : "workplane-active";
-  const document: LylProjectDocumentV1 = {
+  const document: Omit<LylProjectDocumentV1, "states"> & { states: typeof STATES_PLACEHOLDER } = {
     schema: LYL_SCHEMA_ID,
     formatVersion: LYL_FORMAT_VERSION,
     minimumReaderVersion: LYL_MINIMUM_READER_VERSION,
@@ -918,7 +975,7 @@ export async function exportLylProject(input: LylProjectExportInput) {
     },
     assets: builder.assets.sort((a, b) => a.id.localeCompare(b.id)),
     sceneStateId,
-    states,
+    states: STATES_PLACEHOLDER,
     history: { entries: historyEntries, index: hydrated.index },
     sketches: indexes.sketches,
     features: indexes.features,
@@ -937,7 +994,9 @@ export async function exportLylProject(input: LylProjectExportInput) {
       sketchPlacementWorkplane,
     },
   };
-  const projectJson = strToU8(JSON.stringify(document));
+  // The states are already text; put them in where the placeholder stands. The
+  // result is the same text JSON.stringify would give for the whole document.
+  const projectJson = strToU8(JSON.stringify(document).replace(`"states":${JSON.stringify(STATES_PLACEHOLDER)}`, () => `"states":[${stateTexts.join(",")}]`));
   if (projectJson.byteLength > LYL_LIMITS.projectJsonBytes) {
     throw new Error("Project data exceeds the 64 MB project file limit. Export with fewer history steps or simplify the project.");
   }
