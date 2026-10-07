@@ -12282,108 +12282,131 @@ export function LayerlingEditor({
   }, [executeMcpCommand]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === "production" || typeof window === "undefined") {
+    if (typeof window === "undefined") {
       return;
     }
-    if (!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)) {
+    const localDevelopment = process.env.NODE_ENV !== "production" && ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    // The static export has no bridge. A copy somebody hosts themselves (a NAS, the Docker image) has one only
+    // when its server switched remote use on (LAYERLING_MCP_REMOTE and LAYERLING_MCP_TOKEN); it says so itself.
+    if (!localDevelopment && process.env.NEXT_PUBLIC_STATIC_EXPORT === "true") {
       return;
     }
 
-    const identity = readMcpEditorIdentity();
-    let stopped = false;
-    let polling = false;
-    let pollAbortController: AbortController | null = null;
-    let pollRetryTimer: number | null = null;
+    let cancelled = false;
+    let stopBridge: (() => void) | null = null;
+    const startBridge = () => {
+      const identity = readMcpEditorIdentity();
+      let stopped = false;
+      let polling = false;
+      let pollAbortController: AbortController | null = null;
+      let pollRetryTimer: number | null = null;
 
-    const heartbeat = () => {
-      const projectInfo = projectInfoRef.current;
-      const currentShapes = shapesRef.current;
-      void fetch(LAYERLING_MCP_ROUTE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "heartbeat",
-          editor: {
-            ...identity,
-            projectId: projectInfo.projectId,
-            projectName: projectInfo.projectName,
-            url: window.location.href,
-            focused: document.visibilityState === "visible" && document.hasFocus(),
-            shapeCount: currentShapes.length,
-            selectedCount: selectedIdsRef.current.length,
-            notice: noticeRef.current || t("status.ready"),
-            lastError: edgeModifierRef.current?.error ?? lastMcpErrorRef.current,
-          },
-        }),
-      }).catch(() => undefined);
-    };
-
-    const submitResult = (commandId: string, ok: boolean, data?: unknown, error?: string) => {
-      void fetch(LAYERLING_MCP_ROUTE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "result",
-          editorId: identity.editorId,
-          result: { commandId, ok, data, error, completedAt: Date.now() },
-        }),
-      }).catch(() => undefined);
-    };
-
-    const poll = async () => {
-      if (polling || stopped) return;
-      polling = true;
-      let retry = false;
-      pollAbortController = new AbortController();
-      try {
-        const response = await fetch(LAYERLING_MCP_ROUTE, {
+      const heartbeat = () => {
+        const projectInfo = projectInfoRef.current;
+        const currentShapes = shapesRef.current;
+        void fetch(LAYERLING_MCP_ROUTE, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "poll", editorId: identity.editorId }),
-          signal: pollAbortController.signal,
-        });
-        if (!response.ok) throw new Error(`Layerling MCP poll returned HTTP ${response.status}`);
-        const payload = (await response.json().catch(() => null)) as { command?: LayerlingMcpCommand | null } | null;
-        const command = payload?.command;
-        if (command) {
-          try {
-            const data = await executeMcpCommandRef.current?.(command);
-            submitResult(command.id, true, data);
-          } catch (error) {
-            submitResult(command.id, false, undefined, error instanceof Error ? localizedError(error.message) : String(error));
+          body: JSON.stringify({
+            type: "heartbeat",
+            editor: {
+              ...identity,
+              projectId: projectInfo.projectId,
+              projectName: projectInfo.projectName,
+              url: window.location.href,
+              focused: document.visibilityState === "visible" && document.hasFocus(),
+              shapeCount: currentShapes.length,
+              selectedCount: selectedIdsRef.current.length,
+              notice: noticeRef.current || t("status.ready"),
+              lastError: edgeModifierRef.current?.error ?? lastMcpErrorRef.current,
+            },
+          }),
+        }).catch(() => undefined);
+      };
+
+      const submitResult = (commandId: string, ok: boolean, data?: unknown, error?: string) => {
+        void fetch(LAYERLING_MCP_ROUTE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "result",
+            editorId: identity.editorId,
+            result: { commandId, ok, data, error, completedAt: Date.now() },
+          }),
+        }).catch(() => undefined);
+      };
+
+      const poll = async () => {
+        if (polling || stopped) return;
+        polling = true;
+        let retry = false;
+        pollAbortController = new AbortController();
+        try {
+          const response = await fetch(LAYERLING_MCP_ROUTE, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "poll", editorId: identity.editorId }),
+            signal: pollAbortController.signal,
+          });
+          if (!response.ok) throw new Error(`Layerling MCP poll returned HTTP ${response.status}`);
+          const payload = (await response.json().catch(() => null)) as { command?: LayerlingMcpCommand | null } | null;
+          const command = payload?.command;
+          if (command) {
+            try {
+              const data = await executeMcpCommandRef.current?.(command);
+              submitResult(command.id, true, data);
+            } catch (error) {
+              submitResult(command.id, false, undefined, error instanceof Error ? localizedError(error.message) : String(error));
+            }
           }
-        }
-      } catch (error) {
-        // The local bridge may not exist while static builds or tests render the editor.
-        retry = !stopped && (!(error instanceof DOMException) || error.name !== "AbortError");
-      } finally {
-        pollAbortController = null;
-        polling = false;
-        if (!stopped) {
-          if (retry) {
-            pollRetryTimer = window.setTimeout(() => {
-              pollRetryTimer = null;
+        } catch (error) {
+          // The local bridge may not exist while static builds or tests render the editor.
+          retry = !stopped && (!(error instanceof DOMException) || error.name !== "AbortError");
+        } finally {
+          pollAbortController = null;
+          polling = false;
+          if (!stopped) {
+            if (retry) {
+              pollRetryTimer = window.setTimeout(() => {
+                pollRetryTimer = null;
+                void poll();
+              }, LAYERLING_MCP_POLL_RETRY_MS);
+            } else {
               void poll();
-            }, LAYERLING_MCP_POLL_RETRY_MS);
-          } else {
-            void poll();
+            }
           }
         }
-      }
+      };
+
+      heartbeat();
+      void poll();
+      const heartbeatTimer = window.setInterval(heartbeat, LAYERLING_MCP_HEARTBEAT_MS);
+      window.addEventListener("focus", heartbeat);
+      document.addEventListener("visibilitychange", heartbeat);
+      stopBridge = () => {
+        stopped = true;
+        window.clearInterval(heartbeatTimer);
+        if (pollRetryTimer !== null) window.clearTimeout(pollRetryTimer);
+        pollAbortController?.abort();
+        window.removeEventListener("focus", heartbeat);
+        document.removeEventListener("visibilitychange", heartbeat);
+      };
     };
 
-    heartbeat();
-    void poll();
-    const heartbeatTimer = window.setInterval(heartbeat, LAYERLING_MCP_HEARTBEAT_MS);
-    window.addEventListener("focus", heartbeat);
-    document.addEventListener("visibilitychange", heartbeat);
+    if (localDevelopment) {
+      startBridge();
+    } else {
+      void fetch(`${LAYERLING_MCP_ROUTE}?status=1`)
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload: { remote?: boolean } | null) => {
+          if (!cancelled && payload?.remote === true) startBridge();
+        })
+        .catch(() => undefined);
+    }
+
     return () => {
-      stopped = true;
-      window.clearInterval(heartbeatTimer);
-      if (pollRetryTimer !== null) window.clearTimeout(pollRetryTimer);
-      pollAbortController?.abort();
-      window.removeEventListener("focus", heartbeat);
-      document.removeEventListener("visibilitychange", heartbeat);
+      cancelled = true;
+      stopBridge?.();
     };
   }, []);
 

@@ -13,5 +13,10 @@ services:
       HOSTNAME: "0.0.0.0"
       NEXT_TELEMETRY_DISABLED: "1"
       # LAYERLING_SHARED_PROJECTS_DIR: "/shared-projects"
+      # Let an AI client (MCP) drive the open editors over the network. Off by default; whoever has the
+      # token can read and change the open designs, so use a long random one on a trusted network. See the README.
+      # LAYERLING_MCP_REMOTE: "true"
+      # LAYERLING_MCP_TOKEN: "a-long-random-secret-of-at-least-16-characters"
+      # LAYERLING_MCP_ALLOWED_HOSTS: "layerling.example.com"   # only for a real domain, e.g. behind a reverse proxy
     # volumes:
     #   - ./shared-projects:/shared-projects:z

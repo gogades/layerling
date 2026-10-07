@@ -7,7 +7,7 @@ layerling bringt einen MCP-Server mit. MCP ist ein Standard, über den ein KI-As
 
 Die Brücke zwischen KI-Client und Editor läuft **lokal auf deinem Rechner**. Bedenke aber: Was die KI liest, also die Szene und die Bilder der Ansicht, geht an den Anbieter deines KI-Clients, so wie jede andere Eingabe dort auch.
 
-> **Wichtig:** Die MCP-Brücke gibt es nur im Entwicklungsserver, den du selbst auf deinem Rechner startest. Auf layerling.com und in Installationen mit statischem Hosting ist sie abgeschaltet.
+> **Wichtig:** Die MCP-Brücke gibt es im Entwicklungsserver, den du selbst auf deinem Rechner startest. Auf layerling.com und in Installationen mit statischem Hosting ist sie abgeschaltet. Eine Kopie, die du selbst betreibst, etwa das Docker-Image auf einer NAS, kann sie mit einem Zugriffsschlüssel einschalten; siehe „Eine Kopie auf NAS oder Server“ unten.
 
 ## Einrichten
 
@@ -28,6 +28,12 @@ Claude Desktop liest keine Projektdateien. Trage den Server in seiner eigenen Ko
 Kopiere den Skill aus `docs/skills/layerling-mcp-skill` in deinen Codex-Skill-Ordner, trage den Server anhand von `docs/mcp/codex-config.example.toml` in deine Codex-Konfiguration ein und starte Codex neu.
 
 Die ausführliche Anleitung für alle drei steht in der [README auf GitHub](https://github.com/henmedia/layerling/blob/main/README.de.md#layerling-mcp-skill).
+
+## Eine Kopie auf NAS oder Server
+
+Eine Kopie, die du selbst betreibst, kann einen KI-Client ihre offenen Editoren übers Netz steuern lassen. Das ist standardmäßig aus, denn wer die Brücke steuern kann, kann die offenen Entwürfe lesen und ändern. Setze auf dem Server `LAYERLING_MCP_REMOTE` auf `true` und `LAYERLING_MCP_TOKEN` auf ein Geheimnis von mindestens 16 Zeichen (beim Docker-Image unter `environment:` der Compose-Datei; ein Neubau ist nicht nötig). Öffne einen Editor-Tab dieser Kopie und lass ihn offen, und gib dem MCP-Client die Adresse und denselben Schlüssel: `LAYERLING_URL=http://nas:3000` und `LAYERLING_MCP_TOKEN=<der Schlüssel>`.
+
+Nur ein Client mit dem Schlüssel kann die Editoren auflisten oder steuern. Die Editor-Seiten brauchen keinen, zählen aber nur unter einer Adresse oder einem Namen, den nur dein eigenes Netz benutzen kann (eine IP-Adresse, ein Name ohne Punkt oder einer auf `.local` oder `.lan`); eine echte Domain hinter einem Reverse-Proxy kommt in `LAYERLING_MCP_ALLOWED_HOSTS`. Nutze es in einem Netz, dem du vertraust, und HTTPS darüber hinaus. Die Einzelheiten stehen in der README.
 
 ## Was die KI kann
 

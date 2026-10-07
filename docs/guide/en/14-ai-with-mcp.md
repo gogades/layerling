@@ -7,7 +7,7 @@ layerling comes with an MCP server. MCP is a standard through which an AI assist
 
 The bridge between AI client and editor runs **locally on your computer**. Keep in mind, though: what the AI reads, meaning the scene and the pictures of the view, goes to the provider of your AI client, like any other input there.
 
-> **Important:** The MCP bridge exists only in the development server that you start yourself on your computer. On layerling.com and in installations with static hosting it is switched off.
+> **Important:** The MCP bridge exists in the development server that you start yourself on your computer. On layerling.com and in installations with static hosting it is switched off. A copy you host yourself, such as the Docker image on a NAS, can switch it on with an access token; see "A copy on a NAS or server" below.
 
 ## Setting up
 
@@ -28,6 +28,12 @@ Claude Desktop does not read project files. Enter the server in its own configur
 Copy the skill from `docs/skills/layerling-mcp-skill` into your Codex skills folder, enter the server in your Codex configuration using `docs/mcp/codex-config.example.toml`, and restart Codex.
 
 The detailed instructions for all three are in the [README on GitHub](https://github.com/henmedia/layerling/blob/main/README.md#layerling-mcp-skill).
+
+## A copy on a NAS or server
+
+A copy you host yourself can let an AI client drive its open editors over the network. It is off by default, because whoever can drive the bridge can read and change the open designs. On the server, set `LAYERLING_MCP_REMOTE` to `true` and `LAYERLING_MCP_TOKEN` to a secret of at least 16 characters (for the Docker image in `environment:` of the compose file; no rebuild needed). Open an editor tab of that copy and keep it open, and give the MCP client the address and the same token: `LAYERLING_URL=http://nas:3000` and `LAYERLING_MCP_TOKEN=<the token>`.
+
+Only a client with the token can list or drive the editors. The editor pages need none, but they only count under an address or name that only your own network can use (an IP address, a name without a dot, or one ending in `.local` or `.lan`); a real domain behind a reverse proxy goes into `LAYERLING_MCP_ALLOWED_HOSTS`. Use it on a network you trust, and HTTPS beyond it. The README has the details.
 
 ## What the AI can do
 

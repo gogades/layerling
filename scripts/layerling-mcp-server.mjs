@@ -5,6 +5,9 @@ import { tools } from "./layerling-mcp-tools.mjs";
 const DEFAULT_BASE_URL = "http://127.0.0.1:3000";
 const MCP_ROUTE = "/api/layerling-mcp";
 const baseUrl = process.env.LAYERLING_URL || DEFAULT_BASE_URL;
+// A copy on a NAS or home server that switched remote use on (LAYERLING_MCP_REMOTE and
+// LAYERLING_MCP_TOKEN there) wants the same token from this client.
+const accessToken = (process.env.LAYERLING_MCP_TOKEN || "").trim();
 
 function bridgeUrl() {
   return new URL(MCP_ROUTE, baseUrl);
@@ -16,14 +19,15 @@ function bridgeUrl() {
  */
 async function bridgeFetch(options, timeoutMs) {
   try {
-    return await fetch(bridgeUrl(), { ...options, signal: AbortSignal.timeout(timeoutMs) });
+    const headers = { ...(options.headers || {}), ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) };
+    return await fetch(bridgeUrl(), { ...options, headers, signal: AbortSignal.timeout(timeoutMs) });
   } catch (error) {
     if (error?.name === "TimeoutError") {
       throw new Error(`Layerling at ${baseUrl} did not answer within ${Math.round(timeoutMs / 1000)} s.`);
     }
     throw new Error(
       `Cannot reach Layerling at ${baseUrl}. Start it with "npm run dev" and open an editor tab` +
-        ` (set LAYERLING_URL if it runs elsewhere).`,
+        ` (set LAYERLING_URL if it runs elsewhere; a copy on a NAS also needs LAYERLING_MCP_REMOTE and LAYERLING_MCP_TOKEN on the server).`,
     );
   }
 }

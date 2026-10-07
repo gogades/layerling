@@ -196,7 +196,7 @@ Everyday commands:
 - **Restart:** `docker compose -f docker/compose.yml up -d`
 - **Update** (after pulling new code or extracting a new ZIP): `docker compose -f docker/compose.yml up -d --build`; with the ready-made image `docker compose -f docker/compose.yml pull` and then `up -d`
 
-The image runs `next start` in production mode, so the MCP bridge is not available there. To offer a shared project folder, bind a writable directory and set `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` to the path inside the container where it is mounted, for example `./shared-projects:/shared-projects` with `LAYERLING_SHARED_PROJECTS_DIR: "/shared-projects"` (see [Shared Designs on a Network](#shared-designs-on-a-network)). After changing it, run `docker compose up -d`: `docker compose restart` keeps the old setting. `docker exec <container> printenv LAYERLING_SHARED_PROJECTS_DIR` shows the one in use.
+The image runs `next start` in production mode, so the MCP bridge is off there unless you switch it on (see [Letting an AI client reach a copy on a NAS or server](#letting-an-ai-client-reach-a-copy-on-a-nas-or-server)). To offer a shared project folder, bind a writable directory and set `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` to the path inside the container where it is mounted, for example `./shared-projects:/shared-projects` with `LAYERLING_SHARED_PROJECTS_DIR: "/shared-projects"` (see [Shared Designs on a Network](#shared-designs-on-a-network)). After changing it, run `docker compose up -d`: `docker compose restart` keeps the old setting. `docker exec <container> printenv LAYERLING_SHARED_PROJECTS_DIR` shows the one in use.
 
 ### Shared Designs on a Network
 
@@ -312,7 +312,8 @@ layerling includes a local MCP server for AI clients that support MCP tools. It 
 editor tab: list open editors, read the scene, create, update and select objects, group, cut and separate parts, list CAD
 edge ids, apply chamfer or fillet, hollow a body, inspect errors and capture viewport images.
 
-It only works against a local development server: the MCP route is disabled in production builds and static hosting.
+It works against a local development server. In production builds and static hosting the MCP route is disabled, unless the
+server switches it on with an access token ([see below](#letting-an-ai-client-reach-a-copy-on-a-nas-or-server)); on layerling.com it is always off.
 
 1. Start layerling from the project folder with `npm run dev` (see [Install and Run](#install-and-run)).
 2. Open an editor tab, e.g. `http://127.0.0.1:3000/?editor=1`.
@@ -367,6 +368,31 @@ as the template and replacing the script path with the absolute path on your mac
 ```text
 Use $layerling-mcp-skill to list my open layerling editors and inspect the current scene.
 ```
+
+### Letting an AI client reach a copy on a NAS or server
+
+A copy you host yourself (the Docker image on a NAS, a home server) can let an AI client drive its open editors over the
+network. It is **off by default**, because whoever can drive the bridge can read and change the open designs. Switch it
+on with two settings on the server, read when it starts - the ready-made image needs no rebuild:
+
+```yaml
+environment:
+  LAYERLING_MCP_REMOTE: "true"
+  LAYERLING_MCP_TOKEN: "a-long-random-secret-of-at-least-16-characters"
+```
+
+Without a token of at least 16 characters the bridge stays closed. Then:
+
+1. Open an editor tab of that copy in a browser, e.g. `http://nas:3000/?editor=1`, and keep it open.
+2. Give the MCP client the address and the same token: set `LAYERLING_URL=http://nas:3000` and
+   `LAYERLING_MCP_TOKEN=<the token>` in its configuration (see the examples in `docs/mcp`).
+
+The token protects the commands: only a client that sends it can list or drive the editors. The editor pages need none,
+but they only count when they are pages of that copy, opened by an address or a name that only someone in your own
+network can use (an IP address, a name without a dot, or one ending in `.local` or `.lan`). This keeps a web page on the
+internet from reaching your NAS through your browser. If you open the copy under a real domain, for example behind a
+reverse proxy, list it in `LAYERLING_MCP_ALLOWED_HOSTS` (comma-separated). Use this on a network you trust, and use HTTPS
+for anything beyond it: the token travels in a header.
 
 ## Contributing
 

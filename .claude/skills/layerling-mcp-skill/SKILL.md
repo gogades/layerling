@@ -23,7 +23,7 @@ npm run dev
 node scripts/layerling-mcp-server.mjs
 ```
 
-The MCP server talks to the app through `/api/layerling-mcp`. Open editor tabs heartbeat into that route and receive commands from it. Production and static builds intentionally return 404 for the MCP route.
+The MCP server talks to the app through `/api/layerling-mcp`. Open editor tabs heartbeat into that route and receive commands from it. Production and static builds return 404 for the MCP route, unless the server of a self-hosted copy (a NAS, the Docker image) switched it on with `LAYERLING_MCP_REMOTE=true` and `LAYERLING_MCP_TOKEN` (at least 16 characters); then the MCP client needs `LAYERLING_URL` and the same `LAYERLING_MCP_TOKEN`, and an editor tab of that copy must be open.
 
 ## Client Compatibility
 

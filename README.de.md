@@ -199,7 +199,7 @@ Befehle im Alltag:
 - **Wieder starten:** `docker compose -f docker/compose.yml up -d`
 - **Aktualisieren** (nach `git pull` oder neuem ZIP): `docker compose -f docker/compose.yml up -d --build`; mit dem fertigen Image `docker compose -f docker/compose.yml pull` und danach `up -d`
 
-Das Image führt `next start` im Produktionsmodus aus, die MCP-Brücke steht dort also nicht zur Verfügung. Für einen
+Das Image führt `next start` im Produktionsmodus aus, die MCP-Brücke ist dort also aus, solange du sie nicht einschaltest (siehe [Eine KI an eine Kopie auf NAS oder Server lassen](#eine-ki-an-eine-kopie-auf-nas-oder-server-lassen)). Für einen
 gemeinsamen Projektordner ein beschreibbares Verzeichnis einbinden und in `compose.yml` `LAYERLING_SHARED_PROJECTS_DIR`
 auf den Pfad im Container setzen, an dem es eingebunden ist, etwa `./shared-projects:/shared-projects` mit
 `LAYERLING_SHARED_PROJECTS_DIR: "/shared-projects"` (siehe [Gemeinsame Entwürfe im Netz](#gemeinsame-entwürfe-im-netz)).
@@ -326,8 +326,9 @@ laufenden Editor-Tab untersuchen und steuern: offene Editoren auflisten, die Sze
 auswählen, Teile gruppieren, schneiden und trennen, CAD-Kanten-IDs auflisten, Kanten fasen oder verrunden, Körper
 aushöhlen, Fehler einsehen und Bilder der Ansicht aufnehmen.
 
-Das funktioniert nur mit einem lokalen Entwicklungsserver: In Produktions-Builds und beim statischen Hosting ist die
-MCP-Route abgeschaltet.
+Das funktioniert mit einem lokalen Entwicklungsserver. In Produktions-Builds und beim statischen Hosting ist die
+MCP-Route abgeschaltet, es sei denn, der Server schaltet sie mit einem Zugriffsschlüssel ein
+([siehe unten](#eine-ki-an-eine-kopie-auf-nas-oder-server-lassen)); auf layerling.com ist sie immer aus.
 
 1. layerling im Projektordner mit `npm run dev` starten (siehe [Installieren und starten](#installieren-und-starten)).
 2. Einen Editor-Tab öffnen, z. B. `http://127.0.0.1:3000/?editor=1`.
@@ -384,6 +385,33 @@ Pfad auf deinem Rechner ersetzt. Codex neu starten und bitten:
 ```text
 Use $layerling-mcp-skill to list my open layerling editors and inspect the current scene.
 ```
+
+### Eine KI an eine Kopie auf NAS oder Server lassen
+
+Eine Kopie, die du selbst betreibst (das Docker-Image auf einer NAS, ein Heimserver), kann einen KI-Client ihre offenen
+Editoren übers Netz steuern lassen. Das ist **standardmäßig aus**, denn wer die Brücke steuern kann, kann die offenen
+Entwürfe lesen und ändern. Mit zwei Einstellungen auf dem Server schaltest du es ein, sie werden beim Start gelesen - das
+fertige Image braucht keinen Neubau:
+
+```yaml
+environment:
+  LAYERLING_MCP_REMOTE: "true"
+  LAYERLING_MCP_TOKEN: "ein-langes-zufaelliges-geheimnis-mit-mindestens-16-zeichen"
+```
+
+Ohne Schlüssel von mindestens 16 Zeichen bleibt die Brücke zu. Dann:
+
+1. Einen Editor-Tab dieser Kopie im Browser öffnen, z. B. `http://nas:3000/?editor=1`, und offen lassen.
+2. Dem MCP-Client Adresse und denselben Schlüssel geben: `LAYERLING_URL=http://nas:3000` und
+   `LAYERLING_MCP_TOKEN=<der Schlüssel>` in seiner Konfiguration (Beispiele in `docs/mcp`).
+
+Der Schlüssel schützt die Befehle: Nur ein Client, der ihn mitschickt, kann die Editoren auflisten oder steuern. Die
+Editor-Seiten brauchen keinen, zählen aber nur, wenn sie Seiten dieser Kopie sind und unter einer Adresse oder einem Namen
+geöffnet wurden, den nur jemand in deinem eigenen Netz benutzen kann (eine IP-Adresse, ein Name ohne Punkt oder einer
+auf `.local` oder `.lan`). So kann keine Webseite im Internet über deinen Browser an die NAS gelangen. Öffnest du die
+Kopie unter einer echten Domain, etwa hinter einem Reverse-Proxy, trägst du sie in `LAYERLING_MCP_ALLOWED_HOSTS` ein
+(durch Kommas getrennt). Nutze das in einem Netz, dem du vertraust, und HTTPS für alles darüber hinaus: Der Schlüssel
+wandert in einem Kopfzeilenfeld mit.
 
 ## Mitmachen
 
