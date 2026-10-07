@@ -546,6 +546,87 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   color: var(--group-color, var(--toolbar-icon));
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new {
+  color: #414141;
+  background: #f7f7f7;
+  border: 1px solid #d4d4d4;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-icon {
+  color: #bf6508;
+  background: #e8e8e8;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-close {
+  color: #717171;
+  background: transparent;
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-close:hover {
+  color: #414141;
+  background: #e6e6e6;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-version h2 {
+  color: #bf6508;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-version li span {
+  color: #595959;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-older {
+  color: #595959;
+  background: transparent;
+  border: 1px solid #c9c9c9;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-older:hover {
+  background: #e6e6e6;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-done {
+  color: #ffffff;
+  background: #bf6508;
+  border: 0;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-done:hover {
+  background: #a95805;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new {
+  color: #ebebeb;
+  background: var(--panel);
+  border-color: #4a4a4a;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-icon {
+  color: #f3a452;
+  background: #2d2d2d;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-version h2 {
+  color: #f3a452;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-version li span,
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-close,
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older {
+  color: #929292;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older {
+  border-color: #4a4a4a;
+}
+
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-close:hover,
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older:hover {
+  color: #ebebeb;
+  background: #2d2d2d;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .dashboard-action-tile {
   color: #414141;
   background: #ffffff;

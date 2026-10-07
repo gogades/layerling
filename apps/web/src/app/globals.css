@@ -1742,6 +1742,171 @@ button {
   color: var(--group-color, var(--toolbar-icon));
 }
 
+/* "New since your last visit": a card on the start page, in the warm tones of
+   the other hints and in the theme colours on the dark ground. */
+.whats-new {
+  display: grid;
+  gap: 10px;
+  margin: -8px 0 22px;
+  padding: 14px 16px;
+  color: #573f26;
+  background: #fff8ee;
+  border: 1px solid #f0d9b8;
+  border-radius: 10px;
+}
+
+.whats-new-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.whats-new-header strong {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.whats-new-icon {
+  display: grid;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #bf6508;
+  background: #fdebd3;
+  border-radius: 9px;
+}
+
+.whats-new-close {
+  display: grid;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: #96816a;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.whats-new-close:hover {
+  color: #573f26;
+  background: #f6e9d6;
+}
+
+.whats-new-body {
+  display: grid;
+  gap: 12px;
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}
+
+.whats-new-version h2 {
+  margin: 0 0 6px;
+  color: #bf6508;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.whats-new-version ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.whats-new-version li {
+  display: grid;
+  gap: 2px;
+}
+
+.whats-new-version li strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.whats-new-version li span {
+  color: #7a6650;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.whats-new-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.whats-new-older {
+  padding: 7px 12px;
+  color: #7a6650;
+  font-size: 13px;
+  font-weight: 700;
+  background: transparent;
+  border: 1px solid #e3cfae;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.whats-new-older:hover {
+  background: #f6e9d6;
+}
+
+.whats-new-done {
+  padding: 8px 16px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  background: #bf6508;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.whats-new-done:hover {
+  background: #a95805;
+}
+
+html[data-theme="dark"] .whats-new {
+  color: #f3ede3;
+  background: var(--panel);
+  border-color: #6a4a26;
+}
+
+html[data-theme="dark"] .whats-new-icon {
+  color: #f3a452;
+  background: #3a2c16;
+}
+
+html[data-theme="dark"] .whats-new-version h2 {
+  color: #f3a452;
+}
+
+html[data-theme="dark"] .whats-new-version li span,
+html[data-theme="dark"] .whats-new-close,
+html[data-theme="dark"] .whats-new-older {
+  color: #bda78e;
+}
+
+html[data-theme="dark"] .whats-new-older {
+  border-color: #6a4a26;
+}
+
+html[data-theme="dark"] .whats-new-close:hover,
+html[data-theme="dark"] .whats-new-older:hover {
+  color: #f3ede3;
+  background: #3a2c16;
+}
+
 .dashboard-action-tile {
   display: flex;
   min-width: 0;

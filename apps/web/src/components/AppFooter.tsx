@@ -6,6 +6,7 @@ import { t, type Language } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { SOURCE_CODE_URL, type AppUpdateInfo } from "@/lib/appUpdate";
 import { useAppUpdate } from "@/lib/useAppUpdate";
+import { SHOW_WHATS_NEW_EVENT } from "@/lib/useWhatsNew";
 import { SupportNudge } from "@/components/SupportNudge";
 import { supportCardEnabled, supportLink, type SupportSettings } from "@/lib/supportLink";
 
@@ -170,6 +171,20 @@ export function AppFooter({
           <a href={readmeUrl(language)} target="_blank" rel="noreferrer" key="readme">
             {t("dashboard.projectOnGitHub")}
           </a>,
+          // Only on the start page, where the list is shown.
+          variant === "dashboard" ? (
+            <a
+              href="#"
+              role="button"
+              key="whats-new"
+              onClick={(event) => {
+                event.preventDefault();
+                window.dispatchEvent(new Event(SHOW_WHATS_NEW_EVENT));
+              }}
+            >
+              {t("whatsNew.footerLink")}
+            </a>
+          ) : null,
           <a href={releaseNotesUrl()} target="_blank" rel="noreferrer" key="releases">
             {t("dashboard.releaseNotes", { version })}
           </a>,
