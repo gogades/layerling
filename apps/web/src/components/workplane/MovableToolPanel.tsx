@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel";
 
 /**
@@ -20,19 +20,32 @@ export type MovableHandleProps = ReturnType<typeof useMovablePanel>["handleProps
 export function MovableToolPanel({
   className,
   ariaLabel,
+  focusOnOpen = false,
   children,
 }: {
   className: string;
   ariaLabel: string;
+  /** The panel takes the keyboard focus when it opens and gives it back when it closes. */
+  focusOnOpen?: boolean;
   /** Bekommt die Griffe fuer die Titelleiste. */
   children: (handleProps: MovableHandleProps) => ReactNode;
 }) {
   const movable = useMovablePanel<HTMLElement>("layerling.editor.toolPanelPosition", TOOL_PANEL);
+  const { panelRef } = movable;
+  useEffect(() => {
+    if (!focusOnOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panelRef.current?.focus({ preventScroll: true });
+    return () => {
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+    };
+  }, [focusOnOpen, panelRef]);
   return (
     <aside
       ref={movable.panelRef}
       className={`${className} ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
       style={movable.style}
+      tabIndex={focusOnOpen ? -1 : undefined}
       aria-label={ariaLabel}
     >
       {children(movable.handleProps)}

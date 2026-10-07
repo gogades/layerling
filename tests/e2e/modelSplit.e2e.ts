@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import Module from "manifold-3d";
-import { unionSplitManifoldComponents, type ManifoldSolid } from "@/lib/manifoldSplit";
+import { dropSplitSlivers, unionSplitManifoldComponents, type ManifoldSolid } from "@/lib/manifoldSplit";
 
 function dispose(values: unknown[]) {
   Array.from(new Set(values)).forEach((value) => (value as { delete?: () => void })?.delete?.());
@@ -120,6 +120,78 @@ describe("model split topology (real Manifold kernel)", () => {
     created.push(...normalized.created);
     // The post adds the 7 mm outside the wall; a filled cavity would add 4096 more.
     expect(normalized.solid?.volume()).toBeCloseTo(3_904 + 4 * 4 * 7, 5);
+    dispose(created);
+  });
+
+  it("drops the flat skin a cut lying on a face leaves behind", async () => {
+    const runtime = await Module();
+    runtime.setup();
+    // An L: a 40 wide base 10 high, with a 10 wide tower up to 20 on its left.
+    const base = runtime.Manifold.cube([40, 10, 20], false);
+    const tower = runtime.Manifold.cube([10, 20, 20], false);
+    const shape = runtime.Manifold.union([base, tower]);
+    const created: ManifoldSolid[] = [base, tower, shape];
+    // Exactly on the step, and a picked point's float noise below it.
+    for (const position of [10, 10 - 1e-13]) {
+      const [top, bottom] = shape.splitByPlane([0, 1, 0], position);
+      created.push(top, bottom);
+      const topComponents = top.decompose();
+      created.push(...topComponents);
+      expect(topComponents.length).toBe(2);
+      const trimmed = dropSplitSlivers(runtime, top);
+      created.push(...trimmed.created);
+      expect(trimmed.solid?.decompose().length).toBe(1);
+      expect(trimmed.solid?.volume()).toBeCloseTo(2_000, 5);
+      const kept = dropSplitSlivers(runtime, bottom);
+      created.push(...kept.created);
+      expect(kept.solid).toBe(bottom);
+    }
+    dispose(created);
+  });
+
+  it("keeps a cut half's cavity when dropping skins", async () => {
+    const runtime = await Module();
+    runtime.setup();
+    const outer = runtime.Manifold.cube([20, 20, 20], true);
+    const inner = runtime.Manifold.cube([16, 16, 16], true);
+    const hollow = outer.subtract(inner);
+    // On the cavity's floor: the skin goes, the wall and cavity above stay.
+    const [top, bottom] = hollow.splitByPlane([0, 1, 0], -8);
+    const created: ManifoldSolid[] = [outer, inner, hollow, top, bottom];
+    const trimmedTop = dropSplitSlivers(runtime, top);
+    const trimmedBottom = dropSplitSlivers(runtime, bottom);
+    created.push(...trimmedTop.created, ...trimmedBottom.created);
+    expect(trimmedTop.solid?.volume()).toBeCloseTo(20 * 20 * 18 - 4_096, 5);
+    expect(trimmedBottom.solid?.volume()).toBeCloseTo(20 * 20 * 2, 5);
+    dispose(created);
+  });
+  it("cuts a pile of overlapping shells correctly only after the shells are joined", async () => {
+    const runtime = await Module();
+    runtime.setup();
+    // What a group of solids hands to the kernel: the surfaces of its parts in one
+    // mesh. Two 20 mm cubes, one standing 10 mm inside the other, a third lying exactly on the first.
+    const cubes = [[0, 0], [10, 0], [0, 0]].map(([x, z]) => runtime.Manifold.cube([20, 20, 20], false).translate([x, 0, z]));
+    const meshes = cubes.map((cube) => cube.getMesh());
+    const vertProperties: number[] = [];
+    const triVerts: number[] = [];
+    meshes.forEach((mesh) => {
+      const offset = vertProperties.length / 3;
+      vertProperties.push(...Array.from(mesh.vertProperties));
+      triVerts.push(...Array.from(mesh.triVerts).map((index) => index + offset));
+    });
+    const pile = new runtime.Mesh({ numProp: 3, vertProperties: Float32Array.from(vertProperties), triVerts: Uint32Array.from(triVerts) });
+    const solid = runtime.Manifold.ofMesh(pile);
+    const cutter = runtime.Manifold.cube([40, 40, 40], false).translate([15, -5, -5]);
+    const created: ManifoldSolid[] = [...cubes, solid, cutter];
+
+    const normalized = unionSplitManifoldComponents(runtime, solid);
+    created.push(...normalized.created);
+    expect(normalized.solid).not.toBeNull();
+    const cut = normalized.solid!.subtract(cutter);
+    created.push(cut);
+    // The union of the cubes is 30 x 20 x 20 = 12 000; the cutter takes everything right of x = 15.
+    expect(cut.volume()).toBeCloseTo(15 * 20 * 20, 5);
+    expect(cut.decompose().length).toBe(1);
     dispose(created);
   });
 });

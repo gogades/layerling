@@ -62,14 +62,23 @@ if [ -z "$LAYERLING_UPDATED" ] && [ -d .git ] && command -v git >/dev/null 2>&1;
     git checkout -- package-lock.json 2>/dev/null
     echo "Checking for updates..."
     before=$(git rev-parse HEAD)
-    if git pull --ff-only --quiet; then
+    pulled=
+    git pull --ff-only --quiet && pulled=1
+    if [ -z "$pulled" ]; then
+      # A short gap in the network, right after the computer starts or wakes up, is
+      # the usual reason: wait a moment and try once more before giving up.
+      echo "The update could not be fetched - trying once more in 5 seconds..."
+      sleep 5
+      git pull --ff-only --quiet && pulled=1
+    fi
+    if [ -n "$pulled" ]; then
       if [ "$before" != "$(git rev-parse HEAD)" ]; then
         echo "layerling was updated. Installing dependencies..."
         npm install --no-save || exit 1
         LAYERLING_UPDATED=1 exec sh "$self"
       fi
     else
-      echo "The update could not be fetched - continuing with the version that is already here."
+      echo "The update could not be fetched - check your internet connection. Continuing with the version that is already here."
     fi
   fi
 fi

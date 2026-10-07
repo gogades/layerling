@@ -1,10 +1,11 @@
 "use client";
 
-import { Check, LoaderCircle, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Check, LoaderCircle, MousePointerClick, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { displayStepFromMillimeters, displayToMillimeters, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseMeasurementInput } from "@/lib/measurementUnits";
 import { SPLIT_AXIS_DISPLAY_ORDER, splitAxisLabel, splitRotationAxes, type SplitRotation } from "@/lib/modelSplit";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
+import { MovableToolPanel } from "@/components/workplane/MovableToolPanel";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { selectWholeValue } from "@/lib/numberField";
@@ -20,6 +21,8 @@ export function SplitPanel({
   workspace,
   busy,
   error,
+  picking,
+  onPickToggle,
   onAxisChange,
   onRotationChange,
   onPositionChange,
@@ -35,6 +38,9 @@ export function SplitPanel({
   workspace: WorkplaneWorkspaceSettings;
   busy: boolean;
   error: string | null;
+  /** The next click on a face moves the plane there. */
+  picking: boolean;
+  onPickToggle: () => void;
   onAxisChange: (axis: AlignAxis) => void;
   onRotationChange: (index: 0 | 1, rotation: number) => void;
   onPositionChange: (position: number) => void;
@@ -42,7 +48,6 @@ export function SplitPanel({
   onCancel: () => void;
 }) {
   useLanguage();
-  const panelRef = useRef<HTMLElement | null>(null);
   const displayPosition = millimetersToDisplay(position, workspace);
   const displayMin = millimetersToDisplay(min, workspace);
   const displayMax = millimetersToDisplay(max, workspace);
@@ -58,13 +63,6 @@ export function SplitPanel({
   useEffect(() => {
     if (!positionEditing) setPositionDraft(formattedPosition);
   }, [formattedPosition, positionEditing]);
-  useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    panelRef.current?.focus({ preventScroll: true });
-    return () => {
-      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
-    };
-  }, []);
   const commitPositionDraft = () => {
     const value = parseMeasurementInput(positionDraft);
     if (Number.isFinite(value)) applyDisplayPosition(value);
@@ -72,8 +70,9 @@ export function SplitPanel({
   };
 
   return (
-    <aside className="split-panel" ref={panelRef} tabIndex={-1} aria-labelledby="split-panel-title">
-      <div className="split-panel-header">
+    <MovableToolPanel className="split-panel" ariaLabel={t("split.title")} focusOnOpen>
+      {(handleProps) => (<>
+      <div className="split-panel-header movable" title={t("panel.moveHint")} {...handleProps}>
         <div>
           <strong id="split-panel-title">{t("split.title")}</strong>
           <span>{t("split.subtitle")}</span>
@@ -138,6 +137,17 @@ export function SplitPanel({
               }}
             />
             <small id="split-position-unit">{unit}</small>
+            <button
+              type="button"
+              className={`split-position-pick ${picking ? "active" : ""}`}
+              aria-pressed={picking}
+              aria-label={t("split.pickFace")}
+              title={t("split.pickFaceHint")}
+              disabled={busy}
+              onClick={onPickToggle}
+            >
+              <MousePointerClick size={17} />
+            </button>
           </span>
         </span>
         <input
@@ -173,7 +183,8 @@ export function SplitPanel({
           {busy ? t("split.applying") : t("split.apply")}
         </button>
       </div>
-    </aside>
+      </>)}
+    </MovableToolPanel>
   );
 }
 

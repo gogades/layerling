@@ -687,6 +687,19 @@ describe("layerling .lyl project packages", () => {
     expect(restored.history[restored.historyIndex].notes).toEqual([pinned, free]);
   });
 
+  it("carries a reference point through a round trip next to a note", async () => {
+    const note = { id: "note-1", text: "Hier", x: 1, y: 2, z: 3 };
+    const point = { id: "note-2", text: "", x: 10, y: 8, z: -20, kind: "point" as const };
+    const shapes = [shape("box")];
+    const exported = await exportLylProject(input(shapes, {
+      notes: [note, point],
+      history: [editorHistoryEntry(shapes, [], [note, point])],
+    }));
+    const restored = await importLylProject(exported);
+    expect(restored.notes).toEqual([note, point]);
+    expect(restored.history[restored.historyIndex].notes).toEqual([note, point]);
+  });
+
   it("writes no note field into a design that has none", async () => {
     const { document } = packageDocument(await exportLylProject(input([shape("box")])));
     expect(document.states[0]).not.toHaveProperty("notes");

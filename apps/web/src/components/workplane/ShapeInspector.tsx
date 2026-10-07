@@ -151,8 +151,8 @@ import {
   springWireLimits,
 } from "@/lib/springGeometry";
 import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
-import { DEFAULT_TAPER_DIMENSION_MAX, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, shapeDimensionLimit, snapGridOptionsForUnits } from "@/lib/workplaneSettings";
-import type { BentTubeInnerProfile, BentTubeProfile, GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import { DEFAULT_TAPER_DIMENSION_MAX, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, customSnapGridLabel, shapeDimensionLimit, snapGridOptions } from "@/lib/workplaneSettings";
+import type { BentTubeInnerProfile, BentTubeProfile, CustomSnapGrid, GearType, GridSize, MeasurementAccuracy, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 import { useRecentColors } from "@/lib/recentColors";
 
@@ -1494,6 +1494,9 @@ export function ShapeInspector({
   onWrapAroundCylinder,
   onInteractionActiveChange,
   onSnapGridAwayChange,
+  proportionLock = false,
+  onProportionLockChange,
+  onBentTubeSegmentChange,
 }: {
   shape: WorkplaneShape;
   snap: GridSize;
@@ -1514,6 +1517,11 @@ export function ShapeInspector({
   /** The snap control lives in the expanded panel; collapsed, the workplane shows its own. */
   /** Called with true while the inspector does not carry the snap grid control (collapsed, or floating), so the workplane shows it. */
   onSnapGridAwayChange?: (away: boolean) => void;
+  /** With the lock on, changing one of width, depth and height scales the other two by the same factor. */
+  proportionLock?: boolean;
+  onProportionLockChange?: (locked: boolean) => void;
+  /** The segment the bent tube's settings are about, or null when none is shown; the workplane lights it up on the tube. */
+  onBentTubeSegmentChange?: (shapeId: string, segment: number | null) => void;
 }) {
   useLanguage();
   const solidColor = shape.color;
@@ -1903,6 +1911,14 @@ export function ShapeInspector({
                 onChange={threadHeadProperty.onChange}
               />
             ) : null}
+            {onProportionLockChange && primaryProperties.some((property) => property.id === "height") && primaryProperties.some((property) => ["width", "length", "diameter"].includes(property.id)) ? (
+              <ToggleProperty
+                label={t("inspector.keepProportions")}
+                value={proportionLock}
+                disabled={locked}
+                onChange={onProportionLockChange}
+              />
+            ) : null}
             <ShapePropertyRows properties={primaryProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
           </div>
         ) : null}
@@ -1931,6 +1947,7 @@ export function ShapeInspector({
           locked={locked}
           onUpdate={onUpdate}
           onInteractionActiveChange={onInteractionActiveChange}
+          onSegmentChange={onBentTubeSegmentChange}
         />
       ) : null}
       {!shapeIgnoresTaper ? (
@@ -2030,7 +2047,7 @@ export function ShapeInspector({
       ) : null}
       {!movable.moved ? (
         <div className="inspector-snap-dock">
-          <SnapGridControl units={workspace.units} snap={snap} snapOpen={snapOpen} onSnapChange={onSnapChange} onSnapOpenChange={onSnapOpenChange} objectSnap={workspace.objectSnap} onObjectSnapChange={onObjectSnapChange} />
+          <SnapGridControl units={workspace.units} customGrids={workspace.customSnapGrids} snap={snap} snapOpen={snapOpen} onSnapChange={onSnapChange} onSnapOpenChange={onSnapOpenChange} objectSnap={workspace.objectSnap} onObjectSnapChange={onObjectSnapChange} />
         </div>
       ) : null}
         </>
@@ -2114,12 +2131,14 @@ function BentTubeSegmentsCard({
   locked,
   onUpdate,
   onInteractionActiveChange,
+  onSegmentChange,
 }: {
   shape: WorkplaneShape;
   workspace: WorkplaneWorkspaceSettings;
   locked: boolean;
   onUpdate: ShapeInspectorUpdate;
   onInteractionActiveChange?: (active: boolean) => void;
+  onSegmentChange?: (shapeId: string, segment: number | null) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [selected, setSelected] = useState(0);
@@ -2135,6 +2154,13 @@ function BentTubeSegmentsCard({
   }, [selfIntersectionKey]);
 
   useEffect(() => setSelected(0), [shape.id]);
+
+  // While the card is open, the chosen segment is lit up on the tube itself.
+  const shapeId = shape.id;
+  useEffect(() => {
+    onSegmentChange?.(shapeId, open ? index : null);
+    return () => onSegmentChange?.(shapeId, null);
+  }, [index, onSegmentChange, open, shapeId]);
 
   const writeSegments = (next: typeof segments) => onUpdate(bentTubeParameterPatch(shape, { bentTubeSegments: next }));
   const changeSegment = (changes: Partial<(typeof segments)[number]>) => {
@@ -2261,6 +2287,7 @@ function ShapePropertyRows({
 
 export function SnapGridControl({
   units,
+  customGrids,
   snap,
   snapOpen,
   onSnapChange,
@@ -2269,6 +2296,8 @@ export function SnapGridControl({
   onObjectSnapChange,
 }: {
   units: string;
+  /** The user's own snap measures, listed after the fixed steps. */
+  customGrids?: CustomSnapGrid[];
   snap: GridSize;
   snapOpen: boolean;
   onSnapChange: Dispatch<SetStateAction<GridSize>>;
@@ -2277,16 +2306,17 @@ export function SnapGridControl({
   objectSnap?: boolean;
   onObjectSnapChange?: (enabled: boolean) => void;
 }) {
+  const label = (size: GridSize) => customSnapGridLabel(size, customGrids) ?? measurementOptionLabel(size);
   return (
     <div className="snap-row">
       <span>{t("inspector.snapGrid")}</span>
       <button className="snap-select" onClick={() => onSnapOpenChange((value) => !value)}>
-        {measurementOptionLabel(snap)}
+        <span className="snap-select-label">{label(snap)}</span>
         <ChevronDown size={12} fill="currentColor" />
       </button>
       {snapOpen ? (
         <div className="snap-menu">
-          {snapGridOptionsForUnits(units).map((size) => (
+          {snapGridOptions(units, customGrids).map((size) => (
             <button
               key={size}
               className={size === snap ? "selected" : ""}
@@ -2295,7 +2325,7 @@ export function SnapGridControl({
                 onSnapOpenChange(false);
               }}
             >
-              {measurementOptionLabel(size)}
+              {label(size)}
             </button>
           ))}
           {onObjectSnapChange ? (

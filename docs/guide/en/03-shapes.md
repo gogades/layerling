@@ -73,7 +73,7 @@ Round shapes such as cylinder, cone, tube, ellipse or the bores have the switch 
 
 Besides the settings there are handles on the shape itself:
 
-- The **corners and edges** make the shape larger or smaller. Hold [[Shift]] while dragging a corner to scale width, depth and height together and keep the proportions; hold [[Alt]] to scale from the center instead of the opposite corner.
+- The **corners and edges** make the shape larger or smaller. Hold [[Shift]] while dragging a corner to scale width, depth and height together and keep the proportions; hold [[Alt]] to scale from the center instead of the opposite corner. Without a keyboard, or if you do not want to hold a key, switch on {{ui:inspector.keepProportions}} at the top of the properties: then the corners always keep the proportions, and typing one of width, depth or height scales the other two by the same factor. The setting is remembered.
 - The **arrow on top** changes the height, the handle **in the middle** lifts or lowers the shape.
 - The **curved arrows** rotate it.
 - The **numbers** beside the shape show the dimensions. A click on one opens a field in which you type the number you want.

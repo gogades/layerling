@@ -15,6 +15,29 @@ export type PivotPoint = { x: number; y: number; z: number };
  * point next to the click. Returns null for a degenerate hit triangle.
  */
 export function planarFaceCentroid(positions: ArrayLike<number>, hitTriangle: number): PivotPoint | null {
+  const face = planarFaceTriangles(positions, hitTriangle);
+  if (!face) return null;
+  let weight = 0;
+  let cx = 0;
+  let cy = 0;
+  let cz = 0;
+  face.triangles.forEach((triangle) => {
+    const o = triangle * 9;
+    const area = face.areas[triangle];
+    weight += area;
+    cx += area * (positions[o] + positions[o + 3] + positions[o + 6]) / 3;
+    cy += area * (positions[o + 1] + positions[o + 4] + positions[o + 7]) / 3;
+    cz += area * (positions[o + 2] + positions[o + 5] + positions[o + 8]) / 3;
+  });
+  return { x: cx / weight, y: cy / weight, z: cz / weight };
+}
+
+/**
+ * The triangles of the flat face a triangle belongs to: every triangle in the
+ * same plane that is connected to it through shared corners. `areas` holds
+ * the area of every triangle of the mesh, indexed like `positions`.
+ */
+export function planarFaceTriangles(positions: ArrayLike<number>, hitTriangle: number): { triangles: number[]; areas: Float64Array } | null {
   const triangleCount = Math.floor(positions.length / 9);
   if (hitTriangle < 0 || hitTriangle >= triangleCount) {
     return null;
@@ -98,18 +121,10 @@ export function planarFaceCentroid(positions: ArrayLike<number>, hitTriangle: nu
 
   const visited = new Set<number>([hitTriangle]);
   const queue = [hitTriangle];
-  let weight = 0;
-  let cx = 0;
-  let cy = 0;
-  let cz = 0;
+  const triangles: number[] = [];
   while (queue.length > 0) {
     const triangle = queue.pop() as number;
-    const o = triangle * 9;
-    const area = areas[triangle];
-    weight += area;
-    cx += area * (positions[o] + positions[o + 3] + positions[o + 6]) / 3;
-    cy += area * (positions[o + 1] + positions[o + 4] + positions[o + 7]) / 3;
-    cz += area * (positions[o + 2] + positions[o + 5] + positions[o + 8]) / 3;
+    triangles.push(triangle);
     for (let corner = 0; corner < 3; corner += 1) {
       trianglesAtCorner.get(cornerKey(triangle, corner))?.forEach((neighbour) => {
         if (!visited.has(neighbour)) {
@@ -120,5 +135,5 @@ export function planarFaceCentroid(positions: ArrayLike<number>, hitTriangle: nu
     }
   }
 
-  return { x: cx / weight, y: cy / weight, z: cz / weight };
+  return { triangles, areas };
 }

@@ -76,6 +76,11 @@ function guideSections(sharedStore: boolean): GuideSection[] {
       ],
     },
     {
+      title: "guide.group.search",
+      chapter: "shortcuts",
+      lines: ["guide.search.palette"],
+    },
+    {
       title: "guide.group.settings",
       chapter: "view",
       lines: ["guide.settings.workspace", "guide.settings.language"],

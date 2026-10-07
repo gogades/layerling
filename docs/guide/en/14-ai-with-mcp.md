@@ -62,6 +62,9 @@ The AI works with the same functions as you, through the same path as your opera
 | `layerling_measure_section` | measures on a cutting plane between two points that snap to the outline - wall thickness, gaps, fits |
 | `layerling_show_overhangs` | switches the overhang hatching on or off, sets the angle and reports for each body the area that would need supports |
 | `layerling_estimate_print` | estimates volume, weight and filament for the selection or the whole design, worked out as solid like the export window |
+| `layerling_add_reference_points` | marks reference points - on the centre, corners or edge middles of objects, or at exact positions - that shapes snap to |
+| `layerling_list_reference_points` | lists the reference points with their ids and positions |
+| `layerling_remove_reference_points` | deletes reference points by id, or all of them |
 | `layerling_inspect_errors` | shows the last message and the last error, plus the messages and errors of the session |
 | `layerling_wrap_around_cylinder` | wraps a body lying flat, an SVG or text for example, around a cylinder, outward or inward as an engraving |
 | `layerling_simplify_mesh` | reduces the triangle count of an imported mesh, to a share in percent or to a number of triangles |

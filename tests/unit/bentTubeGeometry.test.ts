@@ -13,6 +13,7 @@ import {
   bentTubeWallLimits,
   buildBentTubeMesh,
   createBentTubeGeometry,
+  createBentTubeSegmentGeometry,
   minBentTubeBendRadius,
   normalizeBentTubeSegments,
   normalizedBentTubeFields,
@@ -576,3 +577,39 @@ describe("bent tube editing", () => {
     [tube, block, cut, plate, pierced, copy, union, drill, drilled].forEach((entry) => entry.delete());
   });
 });
+
+describe("bent tube segment highlight", () => {
+  const segments: BentTubeSegment[] = [
+    { length: 20, bendAngle: 90, bendRadius: 15, roll: 0 },
+    { length: 30, bendAngle: 0, bendRadius: 15, roll: 0 },
+  ];
+  const fields: BentTubeShapeFields = { bentTubeProfile: "round", bentTubeInnerProfile: "none", bentTubeSize: 10, bentTubeWall: 2, bentTubeQuality: 48, bentTubeSegments: segments };
+  const natural = bentTubeNaturalDimensions(fields);
+  const options = { ...fields, width: natural.width, depth: natural.depth, height: natural.height };
+  const boxOf = (geometry: THREE.BufferGeometry) => new THREE.Box3().setFromBufferAttribute(geometry.getAttribute("position") as THREE.BufferAttribute);
+
+  it("covers each segment and together the whole tube, a hair wider", () => {
+    const tube = createBentTubeGeometry(options);
+    const first = createBentTubeSegmentGeometry(options, 0);
+    const second = createBentTubeSegmentGeometry(options, 1);
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    const whole = boxOf(tube);
+    const joined = boxOf(first!).union(boxOf(second!));
+    expect(joined.min.distanceTo(whole.min)).toBeLessThan(0.8);
+    expect(joined.max.distanceTo(whole.max)).toBeLessThan(0.8);
+    // The straight piece is 30 mm long and the bend is not part of it.
+    const straight = boxOf(second!);
+    const longest = Math.max(straight.max.x - straight.min.x, straight.max.y - straight.min.y, straight.max.z - straight.min.z);
+    expect(longest).toBeGreaterThan(29.9);
+    expect(longest).toBeLessThan(31);
+  });
+
+  it("has nothing for a segment that does not exist or has no length and no bend", () => {
+    expect(createBentTubeSegmentGeometry(options, 2)).toBeNull();
+    expect(createBentTubeSegmentGeometry(options, -1)).toBeNull();
+    const empty = { ...options, bentTubeSegments: [...segments, { length: 0, bendAngle: 0, bendRadius: 15, roll: 0 }] };
+    expect(createBentTubeSegmentGeometry(empty, 2)).toBeNull();
+  });
+});
+

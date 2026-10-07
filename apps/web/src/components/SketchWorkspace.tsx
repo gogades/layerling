@@ -1646,7 +1646,7 @@ export function SketchWorkspace({
         </div>
       ) : null}
       <div className="grid-settings">
-        <SnapGridControl units={workspace.units} snap={snap} snapOpen={snapOpen} onSnapChange={setSnap} onSnapOpenChange={setSnapOpen} />
+        <SnapGridControl units={workspace.units} customGrids={workspace.customSnapGrids} snap={snap} snapOpen={snapOpen} onSnapChange={setSnap} onSnapOpenChange={setSnapOpen} />
       </div>
     </main>
   );

@@ -624,6 +624,47 @@ export const tools = [
     },
   },
   {
+    name: "layerling_add_reference_points",
+    description: "Mark reference points - bare marks in space that shapes snap to when they are dragged, like pencil marks and layout points in a workshop. They are not part of any body, are never printed or exported, and are saved with the design. Mark the centre, the four corners or the four edge middles of objects (on their top face), or pass exact positions with `points`. Points already marked are not added twice. Returns the new points with their ids; shapes can then be placed on them with layerling_update_object.",
+    inputSchema: {
+      ...editorTargetSchema,
+      properties: {
+        ...editorTargetSchema.properties,
+        ids: { type: "array", items: { type: "string" }, description: "Objects to mark. Left out: the selection." },
+        at: { type: "string", enum: ["center", "corners", "midpoints"], description: "Where on the objects' top face (their axis-parallel box, several objects as one): the centre, the four corners or the four edge middles. Default center." },
+        points: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              x: { type: "number", description: "Position along the plate's X, in mm." },
+              z: { type: "number", description: "Position along the plate's depth, in mm (the editor's Y)." },
+              elevation: { type: "number", description: "Height in mm, default 0." },
+            },
+            required: ["x", "z"],
+          },
+          description: "Exact positions instead of marking objects.",
+        },
+      },
+    },
+  },
+  {
+    name: "layerling_list_reference_points",
+    description: "List the reference points of the design: id, x, z and elevation in mm.",
+    inputSchema: { ...editorTargetSchema, properties: { ...editorTargetSchema.properties } },
+  },
+  {
+    name: "layerling_remove_reference_points",
+    description: "Delete reference points by id, or all of them when no ids are given.",
+    inputSchema: {
+      ...editorTargetSchema,
+      properties: {
+        ...editorTargetSchema.properties,
+        ids: { type: "array", items: { type: "string" }, description: "Points to delete. Left out: all reference points." },
+      },
+    },
+  },
+  {
     name: "layerling_show_workplane",
     description: "Show or hide the plate with its grid, labels and any workplane set on a face, like the eye over a grid in the editor's camera bar. Only the view changes: new shapes still land on the workplane, and nothing is saved with the design. Hide it before layerling_capture_image with view \"bottom\" to see the underside, for example with layerling_show_overhangs. Call without visible to read the state. Returns visible.",
     inputSchema: {
