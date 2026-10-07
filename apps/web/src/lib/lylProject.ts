@@ -1488,6 +1488,28 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
   return { document, assetById, stateById };
 }
 
+type ImportedMesh = NonNullable<WorkplaneShape["importedMesh"]>;
+
+// Undo states mostly reference the same few meshes. Handing every state the
+// same immutable mesh object - not just the same coordinate arrays - is what
+// lets the history fingerprint and the autosave encoder, which both remember
+// their work per object, do that work once instead of once per undo state.
+const sharedImportedMeshes = new WeakMap<object, Map<string, ImportedMesh>>();
+
+function sharedImportedMesh(decoded: object, reference: string, create: () => ImportedMesh) {
+  let byReference = sharedImportedMeshes.get(decoded);
+  if (!byReference) {
+    byReference = new Map();
+    sharedImportedMeshes.set(decoded, byReference);
+  }
+  let mesh = byReference.get(reference);
+  if (!mesh) {
+    mesh = create();
+    byReference.set(reference, mesh);
+  }
+  return mesh;
+}
+
 async function defaultSourceImporter(asset: ProjectAsset) {
   if (asset.sourceFormat === "stl") return importedShapeFromStl(asset.name, exactArrayBuffer(asset.bytes)).importedMesh as NonNullable<WorkplaneShape["importedMesh"]>;
   if (asset.sourceFormat === "obj") return importedShapeFromObj(asset.name, strFromU8(asset.bytes), true).importedMesh as NonNullable<WorkplaneShape["importedMesh"]>;
@@ -1560,7 +1582,7 @@ async function restoreShapeFromNode(
       sourceMeshCache.set(sourceAsset.id, promise);
     }
     const regenerated = await promise;
-    importedMesh = { ...regenerated, assetId: sourceAsset.id };
+    importedMesh = sharedImportedMesh(regenerated, sourceAsset.id, () => ({ ...regenerated, assetId: sourceAsset.id }));
   } else if (node.importedMesh?.meshAssetId) {
     const meshRecord = assetById.get(node.importedMesh.meshAssetId);
     if (!meshRecord) throw new Error(`Object '${node.objectId}' is missing its derived mesh`);
@@ -1570,15 +1592,16 @@ async function restoreShapeFromNode(
       derivedMeshCache.set(meshRecord.id, decoded);
     }
     const brepRecord = node.importedMesh.brepStepAssetId ? assetById.get(node.importedMesh.brepStepAssetId) : undefined;
-    importedMesh = {
+    const reference = node.importedMesh;
+    importedMesh = sharedImportedMesh(decoded, JSON.stringify(reference), () => ({
       ...decoded,
-      baseWidth: node.importedMesh.baseWidth,
-      baseDepth: node.importedMesh.baseDepth,
-      baseHeight: node.importedMesh.baseHeight,
-      triangleCount: node.importedMesh.triangleCount,
-      sourceFormat: node.importedMesh.sourceFormat,
+      baseWidth: reference.baseWidth,
+      baseDepth: reference.baseDepth,
+      baseHeight: reference.baseHeight,
+      triangleCount: reference.triangleCount,
+      sourceFormat: reference.sourceFormat,
       ...(brepRecord ? { brepStep: strFromU8(files[brepRecord.path]) } : {}),
-    };
+    }));
   }
 
   const groupedShapes = node.groupedShapeNodeIds?.length

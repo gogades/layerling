@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Clearer import and export symbols:** The two buttons in the Manage area, in the command search and in the import window showed a tray with an arrow down and an arrow up, which reads as "download" for both and was easy to mix up. They now show a model (a cube) with a diagonal arrow: toward the cube for Import, away from it for Export, with a small gap between arrow and cube. The diagonal also uses the full height of the ribbon, like the other symbols.
+
 ## 1.43.0
 
 - **New since your last visit:** When you open layerling again after an update, a card on the start page lists what has been added since you were last here: the newest version first, older ones behind a button, in the interface language. Closing it remembers the version; "What is new?" in the footer shows the latest additions again. The browser keeps the last version seen, nothing is sent anywhere, and a first-time visitor is told nothing. The list is written by hand with each release (`apps/web/src/lib/whatsNew.ts`), a few lines for what users can do now.

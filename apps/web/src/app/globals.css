@@ -9153,6 +9153,322 @@ html[data-theme="dark"] .inspector-bundle-note {
   color-scheme: light;
 }
 
+/* Simplify mesh: the mesh as it is and as it would be, side by side over the workplane, with the target below. */
+.mesh-compare {
+  position: fixed;
+  top: calc(var(--editor-toolbar-height, 120px) + 6px);
+  left: 64px;
+  bottom: 44px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 420px;
+  color: #5d4731;
+  background: #fbf8f0;
+  border: 1px solid #d8c5b1;
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(75, 56, 35, 0.22);
+  overflow: hidden;
+}
+
+.mesh-compare-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 8px 8px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #e9e4dc;
+}
+
+.mesh-compare-header > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.mesh-compare-header strong {
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mesh-compare-header > div span {
+  overflow: hidden;
+  color: #8d7b68;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The title bar moves the panel across the workplane, like the other tool panels. */
+.mesh-compare-header.movable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.mesh-compare.moving,
+.mesh-compare.moving .mesh-compare-header.movable {
+  cursor: grabbing;
+}
+
+.mesh-compare.floating {
+  min-height: 240px;
+}
+
+/* A body that came out of a group loses its parts when simplified. That is
+   not a hint to notice later: it stands in the warning colour right above
+   the button that does it, across the whole row. */
+.mesh-compare-warning {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 8px 12px;
+  color: #8a3b00;
+  background: #fff4e5;
+  border: 1px solid #f0a45a;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.mesh-compare-warning svg {
+  flex-shrink: 0;
+}
+
+.mesh-compare-header .guide-help-link {
+  flex-shrink: 0;
+}
+
+.mesh-compare-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mesh-compare-check input,
+.mesh-compare-slider input {
+  accent-color: #d07313;
+}
+
+.mesh-compare-close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  color: inherit;
+  background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.mesh-compare-close:hover {
+  background: #f3ede4;
+}
+
+.mesh-compare-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.mesh-compare-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mesh-compare-stage canvas:active {
+  cursor: grabbing;
+}
+
+.mesh-compare-label {
+  position: absolute;
+  top: 10px;
+  padding: 4px 9px;
+  color: #5d4731;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e9e4dc;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.mesh-compare-label.before {
+  left: 10px;
+}
+
+.mesh-compare-label.after {
+  left: calc(50% + 10px);
+}
+
+.mesh-compare-label.busy {
+  opacity: 0.55;
+}
+
+.mesh-compare-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: #d8c5b1;
+  pointer-events: none;
+}
+
+.mesh-compare-hint {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  color: #8d7b68;
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.mesh-compare-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 14px;
+  background: #ffffff;
+  border-top: 1px solid #e9e4dc;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mesh-compare-slider {
+  display: flex;
+  flex: 1 1 220px;
+  align-items: center;
+  gap: 10px;
+}
+
+.mesh-compare-slider input {
+  flex: 1;
+  min-width: 120px;
+}
+
+.mesh-compare-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mesh-compare-field input {
+  height: 32px;
+  padding: 0 8px;
+  color: #5d4731;
+  background: #ffffff;
+  border: 1px solid #d8c5b1;
+  border-radius: 5px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.mesh-compare-field.percent input {
+  width: 58px;
+}
+
+.mesh-compare-field.triangles input {
+  width: 96px;
+}
+
+.mesh-compare-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.mesh-compare-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #d8c5b1;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mesh-compare-actions .secondary {
+  color: #745e48;
+  background: #ffffff;
+}
+
+.mesh-compare-actions .primary {
+  color: #ffffff;
+  background: #cc7011;
+  border-color: #b35f07;
+}
+
+.mesh-compare-actions .primary:disabled {
+  opacity: 0.48;
+  cursor: default;
+}
+
+html[data-theme="dark"] .mesh-compare {
+  color: #ddccb9;
+  background: #241a11;
+  border-color: #5e4c3a;
+}
+
+html[data-theme="dark"] .mesh-compare-header,
+html[data-theme="dark"] .mesh-compare-footer {
+  background: #2c2015;
+  border-color: #5e4c3a;
+}
+
+html[data-theme="dark"] .mesh-compare-header > div span,
+html[data-theme="dark"] .mesh-compare-hint {
+  color: #b9a58f;
+}
+
+html[data-theme="dark"] .mesh-compare-warning {
+  color: #ffc78a;
+  background: #3a2511;
+  border-color: #a8601f;
+}
+
+html[data-theme="dark"] .mesh-compare-close:hover {
+  background: #35281b;
+}
+
+html[data-theme="dark"] .mesh-compare-label {
+  color: #ddccb9;
+  background: rgba(44, 32, 21, 0.9);
+  border-color: #5e4c3a;
+}
+
+html[data-theme="dark"] .mesh-compare-divider {
+  background: #5e4c3a;
+}
+
+html[data-theme="dark"] .mesh-compare-field input,
+html[data-theme="dark"] .mesh-compare-actions .secondary {
+  color: #ddccb9;
+  background: #35281b;
+  border-color: #5e4c3a;
+}
+
 /* Eine Zeile unter dem Feld, die die Wahl erklaert (beim Gewinde die Reihe mit Alltagsbeispielen). */
 .cylinder-wrap-hint {
   display: flex;
