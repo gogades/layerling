@@ -1,7 +1,7 @@
 import { DEFAULT_OVERHANG_ANGLE, normalizeOverhangAngle } from "@/lib/overhangLimits";
 import type { CustomSnapGrid, CustomSnapGridSize, GridSize, HistoryRetentionLimit, MeasurementAccuracy, ShapeCustomization, ShapeCustomizationMap, ShapeKind, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { normalizeScaleForUnits } from "@/lib/measurementUnits";
-import { DEFAULT_IMPERIAL_GRID_BLOCK_PRESET, DEFAULT_METRIC_GRID_BLOCK_PRESET, DEFAULT_WORKPLANE_GRID_COLOR, inchGridPresetMm } from "@/lib/workplaneGrid";
+import { DEFAULT_IMPERIAL_GRID_BLOCK_PRESET, DEFAULT_METRIC_GRID_BLOCK_PRESET, DEFAULT_EDGE_LINE_COLOR, DEFAULT_WORKPLANE_BACKGROUND, DEFAULT_WORKPLANE_GRID_COLOR, DEFAULT_WORKPLANE_SURFACE_COLOR, inchGridPresetMm } from "@/lib/workplaneGrid";
 import { isThreadProfile } from "@/lib/threadProfiles";
 
 export const DEFAULT_SNAP_GRID: GridSize = "1.0 mm";
@@ -43,7 +43,10 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   gridBlockSize: 5,
   gridBlockPreset: "5 mm",
   gridColor: DEFAULT_WORKPLANE_GRID_COLOR,
-  background: "#fbf8f0",
+  background: DEFAULT_WORKPLANE_BACKGROUND,
+  surfaceColor: DEFAULT_WORKPLANE_SURFACE_COLOR,
+  edgeLines: false,
+  edgeColor: DEFAULT_EDGE_LINE_COLOR,
   showShadows: true,
   overhangAngle: DEFAULT_OVERHANG_ANGLE,
   showGrid: true,
@@ -482,6 +485,9 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     ),
     gridColor: migratedLegacyColor(colorOrDefault(candidate.gridColor, fallback.gridColor), LEGACY_GRID_COLOR, fallback.gridColor),
     background: migratedLegacyColor(stringOrDefault(candidate.background, fallback.background), LEGACY_BACKGROUND, fallback.background),
+    surfaceColor: colorOrDefault(candidate.surfaceColor, fallback.surfaceColor),
+    edgeLines: booleanOrDefault(candidate.edgeLines, fallback.edgeLines),
+    edgeColor: colorOrDefault(candidate.edgeColor, fallback.edgeColor),
     showShadows: booleanOrDefault(candidate.showShadows, fallback.showShadows),
     overhangAngle: normalizeOverhangAngle(candidate.overhangAngle, fallback.overhangAngle),
     showGrid: booleanOrDefault(candidate.showGrid, fallback.showGrid),

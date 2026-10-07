@@ -96,7 +96,7 @@ import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { makeShapeFromAsset, parseDroppedShapeAsset } from "@/lib/shapeCatalog";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
-import { workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
+import { DEFAULT_EDGE_LINE_COLOR, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { LayerlingMcpViewFace } from "@/lib/layerlingMcpProtocol";
@@ -256,6 +256,21 @@ const shapeResourceIds = new WeakMap<object, number>();
 let nextShapeResourceId = 1;
 const imageTextureLoader = new THREE.TextureLoader();
 const IMPORTED_SELECTED_EDGE_TRIANGLE_LIMIT = 40000;
+/** Edge lines on every body leave out an imported mesh with more triangles than this; finding its edges would cost too much. */
+const ALL_EDGE_LINES_IMPORTED_TRIANGLE_LIMIT = 100_000;
+
+/**
+ * The "edge lines on all bodies" setting. Shapes are built outside React, so the
+ * viewport hands the setting over here before it rebuilds them; it is part of
+ * the material signature, which is how a change reaches shapes already on screen.
+ */
+let edgeLineStyle = { enabled: false, color: DEFAULT_EDGE_LINE_COLOR };
+
+function setEdgeLineStyle(enabled: boolean, color: string) {
+  const changed = edgeLineStyle.enabled !== enabled || (enabled && edgeLineStyle.color !== color);
+  edgeLineStyle = { enabled, color };
+  return changed;
+}
 const NORMAL_IMPORTED_SELECTION_EDGE_ANGLE = 60;
 const MODIFIER_EDGE_PICK_RADIUS_PX = 14;
 
@@ -1263,6 +1278,7 @@ function shapeTransformSignature(shape: WorkplaneShape) {
 
 function shapeMaterialSignature(shape: WorkplaneShape): string {
   return JSON.stringify({
+    edgeLines: edgeLineStyle.enabled ? edgeLineStyle.color : "",
     color: shape.color,
     hole: Boolean(shape.hole),
     transparent: Boolean(shape.transparent),
@@ -5125,6 +5141,10 @@ export function WorkplaneViewport({
     workspaceRef.current = workspace;
     setMeasureUnit(workspace);
     if (threeRef.current) threeRef.current.palette = appThemePalette(themePreference);
+    // Edge lines on all bodies: shapes already built have to take the setting up.
+    if (setEdgeLineStyle(workspace.edgeLines, workspace.edgeColor)) {
+      rebuildShapes(threeRef.current, shapesRef.current, renderSelectionIds(), modifierActiveRef.current, placementWorkplaneRef.current);
+    }
     rebuildWorkplane(threeRef.current, workspace, resolvedTheme, workplaneHidden ? horizontalPlacementWorkplane() : placementWorkplane, projectName);
     rebuildSelectionHelpers(threeRef.current, shapesRef.current, renderSelectionIds(), placementWorkplane);
     if (threeRef.current) {
@@ -9874,7 +9894,7 @@ function rebuildWorkplane(
     return;
   }
 
-  const palette = workplaneThemePalette(theme, workspace.background, workspace.gridColor, state.palette);
+  const palette = workplaneThemePalette(theme, workspace.background, workspace.gridColor, state.palette, workspace.surfaceColor);
   disposeChildren(state.workplaneLayer);
   state.scene.background = new THREE.Color(palette.sceneBackground);
   state.renderer.shadowMap.enabled = workspace.showShadows;
@@ -12828,11 +12848,13 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
     ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "star", "gear", "wedge", "polygon", "heart", "crescent", "slot", "dovetail", "hinge", "knurl", "teardrop", "counterbore", "countersink", "honeycomb"].includes(shape.kind);
   const importedTriangleCount = shape.importedMesh?.triangleCount ?? 0;
   const skipHeavyImportedEdges = Boolean(shape.importedMesh) && importedTriangleCount > IMPORTED_SELECTED_EDGE_TRIANGLE_LIMIT;
-  if ((group.userData.showEdges || complexEdges) && !skipHeavyImportedEdges) {
+  // The setting draws a line on every body, in the colour chosen.
+  const allEdgeLines = edgeLineStyle.enabled && importedTriangleCount <= ALL_EDGE_LINES_IMPORTED_TRIANGLE_LIMIT;
+  if ((group.userData.showEdges || complexEdges || allEdgeLines) && (!skipHeavyImportedEdges || (allEdgeLines && !group.userData.showEdges))) {
     const selectedOutline = Boolean(group.userData.showEdges);
     const selectedRoundedBox = selectedOutline && shape.kind === "box" && Boolean(shape.radius && shape.radius > 0);
-    const edgeColor = selectedOutline ? "#00aeea" : shape.hole ? "#697989" : complexEdges ? "#141b21" : darkenHex(shape.color, 0.34);
-    const edgeOpacity = selectedRoundedBox ? 0 : selectedOutline ? 0.98 : shape.hole ? 0.44 : complexEdges ? 0.38 : shape.kind === "text" ? 0.86 : 0.2;
+    const edgeColor = selectedOutline ? "#00aeea" : shape.hole ? "#697989" : allEdgeLines ? edgeLineStyle.color : complexEdges ? "#141b21" : darkenHex(shape.color, 0.34);
+    const edgeOpacity = selectedRoundedBox ? 0 : selectedOutline ? 0.98 : shape.hole ? 0.44 : allEdgeLines ? 0.9 : complexEdges ? 0.38 : shape.kind === "text" ? 0.86 : 0.2;
     if (selectedOutline && shape.importedMesh && shape.cadDisplayEdgesVersion === 2 && Boolean(shape.cadDisplayEdges?.length)) {
       addCadDisplayEdges(group, shape, edgeColor, edgeOpacity);
     } else {
@@ -12843,7 +12865,7 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
       // bei einem runden Koerper wird jede Facette zu einem Strich. Er zeigt
       // deshalb nur seine echten Kanten, etwa Deckel- und Bodenrand.
       const selectedThreshold = shape.importedMesh ? NORMAL_IMPORTED_SELECTION_EDGE_ANGLE : shape.kind === "thread" || (shape.transparent && !shape.hole) ? 25 : 1;
-      const edges = new THREE.LineSegments(getEdgesGeometry(shape, prepared, selectedOutline ? selectedThreshold : complexEdges ? 14 : 25), sharedLineMaterial(edgeColor, edgeOpacity));
+      const edges = new THREE.LineSegments(getEdgesGeometry(shape, prepared, selectedOutline ? selectedThreshold : allEdgeLines ? 25 : complexEdges ? 14 : 25), sharedLineMaterial(edgeColor, edgeOpacity));
       edges.userData.complexEdge = complexEdges;
       edges.userData.shapeDecoration = true;
       edges.userData.shapeEdge = true;

@@ -8,6 +8,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 - **The sketch can be nudged, locked to an axis, and its lines dragged:** The arrow keys move the selected points, lines or image by one grid step ([[Shift]]: a larger step), as on the workplane. Holding Shift while dragging a point, line or selection keeps the move on one axis. A line can be dragged: it moves by its two ends, or the whole selection when it is part of one. A click on a line without dragging no longer writes an undo step. Asked for by @prmod3d in #144.
 - **Sketch measurements can be hidden:** A button on the sketch's side bar switches the dimensions (of the selected line or point, of a selection, of a reference image) off and on, and remembers the choice. The tape measure is unaffected.
+- **Colours of the work area, and edge lines on every body:** The settings have colours for the light theme's background and for the workplane surface, next to the grid colour, each with presets and a reset. A new switch draws an edge line on every body, in a colour you choose (black to begin with, as in Tinkercad); it is off by default, so nothing changes unless it is switched on, and imported meshes above 100,000 triangles are left out. Bodies had no outline unless selected or complex, which made dark colours run into each other. Asked for by @prmod3d in #143.
 
 ## 1.45.1
 

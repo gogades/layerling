@@ -37,11 +37,11 @@ export const MESSAGES_EN = {
   "aria.workplane": "Workplane",
   "aria.alignmentHandles": "Alignment handles",
   "aria.mirrorHandles": "Mirror handles",
-  "aria.gridColorPresets": "Grid color presets",
-  "aria.useGridColor": "Use grid color {color}",
-  "aria.gridColorHex": "Grid color hexadecimal value",
-  "aria.resetGridColor": "Reset grid color",
-  "aria.gridColorValue": "Grid color {color}",
+  "aria.colorPresets": "{name}: presets",
+  "aria.useColor": "{name}: use {color}",
+  "aria.colorHex": "{name}: hexadecimal value",
+  "aria.resetColor": "{name}: reset",
+  "aria.colorValue": "{name} {color}",
   "aria.setColor": "Set color {color}",
 
   "brand.home": "layerling home",
@@ -331,6 +331,11 @@ export const MESSAGES_EN = {
   "sketch.imagePositionX": "Position X",
   "sketch.imagePositionY": "Position Y",
   "workspace.gridColor": "Grid color",
+  "workspace.backgroundColor": "Background (light theme)",
+  "workspace.surfaceColor": "Workplane surface (light theme)",
+  "workspace.edgeLines": "Edge lines on all bodies",
+  "workspace.edgeLinesHint": "Draws an outline on every body, so dark colours do not run into each other. Very large imported meshes are left out.",
+  "workspace.edgeColor": "Edge line color",
 
 
   "editor.group.home": "Home",

@@ -4094,7 +4094,7 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .mesh-compare-actions .
   border: 1px solid #cccccc;
 }
 
-:where(html[data-theme="dark"][data-palette="graphite"]) .workspace-color-trigger:hover,
+:where(html[data-theme="dark"][data-palette="graphite"]) .workspace-color-trigger:not(:disabled):hover,
 :where(html[data-theme="dark"][data-palette="graphite"]) .workspace-color-trigger[aria-expanded="true"] {
   background: #ffffff;
   border-color: #c38441;

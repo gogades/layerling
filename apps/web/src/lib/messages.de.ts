@@ -36,11 +36,11 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "aria.workplane": "Arbeitsfläche",
   "aria.alignmentHandles": "Ausrichtungs-Griffe",
   "aria.mirrorHandles": "Spiegel-Griffe",
-  "aria.gridColorPresets": "Rasterfarben-Vorgaben",
-  "aria.useGridColor": "Rasterfarbe {color} verwenden",
-  "aria.gridColorHex": "Rasterfarbe als Hexadezimalwert",
-  "aria.resetGridColor": "Rasterfarbe zurücksetzen",
-  "aria.gridColorValue": "Rasterfarbe {color}",
+  "aria.colorPresets": "{name}: Vorgaben",
+  "aria.useColor": "{name}: {color} verwenden",
+  "aria.colorHex": "{name}: Hexadezimalwert",
+  "aria.resetColor": "{name}: zurücksetzen",
+  "aria.colorValue": "{name} {color}",
   "aria.setColor": "Farbe {color} setzen",
 
   "brand.home": "Zur layerling-Startseite",
@@ -330,6 +330,11 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "sketch.imagePositionX": "Position X",
   "sketch.imagePositionY": "Position Y",
   "workspace.gridColor": "Rasterfarbe",
+  "workspace.backgroundColor": "Hintergrund (helles Thema)",
+  "workspace.surfaceColor": "Arbeitsebene (helles Thema)",
+  "workspace.edgeLines": "Kantenlinien an allen Körpern",
+  "workspace.edgeLinesHint": "Zeichnet an jedem Körper eine Umrisslinie, damit dunkle Farben nicht ineinander verschwimmen. Sehr große importierte Netze bleiben ausgenommen.",
+  "workspace.edgeColor": "Farbe der Kantenlinien",
 
 
   "editor.group.home": "Start",

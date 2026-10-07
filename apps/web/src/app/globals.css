@@ -10031,7 +10031,12 @@ html[data-theme="dark"] .mesh-compare-actions .secondary {
   transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
-.workspace-color-trigger:hover,
+.workspace-color-trigger:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.workspace-color-trigger:not(:disabled):hover,
 .workspace-color-trigger[aria-expanded="true"] {
   background: #ffffff;
   border-color: #c38441;

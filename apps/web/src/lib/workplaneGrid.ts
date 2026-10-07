@@ -5,6 +5,11 @@ const WORKPLANE_BOUNDARY_EPSILON = 0.0001;
 export const WORKPLANE_LINE_ELEVATION = 0;
 export const WORKPLANE_MAJOR_GRID_INTERVAL = 5;
 export const DEFAULT_WORKPLANE_GRID_COLOR = "#c08a12";
+/** The light theme's work-area background and workplane surface, which can be changed in the settings. */
+export const DEFAULT_WORKPLANE_BACKGROUND = "#fbf8f0";
+export const DEFAULT_WORKPLANE_SURFACE_COLOR = "#fdf4dd";
+/** Edge lines on every body, when switched on: black like in Tinkercad. */
+export const DEFAULT_EDGE_LINE_COLOR = "#000000";
 
 /** Width to height of the label texture, and so of the mesh that carries it. */
 export const WORKPLANE_LABEL_ASPECT = 4;
@@ -125,7 +130,10 @@ export function workplaneThemePalette(
   configuredBackground: string,
   configuredGridColor: string = DEFAULT_WORKPLANE_GRID_COLOR,
   palette: AppThemePalette = "default",
+  configuredSurface: string = DEFAULT_WORKPLANE_SURFACE_COLOR,
 ): WorkplaneThemePalette {
+  // The background and the surface colour belong to the light theme; the dark
+  // themes keep their own, so a light choice cannot spoil them.
   if (theme === "dark" && palette === "graphite") {
     return {
       sceneBackground: "#1e1e1e",
@@ -141,7 +149,7 @@ export function workplaneThemePalette(
       }
     : {
         sceneBackground: configuredBackground,
-        surface: { color: "#fdf4dd", opacity: 0.68 },
+        surface: { color: configuredSurface, opacity: 0.68 },
         grid: workplaneGridPalette("light", configuredGridColor),
       };
 }

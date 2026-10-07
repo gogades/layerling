@@ -55,6 +55,12 @@ describe("workplane grid geometry", () => {
     expect(light.sceneBackground).toBe(configuredBackground);
   });
 
+  it("takes a chosen surface colour in the light theme only", () => {
+    expect(workplaneThemePalette("light", "#fbf8f0", undefined, "default", "#e0e0e0").surface.color).toBe("#e0e0e0");
+    expect(workplaneThemePalette("light", "#fbf8f0").surface.color).toBe("#fdf4dd");
+    expect(workplaneThemePalette("dark", "#fbf8f0", undefined, "default", "#e0e0e0").surface.color).toBe(workplaneThemePalette("dark", "#fbf8f0").surface.color);
+  });
+
   it("applies a custom project grid color while retaining line hierarchy", () => {
     const customColor = "#c23b72";
     const palette = workplaneGridPalette("light", customColor);

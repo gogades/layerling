@@ -197,7 +197,14 @@ export type WorkplaneWorkspaceSettings = {
   gridBlockSize: number;
   gridBlockPreset: string;
   gridColor: string;
+  /** The work area's background in the light theme; the dark themes keep their own. */
   background: string;
+  /** The workplane's surface colour in the light theme. */
+  surfaceColor: string;
+  /** Draw an edge line on every body, not only on selected and complex ones. */
+  edgeLines: boolean;
+  /** Colour of those edge lines. */
+  edgeColor: string;
   showShadows: boolean;
   /** Overhangs steeper than this (degrees from vertical) show red when overhangs are shown. */
   overhangAngle: number;

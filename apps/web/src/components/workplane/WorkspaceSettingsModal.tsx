@@ -411,6 +411,10 @@ export function WorkspaceSettingsModal({
   const gridColor = /^#[0-9a-f]{6}$/i.test(workspace.gridColor)
     ? workspace.gridColor
     : DEFAULT_WORKPLANE_WORKSPACE.gridColor;
+  const hexOrDefault = (value: string, fallback: string) => /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+  const backgroundColor = hexOrDefault(workspace.background, DEFAULT_WORKPLANE_WORKSPACE.background);
+  const surfaceColor = hexOrDefault(workspace.surfaceColor, DEFAULT_WORKPLANE_WORKSPACE.surfaceColor);
+  const edgeColor = hexOrDefault(workspace.edgeColor, DEFAULT_WORKPLANE_WORKSPACE.edgeColor);
   const selectedShapeAsset = toolbarShapeAssets.find((asset) => asset.kind === selectedShapeKind) ?? toolbarShapeAssets[0];
   const selectedShapeAppDefaults = shapeAssetDefaultDimensions(selectedShapeKind);
   const selectedShapeCustomization = workspace.shapeCustomizations[selectedShapeKind] ?? {};
@@ -626,6 +630,34 @@ export function WorkspaceSettingsModal({
                       ))}
                     </select>
                   </label>
+                  <ColorSettingControl
+                    label={t("workspace.backgroundColor")}
+                    color={backgroundColor}
+                    defaultColor={DEFAULT_WORKPLANE_WORKSPACE.background}
+                    presets={BACKGROUND_COLOR_PRESETS}
+                    onChange={(background) => patchWorkspace({ background })}
+                  />
+                  <ColorSettingControl
+                    label={t("workspace.surfaceColor")}
+                    color={surfaceColor}
+                    defaultColor={DEFAULT_WORKPLANE_WORKSPACE.surfaceColor}
+                    presets={SURFACE_COLOR_PRESETS}
+                    onChange={(nextSurface) => patchWorkspace({ surfaceColor: nextSurface })}
+                  />
+                  <WorkspaceToggle
+                    label={t("workspace.edgeLines")}
+                    description={t("workspace.edgeLinesHint")}
+                    checked={workspace.edgeLines}
+                    onChange={(edgeLines) => patchWorkspace({ edgeLines })}
+                  />
+                  <ColorSettingControl
+                    label={t("workspace.edgeColor")}
+                    color={edgeColor}
+                    defaultColor={DEFAULT_WORKPLANE_WORKSPACE.edgeColor}
+                    presets={EDGE_COLOR_PRESETS}
+                    disabled={!workspace.edgeLines}
+                    onChange={(nextEdgeColor) => patchWorkspace({ edgeColor: nextEdgeColor })}
+                  />
                   <hr className="workspace-divider" />
                   <WorkspaceToggle
                     label={t("workspace.showMoveDimensions")}
@@ -864,7 +896,13 @@ export function WorkspaceSettingsModal({
                   />
                   <WorkspaceSelect label={t("workspace.gridBlockSize")} value={workspace.gridBlockPreset} options={workspace.units === "Imperial" ? [...IMPERIAL_GRID_BLOCK_PRESETS, "Custom"] : GRID_BLOCK_PRESETS}
                     optionLabel={gridBlockPresetLabel} onChange={setGridBlockPreset} />
-                  <GridColorControl color={gridColor} onChange={(nextGridColor) => patchWorkspace({ gridColor: nextGridColor })} />
+                  <ColorSettingControl
+                    label={t("workspace.gridColor")}
+                    color={gridColor}
+                    defaultColor={DEFAULT_WORKPLANE_WORKSPACE.gridColor}
+                    presets={GRID_COLOR_PRESETS}
+                    onChange={(nextGridColor) => patchWorkspace({ gridColor: nextGridColor })}
+                  />
                   {workspace.gridBlockPreset === "Custom" ? (
                     <div className="workspace-dimensions workspace-grid-dimensions">
                       <label>
@@ -1112,7 +1150,52 @@ const GRID_COLOR_PRESETS = [
   "#718695",
 ] as const;
 
-function GridColorControl({ color, onChange }: { color: string; onChange: (color: string) => void }) {
+// The light theme's own cream first, then neutral and cool grounds.
+const BACKGROUND_COLOR_PRESETS = [
+  DEFAULT_WORKPLANE_WORKSPACE.background,
+  "#ffffff",
+  "#f1f1f1",
+  "#dfe4e8",
+  "#c4cad0",
+  "#8a949c",
+  "#3a3f44",
+] as const;
+
+const SURFACE_COLOR_PRESETS = [
+  DEFAULT_WORKPLANE_WORKSPACE.surfaceColor,
+  "#ffffff",
+  "#ececec",
+  "#d9dee3",
+  "#c8d3dc",
+  "#b9c8b5",
+  "#8a949c",
+] as const;
+
+const EDGE_COLOR_PRESETS = [
+  DEFAULT_WORKPLANE_WORKSPACE.edgeColor,
+  "#333333",
+  "#777777",
+  "#ffffff",
+  "#0e69f1",
+  "#e0842f",
+  "#dc5252",
+] as const;
+
+function ColorSettingControl({
+  label,
+  color,
+  defaultColor,
+  presets,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  color: string;
+  defaultColor: string;
+  presets: readonly string[];
+  disabled?: boolean;
+  onChange: (color: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [draftColor, setDraftColor] = useState(color);
   const draftColorRef = useRef(color);
@@ -1214,7 +1297,7 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
         ref={popoverRef}
         className="workspace-color-popover"
         role="group"
-        aria-label={t("workspace.gridColor")}
+        aria-label={label}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             setOpen(false);
@@ -1233,13 +1316,13 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
             }}
           />
         </div>
-        <div className="workspace-color-presets" aria-label={t("aria.gridColorPresets")}>
-          {GRID_COLOR_PRESETS.map((preset) => (
+        <div className="workspace-color-presets" aria-label={t("aria.colorPresets", { name: label })}>
+          {presets.map((preset) => (
             <button
               key={preset}
               className={preset.toLowerCase() === draftColor.toLowerCase() ? "selected" : ""}
               type="button"
-              aria-label={t("aria.useGridColor", { color: preset })}
+              aria-label={t("aria.useColor", { name: label, color: preset })}
               aria-pressed={preset.toLowerCase() === draftColor.toLowerCase()}
               style={{ backgroundColor: preset }}
               onClick={() => {
@@ -1257,17 +1340,17 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
               onChange={previewColor}
               onBlur={commitDraftColor}
               prefixed
-              aria-label={t("aria.gridColorHex")}
+              aria-label={t("aria.colorHex", { name: label })}
             />
           </label>
           <button
             className="workspace-color-reset"
             type="button"
-            title={t("aria.resetGridColor")}
-            aria-label={t("aria.resetGridColor")}
+            title={t("aria.resetColor", { name: label })}
+            aria-label={t("aria.resetColor", { name: label })}
             onClick={() => {
-              previewColor(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
-              onChange(DEFAULT_WORKPLANE_WORKSPACE.gridColor);
+              previewColor(defaultColor);
+              onChange(defaultColor);
             }}
           >
             <RotateCcw size={15} />
@@ -1280,7 +1363,7 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
 
   return (
     <div className="workspace-row workspace-grid-color-row">
-      <span>{t("workspace.gridColor")}</span>
+      <span>{label}</span>
       <div
         className="workspace-color-control"
         ref={rootRef}
@@ -1292,7 +1375,8 @@ function GridColorControl({ color, onChange }: { color: string; onChange: (color
           ref={triggerRef}
           className="workspace-color-trigger"
           type="button"
-          aria-label={t("aria.gridColorValue", { color })}
+          aria-label={t("aria.colorValue", { name: label, color })}
+          disabled={disabled}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => {
