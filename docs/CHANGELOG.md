@@ -6,6 +6,8 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Docker update steps in the README:** It now says that the image tags are plain version numbers without a "v" (`1.42.0`, not `v1.42.0`) and that an existing container keeps running the old image until it is removed and created again, with the four commands to do that. Reported by @frogsuk (#133).
+
 - **The card of a reference point can be moved:** Drag it away from its point by its title when it covers something you want to see; a double-click on the title puts it back. It opens where you left it.
 
 ## 1.42.0

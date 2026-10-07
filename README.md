@@ -163,6 +163,17 @@ docker run -d --name layerling -p 3000:3000 --restart unless-stopped ghcr.io/hen
 
 On a NAS with a container manager (Synology Container Manager, Unraid, Portainer), add the image `ghcr.io/henmedia/layerling:latest` and map port 3000. To update, pull the image again and recreate the container (or let Watchtower do it).
 
+The image tags are plain version numbers **without a "v"**: `ghcr.io/henmedia/layerling:1.42.0`, while the GitHub release is called `v1.42.0`. A pull only fetches the new image; a container that already exists keeps running the old one until it is removed and created again:
+
+```bash
+docker pull ghcr.io/henmedia/layerling:latest
+docker stop layerling
+docker rm layerling
+docker run -d --name layerling -p 3000:3000 --restart unless-stopped ghcr.io/henmedia/layerling:latest
+```
+
+`docker inspect layerling | grep image.version` shows which version the container really runs. If you mounted a folder for the server storage, add the same `-v` option again.
+
 To build the image yourself instead, use the included [`Dockerfile`](docker/Dockerfile) and [`compose.yml`](docker/compose.yml):
 
 1. **Install Docker.** On Windows or macOS, install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/). On Linux or a NAS you need Docker with Compose (`docker compose` or the standalone `docker-compose`).
