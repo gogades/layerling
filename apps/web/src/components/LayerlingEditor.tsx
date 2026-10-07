@@ -7291,6 +7291,22 @@ export function LayerlingEditor({
     splitRunRef.current += 1;
     setSplitSession(null);
   }, []);
+  // A shape on the pointer and a tool that waits for a click cannot share the
+  // click: the one taken up last wins and puts the other one down.
+  const startCruise = useCallback((asset: ShapeAsset) => {
+    closeSplit();
+    invalidateCadModifierSession();
+    setWorkplaneMode(false);
+    setNoteMode(false);
+    setPivotPickMode(false);
+    setLayFlatPickMode(false);
+    setCruiseAsset(asset);
+  }, [closeSplit, invalidateCadModifierSession]);
+  const stopCruise = useCallback(() => {
+    if (!cruiseAssetRef.current) return;
+    setCruiseAsset(null);
+    setNotice("");
+  }, [setNotice]);
   const modifierAvailableEdgeIds = useMemo(
     () => edgeModifier ? edgeModifier.edges.filter((edge) => selectableCadModifierEdge(edge, edgeModifier.sharpAngle)).map((edge) => edge.id) : [],
     [edgeModifier?.edges, edgeModifier?.sharpAngle],
@@ -7519,9 +7535,10 @@ export function LayerlingEditor({
       return;
     }
     closeSplit();
+    stopCruise();
     setPivotPickMode(true);
     setNotice(t("status.pivotPickStart"));
-  }, [activeRotationPivot, closeSplit, hasSelection, pivotPickMode]);
+  }, [activeRotationPivot, closeSplit, hasSelection, pivotPickMode, stopCruise]);
 
   // A pattern belongs to the selection it was opened for.
   useEffect(() => {
@@ -7993,6 +8010,7 @@ export function LayerlingEditor({
    * einem Klick waeren ein Ratespiel.
    */
   const toggleNoteTool = useCallback(() => {
+    stopCruise();
     setNoteMode((current) => {
       const next = !current;
       if (next) {
@@ -8004,7 +8022,7 @@ export function LayerlingEditor({
       }
       return next;
     });
-  }, [setNotice]);
+  }, [setNotice, stopCruise]);
 
   const toggleOverhangsVisible = useCallback(() => {
     setOverhangsVisible((current) => {
@@ -9472,6 +9490,7 @@ export function LayerlingEditor({
       return;
     }
     invalidateCadModifierSession();
+    stopCruise();
     const appliedEdgeTreatmentCount = edgeTreatmentFeatureCount(selectedShape);
     const hasAppliedEdgeTreatment = Boolean(selectedShape.importedMesh && selectedShape.edgeTreatments?.length);
     const sourceParts = (selectedShape.groupedShapes?.length && !hasAppliedEdgeTreatment && !shapeHasShapeDeform(selectedShape)
@@ -9586,7 +9605,7 @@ export function LayerlingEditor({
     }
     cadModifierPrepareRef.current = prepareRequestId;
     armCadModifierWatchdog(prepareRequestId, "prepare", prepareTimeoutMs);
-  }, [armCadModifierWatchdog, invalidateCadModifierSession, postCadModifierRequest, selectedShape, selectedShapes.length]);
+  }, [armCadModifierWatchdog, invalidateCadModifierSession, postCadModifierRequest, selectedShape, selectedShapes.length, stopCruise]);
 
   const prepareCadModifierForMcp = useCallback(async (shape: WorkplaneShape, sharpAngle: number) => {
     if (shape.locked || shape.hole) {
@@ -10333,9 +10352,10 @@ export function LayerlingEditor({
     setPivotPickMode(false);
     setArrayTool(null);
     closeSplit();
+    stopCruise();
     setLayFlatPickMode(true);
     setNotice(t("status.layFlatStart"));
-  }, [closeSplit, hasSelection, layFlatPickMode]);
+  }, [closeSplit, hasSelection, layFlatPickMode, stopCruise]);
 
   const layFlatOnFace = useCallback((pick: LayFlatPick | null) => {
     setLayFlatPickMode(false);
@@ -10387,6 +10407,7 @@ export function LayerlingEditor({
   }, [commitShapes, hasSelection, selectedIds, shapes]);
 
   const activateWorkplaneTool = useCallback(() => {
+    stopCruise();
     setWorkplaneMode((active) => {
       const next = !active;
       // Der Hinweis gilt, solange das Werkzeug scharf ist - das Abbrechen ist
@@ -10394,7 +10415,7 @@ export function LayerlingEditor({
       setNotice(next ? t("status.workplaneToolStart") : t("status.workplaneToolCancelled"), next);
       return next;
     });
-  }, []);
+  }, [stopCruise]);
 
   const setActivePlacementWorkplane = useCallback((next: PlacementWorkplane, source: "shape" | "base") => {
     const previous = placementWorkplaneRef.current;
@@ -13558,8 +13579,7 @@ export function LayerlingEditor({
           setTopPanel(null);
           setMenuOpen(false);
           if (workspaceSettings.clickToPlaceShapes) {
-            closeSplit();
-            setCruiseAsset(shape);
+            startCruise(shape);
             return;
           }
           addShape(shape);
@@ -13667,6 +13687,7 @@ export function LayerlingEditor({
           initialWorkspace={workspaceSettings}
           workspaceSettingsKey={projectId ?? "local-workplane"}
           cruiseAsset={cruiseAsset}
+          onCancelCruise={stopCruise}
           onAddShape={addShape}
           onDropMyShape={(id, point) => void insertMyShape(id, point).catch((error) => setNotice(error instanceof Error ? localizedError(error.message) : String(error)))}
           onAlignAnchorChange={chooseAlignAnchor}
