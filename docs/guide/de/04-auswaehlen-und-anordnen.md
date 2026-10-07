@@ -68,8 +68,8 @@ Für Lochraster, Lochkreise und Zahnkränze gibt es das {{ui:editor.tool.array}}
 
 ![Das Muster im Modus „Kreis“: Die Kopien erscheinen zuerst als Vorschau.](shot:pattern-tool)
 
-- **{{ui:array.mode.row}}:** Die Auswahl wird mit gleichem Abstand wiederholt. Wähle die Richtung (X, Y oder Höhe) und den {{ui:array.spacing}}. Ein negativer Abstand legt die Reihe in die andere Richtung.
-- **{{ui:array.mode.circle}}:** Die Auswahl wird um einen Mittelpunkt verteilt. Wie viele Kopien es gibt, stellst du bei {{ui:array.count}} ein, der {{ui:array.angle}} ist für einen vollen Kreis 360°. Stelle ein, ob sich die Kopien mitdrehen sollen.
+- **{{ui:array.mode.row}}:** Die Auswahl wird mit gleichem Abstand wiederholt. Die Reihe läuft in allen drei Achsen zugleich, mit {{ui:array.spacingX}}, {{ui:array.spacingY}} und {{ui:array.spacingZ}}: Einer allein gibt eine gerade Reihe, zwei oder drei eine schräge Reihe oder eine Treppe. Ein negativer Abstand legt die Reihe in die andere Richtung.
+- **{{ui:array.mode.circle}}:** Die Auswahl wird um einen Mittelpunkt verteilt. Wie viele Kopien es gibt, stellst du bei {{ui:array.count}} ein, der {{ui:array.angle}} ist für einen vollen Kreis 360°. Stelle ein, ob sich die Kopien mitdrehen sollen. {{ui:array.rise}} hebt jede Kopie ein Stück höher als die vorige (eine Schraube oder aufsteigende Spirale), und {{ui:array.radiusChange}} rückt sie weiter vom Mittelpunkt weg oder näher heran (eine flache Spirale); zusammen ergeben sie eine kegelige Spirale.
 
 Tipp: Setze vorher mit {{ui:editor.tool.rotationPivot}} den Drehpunkt auf eine Fläche, dann liegt der Mittelpunkt des Kreises genau dort.
 

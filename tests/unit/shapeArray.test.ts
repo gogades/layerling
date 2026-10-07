@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { circleStepDegrees, clampArrayCount, rotateAroundVertical, rowOffset } from "@/lib/shapeArray";
+import { circleStepDegrees, clampArrayCount, moveAlongRadius, rotateAroundVertical, rowOffset, singleAxisSpacing } from "@/lib/shapeArray";
 
 describe("shape arrays", () => {
   it("keeps the count between two pieces and a hundred", () => {
@@ -10,10 +10,31 @@ describe("shape arrays", () => {
   });
 
   it("runs a row along X, back along Y and up along Z", () => {
-    expect(rowOffset({ spacing: 10, direction: "x" }, 3)).toEqual({ dx: 30, dy: 0, dz: 0 });
+    expect(rowOffset(singleAxisSpacing("x", 10), 3)).toEqual({ dx: 30, dy: 0, dz: 0 });
     // Y points to the back, which is -z in the scene.
-    expect(rowOffset({ spacing: 10, direction: "y" }, 2)).toEqual({ dx: 0, dy: 0, dz: -20 });
-    expect(rowOffset({ spacing: -4, direction: "z" }, 1)).toEqual({ dx: 0, dy: -4, dz: 0 });
+    expect(rowOffset(singleAxisSpacing("y", 10), 2)).toEqual({ dx: 0, dy: 0, dz: -20 });
+    expect(rowOffset(singleAxisSpacing("z", -4), 1)).toEqual({ dx: 0, dy: -4, dz: 0 });
+  });
+
+  it("steps along all three axes at once for a diagonal row or a staircase", () => {
+    expect(rowOffset({ spacingX: 10, spacingY: 5, spacingZ: 2 }, 3)).toEqual({ dx: 30, dy: 6, dz: -15 });
+    expect(rowOffset({ spacingX: 0, spacingY: 0, spacingZ: 0 }, 4)).toEqual({ dx: 0, dy: 0, dz: 0 });
+  });
+
+  it("moves a point along its line from the centre, which makes a spiral", () => {
+    // 10 mm right of the centre, pushed out by 5: 15 mm right.
+    const out = moveAlongRadius({ x: 10, z: 0 }, { x: 0, y: 0 }, 0, 5);
+    expect(out.x).toBeCloseTo(15);
+    expect(Math.abs(out.z)).toBeCloseTo(0);
+    // Pulled in by 4 towards a centre at (10, 0), from 10 mm behind it (scene z -10).
+    const inward = moveAlongRadius({ x: 10, z: -10 }, { x: 10, y: 0 }, 90, -4);
+    expect(inward.x).toBeCloseTo(10);
+    expect(inward.z).toBeCloseTo(-6);
+    // A point on the centre goes the way the circle has turned: 90 degrees is towards the back (Y), scene -z.
+    const fromCentre = moveAlongRadius({ x: 0, z: 0 }, { x: 0, y: 0 }, 90, 7);
+    expect(fromCentre.x).toBeCloseTo(0);
+    expect(fromCentre.z).toBeCloseTo(-7);
+    expect(moveAlongRadius({ x: 3, z: 4 }, { x: 0, y: 0 }, 30, 0)).toEqual({ x: 3, z: 4 });
   });
 
   it("shares a full circle among all pieces and spans an arc end to end", () => {

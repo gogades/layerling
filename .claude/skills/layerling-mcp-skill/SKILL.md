@@ -100,8 +100,8 @@ For a box, cup, case or any body with walls, build the outside shape and hollow 
 
 For a row of holes, a hole grid, a bolt circle or the teeth of a ring, build one piece and repeat it with `layerling_array_objects` instead of creating each copy by hand. Coordinates follow a slicer: X right, Y back, Z up.
 
-- Row: `layerling_array_objects({ editorNumber, ids, mode: "row", count: 5, spacing: 12, direction: "x" })`. `count` includes the original; a negative `spacing` runs the other way. A grid is a row of a row: repeat the returned copies plus the original along the second axis.
-- Circle: `layerling_array_objects({ editorNumber, ids, mode: "circle", count: 6, centerX: 0, centerY: 0 })`. Place the first piece at the radius you want, measured from the centre. `angle` defaults to 360 (evenly spread); a smaller angle spans an arc end to end. `rotateCopies: false` keeps every copy's orientation.
+- Row: `layerling_array_objects({ editorNumber, ids, mode: "row", count: 5, spacing: 12, direction: "x" })`. `count` includes the original; a negative `spacing` runs the other way. A grid is a row of a row: repeat the returned copies plus the original along the second axis. A row can also step along several axes at once: `spacingX`, `spacingY`, `spacingZ` (a diagonal row, a staircase).
+- Circle: `layerling_array_objects({ editorNumber, ids, mode: "circle", count: 6, centerX: 0, centerY: 0 })`. Place the first piece at the radius you want, measured from the centre. `angle` defaults to 360 (evenly spread); a smaller angle spans an arc end to end. `rotateCopies: false` keeps every copy's orientation. `rise` (height per copy) turns the circle into a screw and `radiusChange` (distance from the centre per copy, negative tightens) into a spiral; both together give a conical spiral.
 
 Group the pattern with the body afterwards when the pieces are holes.
 

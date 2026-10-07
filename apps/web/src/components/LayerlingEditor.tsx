@@ -88,7 +88,7 @@ import { ShellPanel } from "./workplane/ShellPanel";
 import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
 import { shellMaxThickness } from "@/lib/shellLimits";
-import { circleStepDegrees, clampArrayCount, rotateAroundVertical, rowOffset, type ArraySettings } from "@/lib/shapeArray";
+import { circleStepDegrees, clampArrayCount, moveAlongRadius, rotateAroundVertical, rowOffset, singleAxisSpacing, type ArraySettings } from "@/lib/shapeArray";
 import { bedOverhangs, printerPresetById, type BedOverhang } from "@/lib/printBed";
 import { SplitPanel } from "./workplane/SplitPanel";
 import { groupedContentScale, scaleGroupedVertices } from "@/lib/groupScale";
@@ -3120,9 +3120,14 @@ function arrayCopies(sources: WorkplaneShape[], settings: ArraySettings): Workpl
         return;
       }
       const degrees = step * index;
+      // A rise lifts every copy a little more; a radius change moves it along its
+      // line from the centre - together they make a screw or a spiral.
+      const rise = (settings.rise ?? 0) * index;
+      const radiusChange = (settings.radiusChange ?? 0) * index;
       if (!settings.rotateCopies) {
-        const next = rotateAroundVertical(clone, center, degrees);
-        copies.push({ ...clone, x: next.x, z: next.z });
+        const turned = rotateAroundVertical(clone, center, degrees);
+        const next = moveAlongRadius(turned, center, degrees, radiusChange);
+        copies.push({ ...clone, x: next.x, z: next.z, elevation: (clone.elevation ?? 0) + rise });
         return;
       }
       // Same rotation as the R key and the pivot tool: about the vertical
@@ -3130,7 +3135,11 @@ function arrayCopies(sources: WorkplaneShape[], settings: ArraySettings): Workpl
       const delta = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(degrees));
       const pivot = new THREE.Vector3(center.x, (clone.elevation ?? 0) + clone.height / 2, -center.y);
       const rotated = canonicalizeShape({ ...clone, ...rotatedGeometryShapePatch(clone, delta, pivot) });
-      copies.push(canonicalizeShape(bakeShapeTransformIntoMesh(rotated)));
+      const placed = moveAlongRadius(rotated, center, degrees, radiusChange);
+      const lifted = rise || radiusChange
+        ? canonicalizeShape({ ...rotated, x: placed.x, z: placed.z, elevation: (rotated.elevation ?? 0) + rise })
+        : rotated;
+      copies.push(canonicalizeShape(bakeShapeTransformIntoMesh(lifted)));
     });
   }
   return copies;
@@ -7637,12 +7646,13 @@ export function LayerlingEditor({
       mode: "row",
       count: 4,
       // Next to each other with a little air, whatever the size of the part.
-      spacing: Math.round((bounds.maxX - bounds.minX + 5) * 2) / 2,
-      direction: "x",
+      ...singleAxisSpacing("x", Math.round((bounds.maxX - bounds.minX + 5) * 2) / 2),
       angle: 360,
       centerX: activeRotationPivot ? activeRotationPivot.x : 0,
       centerY: activeRotationPivot ? -activeRotationPivot.z : 0,
       rotateCopies: true,
+      rise: 0,
+      radiusChange: 0,
     });
     setNotice(t("status.arrayStart"));
   }, [activeRotationPivot, arrayTool, closeSplit, selectedShapes]);
@@ -11985,15 +11995,22 @@ export function LayerlingEditor({
         const mode = params.mode === "circle" ? "circle" : "row";
         const direction = params.direction === "y" || params.direction === "z" ? params.direction : "x";
         const bounds = boundsForShapes(sources);
+        // spacingX / spacingY / spacingZ step along several axes at once; the
+        // older spacing + direction pair still steps along one.
+        const perAxis = params.spacingX !== undefined || params.spacingY !== undefined || params.spacingZ !== undefined;
+        const spacings = perAxis
+          ? { spacingX: mcpNumber(params.spacingX, 0), spacingY: mcpNumber(params.spacingY, 0), spacingZ: mcpNumber(params.spacingZ, 0) }
+          : singleAxisSpacing(direction, mcpNumber(params.spacing, bounds.maxX - bounds.minX + 5));
         const settings: ArraySettings = {
           mode,
           count: clampArrayCount(mcpNumber(params.count, 2)),
-          spacing: mcpNumber(params.spacing, bounds.maxX - bounds.minX + 5),
-          direction,
+          ...spacings,
           angle: mcpNumber(params.angle, 360),
           centerX: mcpNumber(params.centerX, 0),
           centerY: mcpNumber(params.centerY, 0),
           rotateCopies: params.rotateCopies !== false,
+          rise: mcpNumber(params.rise, 0),
+          radiusChange: mcpNumber(params.radiusChange, 0),
         };
         const copies = arrayCopies(sources, settings);
         commitShapes(

@@ -6,12 +6,18 @@ import { Check, X } from "lucide-react";
 import { EdgeModifierSlider } from "@/components/workplane/EdgeModifierPanel";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
-import { ARRAY_MAX_COUNT, ARRAY_MIN_COUNT, type ArrayDirection, type ArrayMode, type ArraySettings } from "@/lib/shapeArray";
+import { ARRAY_MAX_COUNT, ARRAY_MIN_COUNT, type ArrayMode, type ArraySettings } from "@/lib/shapeArray";
 import type { WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 const ARRAY_MODES: readonly ArrayMode[] = ["row", "circle"];
-const ARRAY_DIRECTIONS: readonly ArrayDirection[] = ["x", "y", "z"];
 const MAX_SPACING = 300;
+const MAX_SPIRAL_STEP = 100;
+/** The row steps along all three axes at once; each has its own spacing. */
+const ROW_AXES = [
+  { key: "spacingX", label: "array.spacingX" },
+  { key: "spacingY", label: "array.spacingY" },
+  { key: "spacingZ", label: "array.spacingZ" },
+] as const;
 
 /**
  * Repeating the selection n times in a row or around a circle. The copies
@@ -88,33 +94,19 @@ export function ArrayPanel({
 
       {settings.mode === "row" ? (
         <>
-          <div className="edge-modifier-field shell-openings" role="radiogroup" aria-label={t("array.direction")}>
-            <span>{t("array.direction")}</span>
-            <div className="shell-opening-options">
-              {ARRAY_DIRECTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  role="radio"
-                  aria-checked={settings.direction === option}
-                  className={settings.direction === option ? "active" : ""}
-                  onClick={() => onChange({ direction: option })}
-                >
-                  {t(`array.direction.${option}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <EdgeModifierSlider
-            label={t("array.spacing")}
-            value={settings.spacing}
-            min={-MAX_SPACING}
-            max={MAX_SPACING}
-            step={0.5}
-            workspace={workspace}
-            length
-            onChange={(value) => onChange({ spacing: value })}
-          />
+          {ROW_AXES.map(({ key, label }) => (
+            <EdgeModifierSlider
+              key={key}
+              label={t(label)}
+              value={settings[key]}
+              min={-MAX_SPACING}
+              max={MAX_SPACING}
+              step={0.5}
+              workspace={workspace}
+              length
+              onChange={(value) => onChange({ [key]: value })}
+            />
+          ))}
         </>
       ) : (
         <>
@@ -127,6 +119,26 @@ export function ArrayPanel({
             unit="°"
             workspace={workspace}
             onChange={(value) => onChange({ angle: value })}
+          />
+          <EdgeModifierSlider
+            label={t("array.rise")}
+            value={settings.rise}
+            min={-MAX_SPIRAL_STEP}
+            max={MAX_SPIRAL_STEP}
+            step={0.5}
+            workspace={workspace}
+            length
+            onChange={(value) => onChange({ rise: value })}
+          />
+          <EdgeModifierSlider
+            label={t("array.radiusChange")}
+            value={settings.radiusChange}
+            min={-MAX_SPIRAL_STEP}
+            max={MAX_SPIRAL_STEP}
+            step={0.5}
+            workspace={workspace}
+            length
+            onChange={(value) => onChange({ radiusChange: value })}
           />
           <EdgeModifierSlider
             label={t("array.centerX")}
