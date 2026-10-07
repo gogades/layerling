@@ -61,6 +61,7 @@ import {
   ToolbarIntersectionIcon,
   ToolbarKeyboardIcon,
   ToolbarFilletIcon,
+  ToolbarHistoryIcon,
   ToolbarHollowIcon,
   ToolbarSimplifyIcon,
   ToolbarMirrorIcon,
@@ -94,6 +95,7 @@ import { groupedContentScale, scaleGroupedVertices } from "@/lib/groupScale";
 import { dropSplitSlivers, unionSplitManifoldComponents } from "@/lib/manifoldSplit";
 import { NO_SPLIT_ROTATION, modelSplitPlane, snapSplitPositionToVertices, splitOrientationForNormal, splitAxisFromLabel, splitAxisLabel, splitPlaneIntersectsPoints, splitRotationAxes, splitShapeFromWorldPositions, type ModelSplitPlane, type SplitRotation } from "@/lib/modelSplit";
 import { GuideModal } from "./workplane/GuideModal";
+import { HistoryViewOverlay, historyStateNameSuffix } from "./workplane/HistoryViewOverlay";
 import { ShortcutsModal } from "./workplane/ShortcutsModal";
 import { CommandPalette, type PaletteCommand } from "./workplane/CommandPalette";
 import { COMMAND_KEYWORDS, SHAPE_KEYWORDS } from "@/lib/commandKeywords";
@@ -152,7 +154,7 @@ import {
 } from "@/lib/cadModifierRuntime";
 import { createCadPreviewQueue } from "@/lib/cadPreviewQueue";
 import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatmentAppliedFrame, restoreShapeBeforeEdgeTreatment } from "@/lib/edgeTreatmentHistory";
-import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryEntry, editorHistoryForExport, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, projectShapesFingerprint, workplaneForHistoryIndex, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
+import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryBranch, editorHistoryEntry, editorHistoryForExport, historyStateAt, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, projectShapesFingerprint, workplaneForHistoryIndex, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { composedShapeRotation, geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
 import type { PivotPoint } from "@/lib/rotationPivot";
@@ -230,6 +232,29 @@ import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSou
 export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
 type TopPanel = "import" | "export" | null;
+
+/** Die Befehle der Suche, die im Verlaufsblick wach bleiben: sie aendern nichts am Entwurf. */
+const HISTORY_VIEW_COMMANDS = new Set(["history", "export", "guide", "shortcuts"]);
+
+/**
+ * Was der Verlaufsblick mitgibt, wenn aus einem frueheren Stand ein neues
+ * Projekt werden soll. Die Uebersicht legt es an; der Editor bleibt, wo er ist.
+ */
+export type HistoryProjectRequest = {
+  sourceProjectId: string | null;
+  /** Der gewuenschte Name, oder null, wenn die Uebersicht einen Kopie-Namen vergeben soll. */
+  name: string | null;
+  shapes: WorkplaneShape[];
+  history: EditorHistoryEntry[];
+  historyIndex: number;
+  assets: ProjectAsset[];
+  workspace: WorkplaneWorkspaceSettings;
+  snapGrid: GridSize;
+  placementElevation: number;
+  placementWorkplane: PlacementWorkplane;
+  /** Das Bild der Arbeitsflaeche in diesem Stand, fuer die Karte in der Uebersicht. */
+  thumbnailDataUrl: string | null;
+};
 type ExportFormat = "stl" | "3mf" | "obj" | "step" | "svg" | "png" | "lyl";
 type DirectExportFormat = Exclude<ExportFormat, "step" | "png" | "lyl">;
 type ViewImageOptions = { plate: boolean; transparent: boolean };
@@ -6590,6 +6615,7 @@ export function LayerlingEditor({
   projectSaveFailure,
   onProjectWorkspaceChange,
   onProjectNameChange,
+  onCreateProjectFromState,
   projectId,
   projectName = "Layerling design",
   projectCreatedAt = Date.now(),
@@ -6632,6 +6658,8 @@ export function LayerlingEditor({
   /** The last failed autosave, so the editor can say so; `at` makes a repeat failure show again. */
   projectSaveFailure?: { message: string; at: number } | null;
   onProjectNameChange?: (name: string) => void;
+  /** Legt aus einem frueheren Stand ein neues Projekt an und sagt in einem Satz, was daraus wurde. */
+  onCreateProjectFromState?: (request: HistoryProjectRequest) => Promise<string>;
   onProjectWorkspaceChange?: (snapshot: {
     projectId: string;
     workspace: WorkplaneWorkspaceSettings;
@@ -6684,6 +6712,19 @@ export function LayerlingEditor({
   const [systemClipboardSupported, setSystemClipboardSupported] = useState(false);
   const [history, setHistory] = useState<EditorHistoryEntry[]>(() => (initialHistoryStateRef.current as EditorHistoryState).entries);
   const [historyIndex, setHistoryIndex] = useState(() => (initialHistoryStateRef.current as EditorHistoryState).index);
+  /**
+   * Der Verlaufsblick: welcher Stand gerade gezeigt wird, null ausserhalb. Er
+   * aendert das Projekt nicht - die Arbeitsflaeche zeigt derweil nur einen
+   * anderen Eintrag desselben Verlaufs.
+   */
+  const [historyViewIndex, setHistoryViewIndex] = useState<number | null>(null);
+  const [historyProjectCreating, setHistoryProjectCreating] = useState(false);
+  const historyViewState = useMemo(
+    () => (historyViewIndex === null ? null : historyStateAt(history, historyViewIndex)),
+    [history, historyViewIndex],
+  );
+  const historyViewStateRef = useRef(historyViewState);
+  historyViewStateRef.current = historyViewState;
   const [placementWorkplane, setPlacementWorkplane] = useState<PlacementWorkplane>(
     () => workplaneForHistoryIndex(initialHistory, initialHistoryIndex, initialNormalizedWorkplane) ?? initialNormalizedWorkplane,
   );
@@ -7361,11 +7402,26 @@ export function LayerlingEditor({
     setEdgeModifier((latest) => latest ? { ...latest, sharpAngle, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : t("edge.selectAtLeastOne") } : latest);
     if (notice) setNotice(notice, true);
   }, []);
-  const exportTargetShapes = useMemo(() => (hasSelection ? selectedShapes : shapes), [hasSelection, selectedShapes, shapes]);
+  // Im Verlaufsblick wird der gezeigte Stand exportiert, ganz und ohne Auswahl.
+  const exportSelectionScoped = hasSelection && !historyViewState;
+  const exportTargetShapes = useMemo(
+    () => (historyViewState ? historyViewState.shapes : hasSelection ? selectedShapes : shapes),
+    [hasSelection, historyViewState, selectedShapes, shapes],
+  );
   const exportableShapeCount = useMemo(() => exportTargetShapes.filter((shape) => !shape.hole && !shape.hidden).length, [exportTargetShapes]);
   const exportHiddenCount = useMemo(() => exportTargetShapes.filter((shape) => shape.hidden).length, [exportTargetShapes]);
   const exportHolesOnly = useMemo(() => exportTargetShapes.length > 0 && exportTargetShapes.every((shape) => shape.hole), [exportTargetShapes]);
-  const exportScopeLabel = hasSelection ? "selected" : "total";
+  const exportScopeLabel = exportSelectionScoped ? "selected" : "total";
+  /**
+   * Der Name, den ein Export oder ein neues Projekt aus dem gezeigten Stand
+   * traegt: der Projektname mit der Zeit des Standes - oder, wo ein alter
+   * Verlauf keine Zeit kennt, der Name einer Kopie.
+   */
+  const historyViewName = useMemo(() => {
+    if (!historyViewState) return projectName;
+    const time = historyStateNameSuffix(historyViewState.entry.at);
+    return time ? t("historyView.copyName", { name: projectName, time }) : t("dashboard.copyOf", { name: projectName });
+  }, [historyViewState, projectName]);
   // The note "only the selection is exported" needs to know how much is left
   // out: the visible bodies the selection does not cover.
   const exportVisibleCount = useMemo(() => shapes.filter((shape) => !shape.hidden).length, [shapes]);
@@ -7849,6 +7905,13 @@ export function LayerlingEditor({
 
   const commitShapes = useCallback(
     (next: WorkplaneShape[], nextSelection: string | string[] | null = selectedIds, message?: string) => {
+      // Solange der Verlaufsblick offen ist, zeigt die Flaeche nicht den
+      // Entwurf. Eine Aenderung, die jetzt noch durchkaeme - ueber einen
+      // Umweg, den die Leiste nicht kennt -, traefe etwas, das keiner sieht.
+      if (historyViewStateRef.current) {
+        setNotice(t("status.historyViewBlocksEdits"));
+        return;
+      }
       const canonicalNext = next.map(canonicalizeShape);
       const requestedSelection = Array.isArray(nextSelection) ? nextSelection : nextSelection ? [nextSelection] : [];
       const validSelection = requestedSelection.filter((id, index) => requestedSelection.indexOf(id) === index && canonicalNext.some((shape) => shape.id === id));
@@ -7889,6 +7952,10 @@ export function LayerlingEditor({
    */
   const commitNotes = useCallback(
     (next: WorkplaneNote[], message?: string) => {
+      if (historyViewStateRef.current) {
+        setNotice(t("status.historyViewBlocksEdits"));
+        return;
+      }
       const normalized = normalizeNotes(next);
       notesRef.current = normalized;
       setNotes(normalized);
@@ -9114,6 +9181,80 @@ export function LayerlingEditor({
     syncProjectShapes(nextShapes);
     setNotice(modifierCancelled ? t("status.edgeCancelledRedo") : t("status.redo"));
   }, [invalidateCadModifierSession, setOpenGroupLevels, syncProjectShapes]);
+
+  /**
+   * Der Verlaufsblick oeffnet beim aktuellen Stand; von dort fuehrt der Schieber
+   * zurueck. Werkzeuge, die auf der Arbeitsflaeche etwas vorhaben, werden
+   * abgelegt - sie wuerden sonst auf einem Stand arbeiten, der nur gezeigt wird.
+   */
+  const openHistoryView = useCallback(() => {
+    if (projectInteractionActiveRef.current) {
+      setNotice(t("status.finishBeforeHistory"));
+      return;
+    }
+    if (historyRef.current.length <= 1) {
+      setNotice(t("status.historyViewEmpty"));
+      return;
+    }
+    if (cruiseAssetRef.current) setCruiseAsset(null);
+    setNoteMode(false);
+    setPivotPickMode(false);
+    setLayFlatPickMode(false);
+    setArrayTool(null);
+    setTopPanel(null);
+    setMenuOpen(false);
+    setHistoryViewIndex(historyIndexRef.current);
+    setNotice(t("status.historyViewOpened"), true);
+  }, []);
+
+  const closeHistoryView = useCallback(() => {
+    setHistoryViewIndex(null);
+    setTopPanel(null);
+    setNotice(t("status.historyViewClosed"));
+  }, []);
+
+  const stepHistoryView = useCallback((delta: number) => {
+    setHistoryViewIndex((current) => {
+      if (current === null) return current;
+      return Math.min(Math.max(0, current + delta), Math.max(0, historyRef.current.length - 1));
+    });
+  }, []);
+
+  const createProjectFromHistoryState = useCallback(async () => {
+    const view = historyViewStateRef.current;
+    if (!view || historyProjectCreating) return;
+    if (!onCreateProjectFromState) {
+      setNotice(t("status.historyProjectUnavailable"));
+      return;
+    }
+    setHistoryProjectCreating(true);
+    setNotice(t("status.historyProjectCreating"), true);
+    try {
+      // Die Arbeitsflaeche zeigt gerade diesen Stand - also ist ihr Bild das
+      // Bild fuer die Karte des neuen Projekts.
+      const picture = await (window.layerlingCaptureCanvasAsync?.() ?? Promise.resolve(""));
+      const branch = editorHistoryBranch(historyRef.current, view.index, workspaceSettingsRef.current.historyLimit);
+      const time = historyStateNameSuffix(view.entry.at);
+      const message = await onCreateProjectFromState({
+        sourceProjectId: projectInfoRef.current.projectId,
+        name: time ? t("historyView.copyName", { name: projectInfoRef.current.projectName, time }) : null,
+        shapes: view.shapes,
+        history: branch.entries,
+        historyIndex: branch.index,
+        assets: projectAssetsRef.current,
+        workspace: workspaceSettingsRef.current,
+        snapGrid,
+        placementElevation: view.placementElevation,
+        placementWorkplane: view.placementWorkplane,
+        thumbnailDataUrl: picture.startsWith("data:image/png;base64,") && picture.length > 100 ? picture : null,
+      });
+      setNotice(message);
+    } catch (error) {
+      setNotice(error instanceof Error ? localizedError(error.message) : t("status.historyProjectCreateFailed"));
+    } finally {
+      setHistoryProjectCreating(false);
+    }
+  }, [historyProjectCreating, onCreateProjectFromState, snapGrid]);
 
   const toggleAlignMode = useCallback(() => {
     if (selectedShapes.length < 2) {
@@ -12416,13 +12557,26 @@ export function LayerlingEditor({
     setNotice(t("status.imageSaved"));
   }, [setNotice]);
 
+  /**
+   * Was ein Export mitnimmt: im Verlaufsblick den gezeigten Stand, sonst die
+   * Auswahl oder alles. `selection` sagt, ob die Saetze von einer Auswahl
+   * sprechen sollen.
+   */
+  const exportSource = useCallback(() => {
+    const view = historyViewStateRef.current;
+    if (view) return { shapes: view.shapes, selection: false };
+    return { shapes: hasSelection ? selectedShapes : shapes, selection: hasSelection };
+  }, [hasSelection, selectedShapes, shapes]);
+
   const exportDesign = useCallback((format: DirectExportFormat, exportName: string) => {
+    const source = exportSource();
+    const selectionScoped = source.selection;
     // Ausgeblendetes bleibt draussen, wie bei Tinkercad: ein beiseitegelegtes
     // Teil soll nicht unbemerkt mitgedruckt werden (Discussion #80).
-    const { visible: sourceShapes, hiddenNote } = visibleExportShapes(hasSelection ? selectedShapes : shapes);
+    const { visible: sourceShapes, hiddenNote } = visibleExportShapes(source.shapes);
     const exportable = sourceShapes.filter((shape) => !shape.hole && !isNonSolidShapeKind(shape.kind));
     if (exportable.length === 0) {
-      setNotice(hiddenNote ? t("status.exportOnlyHidden") : hasSelection ? t("status.selectSolidBeforeExport") : t("status.addSolidBeforeExport"));
+      setNotice(hiddenNote ? t("status.exportOnlyHidden") : selectionScoped ? t("status.selectSolidBeforeExport") : t("status.addSolidBeforeExport"));
       return;
     }
     const invalidSvg = exportable.map(invalidSvgMeshReason).find((reason): reason is string => Boolean(reason));
@@ -12435,7 +12589,7 @@ export function LayerlingEditor({
       : t("status.exportedSelectedMany", { count: exportable.length });
     const finishNotice = (label: string) => {
       setTopPanel(null);
-      setNotice((hasSelection
+      setNotice((selectionScoped
         ? t("status.exportedSelectedAs", { selected: selectedNotice, label })
         : t("status.exportedAs", { label })) + hiddenNote);
     };
@@ -12476,13 +12630,13 @@ export function LayerlingEditor({
         else finishNotice(label);
       })
       .catch((error: unknown) => failNotice(label, error));
-  }, [bedPrinter, hasSelection, projectName, selectedShapes, shapes]);
+  }, [bedPrinter, exportSource, projectName]);
 
   const exportStepDesign = useCallback(async (exportName: string) => {
     if (stepExporting) {
       return;
     }
-    const { visible: sourceShapes, hiddenNote } = visibleExportShapes(hasSelection ? selectedShapes : shapes);
+    const { visible: sourceShapes, hiddenNote } = visibleExportShapes(exportSource().shapes);
     if (sourceShapes.length === 0 && hiddenNote) {
       setNotice(t("status.exportOnlyHidden"));
       return;
@@ -12518,7 +12672,7 @@ export function LayerlingEditor({
     } finally {
       setStepExporting(false);
     }
-  }, [hasSelection, projectName, selectedShapes, shapes, stepExporting]);
+  }, [exportSource, projectName, stepExporting]);
 
   const exportLylDesign = useCallback(async (exportName: string, historyLimit: LylHistoryLimit, target: LylExportTarget = "download") => {
     if (lylExporting) return;
@@ -12539,22 +12693,27 @@ export function LayerlingEditor({
       if (target === "shared" && (!thumbnailDataUrl.startsWith("data:image/png;base64,") || thumbnailDataUrl.length <= 100)) {
         throw new Error("Could not capture the current project preview");
       }
-      const exportedHistory = editorHistoryForExport(historyRef.current, historyIndexRef.current, historyLimit);
+      // Im Verlaufsblick geht der gezeigte Stand in die Datei, mit dem Verlauf
+      // bis zu ihm - was danach kam, gehoert nicht zu diesem Stand.
+      const view = historyViewStateRef.current;
+      const exportedHistory = view
+        ? editorHistoryBranch(historyRef.current, view.index, historyLimit)
+        : editorHistoryForExport(historyRef.current, historyIndexRef.current, historyLimit);
       const bytes = await exportLylProject({
         projectId: projectInfoRef.current.projectId,
         projectName,
         createdAt: projectCreatedAt,
         modifiedAt: projectModifiedAt,
-        shapes: shapesRef.current,
-        notes: notesRef.current,
+        shapes: view ? view.shapes : shapesRef.current,
+        notes: view ? view.notes : notesRef.current,
         history: exportedHistory.entries,
         historyIndex: exportedHistory.index,
         assets: projectAssetsRef.current,
         workspace: workspaceSettingsRef.current,
         snapGrid,
-        placementElevation,
-        placementWorkplane,
-        sketchPlacementWorkplane: placementWorkplane,
+        placementElevation: view ? view.placementElevation : placementElevation,
+        placementWorkplane: view ? view.placementWorkplane : placementWorkplane,
+        sketchPlacementWorkplane: view ? view.placementWorkplane : placementWorkplane,
       });
       if (target === "shared" && onSaveSharedProject) {
         setNotice(await onSaveSharedProject({ exportName: exportName.trim() || projectName, bytes, thumbnailDataUrl }));
@@ -13102,6 +13261,29 @@ export function LayerlingEditor({
         return;
       }
 
+      // Im Verlaufsblick gehoeren die Tasten dem Blick: Pfeile gehen durch die
+      // Staende, Escape kehrt zurueck. Alles andere - Loeschen, Einfuegen,
+      // Rueckgaengig - wuerde das Projekt aendern, waehrend es etwas anderes zeigt.
+      if (historyViewIndex !== null) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeHistoryView();
+        } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+          event.preventDefault();
+          stepHistoryView(-1);
+        } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+          event.preventDefault();
+          stepHistoryView(1);
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          stepHistoryView(-Number.MAX_SAFE_INTEGER);
+        } else if (event.key === "End") {
+          event.preventDefault();
+          stepHistoryView(Number.MAX_SAFE_INTEGER);
+        }
+        return;
+      }
+
       if (sketchActive && toolbarMode === "sketch") {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -13335,6 +13517,9 @@ export function LayerlingEditor({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
+    closeHistoryView,
+    historyViewIndex,
+    stepHistoryView,
     commitShapes,
     clearSketchMeasurement,
     copySelected,
@@ -13436,7 +13621,7 @@ export function LayerlingEditor({
   };
 
   return (
-    <div className="layerling-editor">
+    <div className={`layerling-editor ${historyViewState ? "history-view-active" : ""}`}>
       <SecondaryToolbar
         toolbarMode={toolbarMode}
         projectName={projectName}
@@ -13453,8 +13638,11 @@ export function LayerlingEditor({
         }}
         outlinerOpen={outlinerOpen}
         onToggleOutliner={toggleOutliner}
-        canUndo={!splitSession && !projectInteractionActive && (historyIndex > 0 || Boolean(edgeModifier))}
-        canRedo={!splitSession && !projectInteractionActive && historyIndex < history.length - 1}
+        canUndo={!splitSession && !projectInteractionActive && historyViewIndex === null && (historyIndex > 0 || Boolean(edgeModifier))}
+        canRedo={!splitSession && !projectInteractionActive && historyViewIndex === null && historyIndex < history.length - 1}
+        canHistoryView={historyViewIndex !== null || (!splitSession && !projectInteractionActive && !edgeModifier && !openGroup && history.length > 1)}
+        historyViewActive={historyViewIndex !== null}
+        onHistoryView={historyViewIndex === null ? openHistoryView : closeHistoryView}
         canGroup={selectedShapes.length > 1 && selectedShapes.every((shape) => !shape.locked && !isNonSolidShapeKind(shape.kind))}
         canIntersect={canIntersectShapes(selectedShapes.filter((shape) => !shape.locked && !isNonSolidShapeKind(shape.kind)))}
         canUngroup={selectedShapes.some((shape) => Boolean(shape.groupedShapes?.length))}
@@ -13588,8 +13776,9 @@ export function LayerlingEditor({
       <div className="editor-body">
         {outlinerOpen ? (
           <ObjectListPanel
-            shapes={shapes}
-            selectedIds={selectedIds}
+            inert={historyViewState !== null}
+            shapes={historyViewState?.shapes ?? shapes}
+            selectedIds={historyViewState ? [] : selectedIds}
             onSelectShape={selectShape}
             onToggleLock={toggleShapeLockById}
             onToggleHidden={toggleShapeHiddenById}
@@ -13661,20 +13850,20 @@ export function LayerlingEditor({
           <WorkplaneViewport
           projectName={projectName}
           projectId={editorOpen ? projectId ?? null : null}
-          shapes={viewportShapes}
-          selectedIds={selectedIds}
+          shapes={historyViewState ? historyViewState.shapes : viewportShapes}
+          selectedIds={historyViewState ? [] : selectedIds}
           alignMode={alignMode}
           alignAnchorId={effectiveAlignAnchorId}
           alignHandles={alignHandleStatuses}
           alignReferenceShapes={shapes}
           mirrorMode={mirrorMode}
           mirrorReferenceShapes={shapes}
-          splitActive={Boolean(splitSession)}
+          splitActive={Boolean(splitSession) || historyViewState !== null}
           splitPlane={splitPlane}
           onSplitPositionChange={changeSplitPosition}
           splitSurfacePick={Boolean(splitSession?.picking)}
           onSplitSurfacePick={pickSplitSurface}
-          placementWorkplane={placementWorkplane}
+          placementWorkplane={historyViewState ? historyViewState.placementWorkplane : placementWorkplane}
           workplaneHidden={workplaneHidden}
           onToggleWorkplaneHidden={() => {
             const next = !workplaneHiddenRef.current;
@@ -13686,7 +13875,7 @@ export function LayerlingEditor({
           initialSnap={snapGrid}
           initialWorkspace={workspaceSettings}
           workspaceSettingsKey={projectId ?? "local-workplane"}
-          cruiseAsset={cruiseAsset}
+          cruiseAsset={historyViewState ? null : cruiseAsset}
           onCancelCruise={stopCruise}
           onAddShape={addShape}
           onDropMyShape={(id, point) => void insertMyShape(id, point).catch((error) => setNotice(error instanceof Error ? localizedError(error.message) : String(error)))}
@@ -13698,7 +13887,7 @@ export function LayerlingEditor({
           onMirrorPreviewClear={clearMirrorPreview}
           onMirrorSelection={mirrorSelectionAcross}
           onSelectShape={selectShape}
-          onShapeContextMenu={openShapeContextMenu}
+          onShapeContextMenu={historyViewState ? undefined : openShapeContextMenu}
           onSetPlacementWorkplane={setViewportPlacementWorkplane}
           onToggleWorkplaneTool={activateWorkplaneTool}
           onInteractionActiveChange={updateProjectInteractionActive}
@@ -13710,10 +13899,10 @@ export function LayerlingEditor({
           onUpdateShape={updateShape}
           onDuplicateShapeAt={duplicateShapeAt}
           onDuplicateShapesMoved={duplicateShapesMoved}
-          notes={notes}
+          notes={historyViewState ? historyViewState.notes : notes}
           notesVisible={notesVisible}
           showOverhangs={overhangsVisible}
-          noteMode={noteMode}
+          noteMode={historyViewState ? false : noteMode}
           rotationPivot={activeRotationPivot}
           pivotPickMode={pivotPickMode}
           onPivotPick={pickRotationPivot}
@@ -13749,6 +13938,21 @@ export function LayerlingEditor({
         />
       ) : null}
       <AppFooter variant="editor" version={LYL_CREATED_WITH_VERSION} onBugReport={() => void saveBugReport()} />
+      {historyViewState && toolbarMode === "geometry" ? (
+        <HistoryViewOverlay
+          index={historyViewState.index}
+          count={history.length}
+          liveIndex={historyIndex}
+          recordedAt={historyViewState.entry.at}
+          objectCount={historyViewState.shapes.length}
+          creating={historyProjectCreating}
+          canCreateProject={Boolean(onCreateProjectFromState)}
+          onIndexChange={(index) => setHistoryViewIndex(Math.min(Math.max(0, index), Math.max(0, history.length - 1)))}
+          onExport={() => setTopPanel((current) => (current === "export" ? null : "export"))}
+          onCreateProject={() => void createProjectFromHistoryState()}
+          onClose={closeHistoryView}
+        />
+      ) : null}
       {openGroup ? (
         <div className="open-group-banner" role="status">
           <span>
@@ -13881,10 +14085,10 @@ export function LayerlingEditor({
       {topPanel ? (
         <TopActionPanel
           panel={topPanel}
-          projectName={projectName}
+          projectName={historyViewName}
           shapeCount={exportableShapeCount}
           scopeLabel={exportScopeLabel}
-          selectionLeavesOut={hasSelection && exportSelectedVisibleCount < exportVisibleCount ? { selected: selectedShapes.length, total: exportVisibleCount } : null}
+          selectionLeavesOut={exportSelectionScoped && exportSelectedVisibleCount < exportVisibleCount ? { selected: selectedShapes.length, total: exportVisibleCount } : null}
           onSelectAll={selectAllVisible}
           onlyHoles={exportHolesOnly}
           hiddenCount={exportHiddenCount}
@@ -14085,6 +14289,9 @@ function SecondaryToolbar({
   canRedo,
   canUngroup,
   canUndo,
+  canHistoryView,
+  historyViewActive,
+  onHistoryView,
   hasClipboard,
   hasSelection,
   hiddenShapeCount,
@@ -14179,6 +14386,9 @@ function SecondaryToolbar({
   canRedo: boolean;
   canUngroup: boolean;
   canUndo: boolean;
+  canHistoryView: boolean;
+  historyViewActive: boolean;
+  onHistoryView: () => void;
   hasClipboard: boolean;
   hasSelection: boolean;
   hiddenShapeCount: number;
@@ -14338,6 +14548,11 @@ function SecondaryToolbar({
     setSketchCreateOpen(false);
     onStartSketch(operation);
   };
+  useEffect(() => {
+    if (!historyViewActive) return;
+    setShapesOpen(false);
+    setVisibilityOpen(false);
+  }, [historyViewActive]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const openPalette = () => {
     setShapesOpen(false);
@@ -14448,6 +14663,7 @@ function SecondaryToolbar({
     { id: "delete", label: t("editor.tool.delete"), icon: ToolbarTrashIcon, action: onDelete, enabled: hasSelection },
     { id: "undo", label: t("editor.tool.undo"), icon: ToolbarUndoIcon, action: onUndo, enabled: canUndo },
     { id: "redo", label: t("editor.tool.redo"), icon: ToolbarRedoIcon, action: onRedo, enabled: canRedo },
+    { id: "history", label: t("editor.tool.history"), icon: ToolbarHistoryIcon, action: onHistoryView, enabled: canHistoryView, active: historyViewActive },
   ];
   const visibilityTools = [
     {
@@ -14502,7 +14718,11 @@ function SecondaryToolbar({
     { id: "sketch-delete", label: t("editor.tool.delete"), icon: ToolbarTrashIcon, action: onSketchDelete, enabled: sketchHasSelection },
   ];
   const renderToolButton = (tool: (typeof leftTools)[number] | (typeof visibilityTools)[number] | (typeof combineTools)[number] | (typeof modifyTools)[number] | (typeof arrangeTools)[number]) => {
-    const { id, icon: Icon, action, enabled, label } = tool;
+    const { id, icon: Icon, action, label } = tool;
+    // Im Verlaufsblick schlaeft jedes Werkzeug ausser dem, das ihn beendet -
+    // wirklich, nicht nur im Aussehen: eine Auswahl aus der Zeit davor darf
+    // kein Loeschen freischalten, waehrend die Flaeche etwas anderes zeigt.
+    const enabled = tool.enabled && (!historyViewActive || id === "history");
     const active = "active" in tool && Boolean(tool.active);
     return (
       <button
@@ -14522,7 +14742,10 @@ function SecondaryToolbar({
   // Everything the toolbar and its menus can do, as entries of the command
   // search. Built from the same lists as the buttons, so a new tool shows up in
   // both without a second place to remember; only built while the search is open.
-  const buildPaletteCommands = (): PaletteCommand[] => {
+  const buildPaletteCommands = (): PaletteCommand[] => buildAllPaletteCommands().map((command) =>
+    historyViewActive && !HISTORY_VIEW_COMMANDS.has(command.id) ? { ...command, enabled: false } : command,
+  );
+  const buildAllPaletteCommands = (): PaletteCommand[] => {
     const fromTool = (
       tool: { id: string; label: string; icon: PaletteCommand["icon"]; action: () => void; enabled: boolean; active?: boolean },
       group: string,
@@ -14657,7 +14880,7 @@ function SecondaryToolbar({
         </div>
       ) : null}
       <div className="tool-group left">
-        <div className="toolbar-section" data-group="clipboard">
+        <div className="toolbar-section" data-group="clipboard" inert={historyViewActive}>
           <div className="toolbar-section-label">{t("editor.group.clipboard")}</div>
           <div className="toolbar-section-tools">{leftTools.slice(0, 4).map(renderToolButton)}</div>
         </div>
@@ -14665,7 +14888,7 @@ function SecondaryToolbar({
           <div className="toolbar-section-label">{t("editor.group.history")}</div>
           <div className="toolbar-section-tools">{leftTools.slice(4).map(renderToolButton)}</div>
         </div>
-        <div className="toolbar-section toolbar-shapes-section" data-group="shapes" ref={shapesMenuRef}>
+        <div className="toolbar-section toolbar-shapes-section" data-group="shapes" ref={shapesMenuRef} inert={historyViewActive}>
           <div className="toolbar-section-label">{t("editor.group.shapes")}</div>
           <div className="toolbar-section-tools">
             <button
@@ -14765,7 +14988,7 @@ function SecondaryToolbar({
         </div>
       </div>
       <div className="toolbar-spacer" />
-      <div className="tool-group right">
+      <div className="tool-group right" inert={historyViewActive}>
         <div className="toolbar-section compact toolbar-visibility-section" data-group="visibility" ref={visibilityMenuRef}>
           <div className="toolbar-section-label">{t("editor.group.visibility")}</div>
           <div className="toolbar-section-tools">
@@ -14873,10 +15096,11 @@ function SecondaryToolbar({
             aria-pressed={noteMode}
             title={t("editor.tool.note")}
             onClick={onNoteTool}
+            disabled={historyViewActive}
           >
             <ToolbarNoteIcon />
           </button>
-          <button className="action-icon-button" aria-label={t("editor.import")} title={t("editor.import")} onClick={() => onTopPanel("import")}>
+          <button className="action-icon-button" aria-label={t("editor.import")} title={t("editor.import")} onClick={() => onTopPanel("import")} disabled={historyViewActive}>
             <ToolbarImportIcon />
           </button>
           <button className="action-icon-button" aria-label={t("editor.export")} title={t("editor.export")} onClick={() => onTopPanel("export")}>
@@ -15129,6 +15353,7 @@ function SecondaryToolbar({
             role="tab"
             aria-selected={toolbarMode === "sketch"}
             onClick={() => selectToolbarMode("sketch")}
+            disabled={historyViewActive}
           >
             {t("editor.modeSketch")}
           </button>

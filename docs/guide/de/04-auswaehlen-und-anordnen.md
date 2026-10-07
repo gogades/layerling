@@ -78,3 +78,9 @@ Die Kopien erscheinen zuerst als Vorschau. Erst {{ui:array.apply}} legt sie an. 
 ## Rückgängig machen
 
 {{ui:editor.tool.undo}} ([[Strg]]+[[Z]]) und {{ui:editor.tool.redo}} ([[Strg]]+[[Umschalt]]+[[Z]] oder [[Strg]]+[[Y]]) gehen Schritt für Schritt durch deinen Verlauf. Wie viele Schritte mit dem gespeicherten Entwurf mitreisen, stellst du in den Einstellungen unter {{ui:workspace.history}} ein.
+
+## Zurückschauen: die Verlaufsansicht
+
+{{ui:editor.tool.history}}, neben Rückgängig und Wiederherstellen, öffnet einen Blick in deinen Verlauf, ohne etwas zu ändern. Die Arbeitsfläche zeigt den Entwurf, wie er war, und ein Schieber unten geht durch alle Rückgängig-Schritte: ganz rechts der aktuelle Stand, jeder Schritt nach links ein Rückgängig früher, und Stände, die du rückgängig gemacht hast, liegen rechts vom aktuellen. Die Pfeiltasten gehen durch die Stände, [[Esc]] kehrt zum aktuellen Stand zurück. Du kannst die Ansicht derweil drehen und zoomen, aber nichts auswählen oder verschieben; der Entwurf selbst bleibt genau, wie er ist.
+
+Zwei Dinge kannst du aus einem früheren Stand mitnehmen. {{ui:historyView.createProject}} legt diesen Stand als neuen Entwurf in der Übersicht an, benannt nach diesem hier mit der Zeit des Standes in Klammern - bei einem Entwurf, der gespeichert wurde, bevor layerling Zeiten festhielt, steht stattdessen „Kopie“ - und mit dem Verlauf bis dorthin, sodass Rückgängig dort weitergeht. {{ui:historyView.export}} öffnet den gewohnten Export mit diesem Stand als Entwurf, sodass du ihn als STL, 3MF, STEP, Bild oder LYL-Datei mit dem Verlauf bis zu diesem Stand sichern kannst.

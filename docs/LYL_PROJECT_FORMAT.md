@@ -27,7 +27,7 @@ project.lyl
 - `metadata`: project name, source project ID, units, and timestamps
 - `assets`: path, type, byte length, SHA-256, source format, and media type
 - `states`: explicit root node IDs and editable object graphs for the active scene and undo/redo states
-- `history`: ordered state references, selection per state, and current undo/redo index
+- `history`: ordered state references, selection per state, the time each state was recorded (`recordedAt`, ISO 8601, optional - older packages carry none), and current undo/redo index
 - `sketches`: sketch/extrusion indexes
 - `features`: supported group, subtraction, intersection, mirror, sketch-extrusion, fillet, and chamfer operations used by the active project
 - `groups`: explicit parent/member references and operation type

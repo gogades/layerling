@@ -88,6 +88,18 @@ export function ToolbarUndoIcon(props: IconProps) {
   );
 }
 
+/** A clock turned back: the history view, which looks at earlier states without changing anything. */
+export function ToolbarHistoryIcon(props: IconProps) {
+  return (
+    <ToolbarVectorIcon {...props}>
+      <circle cx="24.5" cy="25" r="13" {...SOLID} />
+      <path d="M11.5 25a13 13 0 1 0 3.8-9.2" />
+      <path d="M11 11v8h8" />
+      <path d="M24.5 18v7.5l5.5 3.5" />
+    </ToolbarVectorIcon>
+  );
+}
+
 export function ToolbarRedoIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>
