@@ -18,7 +18,7 @@ Danach zeigt der Editor ein Blatt mit Gitter. Das ist deine Zeichenfläche.
 
 Das Menüband des Skizzenmodus ist in Bereiche geteilt:
 
-- **Zeichnen:** {{ui:sketch.line}} setzt gerade Abschnitte: Punkte nacheinander anklicken. Die {{ui:sketch.bezier}} spannst du an ihren Griffen: Punkt anklicken und ziehen. Die {{ui:sketch.smooth}} legt einen fließenden Verlauf durch die Punkte, die du anklickst. Um den Umriss zu schließen, klickst du am Ende wieder auf den ersten Punkt.
+- **Zeichnen:** {{ui:sketch.line}} setzt gerade Abschnitte: Punkte nacheinander anklicken; mit gehaltener [[Umschalt]]-Taste rastet die neue Linie horizontal oder vertikal ein. Die {{ui:sketch.bezier}} spannst du an ihren Griffen: Punkt anklicken und ziehen. Die {{ui:sketch.smooth}} legt einen fließenden Verlauf durch die Punkte, die du anklickst. Um den Umriss zu schließen, klickst du am Ende wieder auf den ersten Punkt.
 - **Formen:** {{ui:sketch.addShape}} bietet fertige Umrisse: {{ui:sketch.rectangle}}, {{ui:sketch.circle}}, {{ui:sketch.ellipse}}, {{ui:sketch.halfCircle}}, {{ui:sketch.pieSlice}}, {{ui:sketch.boltCircle}} (eine Scheibe mit Bohrungen), {{ui:sketch.triangle}} und {{ui:sketch.hexagon}}. Wähle eine aus und ziehe einen Rahmen auf.
 - **Auswahl:** {{ui:sketch.select}} verschiebt Punkte und Linien. Ein Klick in einen geschlossenen Umriss wählt den ganzen Umriss, so dass du ihn gleich verschieben oder skalieren kannst; in einem Loch wird das Loch gewählt. Mit [[Umschalt]] nimmst du per Klick weitere Punkte und Linien dazu oder wieder weg, so dass du mehrere auf einmal verschieben kannst. Ein Rahmen über freier Fläche wählt alles darin. Auch eine Linie lässt sich ziehen (sie wandert an ihren beiden Enden, oder die ganze Auswahl, wenn sie zu einer gehört). Die Pfeiltasten verschieben die Auswahl um einen Rasterschritt, mit [[Umschalt]] um einen größeren, und [[Umschalt]] beim Ziehen hält die Bewegung auf einer Achse. {{ui:sketch.refine}}: Ein Klick auf einen Abschnitt setzt einen Punkt, ein Klick auf einen Punkt entfernt ihn. Dazu kommen {{ui:sketch.erase}} und das Einfügen eines Vorlagenbilds ({{ui:sketch.addImage}}).
 - **Zwischenablage:** {{ui:editor.tool.copy}}, {{ui:editor.tool.paste}}, {{ui:editor.tool.duplicate}} und {{ui:editor.tool.delete}} wirken auf die gewählten Punkte, Linien und Bilder, wie im 3D-Editor; [[Strg]]+[[X]] schneidet aus. Eingefügtes und Dupliziertes landet mit 10 mm Abstand neben dem Original, an einer freien Stelle, an der es keine vorhandene Linie berührt, so dass es nie mit dem Bestehenden verbunden wird. Es bleibt ausgewählt, so dass du es gleich an seinen Platz ziehen kannst.
@@ -78,6 +78,7 @@ Mit {{ui:sketch.addImage}} legst du ein Foto oder eine Zeichnung unter die Skizz
 | [[Strg]]+[[V]] | einfügen |
 | [[Strg]]+[[D]] | Auswahl duplizieren |
 | [[Strg]]+[[Z]] | rückgängig |
+| [[Umschalt]] | beim Zeichnen: Linie horizontal oder vertikal einrasten; beim Ziehen: Bewegung auf eine Achse beschränken |
 | [[R]] | geschlossene Skizze um 45° drehen |
 | [[L]] | Vorlagenbild sperren oder entsperren |
 

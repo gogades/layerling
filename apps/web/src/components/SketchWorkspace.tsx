@@ -529,6 +529,7 @@ export function SketchWorkspace({
   const [view, setView] = useState<SketchView>({ zoom: 1, pan: { x: 0, z: 0 } });
   const { zoom, pan } = view;
   const [hover, setHover] = useState<{ x: number; z: number } | null>(null);
+  const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const [refinePreview, setRefinePreview] = useState<{ segmentId: string; placement: SketchSegmentPlacement } | null>(null);
   const [pointerAction, setPointerAction] = useState<PointerAction | null>(null);
   const [showMeasurements, setShowMeasurements] = useState(true);
@@ -844,16 +845,23 @@ export function SketchWorkspace({
     event.preventDefault();
     if (tool === "bezier") {
       event.currentTarget.setPointerCapture(event.pointerId);
-      setPointerAction({ kind: "bezier", pointerId: event.pointerId, origin: point, current: point });
+      const startPoint = event.shiftKey && activePoint ? constrainToAxis(activePoint, point) : point;
+      setPointerAction({ kind: "bezier", pointerId: event.pointerId, origin: startPoint, current: startPoint });
     } else if (tool === "select") {
       event.currentTarget.setPointerCapture(event.pointerId);
       setPointerAction({ kind: "marquee", pointerId: event.pointerId, origin: point, current: point, clientX: event.clientX, clientY: event.clientY });
     } else if (tool === "line" || tool === "smooth" || tool === "measure") {
-      onPlanePoint(point);
+      const clickPoint = event.shiftKey && activePoint && ["line", "smooth"].includes(tool)
+        ? constrainToAxis(activePoint, point)
+        : event.shiftKey && pendingMeasurementStart && tool === "measure"
+        ? constrainToAxis(pendingMeasurementStart, point)
+        : point;
+      onPlanePoint(clickPoint);
     }
   };
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    lastPointerRef.current = { clientX: event.clientX, clientY: event.clientY };
     if (pointerAction?.kind === "pan") {
       const matrix = svgRef.current?.getScreenCTM();
       const scaleX = matrix ? Math.max(0.0001, Math.hypot(matrix.a, matrix.b)) : 1;
@@ -871,12 +879,21 @@ export function SketchWorkspace({
       return;
     }
     const point = pointFromEvent(event);
-    setHover(point);
+    const drawingOrigin =
+      !pointerAction && activePoint && ["line", "bezier", "smooth"].includes(tool)
+        ? activePoint
+        : !pointerAction && pendingMeasurementStart && tool === "measure"
+        ? pendingMeasurementStart
+        : null;
+    const hoverPoint = event.shiftKey && drawingOrigin && point ? constrainToAxis(drawingOrigin, point) : point;
+    setHover(hoverPoint);
     if (point && pointerAction) {
       // Shift held while a point, a line or a selection is being dragged keeps the
       // move on one axis, as on the workplane. Pressing it only starts a drag
       // from selecting, so it is looked at here, while the pointer moves.
-      const lockOrigin = pointerAction.kind === "move-point" || pointerAction.kind === "move-selection" ? pointerAction.origin : null;
+      const lockOrigin = pointerAction.kind === "move-point" || pointerAction.kind === "move-selection" || pointerAction.kind === "bezier"
+        ? pointerAction.origin
+        : null;
       setPointerAction({ ...pointerAction, current: event.shiftKey && lockOrigin ? constrainToAxis(lockOrigin, point) : point });
     }
   };
@@ -989,7 +1006,32 @@ export function SketchWorkspace({
   }, [focusBounds, workspace.depth, workspace.width]);
 
   useEffect(() => {
+    const syncShiftConstrain = (shiftKey: boolean) => {
+      if (!lastPointerRef.current) return;
+      const point = pointFromEvent(lastPointerRef.current);
+      if (!point) return;
+      const drawingOrigin =
+        !pointerAction && activePoint && ["line", "bezier", "smooth"].includes(tool)
+          ? activePoint
+          : !pointerAction && pendingMeasurementStart && tool === "measure"
+          ? pendingMeasurementStart
+          : null;
+      const hoverPoint = shiftKey && drawingOrigin ? constrainToAxis(drawingOrigin, point) : point;
+      setHover(hoverPoint);
+      if (pointerAction) {
+        const lockOrigin = pointerAction.kind === "move-point" || pointerAction.kind === "move-selection" || pointerAction.kind === "bezier"
+          ? pointerAction.origin
+          : null;
+        if (lockOrigin) {
+          setPointerAction((prev) => prev ? { ...prev, current: shiftKey ? constrainToAxis(lockOrigin, point) : point } : null);
+        }
+      }
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        syncShiftConstrain(true);
+      }
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -1024,9 +1066,18 @@ export function SketchWorkspace({
         onTransformPoints(translateSketchPoints(startPoints, allowed.dx, allowed.dz), t("sketch.shapeMoved"));
       }
     };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        syncShiftConstrain(false);
+      }
+    };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusSelection, onTransformPoints, onUpdateImage, pointerAction, profile, resetView, selected, snap, tool, workspace.depth, workspace.width]);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [activePoint, focusSelection, onTransformPoints, onUpdateImage, pendingMeasurementStart, pointerAction, profile, resetView, selected, snap, tool, workspace.depth, workspace.width]);
 
   const beginEntityDrag = (event: ReactPointerEvent<SVGElement>, action: PointerAction) => {
     if (event.button !== 0) return;
@@ -1243,6 +1294,7 @@ export function SketchWorkspace({
           onPointerUp={finishPointerAction}
           onPointerCancel={() => setPointerAction(null)}
           onPointerLeave={() => {
+            lastPointerRef.current = null;
             if (!pointerAction) setHover(null);
             setRefinePreview(null);
           }}

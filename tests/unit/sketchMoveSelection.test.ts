@@ -36,6 +36,12 @@ describe("moving along one axis", () => {
     expect(constrainToAxis({ x: 10, z: 10 }, { x: 13, z: -20 })).toEqual({ x: 10, z: -20 });
     expect(constrainToAxis({ x: 0, z: 0 }, { x: 5, z: 5 })).toEqual({ x: 5, z: 0 });
   });
+
+  it("locks a new sketch line to horizontal or vertical from the previous point", () => {
+    const origin = { x: 25, z: -40 };
+    expect(constrainToAxis(origin, { x: 80, z: -35 })).toEqual({ x: 80, z: -40 });
+    expect(constrainToAxis(origin, { x: 28, z: 10 })).toEqual({ x: 25, z: 10 });
+  });
 });
 
 describe("clampNudge", () => {
