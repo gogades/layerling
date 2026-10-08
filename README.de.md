@@ -43,7 +43,7 @@ layerling arbeitet so, wie du ohnehin denkst: Form auf die Platte stellen, auf M
 layerling ist ein Stück weiter als Tinkercad in Richtung Fusion 360 und wird genauso bedient: Du wirst alles wiedererkennen – die Platte, die Formen, Körper und Aussparung (dort Solid und Hole), Gruppieren und Auflösen, Bündeln, mit Alt eine Kopie ziehen –, aber es hört nicht dort auf, wo Tinkercad aufhört. Das wartet hier auf dich, was du dort vermisst hast:
 
 - **Kanten fasen und verrunden.** Kante auswählen und brechen oder abrunden – das, wonach am häufigsten gefragt wird, sobald ein gedrucktes Teil fertig aussehen oder irgendwo hineinpassen soll. Bearbeitete Kanten bleiben umkehrbar: Du nimmst Fase oder Rundung jederzeit wieder weg.
-- **Aushöhlen, Teilen, Skizzen, Gewinde.** Körper mit gleichmäßiger Wand aushöhlen, mit einer Ebene teilen, Skizzen mit genauen Maßen ziehen oder drehen, dazu Schrauben, Muttern und Gewindelöcher.
+- **Aushöhlen, Teilen, Skizzen, Gewinde.** Körper mit gleichmäßiger Wand aushöhlen, mit einer Ebene teilen, Skizzen mit genauen Längen und Winkeln ziehen oder drehen, dazu Schrauben, Muttern und Gewindelöcher.
 - **Muster und Wickeln.** Eine Form in Reihe, Kreis oder Spirale wiederholen, oder ein Muster und Schrift um einen Zylinder wickeln.
 - **Messen und hineinschauen.** Maßband, Lineale, eine Schnittansicht, die das Modell aufschneidet, und ein Verlauf-Schieber zum Zurückschauen.
 - **Echte Geometrie darunter.** layerling führt exakte CAD-Körper mit, nicht nur ein Dreiecksnetz. Eine verrundete Kante bleibt deshalb eine verrundete Kante – bis in eine STEP-Datei für ein vollwertiges CAD.

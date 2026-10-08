@@ -29,6 +29,12 @@ Ein Körper entsteht nur aus einem **geschlossenen** Umriss.
 
 ![Ein L-förmiger Umriss. Am gewählten Eckpunkt oben links stehen die Längen der beiden Linien in Millimetern.](shot:sketch-outline)
 
+## Winkel ablesen und eintippen
+
+Klickst du einen Eckpunkt an, an dem **zwei gerade Linien** zusammentreffen, zeigt layerling neben den Längen den **Winkel** dazwischen in Grad, mit einem kleinen Bogen. In einem geschlossenen Umriss ist es der Winkel im Inneren der Form, eine Einbuchtung liest sich also über 180°. Klicke auf den Wert und tippe einen neuen Winkel. Dann dreht sich eine der beiden Linien um die Ecke und behält ihre Länge, die andere bleibt, wo sie ist. Die Linie, die sich dreht, ist gestrichelt; mit [[Tab]] wechselst du zur anderen, [[Enter]] übernimmt und [[Esc]] bricht ab. Was am anderen Ende der gedrehten Linie hängt, geht mit.
+
+Wo eine Kurve an die Ecke stößt oder mehr als zwei Linien zusammenlaufen, gibt es keinen Winkel. Der Knopf {{ui:sketch.showMeasurements}} in der Seitenleiste blendet den Winkel zusammen mit den Längen aus.
+
 ## Ecken runden oder fasen
 
 Klicke auf einen Eckpunkt und wähle {{ui:sketch.filletCorner}} oder {{ui:sketch.chamferCorner}}. Es erscheint ein kleines Feld für den {{ui:sketch.filletRadius}} beziehungsweise den {{ui:sketch.chamferDistance}}. Trage das Maß ein und bestätige mit dem Haken. Das geht für Ecken zwischen zwei geraden Linien.

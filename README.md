@@ -43,7 +43,7 @@ layerling works the way you already think: put a shape on the plate, drag it to 
 layerling sits a step beyond Tinkercad towards Fusion 360: it is operated the same way, so you will recognise everything – the plate, the shapes, solids and holes, group and ungroup, bundle, Alt-drag for a copy – but it does not stop where Tinkercad does. Things you have been missing are waiting for you:
 
 - **Chamfer and fillet.** Pick an edge and break it or round it – the one thing people ask for most once a printed part has to feel finished or slot into something. Applied edges stay reversible: take them off again whenever you like.
-- **Hollow, split, sketch, thread.** Hollow a body to an even wall, split it with a plane, draw sketches with exact measurements and extrude or revolve them, and add screws, nuts and tapped holes.
+- **Hollow, split, sketch, thread.** Hollow a body to an even wall, split it with a plane, draw sketches with exact lengths and angles and extrude or revolve them, and add screws, nuts and tapped holes.
 - **Patterns and wrapping.** Repeat a shape in a row, circle or spiral, or wrap a pattern or text around a cylinder.
 - **Measure and look inside.** Tape measure, rulers, a section view that cuts the model open, and a history slider to look back at earlier states.
 - **Real geometry underneath.** layerling keeps exact CAD shapes, not just a mesh, so a rounded edge stays a rounded edge – all the way into a STEP file for a full CAD program.

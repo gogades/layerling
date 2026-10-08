@@ -2502,6 +2502,10 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older:hover 
   fill: #d56100;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-angle-turn {
+  stroke: #d56100;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-dimension-extension {
   stroke: rgba(90, 57, 23, 0.45);
 }

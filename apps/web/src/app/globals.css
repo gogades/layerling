@@ -6205,6 +6205,15 @@ html[data-theme="dark"] .whats-new-older:hover {
   font-weight: 600;
 }
 
+/* The line that turns while an angle is typed. */
+.sketch-angle-turn {
+  stroke: #d56100;
+  stroke-width: 3;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.85;
+}
+
 .sketch-dimension-extension {
   stroke: rgba(90, 57, 23, 0.45);
   stroke-width: 1;
