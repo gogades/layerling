@@ -6661,7 +6661,7 @@ export function LayerlingEditor({
   initialWorkspace?: WorkplaneWorkspaceSettings;
   initialPlacementElevation?: number;
   initialPlacementWorkplane?: PlacementWorkplane;
-  onHome?: () => void;
+  onHome?: (leaving: { shapeCount: number }) => void;
   onOpenLylProjectFile?: (file: File) => Promise<{ ok: boolean; message: string } | void> | { ok: boolean; message: string } | void;
   onSaveSharedProject?: (request: { exportName: string; bytes: Uint8Array; thumbnailDataUrl: string; targetFileName?: string }) => Promise<string>;
   /** Set while the open project came from the server; then it saves back there by itself. */
@@ -7763,17 +7763,21 @@ export function LayerlingEditor({
    * to sleep - is the last moment a waiting save can still start. A hidden
    * window may be frozen or closed without another chance.
    */
+  const saveProjectShapesNow = useCallback(() => {
+    if (projectSyncTimerRef.current !== null) {
+      window.clearTimeout(projectSyncTimerRef.current);
+      projectSyncTimerRef.current = null;
+      const canonicalNext = shapesRef.current.map(canonicalizeShape);
+      emitProjectShapes(canonicalNext, projectShapesFingerprint(canonicalNext));
+    }
+    flushHeldProjectShapes();
+  }, [emitProjectShapes, flushHeldProjectShapes]);
+
   useEffect(() => {
     if (!projectId || !onProjectShapesChange) return;
     const saveNow = () => {
       if (document.visibilityState !== "hidden") return;
-      if (projectSyncTimerRef.current !== null) {
-        window.clearTimeout(projectSyncTimerRef.current);
-        projectSyncTimerRef.current = null;
-        const canonicalNext = shapesRef.current.map(canonicalizeShape);
-        emitProjectShapes(canonicalNext, projectShapesFingerprint(canonicalNext));
-      }
-      flushHeldProjectShapes();
+      saveProjectShapesNow();
     };
     document.addEventListener("visibilitychange", saveNow);
     window.addEventListener("pagehide", saveNow);
@@ -7781,7 +7785,7 @@ export function LayerlingEditor({
       document.removeEventListener("visibilitychange", saveNow);
       window.removeEventListener("pagehide", saveNow);
     };
-  }, [emitProjectShapes, flushHeldProjectShapes, onProjectShapesChange, projectId]);
+  }, [onProjectShapesChange, projectId, saveProjectShapesNow]);
 
   useEffect(() => {
     const limitChanged = historyLimitRef.current !== workspaceSettings.historyLimit;
@@ -13074,7 +13078,8 @@ export function LayerlingEditor({
     const leave = () => {
       if (left) return;
       left = true;
-      onHome();
+      // Counted on the way out, so the start page can ask about a design left empty.
+      onHome({ shapeCount: shapesRef.current.length });
     };
     window.setTimeout(leave, LEAVE_SNAPSHOT_DEADLINE_MS);
     // Der Entwurf auf dem Server wartet sonst auf den Fuenf-Sekunden-Takt. Wer
@@ -13085,9 +13090,11 @@ export function LayerlingEditor({
       window.clearTimeout(serverSaveTimerRef.current);
       serverSaveTimerRef.current = null;
     }
+    // A save still waiting for its pause goes now, before the start page may remove the design.
+    saveProjectShapesNow();
     void saveToServerRef.current();
     void flushProjectSnapshot({ evenIfUnchanged: true }).finally(leave);
-  }, [flushProjectSnapshot, onHome]);
+  }, [flushProjectSnapshot, onHome, saveProjectShapesNow]);
 
   const clearDesign = useCallback(() => {
     commitShapes([], [], t("status.newDesign"));
