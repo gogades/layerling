@@ -374,6 +374,19 @@ export function ToolbarLayFlatIcon(props: IconProps) {
   );
 }
 
+/** Two blocks, one sliding against the other's face. */
+export function ToolbarMateFacesIcon(props: IconProps) {
+  return (
+    <ToolbarVectorIcon {...props}>
+      <rect x="27" y="12" width="15" height="24" rx="2" {...SOLID} />
+      <rect x="27" y="12" width="15" height="24" rx="2" />
+      <rect x="6" y="17" width="13" height="14" rx="2" />
+      <path d="M21 24h3" />
+      <path d="M21 20l3 4-3 4" />
+    </ToolbarVectorIcon>
+  );
+}
+
 export function ToolbarCenterOnWorkplaneIcon(props: IconProps) {
   return (
     <ToolbarVectorIcon {...props}>

@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Align faces:** A new tool next to Lay flat brings a face of the selected part against a face of another part. Click the tool, the part's face, then the other face, and choose **Face to face** (touching, back to back) or **Flush** (one plane, side by side), with an optional gap for clearance. The part turns the shortest way until the faces are parallel - not at all if they already are - and then only slides towards the other face, so it keeps its place sideways. One undo step. The MCP tool `layerling_mate_faces` does the same. Asked for by @RobbieKnobbie in #163.
+
 ## 1.47.0
 
 - **A new welcome text:** The start page now says what layerling is - as easy to use as Tinkercad, but a step towards Fusion 360 - lists what Tinkercad cannot do, and puts installing it as an app or hosting it yourself at the end. The READMEs and the quick guide follow.

@@ -69,6 +69,7 @@ import {
   ToolbarRotationPivotIcon,
   ToolbarPatternIcon,
   ToolbarLayFlatIcon,
+  ToolbarMateFacesIcon,
   ToolbarNoteIcon,
   ToolbarSplitIcon,
   ToolbarPasteIcon,
@@ -86,6 +87,8 @@ import { layFlatRotation } from "@/lib/layFlat";
 import { SketchWorkspace, type SketchMeasurement, type SketchPrimitive, type SketchSelection, type SketchTool } from "./SketchWorkspace";
 import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
 import { ShellPanel } from "./workplane/ShellPanel";
+import { MateFacesPanel } from "./workplane/MateFacesPanel";
+import { mateMotion, type FacePick, type MateMode } from "@/lib/mateFaces";
 import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
 import { SHELL_SIDES, shellMaxThickness, shellOpeningsFor, shellOpenSides } from "@/lib/shellLimits";
@@ -3146,6 +3149,28 @@ function laidFlatShapes(shapes: WorkplaneShape[], movable: WorkplaneShape[], nor
       z: cleanNearZero(next.z + translation.z),
       elevation: cleanNearZero((next.elevation ?? 0) + translation.y),
     };
+  });
+}
+
+/**
+ * Moves the body of `source` so its face meets the face of `target`, as the
+ * "Align faces" tool does: turned parallel about the clicked point, then slid
+ * along the target face's normal. Only the turn's angles change on the body,
+ * so a shape keeps its own settings.
+ */
+function matedShapes(shapes: WorkplaneShape[], source: FacePick, target: FacePick, mode: MateMode, gap: number): WorkplaneShape[] {
+  const motion = mateMotion(source, target, mode, gap);
+  return shapes.map((shape) => {
+    if (shape.id !== source.shapeId) return shape;
+    const turned = motion.rotation
+      ? canonicalizeShape({ ...shape, ...rotatedGeometryShapePatch(shape, motion.rotation, motion.pivot) })
+      : shape;
+    return canonicalizeShape({
+      ...turned,
+      x: cleanNearZero(turned.x + motion.translation.x),
+      z: cleanNearZero(turned.z + motion.translation.z),
+      elevation: cleanNearZero((turned.elevation ?? 0) + motion.translation.y),
+    });
   });
 }
 
@@ -6761,6 +6786,15 @@ export function LayerlingEditor({
   // Writes the pivot a single body carries; filled in once updateShape exists.
   const writeOwnPivotRef = useRef<(shapeId: string, value: [number, number, number] | undefined) => void>(() => {});
   const [layFlatPickMode, setLayFlatPickMode] = useState(false);
+  // "Align faces": first a face of the selected body, then one of another body.
+  const [mateTool, setMateTool] = useState<{
+    sourceId: string;
+    step: "source" | "target" | "ready";
+    source: FacePick | null;
+    target: FacePick | null;
+    mode: MateMode;
+    gap: number;
+  } | null>(null);
   const [cruiseAsset, setCruiseAsset] = useState<ShapeAsset | null>(null);
   const cruiseAssetRef = useRef<ShapeAsset | null>(null);
   cruiseAssetRef.current = cruiseAsset;
@@ -10493,6 +10527,60 @@ export function LayerlingEditor({
     commitShapes(laidFlatShapes(shapes, movable, pick.normal, placementWorkplane), selectedIds, t("status.laidFlat"));
   }, [commitShapes, placementWorkplane, selectedIds, selectedShapes, shapes]);
 
+  const toggleMateFaces = useCallback(() => {
+    if (mateTool) {
+      setMateTool(null);
+      setNotice(t("status.mateCancelled"));
+      return;
+    }
+    const source = selectedShapes.length === 1 ? selectedShapes[0] : null;
+    if (!source) {
+      setNotice(t("status.mateSelectOne"));
+      return;
+    }
+    if (source.locked) {
+      setNotice(t("status.selectionLocked"));
+      return;
+    }
+    closeSplit();
+    stopCruise();
+    setPivotPickMode(false);
+    setLayFlatPickMode(false);
+    setMateTool({ sourceId: source.id, step: "source", source: null, target: null, mode: "against", gap: 0 });
+    setNotice(t("status.mateStart"));
+  }, [closeSplit, mateTool, selectedShapes, stopCruise]);
+
+  const pickMateFace = useCallback((pick: LayFlatPick | null) => {
+    if (!mateTool || mateTool.step === "ready") return;
+    if (mateTool.step === "source") {
+      if (!pick || pick.shapeId !== mateTool.sourceId) {
+        setNotice(t("status.mateMissedSource"));
+        return;
+      }
+      setMateTool({ ...mateTool, step: "target", source: pick });
+      setNotice(t("status.mateTarget"));
+      return;
+    }
+    if (!pick || pick.shapeId === mateTool.sourceId) {
+      setNotice(t("status.mateMissedTarget"));
+      return;
+    }
+    setMateTool({ ...mateTool, step: "ready", target: pick });
+    setNotice(t("status.mateReady"));
+  }, [mateTool]);
+
+  const applyMateFaces = useCallback(() => {
+    if (!mateTool?.source || !mateTool.target) return;
+    const { source, target, mode, gap } = mateTool;
+    setMateTool(null);
+    commitShapes(matedShapes(shapes, source, target, mode, gap), [source.shapeId], t("status.mated"));
+  }, [commitShapes, mateTool, shapes]);
+
+  // The tool belongs to the body it was started for.
+  useEffect(() => {
+    if (mateTool && (selectedIds.length !== 1 || selectedIds[0] !== mateTool.sourceId)) setMateTool(null);
+  }, [mateTool, selectedIds]);
+
   const centerSelectionOnWorkplane = useCallback(() => {
     if (!hasSelection) {
       setNotice(t("status.selectShapeFirst"));
@@ -11591,6 +11679,37 @@ export function LayerlingEditor({
         if (!outcome.ok) throw new Error(outcome.message);
         const group = outcome.groupId ? findShape(outcome.groupId) : null;
         return { message: outcome.message, object: group ? mcpShapeSummary(group) : null, partIds: outcome.partIds ?? [] };
+      }
+
+      if (command.action === "mate_faces") {
+        const all = currentShapes();
+        const mover = all.find((shape) => shape.id === params.id);
+        const target = all.find((shape) => shape.id === params.targetId);
+        if (!mover || !target) throw new Error("mate_faces needs id and targetId of two existing objects");
+        if (mover.id === target.id) throw new Error("mate_faces needs two different objects");
+        if (mover.locked) throw new Error("Unlock the object before moving it");
+        const faceOf = (shape: WorkplaneShape, side: unknown, label: string): FacePick => {
+          if (typeof side !== "string" || !(side in LAY_FLAT_SIDES)) throw new Error(`mate_faces needs ${label} (bottom/top/left/right/front/back)`);
+          const [x, y, z] = LAY_FLAT_SIDES[side as LayFlatSide];
+          const normal = nearestFaceNormal(shape, new THREE.Vector3(x, y, z).applyQuaternion(quaternionForShape(shape)));
+          if (!normal) throw new Error(`mate_faces found no ${side} face on ${displayShapeName(shape)}`);
+          // The outermost corner along the normal lies in the face's plane.
+          let point = new THREE.Vector3();
+          let reach = Number.NEGATIVE_INFINITY;
+          meshForShape(shape).vertices.forEach(([vx, vy, vz]) => {
+            const along = vx * normal.x + vy * normal.y + vz * normal.z;
+            if (along > reach) {
+              reach = along;
+              point = new THREE.Vector3(vx, vy, vz);
+            }
+          });
+          return { shapeId: shape.id, normal: { x: normal.x, y: normal.y, z: normal.z }, point: { x: point.x, y: point.y, z: point.z } };
+        };
+        const mode: MateMode = params.mode === "flush" ? "flush" : "against";
+        const gap = typeof params.gap === "number" && Number.isFinite(params.gap) ? params.gap : 0;
+        const nextShapes = matedShapes(all, faceOf(mover, params.face, "face"), faceOf(target, params.targetFace, "targetFace"), mode, gap);
+        commitShapes(nextShapes, [mover.id], t("status.mated"));
+        return { mode, gap, object: mcpShapeSummary(nextShapes.find((shape) => shape.id === mover.id) as WorkplaneShape) };
       }
 
       if (command.action === "lay_flat") {
@@ -13408,6 +13527,11 @@ export function LayerlingEditor({
           setNotice(t("status.layFlatCancelled"));
           return;
         }
+        if (mateTool) {
+          setMateTool(null);
+          setNotice(t("status.mateCancelled"));
+          return;
+        }
         if (arrayTool) {
           setArrayTool(null);
           setNotice(t("status.arrayCancelled"));
@@ -13770,6 +13894,8 @@ export function LayerlingEditor({
         onDropToWorkplane={dropSelectedToWorkplane}
         onLayFlat={toggleLayFlat}
         layFlatActive={layFlatPickMode}
+        onMateFaces={toggleMateFaces}
+        mateFacesActive={Boolean(mateTool)}
         onGroup={groupSelected}
         onBundle={bundleSelected}
         onIntersect={intersectSelected}
@@ -13981,6 +14107,10 @@ export function LayerlingEditor({
           onPivotPick={pickRotationPivot}
           layFlatPickMode={layFlatPickMode}
           onLayFlatPick={layFlatOnFace}
+          mateFacePick={mateTool && mateTool.step !== "ready"
+            ? { shapeIds: mateTool.step === "source" ? [mateTool.sourceId] : shapes.filter((shape) => shape.id !== mateTool.sourceId && !shape.hidden).map((shape) => shape.id) }
+            : null}
+          onMateFacePick={pickMateFace}
           onNoteAdd={addNote}
           onNoteUpdate={updateNote}
           onNoteRemove={removeNote}
@@ -14062,6 +14192,22 @@ export function LayerlingEditor({
           shape={simplifyToolShape}
           onApply={applySimplifyTool}
           onCancel={() => setSimplifyToolId(null)}
+        />
+      ) : null}
+      {mateTool && selectedShape ? (
+        <MateFacesPanel
+          targetName={displayShapeName(selectedShape)}
+          step={mateTool.step}
+          mode={mateTool.mode}
+          gap={mateTool.gap}
+          workspace={workspaceSettings}
+          onModeChange={(mode) => setMateTool((current) => (current ? { ...current, mode } : current))}
+          onGapChange={(gap) => setMateTool((current) => (current ? { ...current, gap } : current))}
+          onApply={applyMateFaces}
+          onCancel={() => {
+            setMateTool(null);
+            setNotice(t("status.mateCancelled"));
+          }}
         />
       ) : null}
       {shellTool && selectedShape ? (
@@ -14406,6 +14552,8 @@ function SecondaryToolbar({
   onDropToWorkplane,
   onLayFlat,
   layFlatActive,
+  onMateFaces,
+  mateFacesActive,
   onGroup,
   onBundle,
   onIntersect,
@@ -14503,6 +14651,8 @@ function SecondaryToolbar({
   onDropToWorkplane: () => void;
   onLayFlat: () => void;
   layFlatActive: boolean;
+  onMateFaces: () => void;
+  mateFacesActive: boolean;
   onGroup: () => void;
   onBundle: () => void;
   onIntersect: () => void;
@@ -14782,6 +14932,7 @@ function SecondaryToolbar({
   const arrangeTools = [
     { id: "drop", label: t("editor.tool.dropToWorkplane"), icon: ToolbarDropToWorkplaneIcon, action: onDropToWorkplane, enabled: hasSelection },
     { id: "layFlat", label: t("editor.tool.layFlat"), icon: ToolbarLayFlatIcon, action: onLayFlat, enabled: hasSelection, active: layFlatActive },
+    { id: "mateFaces", label: t("editor.tool.mateFaces"), icon: ToolbarMateFacesIcon, action: onMateFaces, enabled: hasSelection, active: mateFacesActive },
     { id: "center", label: t("editor.tool.centerOnWorkplane"), icon: ToolbarCenterOnWorkplaneIcon, action: onCenterOnWorkplane, enabled: hasSelection },
   ];
   const sketchClipboardTools = [
