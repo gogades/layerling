@@ -27,7 +27,7 @@ Das Menüband des Skizzenmodus ist in Bereiche geteilt:
 
 Ein Körper entsteht nur aus einem **geschlossenen** Umriss.
 
-![Ein L-förmiger Umriss. Am gewählten Eckpunkt oben links stehen die Längen der beiden Linien in Millimetern.](shot:sketch-outline)
+![Ein L-förmiger Umriss. Am gewählten Eckpunkt oben links stehen die Längen der beiden Linien in Millimetern und der Winkel dazwischen in Grad.](shot:sketch-outline)
 
 ## Winkel ablesen und eintippen
 

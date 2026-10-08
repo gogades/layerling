@@ -109,6 +109,32 @@ export const scenes = {
     await ctx.shot("hollow-result");
   },
 
+  // The Hollow tool leaves any side open: a drawer slot from a box.
+  async "hollow-sides"(ctx) {
+    await freshEditor(ctx);
+    const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 44, depth: 44, height: 30, color: GREEN });
+    await ctx.mcp("hollow_object", { id: box, thickness: 3, openings: ["front"], edges: "round" });
+    await ctx.wait(5000);
+    await select(ctx, []);
+    await ctx.shot("hollow-sides");
+  },
+
+  // A group cut with a hole, in its parts' colours (the Multicolor switch).
+  async "group-multicolor"(ctx) {
+    await freshEditor(ctx);
+    const body = await create(ctx, { kind: "box", x: 0, z: 0, width: 44, depth: 44, height: 24, color: ORANGE });
+    const peg = await create(ctx, { kind: "cylinder", x: 12, z: -12, width: 18, depth: 18, height: 40, color: BLUE });
+    const hole = await create(ctx, { kind: "cylinder", x: -8, z: 8, width: 18, depth: 18, height: 40, color: GREEN });
+    await ctx.mcp("update_object", { id: hole, hole: true });
+    const group = await ctx.mcp("group_objects", { ids: [body, peg, hole] });
+    const id = group.object?.id ?? group.id;
+    await ctx.mcp("update_object", { id, multicolor: true });
+    await ctx.wait(4000);
+    await select(ctx, [id]);
+    await ctx.wait(1500);
+    await ctx.shot("group-multicolor");
+  },
+
   async "pattern-tool"(ctx) {
     await freshEditor(ctx);
     const plate = await create(ctx, { kind: "cylinder", x: 0, z: 0, width: 60, depth: 60, height: 6, color: BLUE });

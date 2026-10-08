@@ -51,11 +51,13 @@ Dosen, Becher, Gehäuse und Abdeckungen haben eines gemeinsam: Sie sind innen le
 4. Entscheide, ob die {{ui:shell.edges}} {{ui:shell.edges.round}} oder {{ui:shell.edges.sharp}} sein sollen.
 5. Klicke auf {{ui:shell.apply}}.
 
-![Das Aushöhlen-Fenster mit Wandstärke und offener Seite.](shot:hollow-panel)
+![Das Aushöhlen-Fenster mit Wandstärke, einem Schalter für jede Seite, die offen bleibt, und den inneren Kanten.](shot:hollow-panel)
 
 Die Wände wachsen nach innen. Außen bleibt alles, wie es ist.
 
 ![Das Ergebnis: eine Schale mit 3 mm Wand, oben offen.](shot:hollow-result)
+
+![Derselbe Quader, nur an der Vorderseite offen: ein Schlitz für eine Schublade.](shot:hollow-sides)
 
 Für jede offene Seite braucht der Körper ganz außen auf dieser Seite eine ebene Fläche. Kugeln und freie Formen lassen sich deshalb so nicht aushöhlen. Wenn die Wand zu dick für den Körper ist, meldet layerling das und bittet um eine dünnere.
 

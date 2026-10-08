@@ -51,11 +51,13 @@ Boxes, cups, cases and covers have one thing in common: they are empty inside, w
 4. Decide whether the {{ui:shell.edges}} should be {{ui:shell.edges.round}} or {{ui:shell.edges.sharp}}.
 5. Click {{ui:shell.apply}}.
 
-![The hollowing panel with wall thickness and open side.](shot:hollow-panel)
+![The hollowing panel with wall thickness, a switch for each side that stays open, and the inner edges.](shot:hollow-panel)
 
 The walls grow inward. The outside stays as it is.
 
 ![The result: a shell with a 3 mm wall, open at the top.](shot:hollow-result)
+
+![The same box with only the front side open: a slot for a drawer.](shot:hollow-sides)
 
 For every open side, the body needs a flat face at its very edge on that side. Spheres and free-form shapes therefore cannot be hollowed this way. If the wall is too thick for the body, layerling tells you and asks for a thinner one.
 

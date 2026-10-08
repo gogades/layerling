@@ -40,6 +40,8 @@ Die Einstellungen sind am rechten Rand angedockt. Verdecken sie etwas, ziehst du
 - **{{ui:inspector.taper}}:** Oben und unten unterschiedlich groß, zum Beispiel für eine Schräge oder einen Trichter.
 - **{{ui:inspector.twist}}:** Verdreht die Oberseite gegen die Unterseite oder schiebt sie zur Seite. So entstehen gedrehte Säulen und geneigte Türme.
 
+![Eine Gruppe aus einem orangen Block, einem blauen Zapfen und einer Aussparung, zu einem Körper verrechnet. Mit Mehrfarbig bleibt der Zapfen blau, der Block orange, und die Wände der Aussparung nehmen die Farbe des Blocks an.](shot:group-multicolor)
+
 Verjüngen und Verdrehen gibt es bei fast allen Formen. Nur Zahnrad, Gewinde, Feder, Rändel, Scharnier, Pyramide, gebogenes Rohr, Tropfen, Senkungen und Lineal haben sie nicht: Diese Formen haben ihre eigenen festen Maße oder, wie die Pyramide, schon eine eigene Oberseite.
 
 ![Ein Kegel, bei dem Radius oben und Höhe geändert wurden: Ein kleiner Pfeil neben jedem Wert holt ihn zurück, und die beiden Knöpfe unten speichern oder setzen die Vorgaben der Form zurück.](shot:property-reset)

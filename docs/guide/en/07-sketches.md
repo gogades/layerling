@@ -27,7 +27,7 @@ The ribbon in sketch mode is divided into areas:
 
 A body comes only from a **closed** outline.
 
-![An L-shaped outline. At the selected corner point, top left, the lengths of the two lines are shown in millimetres.](shot:sketch-outline)
+![An L-shaped outline. At the selected corner point, top left, the lengths of the two lines are shown in millimetres, and the angle between them in degrees.](shot:sketch-outline)
 
 ## Reading and typing angles
 

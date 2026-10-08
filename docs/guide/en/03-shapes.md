@@ -39,6 +39,8 @@ The settings sit docked at the right edge. If they cover something you want to s
 - **{{ui:inspector.taper}}:** Different sizes at the top and bottom, for example for a slope or a funnel.
 - **{{ui:inspector.twist}}:** Twists the top against the bottom or shifts it sideways. That gives twisted columns and leaning towers.
 
+![A group of an orange block, a blue peg and a hole, cut into one body. With Multicolor switched on, the peg stays blue, the block orange, and the walls of the hole take the block's colour.](shot:group-multicolor)
+
 Taper and twist work on almost every shape. Only the gear, thread, spring, knurl, hinge, pyramid, bent tube, teardrop, the screw-head cutters and the ruler leave them out: they have fixed measures of their own or, like the pyramid, a top of their own already.
 
 ![A cone whose top radius and height were changed: a small arrow next to each takes the value back, and the two buttons at the bottom save or reset the defaults of the shape.](shot:property-reset)
