@@ -1,5 +1,110 @@
 [
   {
+    "version": "1.47.0",
+    "items": [
+      {
+        "title": {
+          "de": "Winkel in der Skizze",
+          "en": "Angles in the sketch"
+        },
+        "body": {
+          "de": "Klickst du in der Skizze eine Ecke an, an der zwei gerade Linien zusammenlaufen, zeigt layerling den Winkel dazwischen. Ein Klick auf den Wert, und du tippst einen neuen Winkel ein: Eine der beiden Linien dreht sich um die Ecke, mit Tab wählst du, welche.",
+          "en": "Click a corner where two straight lines meet in the sketch and layerling shows the angle between them. Click the value and type a new angle: one of the two lines turns about the corner, and Tab picks which."
+        }
+      },
+      {
+        "title": {
+          "de": "Gruppen mehrfarbig",
+          "en": "Multicolor groups"
+        },
+        "body": {
+          "de": "Gruppen haben einen Schalter „Mehrfarbig“: Jedes Teil zeigt dann seine eigene Farbe, auch wenn die Gruppe mit Aussparungen zu einem Körper verrechnet wurde.",
+          "en": "Groups have a Multicolor switch: every part then shows in its own colour, even when the group was merged with holes into one body."
+        }
+      },
+      {
+        "title": {
+          "de": "Aushöhlen mit beliebig offenen Seiten",
+          "en": "Hollow with any side open"
+        },
+        "body": {
+          "de": "Beim Aushöhlen schaltest du jede Seite einzeln auf offen: oben, unten, vorne, hinten, links und rechts, beliebig kombiniert. Vorne allein ergibt einen Schlitz für eine Schublade, links und rechts einen Tunnel.",
+          "en": "When hollowing you switch each side to open on its own: top, bottom, front, back, left and right, in any combination. Front alone makes a slot for a drawer, left and right a tunnel."
+        }
+      },
+      {
+        "title": {
+          "de": "Der Drehpunkt bleibt am Körper",
+          "en": "The pivot stays with its body"
+        },
+        "body": {
+          "de": "Der Drehpunkt eines einzelnen Körpers bleibt an ihm hängen: Er wandert und dreht mit, wird gespeichert, und seine Lage lässt sich unter Position eintippen.",
+          "en": "The pivot of a single body stays with it: it moves and turns along, is saved, and its position can be typed under Position."
+        }
+      },
+      {
+        "title": {
+          "de": "Skizze per Doppelklick öffnen",
+          "en": "Open the sketch with a double click"
+        },
+        "body": {
+          "de": "Ein Doppelklick auf einen Körper, der aus einer Skizze entstand, öffnet seine Skizze wieder, wie bei Tinkercad.",
+          "en": "A double click on a body made from a sketch opens its sketch again, as in Tinkercad."
+        }
+      },
+      {
+        "title": {
+          "de": "Ansicht mit den Pfeiltasten drehen",
+          "en": "Turn the view with the arrow keys"
+        },
+        "body": {
+          "de": "Ist nichts ausgewählt, drehen die Pfeiltasten die Ansicht: 15° pro Druck, mit Umschalt 90°.",
+          "en": "With nothing selected, the arrow keys turn the view: 15° a press, 90° with Shift."
+        }
+      },
+      {
+        "title": {
+          "de": "Beleuchtung und Skizzenfarben",
+          "en": "Lighting and sketch colours"
+        },
+        "body": {
+          "de": "In den Einstellungen regelst du den Kontrast der Schattierung und die Stärke der Schatten. Hintergrund und Rasterfarbe der Skizze stellst du ein und gleichst sie mit einem Klick dem Arbeitsbereich an.",
+          "en": "In the settings you set the contrast of the shading and the strength of the shadows. You pick the sketch's background and grid colour, and match them to the work area with one click."
+        }
+      },
+      {
+        "title": {
+          "de": "Fenster verschiebbar",
+          "en": "Movable windows"
+        },
+        "body": {
+          "de": "Einstellungen, Kurzanleitung, Tastenkürzel und Befehlssuche lassen sich an ihrer Titelleiste wegziehen, damit sie die Arbeitsfläche nicht verdecken.",
+          "en": "The settings, the quick guide, the shortcuts and the command search can be dragged away by their title bar so they do not cover the work area."
+        }
+      },
+      {
+        "title": {
+          "de": "Leere Entwürfe sammeln sich nicht an",
+          "en": "Empty designs do not pile up"
+        },
+        "body": {
+          "de": "Gehst du aus einem leeren Entwurf zur Übersicht zurück, fragt layerling, ob er bleiben soll. Mit „Nein“ verschwindet er.",
+          "en": "When you go back to the overview from an empty design, layerling asks whether it should stay. With No it is removed."
+        }
+      },
+      {
+        "title": {
+          "de": "Fehler behoben",
+          "en": "Fixes"
+        },
+        "body": {
+          "de": "Gebündelte Teile, die gedreht waren, wurden etwas zu klein und verzerrt gezeichnet. Und eine glatte Kurve in der Skizze verformt andere, schon gezeichnete Linien nicht mehr.",
+          "en": "Bundled parts that were turned were drawn a little too small and squeezed. And a smooth curve in the sketch no longer reshapes lines drawn earlier."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.46.0",
     "items": [
       {
