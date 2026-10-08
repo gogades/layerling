@@ -10,7 +10,7 @@ import { useLanguage } from "@/lib/useLanguage";
 import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { applySegmentDimension, SEGMENT_DIMENSION_CENTER } from "@/lib/sketchDimensions";
-import { workplaneGridLayout } from "@/lib/workplaneGrid";
+import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, workplaneGridLayout } from "@/lib/workplaneGrid";
 import { closestPointOnSketchSegment, type SketchSegmentPlacement } from "@/lib/sketchPointRefinement";
 import { isSketchPanGesture, SKETCH_MANUAL_MAX_ZOOM, SKETCH_MAX_ZOOM, SKETCH_WHEEL_ZOOM_BOOST, SKETCH_MIN_ZOOM, sketchWheelZoomFactor, zoomSketchViewAt, type SketchView } from "@/lib/sketchPointerControls";
 import { isSketchPrimitive, type SketchPrimitive } from "@/lib/sketchPrimitives";
@@ -1114,8 +1114,21 @@ export function SketchWorkspace({
     [referenceShapes],
   );
 
+  // Colours picked in the settings reach the light theme through variables; the stylesheet
+  // falls back to its own colours for what was not changed, and the dark themes ignore them.
+  const sketchColorStyle = {
+    ...(workspace.sketchBackground !== DEFAULT_SKETCH_BACKGROUND ? { "--sketch-bg": workspace.sketchBackground } : {}),
+    ...(workspace.sketchGridColor !== DEFAULT_SKETCH_GRID_COLOR
+      ? {
+          "--sketch-grid-minor": `color-mix(in srgb, ${workspace.sketchGridColor} 46%, transparent)`,
+          "--sketch-grid-major": `color-mix(in srgb, ${workspace.sketchGridColor} 68%, transparent)`,
+          "--sketch-grid-axis": workspace.sketchGridColor,
+        }
+      : {}),
+  } as CSSProperties;
+
   return (
-    <main className="sketch-workspace-stage">
+    <main className="sketch-workspace-stage" style={sketchColorStyle}>
       <div className="sketch-mode-badge">{operation === "revolve" ? t("sketch.modeBadgeRevolve") : t("sketch.modeBadge")}</div>
       {operation === "revolve" ? <SketchRevolvePreview positions={revolvePreviewPositions} /> : null}
       <div className="camera-controls sketch-camera-controls" aria-label={t("sketch.viewControls")}>

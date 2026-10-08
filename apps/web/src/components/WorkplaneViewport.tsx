@@ -97,7 +97,7 @@ import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { makeShapeFromAsset, parseDroppedShapeAsset } from "@/lib/shapeCatalog";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { withShapeDefaults } from "@/lib/shapeDefaults";
-import { DEFAULT_EDGE_LINE_COLOR, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
+import { DEFAULT_EDGE_LINE_COLOR, sceneLightLevels, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { LayerlingMcpViewFace } from "@/lib/layerlingMcpProtocol";
@@ -518,6 +518,8 @@ type ThreeState = {
   rotationHandleSides: RotationHandleSides | null;
   sectionPlane: THREE.Plane | null;
   sectionPlaneHelper: THREE.Group | null;
+  /** The scene's lights, so the settings can change how punchy the shading is. */
+  lights: { ambient: THREE.HemisphereLight; key: THREE.DirectionalLight; fill: THREE.DirectionalLight };
   disposeInteractionListeners: () => void;
   resize: () => void;
 };
@@ -9620,6 +9622,7 @@ function createThreeScene(host: HTMLDivElement): ThreeState {
     rotationHandleSides: null,
     sectionPlane: null,
     sectionPlaneHelper: null,
+    lights: { ambient, key, fill },
     disposeInteractionListeners: () => {},
     resize,
   };
@@ -9900,6 +9903,12 @@ function rebuildWorkplane(
   disposeChildren(state.workplaneLayer);
   state.scene.background = new THREE.Color(palette.sceneBackground);
   state.renderer.shadowMap.enabled = workspace.showShadows;
+  const lightLevels = sceneLightLevels(workspace.shadeContrast);
+  state.lights.ambient.intensity = lightLevels.ambient;
+  state.lights.key.intensity = lightLevels.key;
+  state.lights.fill.intensity = lightLevels.fill;
+  state.lights.key.shadow.intensity = workspace.shadowStrength / 100;
+  state.needsRender = true;
   state.controls.zoomSpeed = orbitControlsZoomSpeed(workspace.zoomSpeed);
 
   const activeIsBase = placementWorkplaneIsBase(placementWorkplane);

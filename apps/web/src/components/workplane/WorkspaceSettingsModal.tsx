@@ -4,6 +4,7 @@ import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { MAX_OVERHANG_ANGLE, MIN_OVERHANG_ANGLE } from "@/lib/overhangLimits";
 import { Box as BoxIcon, ChevronDown, Grid3X3, History, Palette, Plus, RotateCcw, Ruler, Trash2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useMovablePanel } from "@/lib/useMovablePanel";
 import { createPortal } from "react-dom";
 import { HexColorInput, HexColorPicker } from "react-colorful";
 import { APP_THEME_OPTIONS, type AppThemePreference } from "@/lib/appTheme";
@@ -65,7 +66,7 @@ import { useLanguage } from "@/lib/useLanguage";
 import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { BOOLEAN_TRIANGLE_LIMIT_PRESETS, BOOLEAN_TRIANGLE_LIMIT_STEP, DEFAULT_WORKPLANE_WORKSPACE, MAX_BOOLEAN_TRIANGLE_LIMIT, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_BOOLEAN_TRIANGLE_LIMIT, MIN_CUSTOM_SHAPE_DIMENSION, booleanTriangleLimitPreset, gridBlockForUnits, snapGridForUnits, snapGridOptionsForUnits, type BooleanTriangleLimitPreset, CUSTOM_SNAP_GRID_DIVISORS, DEFAULT_SNAP_GRID, MAX_CUSTOM_SNAP_GRID, MAX_CUSTOM_SNAP_GRID_NAME, MAX_CUSTOM_SNAP_GRIDS, MIN_CUSTOM_SNAP_GRID, customSnapGridLabel, customSnapGridSize, parseCustomSnapGrid, snapGridOptions } from "@/lib/workplaneSettings";
-import { IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm } from "@/lib/workplaneGrid";
+import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm } from "@/lib/workplaneGrid";
 import type { BentTubeProfile, CustomSnapGrid, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 
@@ -415,6 +416,9 @@ export function WorkspaceSettingsModal({
   const backgroundColor = hexOrDefault(workspace.background, DEFAULT_WORKPLANE_WORKSPACE.background);
   const surfaceColor = hexOrDefault(workspace.surfaceColor, DEFAULT_WORKPLANE_WORKSPACE.surfaceColor);
   const edgeColor = hexOrDefault(workspace.edgeColor, DEFAULT_WORKPLANE_WORKSPACE.edgeColor);
+  const sketchBackground = hexOrDefault(workspace.sketchBackground, DEFAULT_SKETCH_BACKGROUND);
+  const sketchGridColor = hexOrDefault(workspace.sketchGridColor, DEFAULT_SKETCH_GRID_COLOR);
+  const mainGridColor = hexOrDefault(workspace.gridColor, DEFAULT_WORKPLANE_WORKSPACE.gridColor);
   const selectedShapeAsset = toolbarShapeAssets.find((asset) => asset.kind === selectedShapeKind) ?? toolbarShapeAssets[0];
   const selectedShapeAppDefaults = shapeAssetDefaultDimensions(selectedShapeKind);
   const selectedShapeCustomization = workspace.shapeCustomizations[selectedShapeKind] ?? {};
@@ -565,6 +569,10 @@ export function WorkspaceSettingsModal({
     setCustomBooleanLimitDraft(String(next));
     patchWorkspace({ booleanTriangleLimit: next });
   };
+  // The window is moved by its title bar, like every other panel, and remembers where it stood.
+  const movable = useMovablePanel<HTMLDivElement>("layerling.editor.settingsPosition", {
+    floatingStyle: { position: "absolute", margin: 0 },
+  });
   const setCustomHistoryLimit = (value: string) => {
     const parsed = Number.parseInt(value, 10);
     const next = Number.isFinite(parsed) ? Math.round(clamp(parsed, 1, 5000)) : HISTORY_CUSTOM_DEFAULT;
@@ -574,8 +582,13 @@ export function WorkspaceSettingsModal({
 
   return (
     <div className="workspace-modal" role="dialog" aria-modal="true" aria-label={t("workspace.title")}>
-      <div className="workspace-modal-card" onPointerDown={(event) => event.stopPropagation()}>
-        <header className="workspace-modal-header">
+      <div
+        ref={movable.panelRef}
+        className={`workspace-modal-card ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
+        style={movable.style}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <header className="workspace-modal-header movable" title={t("panel.moveHint")} {...movable.handleProps}>
           <strong>{t("workspace.title")}</strong>
           <div className="panel-header-actions">
             <GuideHelpLink section={activeSection === "history" ? "backingUp" : activeSection === "shapes" ? "shapeSettings" : "gridAndSnapping"} />
@@ -658,6 +671,30 @@ export function WorkspaceSettingsModal({
                     disabled={!workspace.edgeLines}
                     onChange={(nextEdgeColor) => patchWorkspace({ edgeColor: nextEdgeColor })}
                   />
+                  <ColorSettingControl
+                    label={t("workspace.sketchBackground")}
+                    color={sketchBackground}
+                    defaultColor={DEFAULT_SKETCH_BACKGROUND}
+                    presets={SKETCH_BACKGROUND_PRESETS}
+                    onChange={(nextBackground) => patchWorkspace({ sketchBackground: nextBackground })}
+                  />
+                  <ColorSettingControl
+                    label={t("workspace.sketchGridColor")}
+                    color={sketchGridColor}
+                    defaultColor={DEFAULT_SKETCH_GRID_COLOR}
+                    presets={SKETCH_GRID_PRESETS}
+                    onChange={(nextGrid) => patchWorkspace({ sketchGridColor: nextGrid })}
+                  />
+                  <div className="property-defaults-actions">
+                    <button
+                      type="button"
+                      title={t("workspace.sketchMatchHint")}
+                      disabled={sketchBackground === backgroundColor && sketchGridColor === mainGridColor}
+                      onClick={() => patchWorkspace({ sketchBackground: backgroundColor, sketchGridColor: mainGridColor })}
+                    >
+                      {t("workspace.sketchMatch")}
+                    </button>
+                  </div>
                   <hr className="workspace-divider" />
                   <WorkspaceToggle
                     label={t("workspace.showMoveDimensions")}
@@ -690,6 +727,33 @@ export function WorkspaceSettingsModal({
                     onChange={(objectSnap) => patchWorkspace({ objectSnap })}
                   />
                   <WorkspaceToggle label={t("workspace.showShadows")} checked={workspace.showShadows} onChange={(showShadows) => patchWorkspace({ showShadows })} />
+                  <label className="workspace-range">
+                    <span>{t("workspace.shadowStrength")}: {workspace.shadowStrength} %</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={workspace.shadowStrength}
+                      disabled={!workspace.showShadows}
+                      onChange={(event) => patchWorkspace({ shadowStrength: Number(event.currentTarget.value) })}
+                    />
+                  </label>
+                  <label className="workspace-range">
+                    <span>{t("workspace.shadeContrast")}: {workspace.shadeContrast}</span>
+                    <input
+                      type="range"
+                      min={-100}
+                      max={100}
+                      step={5}
+                      value={workspace.shadeContrast}
+                      onChange={(event) => patchWorkspace({ shadeContrast: Number(event.currentTarget.value) })}
+                    />
+                    <small>
+                      <span>{t("workspace.shadeSoft")}</span>
+                      <span>{t("workspace.shadePunchy")}</span>
+                    </small>
+                  </label>
                   <label className="workspace-range">
                     <span>{t("workspace.overhangAngle", { angle: workspace.overhangAngle })}</span>
                     <input
@@ -1169,6 +1233,26 @@ const SURFACE_COLOR_PRESETS = [
   "#c8d3dc",
   "#b9c8b5",
   "#8a949c",
+] as const;
+
+const SKETCH_BACKGROUND_PRESETS = [
+  DEFAULT_SKETCH_BACKGROUND,
+  "#ffffff",
+  "#f1f1f1",
+  "#dfe4e8",
+  "#c4cad0",
+  "#8a949c",
+  "#3a3f44",
+] as const;
+
+const SKETCH_GRID_PRESETS = [
+  DEFAULT_SKETCH_GRID_COLOR,
+  "#c08a12",
+  "#777777",
+  "#333333",
+  "#0e69f1",
+  "#2f8f5b",
+  "#ffffff",
 ] as const;
 
 const EDGE_COLOR_PRESETS = [

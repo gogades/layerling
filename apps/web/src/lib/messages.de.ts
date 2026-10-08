@@ -199,6 +199,8 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "welcome.moreSimplifyTitle": "Netze vereinfachen",
   "welcome.moreSimplifyBody": "Ein importiertes Netz mit sehr vielen Dreiecken wird auf einen Bruchteil verkleinert, mit Vorher-Nachher-Ansicht und Regler - damit Schneiden, Gruppieren und Ziehen flüssig bleiben.",
   "welcome.moreHistoryTitle": "Verlauf",
+  "welcome.moreLookTitle": "Darstellung nach Wunsch",
+  "welcome.moreLookBody": "Hintergrund und Arbeitsebene, Kantenlinien an allen Körpern, die Farben der Skizze sowie Kontrast und Schattenstärke der Beleuchtung stellst du in den Einstellungen selbst ein - zum Beispiel, damit dunkle Körper nicht ineinander verschwimmen.",
   "welcome.moreHistoryBody": "mit einem Schieber auf jeden früheren Stand des Projekts zurückschauen, ohne etwas zu ändern - diesen Stand exportieren oder als neues Projekt anlegen.",
   "welcome.moreSearchBody": "Mit Strg+K tippst du den Namen eines Werkzeugs, einer Form oder eines Befehls und springst direkt dorthin - auch auf Englisch, mit allen Tastenkürzeln daneben. Auch die Körper deines Entwurfs findest du mit ihrem Namen.",
   "welcome.morePointsBody": "Körper mit der rechten Maustaste anklicken und Mitte, Ecken oder Kantenmitten mit Punkten markieren, die nichts druckt und an denen Formen einrasten - so setzt du ein Loch genau auf die Mitte eines anderen Teils.",
@@ -350,6 +352,14 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "workspace.edgeLines": "Kantenlinien an allen Körpern",
   "workspace.edgeLinesHint": "Zeichnet an jedem Körper eine Umrisslinie, damit dunkle Farben nicht ineinander verschwimmen. Sehr große importierte Netze bleiben ausgenommen.",
   "workspace.edgeColor": "Farbe der Kantenlinien",
+  "workspace.sketchBackground": "Skizze: Hintergrund (helles Thema)",
+  "workspace.sketchGridColor": "Skizze: Rasterfarbe (helles Thema)",
+  "workspace.sketchMatch": "Skizze wie Arbeitsbereich",
+  "workspace.sketchMatchHint": "Übernimmt Hintergrund und Rasterfarbe des Arbeitsbereichs für die Skizze.",
+  "workspace.shadowStrength": "Schattenstärke",
+  "workspace.shadeContrast": "Kontrast der Schattierung",
+  "workspace.shadeSoft": "weich",
+  "workspace.shadePunchy": "kräftig",
 
 
   "editor.group.home": "Start",

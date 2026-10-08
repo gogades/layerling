@@ -8,6 +8,9 @@ export const DEFAULT_WORKPLANE_GRID_COLOR = "#c08a12";
 /** The light theme's work-area background and workplane surface, which can be changed in the settings. */
 export const DEFAULT_WORKPLANE_BACKGROUND = "#fbf8f0";
 export const DEFAULT_WORKPLANE_SURFACE_COLOR = "#fdf4dd";
+/** The sketch view's background and grid colour in the light theme, which can be changed in the settings. */
+export const DEFAULT_SKETCH_BACKGROUND = "#fcfbf8";
+export const DEFAULT_SKETCH_GRID_COLOR = "#d9822b";
 /** Edge lines on every body, when switched on: black like in Tinkercad. */
 export const DEFAULT_EDGE_LINE_COLOR = "#000000";
 
@@ -209,4 +212,14 @@ export function workplaneGridLines(span: number, layout: WorkplaneGridLayout) {
     coordinate,
     kind: coordinate === 0 ? "axis" as const : index % layout.majorInterval === 0 ? "major" as const : "minor" as const,
   }));
+}
+
+/**
+ * Light levels of the scene: ambient (hemisphere), the key light that casts the shadows and
+ * the fill light. Contrast moves light from the even ambient to the key light, so shaded
+ * sides get darker and the shadows show more; 0 is the original balance.
+ */
+export function sceneLightLevels(contrast: number) {
+  const c = Math.max(-100, Math.min(100, Number.isFinite(contrast) ? contrast : 0)) / 100;
+  return { ambient: 2.1 * (1 - 0.5 * c), key: 3.1 * (1 + 0.5 * c), fill: 1.2 };
 }

@@ -38,6 +38,7 @@ const MORE = [
   ["welcome.moreSearchTitle", "welcome.moreSearchBody"],
   ["welcome.moreSimplifyTitle", "welcome.moreSimplifyBody"],
   ["welcome.moreHistoryTitle", "welcome.moreHistoryBody"],
+  ["welcome.moreLookTitle", "welcome.moreLookBody"],
 ] as const satisfies ReadonlyArray<readonly [MessageKey, MessageKey]>;
 
 /** What Tinkercad cannot do: the short list that follows the switch note. */

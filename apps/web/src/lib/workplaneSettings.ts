@@ -1,7 +1,7 @@
 import { DEFAULT_OVERHANG_ANGLE, normalizeOverhangAngle } from "@/lib/overhangLimits";
 import type { CustomSnapGrid, CustomSnapGridSize, GridSize, HistoryRetentionLimit, MeasurementAccuracy, ShapeCustomization, ShapeCustomizationMap, ShapeKind, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { normalizeScaleForUnits } from "@/lib/measurementUnits";
-import { DEFAULT_IMPERIAL_GRID_BLOCK_PRESET, DEFAULT_METRIC_GRID_BLOCK_PRESET, DEFAULT_EDGE_LINE_COLOR, DEFAULT_WORKPLANE_BACKGROUND, DEFAULT_WORKPLANE_GRID_COLOR, DEFAULT_WORKPLANE_SURFACE_COLOR, inchGridPresetMm } from "@/lib/workplaneGrid";
+import { DEFAULT_IMPERIAL_GRID_BLOCK_PRESET, DEFAULT_METRIC_GRID_BLOCK_PRESET, DEFAULT_EDGE_LINE_COLOR, DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, DEFAULT_WORKPLANE_BACKGROUND, DEFAULT_WORKPLANE_GRID_COLOR, DEFAULT_WORKPLANE_SURFACE_COLOR, inchGridPresetMm } from "@/lib/workplaneGrid";
 import { isThreadProfile } from "@/lib/threadProfiles";
 
 export const DEFAULT_SNAP_GRID: GridSize = "1.0 mm";
@@ -48,6 +48,10 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   edgeLines: false,
   edgeColor: DEFAULT_EDGE_LINE_COLOR,
   showShadows: true,
+  shadeContrast: 0,
+  shadowStrength: 100,
+  sketchBackground: DEFAULT_SKETCH_BACKGROUND,
+  sketchGridColor: DEFAULT_SKETCH_GRID_COLOR,
   overhangAngle: DEFAULT_OVERHANG_ANGLE,
   showGrid: true,
   clickToPlaceShapes: true,
@@ -489,6 +493,10 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     edgeLines: booleanOrDefault(candidate.edgeLines, fallback.edgeLines),
     edgeColor: colorOrDefault(candidate.edgeColor, fallback.edgeColor),
     showShadows: booleanOrDefault(candidate.showShadows, fallback.showShadows),
+    shadeContrast: Math.round(Math.max(-100, Math.min(100, numberOrDefault(candidate.shadeContrast, fallback.shadeContrast)))),
+    shadowStrength: Math.round(Math.max(0, Math.min(100, numberOrDefault(candidate.shadowStrength, fallback.shadowStrength)))),
+    sketchBackground: colorOrDefault(candidate.sketchBackground, fallback.sketchBackground),
+    sketchGridColor: colorOrDefault(candidate.sketchGridColor, fallback.sketchGridColor),
     overhangAngle: normalizeOverhangAngle(candidate.overhangAngle, fallback.overhangAngle),
     showGrid: booleanOrDefault(candidate.showGrid, fallback.showGrid),
     // "gridFromOrigin" (1.34.0) switched the grid back to the plate's corner;

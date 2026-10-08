@@ -2,7 +2,8 @@
 
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { useMovablePanel } from "@/lib/useMovablePanel";
 import { guideHref, type GuideChapter } from "@/lib/guideLinks";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
@@ -122,7 +123,9 @@ function sketchGuideSections(): GuideSection[] {
 export function GuideModal({ onClose, sharedStore = false, sketchMode = false }: { onClose: () => void; sharedStore?: boolean; sketchMode?: boolean }) {
   const language = useLanguage();
   const sections = sketchMode ? sketchGuideSections() : guideSections(sharedStore);
-  const cardRef = useRef<HTMLDivElement | null>(null);
+  // Moved by its title bar like every panel, and remembered where it stood.
+  const movable = useMovablePanel<HTMLDivElement>("layerling.editor.guidePosition", { floatingStyle: { position: "absolute", margin: 0 } });
+  const cardRef = movable.panelRef;
 
   useEffect(() => {
     cardRef.current?.focus();
@@ -144,8 +147,14 @@ export function GuideModal({ onClose, sharedStore = false, sketchMode = false }:
         }
       }}
     >
-      <div className="workspace-modal-card shortcuts-modal-card" ref={cardRef} tabIndex={-1} onPointerDown={(event) => event.stopPropagation()}>
-        <header className="workspace-modal-header">
+      <div
+        className={`workspace-modal-card shortcuts-modal-card ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
+        ref={cardRef}
+        style={movable.style}
+        tabIndex={-1}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <header className="workspace-modal-header movable" title={t("panel.moveHint")} {...movable.handleProps}>
           <strong>{t("guide.title")}</strong>
           <button aria-label={t("guide.close")} onClick={onClose}>
             <X size={18} />

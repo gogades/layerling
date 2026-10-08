@@ -206,6 +206,14 @@ export type WorkplaneWorkspaceSettings = {
   /** Colour of those edge lines. */
   edgeColor: string;
   showShadows: boolean;
+  /** Lighting contrast, -100 (soft) to 100 (punchy); 0 is the original look. */
+  shadeContrast: number;
+  /** How dark the cast shadows are, 0 to 100 (100 = as before). */
+  shadowStrength: number;
+  /** The sketch view's background in the light theme. */
+  sketchBackground: string;
+  /** The sketch view's grid colour in the light theme. */
+  sketchGridColor: string;
   /** Overhangs steeper than this (degrees from vertical) show red when overhangs are shown. */
   overhangAngle: number;
   showGrid: boolean;

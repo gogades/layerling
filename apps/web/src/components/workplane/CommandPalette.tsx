@@ -7,6 +7,7 @@ import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { rememberCommand, searchCommands } from "@/lib/commandSearch";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
+import { useMovablePanel } from "@/lib/useMovablePanel";
 
 /** One entry of the command search: what the toolbar and its menus can do. */
 export type PaletteCommand = {
@@ -110,10 +111,17 @@ export function CommandPalette({ commands, onClose }: { commands: PaletteCommand
     setIndex((value) => (Math.min(value, results.length - 1) + step + results.length) % results.length);
   };
 
+  // The strip above the search field moves the window; it keeps the place it was left at.
+  const movable = useMovablePanel<HTMLDivElement>("layerling.editor.commandPalettePosition", {
+    floatingStyle: { position: "absolute", margin: 0 },
+  });
+
   return createPortal(
     <div className="command-palette-backdrop" onPointerDown={onClose}>
       <div
-        className="command-palette"
+        ref={movable.panelRef}
+        className={`command-palette ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
+        style={movable.style}
         role="dialog"
         aria-modal="true"
         aria-label={t("palette.title")}
@@ -145,6 +153,9 @@ export function CommandPalette({ commands, onClose }: { commands: PaletteCommand
           }
         }}
       >
+        <div className="command-palette-grip movable" title={t("panel.moveHint")} {...movable.handleProps}>
+          <span aria-hidden="true" />
+        </div>
         <div className="command-palette-search">
           <Search size={18} aria-hidden="true" />
           <input

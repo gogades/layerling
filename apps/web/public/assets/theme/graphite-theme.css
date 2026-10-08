@@ -2288,7 +2288,7 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older:hover 
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-workspace-stage {
-  background: #fafafa;
+  background: var(--sketch-bg, #fafafa);
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-mode-badge {
@@ -2361,15 +2361,15 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older:hover 
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-grid .minor {
-  stroke: rgba(223, 136, 43, 0.46);
+  stroke: var(--sketch-grid-minor, rgba(223, 136, 43, 0.46));
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-grid .major {
-  stroke: rgba(161, 102, 39, 0.68);
+  stroke: var(--sketch-grid-major, rgba(161, 102, 39, 0.68));
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-grid .axis {
-  stroke: #b56817;
+  stroke: var(--sketch-grid-axis, #b56817);
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-revolve-guide rect {

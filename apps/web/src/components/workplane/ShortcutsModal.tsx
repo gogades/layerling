@@ -1,7 +1,8 @@
 "use client";
 
 import { X } from "lucide-react";
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useEffect } from "react";
+import { useMovablePanel } from "@/lib/useMovablePanel";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
@@ -184,7 +185,9 @@ function ShortcutKeys({ combos }: { combos: string[] }) {
 export function ShortcutsModal({ sketchMode, onClose }: { sketchMode: boolean; onClose: () => void }) {
   useLanguage();
   const groups = SHORTCUT_GROUPS.filter((group) => (group.mode === "sketch") === sketchMode);
-  const cardRef = useRef<HTMLDivElement | null>(null);
+  // Moved by its title bar like every panel, and remembered where it stood.
+  const movable = useMovablePanel<HTMLDivElement>("layerling.editor.shortcutsPosition", { floatingStyle: { position: "absolute", margin: 0 } });
+  const cardRef = movable.panelRef;
 
   useEffect(() => {
     cardRef.current?.focus();
@@ -208,8 +211,14 @@ export function ShortcutsModal({ sketchMode, onClose }: { sketchMode: boolean; o
         }
       }}
     >
-      <div className="workspace-modal-card shortcuts-modal-card" ref={cardRef} tabIndex={-1} onPointerDown={(event) => event.stopPropagation()}>
-        <header className="workspace-modal-header">
+      <div
+        className={`workspace-modal-card shortcuts-modal-card ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
+        ref={cardRef}
+        style={movable.style}
+        tabIndex={-1}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <header className="workspace-modal-header movable" title={t("panel.moveHint")} {...movable.handleProps}>
           <strong>{t("shortcuts.title")}</strong>
           <div className="panel-header-actions">
             <GuideHelpLink chapter="shortcuts" />

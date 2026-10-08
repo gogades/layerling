@@ -200,6 +200,8 @@ export const MESSAGES_EN = {
   "welcome.moreSimplifyTitle": "Simplify meshes",
   "welcome.moreSimplifyBody": "An imported mesh with a very large number of triangles is reduced to a fraction, with a before-and-after view and a slider - so cutting, grouping and dragging stay smooth.",
   "welcome.moreHistoryTitle": "History",
+  "welcome.moreLookTitle": "Look as you like it",
+  "welcome.moreLookBody": "Background and workplane, edge lines on every body, the sketch colours, and the contrast and shadow strength of the lighting are yours to set in the settings - for example so dark bodies do not run into each other.",
   "welcome.moreHistoryBody": "look back at any earlier state of the project with a slider, without changing anything - export that state or start a new project from it.",
   "welcome.moreSearchBody": "Press Ctrl+K and type the name of a tool, a shape or a command to jump straight to it - in English or German, with the keyboard shortcuts shown beside each one. The bodies of your design are found by name as well.",
   "welcome.morePointsBody": "right-click a body to mark its centre, corners or edge middles with points that nothing prints and that shapes snap to - then place a hole exactly on the centre of another part.",
@@ -351,6 +353,14 @@ export const MESSAGES_EN = {
   "workspace.edgeLines": "Edge lines on all bodies",
   "workspace.edgeLinesHint": "Draws an outline on every body, so dark colours do not run into each other. Very large imported meshes are left out.",
   "workspace.edgeColor": "Edge line color",
+  "workspace.sketchBackground": "Sketch background (light theme)",
+  "workspace.sketchGridColor": "Sketch grid color (light theme)",
+  "workspace.sketchMatch": "Sketch like work area",
+  "workspace.sketchMatchHint": "Takes the work area's background and grid colour for the sketch.",
+  "workspace.shadowStrength": "Shadow strength",
+  "workspace.shadeContrast": "Shading contrast",
+  "workspace.shadeSoft": "soft",
+  "workspace.shadePunchy": "punchy",
 
 
   "editor.group.home": "Home",

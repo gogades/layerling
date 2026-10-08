@@ -1597,7 +1597,7 @@ button {
 
 .command-palette {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   width: min(640px, 100%);
   max-height: min(560px, calc(100vh - max(12vh, 56px) - 24px));
   overflow: hidden;
@@ -1606,6 +1606,26 @@ button {
   border: 1px solid var(--border-strong);
   border-radius: 10px;
   box-shadow: 0 18px 48px rgba(40, 28, 16, 0.32);
+}
+
+.command-palette-grip {
+  display: grid;
+  height: 14px;
+  place-items: center;
+  cursor: grab;
+  touch-action: none;
+}
+
+.command-palette-grip span {
+  width: 36px;
+  height: 4px;
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+.command-palette.moving,
+.command-palette.moving .command-palette-grip {
+  cursor: grabbing;
 }
 
 .command-palette-search {
@@ -5782,7 +5802,7 @@ html[data-theme="dark"] .whats-new-older:hover {
   min-width: 0;
   height: calc(100vh - var(--editor-toolbar-height) - var(--editor-footer-height));
   overflow: hidden;
-  background: #fcfbf8;
+  background: var(--sketch-bg, #fcfbf8);
 }
 
 .sketch-mode-badge {
@@ -5971,15 +5991,15 @@ html[data-theme="dark"] .whats-new-older:hover {
 }
 
 .sketch-grid .minor {
-  stroke: rgba(223, 136, 43, 0.46);
+  stroke: var(--sketch-grid-minor, rgba(223, 136, 43, 0.46));
 }
 
 .sketch-grid .major {
-  stroke: rgba(161, 102, 39, 0.68);
+  stroke: var(--sketch-grid-major, rgba(161, 102, 39, 0.68));
 }
 
 .sketch-grid .axis {
-  stroke: #b56817;
+  stroke: var(--sketch-grid-axis, #b56817);
   stroke-width: 1.6;
 }
 
@@ -9846,6 +9866,16 @@ html[data-theme="dark"] .mesh-compare-actions .secondary {
   border: 1px solid #dacfc2;
   border-radius: 3px;
   box-shadow: 0 16px 48px rgba(58, 42, 25, 0.28);
+}
+
+.workspace-modal-header.movable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.workspace-modal-card.moving,
+.workspace-modal-card.moving .workspace-modal-header.movable {
+  cursor: grabbing;
 }
 
 .workspace-modal-backdrop {
