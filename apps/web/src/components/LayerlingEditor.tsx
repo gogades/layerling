@@ -215,6 +215,7 @@ import {
 import { localizedError } from "@/lib/userErrors";
 import { sketchBodyStretch, stretchedSketchProfile } from "@/lib/sketchResize";
 import { placeSketchExtrusion, placeSketchShape } from "@/lib/sketchPlacement";
+import { meshSlicePath, planeCutsMesh } from "@/lib/sketchSlice";
 import { BUG_REPORT_FILE, bugReportText, rememberBugReportEvent, type BugReportEvent } from "@/lib/bugReport";
 import { formatLengthMm, lengthDisplayUnit } from "@/lib/measurementUnits";
 import { wrapMeshAroundCylinder, type CylinderWrapError } from "@/lib/cylinderWrap";
@@ -7532,6 +7533,25 @@ export function LayerlingEditor({
         : sketchReferenceShapeOnWorkplane(shape, activeSketchWorkplane)),
     [activeSketchWorkplane, editingSketchShapeId, shapes, sketchOperation],
   );
+  // A workplane inside a body cuts it: the sketch view shows the outline of the cut (a hollow body
+  // gives a ring), where a workplane on a face shows that face. Per body, as an SVG path in the
+  // workplane's own coordinates.
+  const sketchReferenceSlices = useMemo(() => {
+    const slices: Record<string, string> = {};
+    if (!sketchActive || sketchOperation === "revolve" || placementWorkplaneIsBase(activeSketchWorkplane)) return slices;
+    shapes.forEach((shape) => {
+      if (shape.hidden || shape.id === editingSketchShapeId) return;
+      const mesh = meshForShape(shape);
+      const vertices = mesh.vertices.map(([x, y, z]) => {
+        const local = placementWorkplaneCoordinates(activeSketchWorkplane, { x, y, z });
+        return { x: local.x, h: local.y, z: local.z };
+      });
+      if (!planeCutsMesh(vertices.map((vertex) => vertex.h))) return;
+      const path = meshSlicePath(vertices, mesh.faces);
+      if (path) slices[shape.id] = path;
+    });
+    return slices;
+  }, [activeSketchWorkplane, editingSketchShapeId, shapes, sketchActive, sketchOperation]);
   const debugState = useMemo(
     () =>
       JSON.stringify({
@@ -14068,6 +14088,7 @@ export function LayerlingEditor({
             operation={sketchOperation}
             revolvePreviewPositions={sketchRevolvePreview?.positions ?? null}
             referenceShapes={sketchReferenceShapes.filter((shape) => shape.id !== editingSketchShapeId)}
+            referenceSlices={sketchReferenceSlices}
             tool={sketchTool}
             activePointId={sketchActivePointId}
             selected={sketchSelection}

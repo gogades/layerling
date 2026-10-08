@@ -4,6 +4,11 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Static hosting is explained:** The README (English and German) now has a section on serving the static export from plain web hosting: where `npm run export` puts the files, that they belong at the root of an address (not a subfolder, not `file://`), that folders starting with an underscore must be served, and how to tell when the script files did not load. Asked about by @CTI-Tim in #173.
+- **The sketch shows the cut where the workplane runs through a body:** With the workplane inside a body (in the cavity of a hollowed box, for example), the sketch view drew a strange outline - the body's top face - instead of what the workplane cuts. It now shows the outline of the cut, so a hollow body is a ring and the sketch can be lined up with its walls. A workplane on a face still shows that face. Reported by @danielB801 in #172.
+
 ## 1.48.0
 
 - **Axis arrows:** Arrows for X (red, to the right), Y (green, to the front) and Z (blue, up) stand at the back left corner of the plate, as in Bambu Studio and OrcaSlicer, and show the way the numbers in the settings count. They follow a workplane on a face, never take a click, and can be switched off under **Axis arrows** in the settings. Asked for by @kjkoz in #168.

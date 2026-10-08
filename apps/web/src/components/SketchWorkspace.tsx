@@ -33,6 +33,8 @@ type SketchWorkspaceProps = {
   operation?: SketchOperation;
   revolvePreviewPositions?: number[] | null;
   referenceShapes: WorkplaneShape[];
+  /** Where a workplane inside a body cuts it: the outline of the cut per body (id), as an SVG path of loops. */
+  referenceSlices?: Record<string, string>;
   tool: SketchTool;
   activePointId: string | null;
   selected: SketchSelection;
@@ -483,6 +485,7 @@ export function SketchWorkspace({
   operation = "extrude",
   revolvePreviewPositions = null,
   referenceShapes,
+  referenceSlices,
   tool,
   activePointId,
   selected,
@@ -1309,6 +1312,15 @@ export function SketchWorkspace({
           <g className="sketch-reference-shapes" pointerEvents="none">
             {referenceShapes.filter((shape) => !shape.hidden).map((shape) => {
               const footprint = referenceFootprints.get(shape.id);
+              const slice = referenceSlices?.[shape.id];
+              if (slice) {
+                return (
+                  <g key={shape.id}>
+                    <path className="sketch-reference-mesh-face" fillRule="evenodd" d={slice} />
+                    <path className="sketch-reference-mesh-outline" d={slice} />
+                  </g>
+                );
+              }
               return (
                 <g key={shape.id} transform={`rotate(${shape.rotation ?? 0} ${shape.x} ${shape.z})`}>
                   {footprint?.fillD || footprint?.outlineD ? (
