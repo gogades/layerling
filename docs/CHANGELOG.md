@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.48.0
 
 - **Axis arrows:** Arrows for X (red, to the right), Y (green, to the front) and Z (blue, up) stand at the back left corner of the plate, as in Bambu Studio and OrcaSlicer, and show the way the numbers in the settings count. They follow a workplane on a face, never take a click, and can be switched off under **Axis arrows** in the settings. Asked for by @kjkoz in #168.
 - **A revolved sketch is an exact body:** The Revolve command now builds the body with OpenCascade, like an extrusion, instead of as a mesh of tens of thousands of triangles. So Hollow, Fillet and Chamfer work on it (hollowing a revolved cup failed with "The walls cannot be this thick" even at 0.2 mm), and it has a few hundred triangles. Start angle and sweep work as before; the side count no longer applies to an exact body. A profile that reaches across the axis, and bodies revolved earlier, stay meshes; open **Edit sketch** and finish again to make an old one exact. Reported by @ucito in #167.

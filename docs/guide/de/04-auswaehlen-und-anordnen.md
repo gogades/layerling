@@ -58,6 +58,8 @@ Gedreht wird mit den gebogenen Pfeilen an der Form, mit den Zahlen in den Einste
 
 Die Winkel bleiben am Körper. In seinen Einstellungen zeigt {{ui:inspector.rotation}} sie als {{ui:prop.rotateX}}, {{ui:prop.rotateY}} und {{ui:prop.rotateZ}}, benannt wie die Position: Y läuft quer über die Platte, Z nach oben. Tippst du dort einen Winkel ein, dreht sich der Körper darauf – um seine Mitte oder um seinen eigenen Drehpunkt, falls er einen hat. Solange ein gedrehter Körper ausgewählt ist, stehen seine Winkel auch unter ihm auf der Arbeitsfläche; {{ui:workspace.showRotationAngles}} in den Einstellungen schaltet das ab.
 
+![Ein um zwei Achsen gedrehter Körper: Seine Winkel stehen unter ihm, und die Karte „Drehung“ in seinen Einstellungen nimmt sie als Zahlen.](shot:rotation-card)
+
 Ist **ein Körper** gewählt, gehört der Drehpunkt zu diesem Körper: Wähle andere Teile und komm zurück, und er ist noch da. Er wandert, dreht sich und skaliert mit dem Körper, wird im Projekt gespeichert und kommt mit „Rückgängig“ zurück. Unter {{ui:inspector.position}} hat der Drehpunkt eigene Werte für X, Y und Z, die du eintippen oder verschieben kannst, und {{ui:inspector.pivotRemove}} nimmt ihn weg. Sind mehrere Körper gewählt, gilt der Drehpunkt nur für diese Auswahl, und eine neue Auswahl hebt ihn auf.
 
 ## Auf eine Fläche legen
@@ -65,6 +67,8 @@ Ist **ein Körper** gewählt, gehört der Drehpunkt zu diesem Körper: Wähle an
 Ein Teil soll für den Druck auf seiner besten Seite liegen? Wähle es aus, klicke auf {{ui:editor.tool.layFlat}} und dann auf die Fläche, die nach unten soll. Wenn du mit dem Zeiger über das Teil fährst, leuchtet die Fläche darunter auf, du siehst also vorher, welche du gleich nimmst; drehe die Ansicht, um die anderen Seiten zu prüfen. Das Teil dreht sich so, dass diese Fläche auf der Arbeitsebene liegt.
 
 Zwei Teile sollen Fläche an Fläche liegen oder bündig abschließen? Wähle das Teil aus, das sich bewegen soll, klicke auf {{ui:editor.tool.mateFaces}}, dann auf seine Fläche und danach auf die Fläche des anderen Teils. Im Panel legt {{ui:mate.mode.against}} die Flächen aneinander (Rücken an Rücken, berührend), {{ui:mate.mode.flush}} legt sie nebeneinander in eine Ebene; {{ui:mate.gap}} lässt Platz dazwischen, etwa als Spiel. {{ui:mate.apply}} bewegt das Teil: Es dreht sich auf kürzestem Weg, bis die Flächen parallel sind – gar nicht, wenn sie es schon sind –, und rückt dann nur auf die andere Fläche zu, behält seine seitliche Lage also. Das andere Teil bleibt, wo es ist, und ein Rückgängig nimmt alles zurück.
+
+![Das Fenster „Flächen ausrichten“: Das Teil, das sich bewegt, ist gewählt, als Nächstes kommt eine Fläche des anderen Teils, dann „Gegeneinander“ oder „Bündig“ und ein Abstand, wenn du willst.](shot:mate-faces)
 
 Ähnlich einfach sind {{ui:editor.tool.dropToWorkplane}} ([[D]]), das die Auswahl auf die Arbeitsebene absetzt, und {{ui:editor.tool.centerOnWorkplane}}.
 

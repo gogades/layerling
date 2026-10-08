@@ -135,6 +135,30 @@ export const scenes = {
     await ctx.shot("group-multicolor");
   },
 
+  // Align faces: the part that moves is selected and the tool is open.
+  async "mate-faces"(ctx) {
+    await freshEditor(ctx);
+    const left = await create(ctx, { kind: "box", x: -26, z: 0, width: 30, depth: 30, height: 24, color: BLUE });
+    await create(ctx, { kind: "box", x: 24, z: 6, width: 30, depth: 30, height: 30, color: ORANGE, rotation: 20 });
+    await select(ctx, [left]);
+    await ctx.click(ctx.t("editor.tool.mateFaces"));
+    await ctx.wait(1500);
+    await ctx.shot("mate-faces");
+  },
+
+  // A turned body shows its angles under it, and the Rotation card in its settings takes them.
+  async "rotation-card"(ctx) {
+    await freshEditor(ctx);
+    const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 36, depth: 24, height: 20, color: GREEN, rotation: 35, rotationX: 0, rotationZ: 12 });
+    await select(ctx, [box]);
+    await ctx.wait(1500);
+    await ctx.evaluate(`(() => { const card = [...document.querySelectorAll("button, summary, h3, strong")].find((el) => el.textContent.trim() === ${JSON.stringify(ctx.t("inspector.rotation"))}); card?.click(); return Boolean(card); })()`);
+    await ctx.wait(1000);
+    await ctx.evaluate(`(() => { const card = [...document.querySelectorAll("button, summary, h3, strong")].find((el) => el.textContent.trim() === ${JSON.stringify(ctx.t("inspector.rotation"))}); card?.scrollIntoView({ block: "start" }); return Boolean(card); })()`);
+    await ctx.wait(600);
+    await ctx.shot("rotation-card");
+  },
+
   async "pattern-tool"(ctx) {
     await freshEditor(ctx);
     const plate = await create(ctx, { kind: "cylinder", x: 0, z: 0, width: 60, depth: 60, height: 6, color: BLUE });

@@ -1,5 +1,50 @@
 [
   {
+    "version": "1.48.0",
+    "items": [
+      {
+        "title": {
+          "de": "Achsenpfeile",
+          "en": "Axis arrows"
+        },
+        "body": {
+          "de": "Am hinteren linken Eck der Platte zeigen Pfeile X (rot, nach rechts), Y (grün, nach vorn) und Z (blau, nach oben), so wie die Zahlen zählen. Sie wandern mit der Arbeitsebene und lassen sich in den Einstellungen abschalten.",
+          "en": "At the back left corner of the plate, arrows show X (red, to the right), Y (green, to the front) and Z (blue, up), the way the numbers count. They follow the workplane and can be switched off in the settings."
+        }
+      },
+      {
+        "title": {
+          "de": "Flächen aneinanderlegen",
+          "en": "Align faces"
+        },
+        "body": {
+          "de": "Ein neues Werkzeug bei „Anordnen“: Du klickst eine Fläche des Teils, das sich bewegt, dann eine Fläche des anderen. Die beiden berühren sich Fläche an Fläche oder liegen bündig in einer Ebene, auf Wunsch mit Abstand.",
+          "en": "A new tool under Arrange: click a face of the part that moves, then a face of the other. The two meet face to face or sit flush in one plane, with a gap if you like."
+        }
+      },
+      {
+        "title": {
+          "de": "Drehwinkel sehen und eintippen",
+          "en": "See and type rotation angles"
+        },
+        "body": {
+          "de": "Ein gedrehter Körper zeigt seine Winkel um X, Y und Z unter der Auswahl. Die Karte „Drehung“ in seinen Einstellungen nimmt sie als Zahlen, und die Winkel sind jetzt gut lesbar: Dreimal R ergibt 135° statt einer Reihe aus 180°-Werten.",
+          "en": "A turned body shows its angles about X, Y and Z under the selection. The Rotation card in its settings takes them as numbers, and the angles are readable now: three presses of R give 135°, not a row of 180° values."
+        }
+      },
+      {
+        "title": {
+          "de": "Gedrehte Skizzenkörper lassen sich aushöhlen",
+          "en": "Revolved sketch bodies can be hollowed"
+        },
+        "body": {
+          "de": "Ein mit „Rotieren“ gebauter Körper ist jetzt ein exakter Körper, wie eine Extrusion: Du kannst ihn aushöhlen, fasen und verrunden, etwa für einen Becher oder eine Vase. Ältere gedrehte Körper werden exakt, wenn du ihre Skizze bearbeitest und neu abschließt.",
+          "en": "A body made with Revolve is now an exact body, like an extrusion: you can hollow it, chamfer it and round it, for a cup or a vase. Older revolved bodies become exact when you edit their sketch and finish it again."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.47.0",
     "items": [
       {
