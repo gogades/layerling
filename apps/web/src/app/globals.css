@@ -8925,6 +8925,34 @@ html[data-theme="dark"] .inspector-bundle-note {
   gap: 17px;
 }
 
+.property-subheading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(125, 107, 88, 0.22);
+  color: #7d6b58;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.property-subheading-action {
+  padding: 3px 9px;
+  border: 1px solid rgba(125, 107, 88, 0.35);
+  border-radius: 7px;
+  color: inherit;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.property-subheading-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .gear-type-property {
   display: grid;
   gap: 8px;
@@ -12241,6 +12269,7 @@ html[data-theme="dark"] .color-card-header {
 }
 
 html[data-theme="dark"] .check-property,
+html[data-theme="dark"] .property-subheading,
 html[data-theme="dark"] .gear-type-property,
 html[data-theme="dark"] .range-property,
 html[data-theme="dark"] .range-property-name,

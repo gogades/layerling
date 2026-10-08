@@ -157,6 +157,7 @@ import type { BentTubeInnerProfile, BentTubeProfile, CustomSnapGrid, GearType, G
 import { selectWholeValue } from "@/lib/numberField";
 import { useRecentColors } from "@/lib/recentColors";
 import { canToggleGroupColors, groupShowsPartColors } from "@/lib/groupColors";
+import { shapePivotFromWorld, shapePivotWorld } from "@/lib/rotationPivot";
 
 /**
  * Docked at the right edge, full height. Moved away, it floats: no longer
@@ -293,7 +294,7 @@ function formatPropertyNumber(value: number, accuracy: MeasurementAccuracy, step
 const RELATIVE_SIZE_PROPERTY_IDS = new Set(["width", "height", "length", "diameter", "starOuterSize"]);
 
 function propertyUsesLengthUnit(key: string) {
-  return ["positionX", "positionY", "positionZ", "radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "boltClearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet", "bentTubeSize", "bentTubeWall", "bentTubeSegmentLength", "bentTubeBendRadius", "dovetailNeckWidth", "dovetailClearance", "hingePinDiameter", "hingeLeafThickness", "hingeClearance", "screwHoleShaft", "screwHoleHeadDepth", "knurlDepth", "knurlChamfer"].includes(key);
+  return ["positionX", "positionY", "positionZ", "pivotX", "pivotY", "pivotZ", "radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "boltClearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet", "bentTubeSize", "bentTubeWall", "bentTubeSegmentLength", "bentTubeBendRadius", "dovetailNeckWidth", "dovetailClearance", "hingePinDiameter", "hingeLeafThickness", "hingeClearance", "screwHoleShaft", "screwHoleHeadDepth", "knurlDepth", "knurlChamfer"].includes(key);
 }
 
 /**
@@ -1647,6 +1648,18 @@ export function ShapeInspector({
     { id: "positionY", label: t("prop.positionY"), value: shape.z, min: -reachY, max: reachY, step: 0.5, onChange: (z) => onUpdate({ z }) },
     { id: "positionZ", label: t("prop.positionZ"), value: shape.elevation ?? 0, min: -180, max: 220, step: 0.5, onChange: (elevation) => onUpdate({ elevation }) },
   ];
+  // The pivot this body carries, in the same coordinates as its position.
+  const pivot = shapePivotWorld(shape);
+  const movePivot = (change: Partial<{ x: number; y: number; z: number }>) => {
+    if (pivot) onUpdate({ rotationPivot: shapePivotFromWorld(shape, { ...pivot, ...change }) });
+  };
+  const pivotProperties: ShapePropertyConfig[] = pivot
+    ? [
+      { id: "pivotX", label: t("prop.pivotX"), value: pivot.x, min: -reachX, max: reachX, step: 0.5, onChange: (x) => movePivot({ x }) },
+      { id: "pivotY", label: t("prop.pivotY"), value: pivot.z, min: -reachY, max: reachY, step: 0.5, onChange: (z) => movePivot({ z }) },
+      { id: "pivotZ", label: t("prop.pivotZ"), value: pivot.y, min: -180, max: 220, step: 0.5, onChange: (y) => movePivot({ y }) },
+    ]
+    : [];
   const isSketchRevolve = shape.sketchOperation === "revolve" || Boolean(shape.sketchRevolve);
   // Docked at the right edge until its title bar is dragged; then it floats where it was dropped.
   const movable = useMovablePanel<HTMLElement>("layerling.editor.inspectorPosition", INSPECTOR_PANEL);
@@ -1968,6 +1981,17 @@ export function ShapeInspector({
         {positionOpen ? (
           <div className="property-list" id={`position-${shape.id}`}>
             <ShapePropertyRows properties={positionProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
+            {pivot ? (
+              <>
+                <div className="property-subheading">
+                  <span>{t("inspector.pivot")}</span>
+                  <button type="button" className="property-subheading-action" disabled={locked} onClick={() => onUpdate({ rotationPivot: undefined })}>
+                    {t("inspector.pivotRemove")}
+                  </button>
+                </div>
+                <ShapePropertyRows properties={pivotProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>

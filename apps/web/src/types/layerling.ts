@@ -592,6 +592,12 @@ export type WorkplaneShape = {
    */
   groupOperation?: "group" | "intersection" | "bundle";
   /**
+   * The point this body turns about, kept with the body: a fraction of its
+   * width, height and depth from its centre, in its own frame, so it moves,
+   * turns and scales with it. See lib/rotationPivot.
+   */
+  rotationPivot?: [number, number, number];
+  /**
    * A group shows each part in its own colour, like Tinkercad's "Multicolor".
    * Left out, see groupShowsPartColors() for what a group shows.
    */
