@@ -12335,7 +12335,9 @@ function createShapeObject(
         childObject.userData.groupChildId = child.id;
         content.add(childObject);
       });
-    const contentBox = new THREE.Box3().setFromObject(content);
+    // Measured on the real vertices: the box of a turned part's own bounding box is wider than
+    // the part, which stretched the content to a smaller size (a bundle shrank, #152).
+    const contentBox = new THREE.Box3().setFromObject(content, true);
     const contentSize = contentBox.getSize(new THREE.Vector3());
     content.scale.set(
       shapeWidth(shape) / Math.max(0.001, contentSize.x),
