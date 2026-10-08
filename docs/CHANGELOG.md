@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.49.0
 
 - **Curve a straight side:** Select a line in the sketch and click **Curve line**: the side bows out into a curve, as in Tinkercad, and shows its two handles to drag. **Straight line** makes it straight again. Asked for by @lukyanenkomax in #171.
 - **The "Smooth" button on a sketch point works again:** Since 1.47.0 it changed the point's mode but gave it no handles, so a corner stayed a corner and there was nothing to drag. It now turns the point into a rounded one with handles, and the lines around it become curves. Reported by @lukyanenkomax in #171.

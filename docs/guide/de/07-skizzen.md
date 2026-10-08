@@ -33,6 +33,8 @@ Ein Körper entsteht nur aus einem **geschlossenen** Umriss.
 
 Wähle eine gerade Linie und klicke in der Leiste, die erscheint, auf {{ui:sketch.curveLine}}: Die Seite wölbt sich wie bei Tinkercad zu einer Kurve und zeigt ihre beiden Griffe. Ziehe daran, um die Kurve zu formen; je weiter ein Griff absteht, desto stärker die Biegung. {{ui:sketch.straightenLine}} macht die Seite wieder gerade. Einen gewählten Punkt kannst du mit {{ui:sketch.smooth}} rund machen: Er bekommt eigene Griffe, und die Linien daneben werden zu Kurven.
 
+![Die untere Seite des L-förmigen Umrisses zu einer Kurve gebogen, mit ihren zwei Griffen an den Enden.](shot:sketch-curve)
+
 ## Winkel ablesen und eintippen
 
 Klickst du einen Eckpunkt an, an dem **zwei gerade Linien** zusammentreffen, zeigt layerling neben den Längen den **Winkel** dazwischen in Grad, mit einem kleinen Bogen. In einem geschlossenen Umriss ist es der Winkel im Inneren der Form, eine Einbuchtung liest sich also über 180°. Klicke auf den Wert und tippe einen neuen Winkel. Dann dreht sich eine der beiden Linien um die Ecke und behält ihre Länge, die andere bleibt, wo sie ist. Die Linie, die sich dreht, ist gestrichelt; mit [[Tab]] wechselst du zur anderen, [[Enter]] übernimmt und [[Esc]] bricht ab. Was am anderen Ende der gedrehten Linie hängt, geht mit.

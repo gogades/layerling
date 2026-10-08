@@ -268,6 +268,16 @@ scenes["sketch"] = async (ctx) => {
   await ctx.shot("sketch-result");
 };
 
+// A straight side bent into a curve, with its two handles.
+scenes["sketch-curve"] = async (ctx) => {
+  await drawOutline(ctx);
+  await ctx.mouse(485, 560);
+  await ctx.wait(600);
+  await ctx.click(ctx.t("sketch.curveLine"));
+  await ctx.wait(800);
+  await ctx.shot("sketch-curve");
+};
+
 scenes["tape-measure"] = async (ctx) => {
   await freshEditor(ctx);
   const { box } = await sampleParts(ctx);

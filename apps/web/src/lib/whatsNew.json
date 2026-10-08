@@ -1,5 +1,40 @@
 [
   {
+    "version": "1.49.0",
+    "items": [
+      {
+        "title": {
+          "de": "Gerade Seiten krümmen",
+          "en": "Curve a straight side"
+        },
+        "body": {
+          "de": "Wähle in der Skizze eine gerade Linie und klicke auf „Linie krümmen“: Die Seite wölbt sich wie bei Tinkercad zu einer Kurve und zeigt zwei Griffe, an denen du sie formst. „Linie gerade“ macht sie wieder gerade.",
+          "en": "Select a straight line in the sketch and click Curve line: the side bows out into a curve, as in Tinkercad, and shows two handles to shape it. Straight line makes it straight again."
+        }
+      },
+      {
+        "title": {
+          "de": "Arbeitsebene im Körper zeigt den Schnitt",
+          "en": "A workplane inside a body shows the cut"
+        },
+        "body": {
+          "de": "Liegt die Arbeitsebene mitten in einem Körper, etwa im Hohlraum eines ausgehöhlten Kastens, zeigt die Skizze den Umriss des Schnitts. Ein hohler Körper erscheint als Ring, und du kannst die Skizze an seinen Wänden ausrichten.",
+          "en": "With the workplane in the middle of a body, in the cavity of a hollowed box for example, the sketch shows the outline of the cut. A hollow body appears as a ring, and you can line the sketch up with its walls."
+        }
+      },
+      {
+        "title": {
+          "de": "Fehler behoben",
+          "en": "Fixes"
+        },
+        "body": {
+          "de": "Der Knopf „Weiche Kurve“ an einem Skizzenpunkt tat seit 1.47.0 nichts mehr und macht den Punkt jetzt wieder rund, mit Griffen.",
+          "en": "The Smooth button on a sketch point did nothing since 1.47.0; it now makes the point round again, with handles."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.48.0",
     "items": [
       {
