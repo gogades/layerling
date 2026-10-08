@@ -336,6 +336,23 @@ export const tools = [
     },
   },
   {
+    name: "layerling_mate_faces",
+    description: "Move one object so a face of it meets a face of another object - the editor's Align faces tool. The moving object is turned the shortest way until the faces are parallel (not at all if they already are), then slid along the target face's normal only, so it keeps its place sideways. mode against puts the faces face to face (touching, back to back), flush lays them in one plane side by side. gap leaves that much room, measured out of the target face. Faces are named as sides of each object's own box and snap to the nearest real face. One undo step.",
+    inputSchema: {
+      ...editorTargetSchema,
+      required: ["id", "face", "targetId", "targetFace"],
+      properties: {
+        ...editorTargetSchema.properties,
+        id: { type: "string", description: "The object that moves." },
+        face: { type: "string", enum: ["bottom", "top", "left", "right", "front", "back"], description: "Its face that should meet the other, as a side of its own box." },
+        targetId: { type: "string", description: "The object that stays where it is." },
+        targetFace: { type: "string", enum: ["bottom", "top", "left", "right", "front", "back"], description: "The face of the target to meet." },
+        mode: { type: "string", enum: ["against", "flush"], description: "against (default): face to face. flush: in one plane, side by side." },
+        gap: { type: "number", description: "Room between the planes in millimetres, measured out of the target face. Default 0." },
+      },
+    },
+  },
+  {
     name: "layerling_open_group",
     description: "Open a group to change its parts one by one, like 'Edit group' in the editor: the parts lie loose on the workplane (their ids come back) and can be changed with every other tool. Close it again with layerling_close_group. While a group is open, a group among its parts can be opened too, one level deeper each time; any other group is refused until the open one is closed. layerling_read_scene reports the innermost open group as openGroup and every level, outermost first, as openGroups.",
     inputSchema: {

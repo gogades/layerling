@@ -62,6 +62,8 @@ Ist **ein Körper** gewählt, gehört der Drehpunkt zu diesem Körper: Wähle an
 
 Ein Teil soll für den Druck auf seiner besten Seite liegen? Wähle es aus, klicke auf {{ui:editor.tool.layFlat}} und dann auf die Fläche, die nach unten soll. Wenn du mit dem Zeiger über das Teil fährst, leuchtet die Fläche darunter auf, du siehst also vorher, welche du gleich nimmst; drehe die Ansicht, um die anderen Seiten zu prüfen. Das Teil dreht sich so, dass diese Fläche auf der Arbeitsebene liegt.
 
+Zwei Teile sollen Fläche an Fläche liegen oder bündig abschließen? Wähle das Teil aus, das sich bewegen soll, klicke auf {{ui:editor.tool.mateFaces}}, dann auf seine Fläche und danach auf die Fläche des anderen Teils. Im Panel legt {{ui:mate.mode.against}} die Flächen aneinander (Rücken an Rücken, berührend), {{ui:mate.mode.flush}} legt sie nebeneinander in eine Ebene; {{ui:mate.gap}} lässt Platz dazwischen, etwa als Spiel. {{ui:mate.apply}} bewegt das Teil: Es dreht sich auf kürzestem Weg, bis die Flächen parallel sind – gar nicht, wenn sie es schon sind –, und rückt dann nur auf die andere Fläche zu, behält seine seitliche Lage also. Das andere Teil bleibt, wo es ist, und ein Rückgängig nimmt alles zurück.
+
 Ähnlich einfach sind {{ui:editor.tool.dropToWorkplane}} ([[D]]), das die Auswahl auf die Arbeitsebene absetzt, und {{ui:editor.tool.centerOnWorkplane}}.
 
 ## Muster: Reihe und Kreis
