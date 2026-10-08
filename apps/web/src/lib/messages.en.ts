@@ -957,6 +957,7 @@ export const MESSAGES_EN = {
   "inspector.solid": "Solid",
   "inspector.hole": "Hole",
   "inspector.transparent": "Transparent",
+  "inspector.multicolor": "Multicolor",
   "inspector.settingsFor": "{name} settings",
   "inspector.expand": "Expand settings",
   "inspector.minimize": "Minimize settings",

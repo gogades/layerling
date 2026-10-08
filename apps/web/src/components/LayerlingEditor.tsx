@@ -11553,6 +11553,7 @@ export function LayerlingEditor({
         if (typeof params.locked === "boolean") patch.locked = params.locked;
         if (typeof params.hidden === "boolean") patch.hidden = params.hidden;
         if (typeof params.transparent === "boolean") patch.transparent = params.transparent || undefined;
+        if (typeof params.multicolor === "boolean") patch.multicolor = params.multicolor;
         if (typeof params.font === "string") patch.font = params.font;
         // Alles Formeigene in einem Zug, mit denselben Grenzen wie im
         // Merkmalsfeld: Seitenzahl, Kegelradien, Zahnrad, Gewinde, Feder,

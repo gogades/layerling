@@ -9,6 +9,7 @@ import { projectSectionPoint, type SectionLoop, type SectionPoint } from "@/lib/
 import { sectionMeasurement, sectionPointToWorld, snapSectionPoint, type SectionSnap } from "@/lib/sectionMeasure";
 import * as THREE from "three";
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from "three-mesh-bvh";
+import { groupShowsPartColors } from "@/lib/groupColors";
 import { triangleTouchesRect, type ScreenRect } from "@/lib/screenRectHit";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
@@ -1283,6 +1284,7 @@ function shapeMaterialSignature(shape: WorkplaneShape): string {
     color: shape.color,
     hole: Boolean(shape.hole),
     transparent: Boolean(shape.transparent),
+    multicolor: shape.groupedShapes?.length ? groupShowsPartColors(shape) : undefined,
     imagePlate: shapeResourceId(shape.imagePlate),
     imageData: shape.imagePlate?.dataUrl ?? "",
     sourceFormat: shape.importedMesh?.sourceFormat ?? "",
@@ -1338,6 +1340,8 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     return JSON.stringify({
       kind: "mesh",
       mesh: shapeResourceId(shape.importedMesh),
+      // A cut group in its parts' colours carries them in the geometry.
+      partColors: !shape.hole && groupShowsPartColors(shape) ? shapeResourceId(shape.groupedShapes) : 0,
       taper,
       deform,
       preserve: preservesEdgeTreatmentSize(shape)
@@ -12154,8 +12158,10 @@ function releaseSharedShapeGeometry(mesh: THREE.Mesh | THREE.LineSegments) {
 /** A group hands its hole or see-through state down to every child it draws. */
 function groupChildAppearance(group: WorkplaneShape, child: WorkplaneShape): WorkplaneShape {
   if (group.hole) return { ...child, hole: true, color: "#b8c2cc" };
-  if (group.transparent) return { ...child, transparent: true };
-  return child;
+  // One colour for the whole group, nested groups included.
+  const tinted = groupShowsPartColors(group) ? child : { ...child, color: group.color, multicolor: false };
+  if (group.transparent) return { ...tinted, transparent: true };
+  return tinted;
 }
 
 // A see-through solid keeps its colour. It writes no depth, so what lies
@@ -12163,10 +12169,12 @@ function groupChildAppearance(group: WorkplaneShape, child: WorkplaneShape): Wor
 // visible from every side.
 const TRANSPARENT_SOLID_OPACITY = 0.4;
 
-function sharedShapeMaterial(shape: WorkplaneShape) {
+function sharedShapeMaterial(shape: WorkplaneShape, vertexColors = false) {
   const seeThrough = !shape.hole && Boolean(shape.transparent);
+  const color = shape.hole ? "#b7c0c9" : vertexColors ? "#ffffff" : shape.color;
   const key = JSON.stringify({
-    color: shape.hole ? "#b7c0c9" : shape.color,
+    color,
+    vertexColors,
     transparent: Boolean(shape.hole) || seeThrough,
     opacity: shape.hole ? (shape.importedMesh ? 0.34 : 0.52) : seeThrough ? TRANSPARENT_SOLID_OPACITY : 1,
     roughness: shape.hole ? 0.88 : 0.57,
@@ -12180,7 +12188,8 @@ function sharedShapeMaterial(shape: WorkplaneShape) {
     return cached.material;
   }
   const material = new THREE.MeshStandardMaterial({
-    color: shape.hole ? "#b7c0c9" : shape.color,
+    color,
+    vertexColors,
     transparent: Boolean(shape.hole) || seeThrough,
     opacity: shape.hole ? (shape.importedMesh ? 0.34 : 0.52) : seeThrough ? TRANSPARENT_SOLID_OPACITY : 1,
     roughness: shape.hole ? 0.88 : 0.57,
@@ -12595,10 +12604,11 @@ function createShapeObject(
     case "mesh":
       if (shape.importedMesh) {
         const preserveEdgeSize = preservesEdgeTreatmentSize(shape);
+        const partColored = !preserveEdgeSize && !shape.hole && groupShowsPartColors(shape) ? getPartColoredMeshGeometry(shape) : null;
         addMesh(
           group,
-          preserveEdgeSize ? getPreservedImportedMeshGeometry(shape) : getImportedMeshGeometry(shape.importedMesh),
-          material,
+          partColored ?? (preserveEdgeSize ? getPreservedImportedMeshGeometry(shape) : getImportedMeshGeometry(shape.importedMesh)),
+          partColored ? sharedShapeMaterial(shape, true) : material,
           shape,
           undefined,
           undefined,
@@ -12931,6 +12941,138 @@ function getPreservedImportedMeshGeometry(shape: WorkplaneShape) {
   geometry.userData.cached = true;
   preservedImportedGeometryCache.set(shape, geometry);
   return geometry;
+}
+
+// Per mesh and per set of parts; a moved or resized group reuses the colours.
+const partColoredGeometryCache = new WeakMap<object, WeakMap<object, THREE.BufferGeometry | null>>();
+const PART_COLOR_TRIANGLE_LIMIT = 300_000;
+const PART_COLOR_PROBE_DIRECTION = new THREE.Vector3(0.5774, 0.5773, 0.5775).normalize();
+
+/**
+ * The mesh of a group that was cut into one body, with every triangle in the
+ * colour of the part it came from. Each triangle is looked up behind its own
+ * face: the point lies inside the material it belongs to, so a face left by a
+ * hole takes the colour of the body it was cut into.
+ */
+function getPartColoredMeshGeometry(shape: WorkplaneShape): THREE.BufferGeometry | null {
+  const mesh = shape.importedMesh;
+  const parts = shape.groupedShapes;
+  if (!mesh || !parts?.length || mesh.triangleCount > PART_COLOR_TRIANGLE_LIMIT) return null;
+  let byParts = partColoredGeometryCache.get(mesh);
+  if (!byParts) {
+    byParts = new WeakMap();
+    partColoredGeometryCache.set(mesh, byParts);
+  }
+  if (byParts.has(parts)) return byParts.get(parts) ?? null;
+  const geometry = buildPartColoredMeshGeometry(mesh, parts);
+  byParts.set(parts, geometry);
+  return geometry;
+}
+
+function buildPartColoredMeshGeometry(
+  mesh: NonNullable<WorkplaneShape["importedMesh"]>,
+  parts: WorkplaneShape[],
+): THREE.BufferGeometry | null {
+  // The parts in the frame of the mesh: both are stored around the group's
+  // centre, standing on its lowest point.
+  const solids: Array<{ probe: THREE.Mesh; box: THREE.Box3; color: THREE.Color }> = [];
+  parts
+    .filter((part) => !part.hole && !part.hidden)
+    .forEach((part) => {
+      const object = createShapeObject(part, false, undefined, false);
+      object.updateMatrixWorld(true);
+      object.traverse((node) => {
+        if (!(node instanceof THREE.Mesh) || !node.visible) return;
+        const material = Array.isArray(node.material) ? node.material[0] : node.material;
+        const source = node.geometry as THREE.BufferGeometry;
+        if (!source.getAttribute("position")) return;
+        const geometry = source.index ? source.toNonIndexed() : source.clone();
+        geometry.applyMatrix4(node.matrixWorld);
+        geometry.computeBoundingBox();
+        computeBoundsTree.call(geometry, { targetLeafSize: 12 });
+        const probe = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+        probe.raycast = acceleratedRaycast;
+        const color = material instanceof THREE.MeshStandardMaterial ? material.color.clone() : new THREE.Color(part.color);
+        solids.push({ probe, box: geometry.boundingBox ?? new THREE.Box3(), color });
+      });
+      disposeObject(object);
+    });
+  if (solids.length === 0) return null;
+
+  const base = getImportedMeshGeometry(mesh);
+  const positions = base.getAttribute("position");
+  const triangleCount = Math.floor(positions.count / 3);
+  const colors = new Float32Array(positions.count * 3);
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const normal = new THREE.Vector3();
+  const edge = new THREE.Vector3();
+  const probePoint = new THREE.Vector3();
+  const raycaster = new THREE.Raycaster();
+  const size = new THREE.Box3().setFromBufferAttribute(positions as THREE.BufferAttribute).getSize(new THREE.Vector3()).length();
+  const inset = Math.min(0.05, Math.max(1e-4, size * 1e-4));
+  // The plate stands the mesh on y = 0; the parts were placed against the
+  // stored positions, which may sit a hair higher or lower.
+  const offsetY = lowestY(mesh.positions);
+  const insideOf = (point: THREE.Vector3) => {
+    for (const solid of solids) {
+      if (!solid.box.containsPoint(point)) continue;
+      raycaster.set(point, PART_COLOR_PROBE_DIRECTION);
+      if (raycaster.intersectObject(solid.probe, false).length % 2 === 1) return solid;
+    }
+    return null;
+  };
+  const nearestTo = (point: THREE.Vector3) => {
+    let best = solids[0];
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const solid of solids) {
+      const distance = solid.box.distanceToPoint(point);
+      if (distance < bestDistance) {
+        best = solid;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  };
+  for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+    const offset = triangle * 3;
+    a.fromBufferAttribute(positions, offset);
+    b.fromBufferAttribute(positions, offset + 1);
+    c.fromBufferAttribute(positions, offset + 2);
+    // Outward normal, then a step back from the face into the material.
+    normal.subVectors(b, a).cross(edge.subVectors(c, a)).normalize();
+    probePoint.addVectors(a, b).add(c).multiplyScalar(1 / 3);
+    probePoint.y += offsetY;
+    probePoint.addScaledVector(normal, -inset);
+    const solid = insideOf(probePoint) ?? nearestTo(probePoint);
+    for (let corner = 0; corner < 3; corner += 1) {
+      colors[(offset + corner) * 3] = solid.color.r;
+      colors[(offset + corner) * 3 + 1] = solid.color.g;
+      colors[(offset + corner) * 3 + 2] = solid.color.b;
+    }
+  }
+  solids.forEach(({ probe }) => {
+    disposeBoundsTree.call(probe.geometry);
+    probe.geometry.dispose();
+    (probe.material as THREE.Material).dispose();
+  });
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", positions);
+  const normals = base.getAttribute("normal");
+  if (normals) geometry.setAttribute("normal", normals);
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.boundingBox = base.boundingBox?.clone() ?? null;
+  geometry.boundingSphere = base.boundingSphere?.clone() ?? null;
+  geometry.userData.cached = true;
+  return geometry;
+}
+
+function lowestY(positions: ArrayLike<number>) {
+  let lowest = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < positions.length; index += 3) lowest = Math.min(lowest, positions[index]);
+  return Number.isFinite(lowest) ? lowest : 0;
 }
 
 function getEdgesGeometry(shape: WorkplaneShape, geometry: THREE.BufferGeometry, threshold: number) {

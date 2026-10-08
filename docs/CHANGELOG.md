@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Groups can keep their parts' colours (Multicolor):** A group has a **Multicolor** switch next to **Transparent**, as in Tinkercad. Switched on, every part shows in its own colour, also in a group that was cut with holes into one body; the walls a hole leaves take the colour of the body it was cut into. Picking a colour for the group switches it off and colours the whole group, which also fixes a group of plain solids that did not change colour at all. Existing groups look as before. Asked for by @prmod3d in #153.
 - **An empty design does not pile up on the start page:** Going back to the start page from a design with nothing in it asks whether to keep it ("*name* is empty. Do you want to keep it?"). **Yes** (or Enter, or Esc) keeps it, **No** removes it. Designs from the shared folder on a server are not asked about. Changes still waiting for a pause are saved on the way out, so a shape added just before leaving counts.
 
 ## 1.46.0
