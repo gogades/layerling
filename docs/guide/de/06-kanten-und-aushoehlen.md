@@ -47,7 +47,7 @@ Dosen, Becher, Gehäuse und Abdeckungen haben eines gemeinsam: Sie sind innen le
 
 1. Wähle den Körper aus und klicke auf {{ui:editor.tool.hollow}}, oder klicke mit der rechten Maustaste auf den Körper und wähle es im Menü.
 2. Stelle die {{ui:shell.wall}} ein.
-3. Wähle, welche Seite offen bleibt: {{ui:shell.opening.top}}, {{ui:shell.opening.bottom}}, {{ui:shell.opening.top-bottom}} oder {{ui:shell.opening.none}} (ganz geschlossen, mit einem Hohlraum in der Mitte).
+3. Schalte unter {{ui:shell.openings}} die Seiten ein, die offen bleiben: {{ui:shell.side.top}}, {{ui:shell.side.bottom}}, {{ui:shell.side.front}}, {{ui:shell.side.back}}, {{ui:shell.side.left}} oder {{ui:shell.side.right}}, beliebig viele – {{ui:shell.side.front}} allein ergibt einen Schacht für eine Schublade, {{ui:shell.side.left}} und {{ui:shell.side.right}} einen Tunnel. Ist keine Seite eingeschaltet, bleibt der Körper rundum geschlossen, mit einem Hohlraum in der Mitte.
 4. Entscheide, ob die {{ui:shell.edges}} {{ui:shell.edges.round}} oder {{ui:shell.edges.sharp}} sein sollen.
 5. Klicke auf {{ui:shell.apply}}.
 
@@ -57,7 +57,7 @@ Die Wände wachsen nach innen. Außen bleibt alles, wie es ist.
 
 ![Das Ergebnis: eine Schale mit 3 mm Wand, oben offen.](shot:hollow-result)
 
-Damit oben oder unten eine Öffnung entstehen kann, braucht der Körper dort eine ebene Fläche. Kugeln und freie Formen lassen sich deshalb so nicht aushöhlen. Wenn die Wand zu dick für den Körper ist, meldet layerling das und bittet um eine dünnere.
+Für jede offene Seite braucht der Körper ganz außen auf dieser Seite eine ebene Fläche. Kugeln und freie Formen lassen sich deshalb so nicht aushöhlen. Wenn die Wand zu dick für den Körper ist, meldet layerling das und bittet um eine dünnere.
 
 Änderst du später die Größe des ausgehöhlten Körpers, höhlt layerling ihn in der neuen Größe gleich noch einmal aus. Die Wand bleibt so dick, wie du sie gewählt hast, auch bei runden Körpern. Ein Zylinder, den du dabei in eine Richtung mehr ziehst als in die andere, wird zur Ellipse.
 

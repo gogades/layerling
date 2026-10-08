@@ -70,6 +70,38 @@ describe("hollowing a solid with the real OCCT kernel", () => {
     kernel.release(solid);
   });
 
+  // RobbieKnobbie's drawer slot (#159): one side open instead of the top.
+  it("opens the front of a box like a drawer slot", () => {
+    const solid = box();
+    const result = shellSolid(kernel, solid, 2, ["front"]);
+    // Cavity 36 x 16 x 28: walls left, right, top, bottom and back stay.
+    expectHollow(result, 40 * 20 * 30 - 36 * 16 * 28);
+    kernel.release(result);
+    kernel.release(solid);
+  });
+
+  it("opens two opposite sides into a tunnel", () => {
+    const solid = box();
+    const result = shellSolid(kernel, solid, 2, ["left", "right"]);
+    expectHollow(result, 40 * 20 * 30 - 40 * 16 * 26);
+    kernel.release(result);
+    kernel.release(solid);
+  });
+
+  it("opens the top and the back together", () => {
+    const solid = box();
+    const result = shellSolid(kernel, solid, 2, ["top", "back"]);
+    expectHollow(result, 40 * 20 * 30 - 36 * 18 * 28);
+    kernel.release(result);
+    kernel.release(solid);
+  });
+
+  it("refuses a side without a flat face at its edge", () => {
+    const cylinder = yUp(kernel.makeCylinder(10, 20));
+    expect(() => shellSolid(kernel, cylinder, 1, ["front"])).toThrow(/no flat front face/);
+    kernel.release(cylinder);
+  });
+
   it("opens the bottom of a box like a lid", () => {
     const solid = box();
     const result = shellSolid(kernel, solid, 2, "bottom");

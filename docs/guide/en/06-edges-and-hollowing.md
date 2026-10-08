@@ -47,7 +47,7 @@ Boxes, cups, cases and covers have one thing in common: they are empty inside, w
 
 1. Select the body and click {{ui:editor.tool.hollow}}, or right-click the body and pick it from the menu.
 2. Set the {{ui:shell.wall}}.
-3. Choose which side stays open: {{ui:shell.opening.top}}, {{ui:shell.opening.bottom}}, {{ui:shell.opening.top-bottom}} or {{ui:shell.opening.none}} (fully closed, with a cavity in the middle).
+3. Under {{ui:shell.openings}}, switch on the sides that stay open: {{ui:shell.side.top}}, {{ui:shell.side.bottom}}, {{ui:shell.side.front}}, {{ui:shell.side.back}}, {{ui:shell.side.left}} or {{ui:shell.side.right}}, as many as you like - {{ui:shell.side.front}} alone makes a slot for a drawer, {{ui:shell.side.left}} and {{ui:shell.side.right}} a tunnel. With no side switched on the body stays closed all round, with a cavity in the middle.
 4. Decide whether the {{ui:shell.edges}} should be {{ui:shell.edges.round}} or {{ui:shell.edges.sharp}}.
 5. Click {{ui:shell.apply}}.
 
@@ -57,7 +57,7 @@ The walls grow inward. The outside stays as it is.
 
 ![The result: a shell with a 3 mm wall, open at the top.](shot:hollow-result)
 
-For an opening at the top or bottom, the body needs a flat face there. Spheres and free-form shapes therefore cannot be hollowed this way. If the wall is too thick for the body, layerling tells you and asks for a thinner one.
+For every open side, the body needs a flat face at its very edge on that side. Spheres and free-form shapes therefore cannot be hollowed this way. If the wall is too thick for the body, layerling tells you and asks for a thinner one.
 
 If you resize a hollowed body later, layerling hollows it again at the new size right away. The wall stays as thick as you chose, round bodies included. A cylinder you pull further one way than the other becomes an ellipse.
 

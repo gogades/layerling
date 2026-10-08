@@ -1,5 +1,6 @@
 import { JoinType, type OcctKernel, type ShapeHandle } from "occt-wasm";
-import type { ShellEdges, ShellOpenings } from "@/types/layerling";
+import { shellOpenSides } from "@/lib/shellLimits";
+import type { ShellEdges, ShellOpenings, ShellSide } from "@/types/layerling";
 
 // Hollowing ("shell") for the CAD modifier worker. It lives outside the worker
 // so the end-to-end tests can run it against the real OCCT kernel.
@@ -31,27 +32,50 @@ function releaseAll(cad: OcctKernel, handles: ShapeHandle[]) {
   });
 }
 
+const SIDE_AXES: Record<ShellSide, { axis: "x" | "y" | "z"; sign: 1 | -1 }> = {
+  top: { axis: "y", sign: 1 },
+  bottom: { axis: "y", sign: -1 },
+  front: { axis: "z", sign: 1 },
+  back: { axis: "z", sign: -1 },
+  right: { axis: "x", sign: 1 },
+  left: { axis: "x", sign: -1 },
+};
+
 /**
- * The planar faces a hollowed body leaves open: the ones that face straight up
- * (or down) and sit at the very top (or bottom) of the solid - the lid of a box,
- * the end of a cylinder.
+ * The planar faces a hollowed body leaves open, grouped by side: on each side
+ * the ones that face straight out along that axis and sit at the very edge of
+ * the solid - the lid of a box, the end of a cylinder, the front of a drawer
+ * slot.
  */
-export function shellOpeningFaces(cad: OcctKernel, solid: ShapeHandle, faces: ShapeHandle[], openings: ShellOpenings) {
-  if (openings === "none") return [];
+export function shellOpeningFacesBySide(cad: OcctKernel, solid: ShapeHandle, faces: ShapeHandle[], openings: ShellOpenings) {
+  const sides = shellOpenSides(openings);
+  const found = new Map<ShellSide, ShapeHandle[]>(sides.map((side) => [side, []]));
+  if (sides.length === 0) return found;
   const bounds = cad.getBoundingBox(solid, false);
-  const tolerance = Math.max(1e-4, (bounds.ymax - bounds.ymin) * 1e-4);
-  return faces.filter((face) => {
-    if (cad.surfaceType(face) !== "plane") return false;
+  const extent = { x: [bounds.xmin, bounds.xmax], y: [bounds.ymin, bounds.ymax], z: [bounds.zmin, bounds.zmax] } as const;
+  faces.forEach((face) => {
+    if (cad.surfaceType(face) !== "plane") return;
     const center = cad.getSurfaceCenterOfMass(face);
     // surfaceNormal already honours the face orientation here, so it points
     // out of the solid as it is (checked against a box in cadShell.e2e.ts).
     const uv = cad.uvFromPoint(face, center);
     const raw = cad.surfaceNormal(face, uv.u, uv.v);
-    const normal = { y: raw.y / (Math.hypot(raw.x, raw.y, raw.z) || 1) };
-    const top = normal.y > 0.999 && Math.abs(center.y - bounds.ymax) <= tolerance;
-    const bottom = normal.y < -0.999 && Math.abs(center.y - bounds.ymin) <= tolerance;
-    return (top && openings !== "bottom") || (bottom && openings !== "top");
+    const length = Math.hypot(raw.x, raw.y, raw.z) || 1;
+    sides.forEach((side) => {
+      const { axis, sign } = SIDE_AXES[side];
+      const [min, max] = extent[axis];
+      const tolerance = Math.max(1e-4, (max - min) * 1e-4);
+      const facesOut = (raw[axis] / length) * sign > 0.999;
+      const atEdge = Math.abs(center[axis] - (sign > 0 ? max : min)) <= tolerance;
+      if (facesOut && atEdge) found.get(side)?.push(face);
+    });
   });
+  return found;
+}
+
+/** All the faces a hollowed body leaves open. */
+export function shellOpeningFaces(cad: OcctKernel, solid: ShapeHandle, faces: ShapeHandle[], openings: ShellOpenings) {
+  return [...shellOpeningFacesBySide(cad, solid, faces, openings).values()].flat();
 }
 
 /**
@@ -79,9 +103,13 @@ export function shellSolid(cad: OcctKernel, solid: ShapeHandle, thickness: numbe
   const joinType = edges === "sharp" ? JoinType.Intersection : JoinType.Arc;
   const faces = cad.getSubShapes(solid, "face");
   try {
-    const open = shellOpeningFaces(cad, solid, faces, openings);
-    if (openings !== "none" && open.length === 0) {
-      throw new Error(`This body has no flat ${openings === "bottom" ? "bottom" : "top"} face to leave open`);
+    const bySide = shellOpeningFacesBySide(cad, solid, faces, openings);
+    const open = [...bySide.values()].flat();
+    // A side asked for by name must be there. The old frame ("top-bottom")
+    // was content with either end, so it still is.
+    const missing = [...bySide.entries()].find(([, sideFaces]) => sideFaces.length === 0)?.[0];
+    if (missing && (Array.isArray(openings) || open.length === 0)) {
+      throw new Error(`This body has no flat ${missing} face to leave open`);
     }
     // Past the thickness a body can take, OCCT may hand back the untouched
     // solid as a "valid" result - a hollow body has to lose volume.

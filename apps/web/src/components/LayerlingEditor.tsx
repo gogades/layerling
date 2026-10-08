@@ -87,7 +87,7 @@ import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
 import { ShellPanel } from "./workplane/ShellPanel";
 import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
-import { shellMaxThickness } from "@/lib/shellLimits";
+import { SHELL_SIDES, shellMaxThickness, shellOpeningsFor, shellOpenSides } from "@/lib/shellLimits";
 import { circleStepDegrees, clampArrayCount, moveAlongRadius, rotateAroundVertical, rowOffset, singleAxisSpacing, type ArraySettings } from "@/lib/shapeArray";
 import { bedOverhangs, printerPresetById, type BedOverhang } from "@/lib/printBed";
 import { SplitPanel } from "./workplane/SplitPanel";
@@ -227,7 +227,7 @@ import type { CadModifierComponentMesh, CadModifierDeflection, CadModifierDispla
 import type { SketchCadBuildResponse } from "@/lib/sketchCadTypes";
 import { getSectionBounds, sectionAxisLetter, type SectionPlaneAxis, type SectionPlaneSettings } from "@/lib/sectionView";
 import { projectSectionPoint, SECTION_VIEW_FACE, sectionSvgDocument, sliceMeshContours } from "@/lib/sectionSvg";
-import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSource, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, ShellEdges, ShellOpenings, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { AlignAxis, AlignHandleStatus, AlignTarget, GridSize, ParametricSource, ProjectAsset, ShapeAsset, ShapeCustomization, ShapeKind, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchRevolveSettings, SketchSegment, ShellEdges, ShellOpenings, ShellSide, WorkplaneNote, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
 export { importedShapeFromObj, importedShapeFromStl, importedShapeFromSvg };
 
@@ -1809,7 +1809,7 @@ function bedOverhangMessage(overhangs: BedOverhang[], printer: string) {
 
 function edgeTreatmentLabel(feature: NonNullable<WorkplaneShape["edgeTreatments"]>[number]) {
   const size = `${Number(feature.amount.toFixed(2))} mm`;
-  if (feature.kind === "shell") return `hollow (${size} walls, open ${feature.openings ?? "none"})`;
+  if (feature.kind === "shell") return `hollow (${size} walls, open ${shellOpenSides(feature.openings).join(" + ") || "none"})`;
   return `${feature.kind === "fillet" ? "fillet" : "chamfer"} (${size}, ${feature.edgeCount} edge${feature.edgeCount === 1 ? "" : "s"})`;
 }
 
@@ -12012,7 +12012,10 @@ export function LayerlingEditor({
         if (!target) throw new Error("Object not found");
         if (target.groupOperation === "bundle") throw new Error("A bundle is not one body; group it (layerling_group_objects) or hollow its parts one by one");
         const thickness = Math.max(0.2, mcpNumber(params.thickness, 2));
-        const openings: ShellOpenings = params.openings === "none" || params.openings === "bottom" || params.openings === "top-bottom" ? params.openings : "top";
+        // A list of sides, or one of the names the tool had before it took every side.
+        const openings: ShellOpenings = Array.isArray(params.openings)
+          ? shellOpeningsFor(params.openings.filter((side: unknown): side is ShellSide => SHELL_SIDES.includes(side as ShellSide)))
+          : params.openings === "none" || params.openings === "bottom" || params.openings === "top-bottom" ? params.openings : "top";
         const edges: ShellEdges = params.edges === "sharp" ? "sharp" : "round";
         const modifiedShape = await shellShape(target, thickness, openings, edges);
         commitShapes(

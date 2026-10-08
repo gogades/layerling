@@ -3312,6 +3312,22 @@ html[data-theme="dark"] .whats-new-older:hover {
   opacity: 0.6;
 }
 
+.shell-side-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.shell-openings-summary {
+  display: block;
+  margin-top: 6px;
+  color: #8a7560;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+html[data-theme="dark"] .shell-openings-summary {
+  color: #a8957f;
+}
+
 .edge-modifier-history-actions {
   display: grid;
   gap: 6px;
