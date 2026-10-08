@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Rotation angles you can see and type:** A body's settings have a **Rotation** card with its angles about X, Y and Z (named like the position: Y across the plate, Z up). Type an angle and the body turns to it, about its centre or its own pivot. While a turned body is selected, its angles also show below it on the workplane; **Show the angles of turned bodies** in the workspace settings switches that off. Turns that add up - several presses of R, a pivot, Align faces - are now stored with the plainest angles: 135° about the vertical reads as that, not as X 180°, Y 45°, Z 180°. Asked for by @prmod3d in #156.
 - **Align faces:** A new tool next to Lay flat brings a face of the selected part against a face of another part. Click the tool, the part's face, then the other face, and choose **Face to face** (touching, back to back) or **Flush** (one plane, side by side), with an optional gap for clearance. The part turns the shortest way until the faces are parallel - not at all if they already are - and then only slides towards the other face, so it keeps its place sideways. One undo step. The MCP tool `layerling_mate_faces` does the same. Asked for by @RobbieKnobbie in #163.
 
 ## 1.47.0

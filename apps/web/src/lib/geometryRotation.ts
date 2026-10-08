@@ -71,12 +71,34 @@ export function directionIsOwnShapeAxis(shape: ShapeRotation, direction: { x: nu
     .some((axis) => Math.abs(axis.applyQuaternion(quaternion).dot(wanted)) > 1 - 1e-6);
 }
 
-function rotationPatchFromQuaternion(quaternion: THREE.Quaternion) {
+/** An angle in degrees between -180 and 180. */
+export function signedDegrees(value: number) {
+  const wrapped = ((value % 360) + 360) % 360;
+  return wrapped > 180 ? wrapped - 360 : wrapped;
+}
+
+/**
+ * The X, Y and Z angles of a turn, the way a person would write them. Every
+ * turn has two sets of XYZ angles - (x, y, z) and (x + 180, 180 - y, z + 180)
+ * are the same turn - and the plain conversion sometimes picks the odd one: a
+ * quarter and a half turn about Y came out as X 180, Y 45, Z 180. Of the two,
+ * the one with the smaller tilts about X and Z is taken.
+ */
+export function readableEulerDegrees(quaternion: THREE.Quaternion) {
   const euler = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
+  const first = [euler.x, euler.y, euler.z].map((angle) => signedDegrees(THREE.MathUtils.radToDeg(angle)));
+  const second = [signedDegrees(first[0] + 180), signedDegrees(180 - first[1]), signedDegrees(first[2] + 180)];
+  const tilt = ([x, y, z]: number[]) => Math.abs(x) + Math.abs(z) + Math.abs(y) * 1e-6;
+  const [x, y, z] = tilt(second) < tilt(first) - 1e-6 ? second : first;
+  return { x, y, z };
+}
+
+export function rotationPatchFromQuaternion(quaternion: THREE.Quaternion) {
+  const { x, y, z } = readableEulerDegrees(quaternion);
   return {
-    rotationX: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.x)),
-    rotation: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.y)),
-    rotationZ: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.z)),
+    rotationX: cleanRotationDegrees(x),
+    rotation: cleanRotationDegrees(y),
+    rotationZ: cleanRotationDegrees(z),
   };
 }
 
