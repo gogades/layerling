@@ -329,6 +329,9 @@ export function cadModifierUserErrorMessage(rawError: string | null | undefined)
   if (rawError.includes("no flat bottom face to leave open")) {
     return t("shell.errorNoFlatBottom");
   }
+  if (/no flat (front|back|left|right) face to leave open/.test(rawError)) {
+    return t("shell.errorNoFlatSide");
+  }
   if (
     rawError.includes("no flat top face to leave open") ||
     rawError.includes("no flat face to leave open") ||

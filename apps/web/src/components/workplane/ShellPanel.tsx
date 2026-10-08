@@ -7,10 +7,9 @@ import { EdgeModifierSlider } from "@/components/workplane/EdgeModifierPanel";
 import { cadModifierUserErrorMessage } from "@/lib/cadModifierRuntime";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
-import { MIN_SHELL_WALL } from "@/lib/shellLimits";
+import { MIN_SHELL_WALL, SHELL_SIDES, shellOpeningsFor, shellOpenSides } from "@/lib/shellLimits";
 import type { ShellEdges, ShellOpenings, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
-const SHELL_OPENINGS: readonly ShellOpenings[] = ["top", "none", "bottom", "top-bottom"];
 const SHELL_EDGES: readonly ShellEdges[] = ["round", "sharp"];
 const MIN_WALL = MIN_SHELL_WALL;
 const WALL_STEP = 0.1;
@@ -49,6 +48,7 @@ export function ShellPanel({
   onCancel: () => void;
 }) {
   useLanguage();
+  const openSides = shellOpenSides(openings);
   const title = t("shell.title");
   return (
     <MovableToolPanel className="edge-modifier-panel shell-panel" ariaLabel={title}>
@@ -81,23 +81,27 @@ export function ShellPanel({
         onChange={onThicknessChange}
       />
 
-      <div className="edge-modifier-field shell-openings" role="radiogroup" aria-label={t("shell.openings")}>
+      <div className="edge-modifier-field shell-openings" role="group" aria-label={t("shell.openings")}>
         <span>{t("shell.openings")}</span>
-        <div className="shell-opening-options">
-          {SHELL_OPENINGS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={openings === option}
-              className={openings === option ? "active" : ""}
-              disabled={busy}
-              onClick={() => onOpeningsChange(option)}
-            >
-              {t(`shell.opening.${option}`)}
-            </button>
-          ))}
+        {/* Any set of sides; none at all seals the cavity. */}
+        <div className="shell-opening-options shell-side-options">
+          {SHELL_SIDES.map((side) => {
+            const open = openSides.includes(side);
+            return (
+              <button
+                key={side}
+                type="button"
+                aria-pressed={open}
+                className={open ? "active" : ""}
+                disabled={busy}
+                onClick={() => onOpeningsChange(shellOpeningsFor(open ? openSides.filter((other) => other !== side) : [...openSides, side]))}
+              >
+                {t(`shell.side.${side}`)}
+              </button>
+            );
+          })}
         </div>
+        <span className="shell-openings-summary">{openSides.length === 0 ? t("shell.sidesNone") : t("shell.sidesHint")}</span>
       </div>
 
       <div className="edge-modifier-field shell-openings" role="radiogroup" aria-label={t("shell.edges")}>

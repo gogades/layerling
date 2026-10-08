@@ -544,6 +544,8 @@ declare global {
     layerlingCaptureCanvas?: () => string;
     layerlingCaptureCanvasAsync?: () => Promise<string>;
     layerlingCaptureView?: (face?: LayerlingMcpViewFace) => Promise<string> | string;
+    /** Turns the view about its centre: azimuth around the vertical, polar towards or away from straight down. */
+    layerlingOrbitView?: (azimuthDegrees: number, polarDegrees: number) => void;
     layerlingCaptureImage?: (options?: { plate?: boolean; transparent?: boolean; scale?: number }) => string;
     /** The section view for MCP: applies what is given, returns the settings it ends on and the plane's range. */
     layerlingSectionView?: (patch: Partial<SectionPlaneSettings> & { center?: boolean }) => { settings: SectionPlaneSettings; bounds: { min: number; max: number; center: number } };
@@ -5271,6 +5273,23 @@ export function WorkplaneViewport({
       renderFrame(state);
       return thumbnailPngDataUrl(state.renderer.domElement);
     };
+    window.layerlingOrbitView = (azimuthDegrees, polarDegrees) => {
+      const target = state.controls.target;
+      const offset = state.camera.position.clone().sub(target);
+      const spherical = new THREE.Spherical().setFromVector3(offset);
+      spherical.theta += THREE.MathUtils.degToRad(azimuthDegrees);
+      // Stops short of straight down or up, where the turn would flip over.
+      const minPolar = Math.max(state.controls.minPolarAngle, 1e-3);
+      const maxPolar = Math.min(state.controls.maxPolarAngle, Math.PI - 1e-3);
+      spherical.phi = clamp(spherical.phi + THREE.MathUtils.degToRad(polarDegrees), minPolar, maxPolar);
+      offset.setFromSpherical(spherical);
+      state.camera.up.set(0, 1, 0);
+      state.camera.position.copy(target).add(offset);
+      state.camera.lookAt(target);
+      state.camera.updateProjectionMatrix();
+      state.controls.update();
+      state.needsRender = true;
+    };
     window.layerlingCaptureView = (face = "current") => {
       if (face === "home") {
         resetCamera(state);
@@ -5489,6 +5508,9 @@ export function WorkplaneViewport({
       }
       if (window.layerlingCaptureView) {
         delete window.layerlingCaptureView;
+      }
+      if (window.layerlingOrbitView) {
+        delete window.layerlingOrbitView;
       }
       threeRef.current = null;
     };

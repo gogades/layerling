@@ -107,6 +107,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     shortcuts: [
       { combos: ["1 – 6"], label: "shortcuts.views" },
       { combos: ["Shift+1 – 6"], label: "shortcuts.viewsFocus" },
+      { combos: ["← / → / ↑ / ↓"], label: "shortcuts.orbit" },
+      { combos: ["Shift+← / → / ↑ / ↓"], label: "shortcuts.orbitCoarse" },
       { combos: ["F", "Home"], label: "shortcuts.resetView" },
       { combos: ["Shift+F"], label: "shortcuts.focusSelection" },
       { combos: ["O"], label: "shortcuts.projection" },

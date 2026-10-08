@@ -307,8 +307,15 @@ export type SketchRevolveSettings = {
   quality: number;
 };
 
-/** Which faces a hollowed body leaves open, measured against the world's up axis. */
-export type ShellOpenings = "none" | "top" | "bottom" | "top-bottom";
+/** A side of a body as seen from the workplane: up/down and the four sides of the plate. */
+export type ShellSide = "top" | "bottom" | "front" | "back" | "left" | "right";
+
+/**
+ * Which faces a hollowed body leaves open, measured against the world's axes:
+ * any set of sides, or one of the names the Hollow tool had before it took
+ * every side ("top-bottom" is a frame, "none" sealed all round).
+ */
+export type ShellOpenings = "none" | "top" | "bottom" | "top-bottom" | ShellSide[];
 
 /**
  * How the inner walls meet where the offset faces move apart: "round" is

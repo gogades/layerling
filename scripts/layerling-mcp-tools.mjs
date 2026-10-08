@@ -519,7 +519,7 @@ export const tools = [
   },
   {
     name: "layerling_hollow_object",
-    description: "Hollow a solid into walls of equal thickness, like a box, cup or case. The walls grow inward, so the outside keeps its size. `openings` chooses which flat side stays open, measured against the world's up axis: top (default), bottom, top-bottom, or none for a sealed cavity. `edges` sets how the inner walls meet where the body has a step or opening: round (default, radius = wall thickness) or sharp. Can be undone like an edge treatment. Resizing the body later hollows it again at the new size a moment afterwards, so the walls keep their thickness.",
+    description: "Hollow a solid into walls of equal thickness, like a box, cup or case. The walls grow inward, so the outside keeps its size. `openings` chooses which flat sides stay open, measured against the world's axes: a list of any of top, bottom, front (+z), back (-z), left (-x) and right (+x) - for example [\"front\"] for a drawer slot - or one of the names top (default), bottom, top-bottom, or none for a sealed cavity. A side asked for in a list must have a flat face at the very edge of the body on that side. `edges` sets how the inner walls meet where the body has a step or opening: round (default, radius = wall thickness) or sharp. Can be undone like an edge treatment. Resizing the body later hollows it again at the new size a moment afterwards, so the walls keep their thickness.",
     inputSchema: {
       ...editorTargetSchema,
       required: ["id", "thickness"],
@@ -527,7 +527,12 @@ export const tools = [
         ...editorTargetSchema.properties,
         id: { type: "string" },
         thickness: { type: "number", description: "Wall thickness in millimetres." },
-        openings: { type: "string", enum: ["top", "bottom", "top-bottom", "none"] },
+        openings: {
+          anyOf: [
+            { type: "string", enum: ["top", "bottom", "top-bottom", "none"] },
+            { type: "array", items: { type: "string", enum: ["top", "bottom", "front", "back", "left", "right"] } },
+          ],
+        },
         edges: { type: "string", enum: ["round", "sharp"] },
       },
     },
