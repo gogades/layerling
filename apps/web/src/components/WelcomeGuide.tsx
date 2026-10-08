@@ -40,6 +40,18 @@ const MORE = [
   ["welcome.moreHistoryTitle", "welcome.moreHistoryBody"],
 ] as const satisfies ReadonlyArray<readonly [MessageKey, MessageKey]>;
 
+/** What Tinkercad cannot do: the short list that follows the switch note. */
+const GAPS = [
+  "welcome.gap1",
+  "welcome.gap2",
+  "welcome.gap3",
+  "welcome.gap4",
+  "welcome.gap5",
+  "welcome.gap6",
+  "welcome.gap7",
+  "welcome.gap8",
+] as const satisfies ReadonlyArray<MessageKey>;
+
 /** The body of the welcome panel on the start page. */
 export function WelcomeGuideBody({ tr }: { tr: Translate }) {
   return (
@@ -48,6 +60,14 @@ export function WelcomeGuideBody({ tr }: { tr: Translate }) {
       <p className="dashboard-welcome-switch">
         <strong>{tr("welcome.switchTitle")}</strong> {tr("welcome.switchBody")}
       </p>
+      <div className="dashboard-welcome-more">
+        <h3>{tr("welcome.gapTitle")}</h3>
+        <ul>
+          {GAPS.map((key) => (
+            <li key={key}>{tr(key)}</li>
+          ))}
+        </ul>
+      </div>
       <ol>
         {STEPS.map(([title, body]) => (
           <li key={title}>
@@ -81,6 +101,10 @@ export function WelcomeGuideBody({ tr }: { tr: Translate }) {
           ))}
         </ul>
         <p className="dashboard-welcome-help">{tr("welcome.videosHint")}</p>
+      </div>
+      <div className="dashboard-welcome-more">
+        <h3>{tr("welcome.localTitle")}</h3>
+        <p>{tr("welcome.localBody")}</p>
       </div>
       <p className="dashboard-welcome-help">{tr("welcome.help")}</p>
       <a className="dashboard-welcome-guide-link" href={tr("welcome.guideUrl")}>

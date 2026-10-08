@@ -40,10 +40,15 @@ layerling arbeitet so, wie du ohnehin denkst: Form auf die Platte stellen, auf M
 
 ### Von Tinkercad umgestiegen?
 
-Du wirst alles wiedererkennen: die Platte, die Formen, Körper und Aussparung (dort Solid und Hole), Gruppieren und Auflösen. Zwei Dinge warten hier auf dich, die du dort vermisst hast:
+layerling ist ein Stück weiter als Tinkercad in Richtung Fusion 360 und wird genauso bedient: Du wirst alles wiedererkennen – die Platte, die Formen, Körper und Aussparung (dort Solid und Hole), Gruppieren und Auflösen, Bündeln, mit Alt eine Kopie ziehen –, aber es hört nicht dort auf, wo Tinkercad aufhört. Das wartet hier auf dich, was du dort vermisst hast:
 
 - **Kanten fasen und verrunden.** Kante auswählen und brechen oder abrunden – das, wonach am häufigsten gefragt wird, sobald ein gedrucktes Teil fertig aussehen oder irgendwo hineinpassen soll. Bearbeitete Kanten bleiben umkehrbar: Du nimmst Fase oder Rundung jederzeit wieder weg.
+- **Aushöhlen, Teilen, Skizzen, Gewinde.** Körper mit gleichmäßiger Wand aushöhlen, mit einer Ebene teilen, Skizzen mit genauen Maßen ziehen oder drehen, dazu Schrauben, Muttern und Gewindelöcher.
+- **Muster und Wickeln.** Eine Form in Reihe, Kreis oder Spirale wiederholen, oder ein Muster und Schrift um einen Zylinder wickeln.
+- **Messen und hineinschauen.** Maßband, Lineale, eine Schnittansicht, die das Modell aufschneidet, und ein Verlauf-Schieber zum Zurückschauen.
 - **Echte Geometrie darunter.** layerling führt exakte CAD-Körper mit, nicht nur ein Dreiecksnetz. Eine verrundete Kante bleibt deshalb eine verrundete Kante – bis in eine STEP-Datei für ein vollwertiges CAD.
+
+Ein vollständiges CAD-Paket ist es nicht: Es gibt keine parametrische Zeitleiste und keine Baugruppen. Dafür kannst du es **selbst betreiben**: als App installieren (dann startet es auch ohne Internet) oder eine eigene Kopie unter Windows, auf einer NAS oder einem Heimserver laufen lassen – siehe [Loslegen](#loslegen).
 
 > **Eine KI kann mitbauen.** layerling bringt einen MCP-Server mit. Ein KI-Client wie Codex oder Claude sieht damit einen
 > offenen Editor-Tab und arbeitet darin: Formen anlegen, Maße ändern, gruppieren, schneiden, Kanten verrunden, die Szene
