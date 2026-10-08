@@ -134,7 +134,7 @@ import { NOTE_TEXT_LIMIT, referencePoints } from "@/lib/workplaneNotes";
 import { planarFaceCentroid, planarFaceTriangles, type PivotPoint } from "@/lib/rotationPivot";
 import { outwardFaceNormal } from "@/lib/layFlat";
 import { OVERHANG_PLATE_TOLERANCE, overhangDownwardLimit } from "@/lib/overhangLimits";
-import { directionIsOwnShapeAxis, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
+import { directionIsOwnShapeAxis, rotatedGeometryShapePatch, rotationPatchFromQuaternion as sharedRotationPatchFromQuaternion, signedDegrees } from "@/lib/geometryRotation";
 import type { CadModifierEdge } from "@/lib/cadModifierTypes";
 
 const WORKPLANE_WIDTH = 200;
@@ -912,12 +912,7 @@ function quaternionForShape(shape: WorkplaneShape) {
 }
 
 function rotationPatchFromQuaternion(quaternion: THREE.Quaternion): Partial<WorkplaneShape> {
-  const euler = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
-  return {
-    rotationX: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.x)),
-    rotation: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.y)),
-    rotationZ: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.z)),
-  };
+  return sharedRotationPatchFromQuaternion(quaternion);
 }
 
 function canvasPngDataUrl(canvas: HTMLCanvasElement) {
@@ -4298,6 +4293,16 @@ export function WorkplaneViewport({
   const [hoverMeasureKey, setHoverMeasureKey] = useState<string | null>(null);
   const [pinnedMeasureKey, setPinnedMeasureKey] = useState<string | null>(null);
   const [rotationReadout, setRotationReadout] = useState<RotationReadout>(null);
+  // A turned body's angles under it, named like its position: Y across the
+  // plate, Z up.
+  const angleBadge = useMemo(() => {
+    if (!workspace.showRotationAngles || selectedIds.length !== 1) return null;
+    const shape = shapes.find((candidate) => candidate.id === selectedIds[0]);
+    if (!shape) return null;
+    const angles = [shape.rotationX ?? 0, shape.rotationZ ?? 0, shape.rotation ?? 0].map((angle) => Number(signedDegrees(angle).toFixed(1)));
+    if (angles.every((angle) => angle === 0)) return null;
+    return ["X", "Y", "Z"].map((axis, index) => `${axis} ${angles[index]}°`).join(" · ");
+  }, [selectedIds, shapes, workspace.showRotationAngles]);
   const suppressNextRotationEditRef = useRef(false);
   const [activeRotationWheel, setActiveRotationWheel] = useState(false);
   const [activeTransformKind, setActiveTransformKind] = useState<TransformHandleKind | null>(null);
@@ -9303,6 +9308,7 @@ export function WorkplaneViewport({
               editingCorner={editingCorner}
               editingRotation={editingRotation}
               rotationReadout={rotationReadout}
+              angleBadge={angleBadge}
               showRotationWheel={activeRotationWheel}
               hideSelectionChrome={activeTransformKind === "rotate"}
               hideDimensionMarks={false}

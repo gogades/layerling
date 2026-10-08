@@ -8405,6 +8405,30 @@ html[data-theme="dark"] .inspector-bundle-note {
   color: #796550;
 }
 
+.rotation-angle-badge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(224, 208, 190, 0.96);
+  color: #6b4a26;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%);
+}
+
+html[data-theme="dark"] .rotation-angle-badge {
+  background: rgba(38, 30, 22, 0.92);
+  border-color: rgba(185, 161, 136, 0.45);
+  color: #e8d6bd;
+}
+
 .rotation-readout {
   position: absolute;
   left: 0;

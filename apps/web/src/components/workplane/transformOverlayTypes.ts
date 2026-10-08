@@ -269,6 +269,8 @@ export type TransformOverlayProps = {
   editingCorner: EditingCorner;
   editingRotation: EditingRotation;
   rotationReadout: RotationReadout;
+  /** The turned body's angles, shown below it while it is selected; null hides it. */
+  angleBadge?: string | null;
   showRotationWheel: boolean;
   hideSelectionChrome: boolean;
   hideDimensionMarks: boolean;
