@@ -568,6 +568,8 @@ export const MESSAGES_EN = {
   "shortcuts.rotateFine": "Rotate by 22.5°",
   "shortcuts.views": "The six standard views",
   "shortcuts.viewsFocus": "Standard view, zoomed to the selection",
+  "shortcuts.orbit": "Turn the view by 15° while nothing is selected",
+  "shortcuts.orbitCoarse": "Turn the view by 90° while nothing is selected",
   "shortcuts.resetView": "Fit the whole scene in the view",
   "shortcuts.focusSelection": "Zoom to the selection",
   "shortcuts.projection": "Orthographic or perspective",
