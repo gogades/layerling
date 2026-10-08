@@ -5492,6 +5492,28 @@ export function WorkplaneViewport({
     };
   }, []);
 
+  // A double click on a sketch body opens its sketch, as in Tinkercad. The
+  // first click has already selected it, so this is the same as Edit Sketch.
+  const onEditSketchRef = useRef(onEditSketch);
+  onEditSketchRef.current = onEditSketch;
+  useEffect(() => {
+    const state = threeRef.current;
+    // Pointer capture sends the clicks to the host, not to the canvas inside it.
+    const host = hostRef.current;
+    if (!state || !host) return;
+    const openSketch = (event: MouseEvent) => {
+      if (event.button !== 0 || pivotPickModeRef.current) return;
+      const id = pickShapeIdAt(state, event.clientX, event.clientY);
+      const shape = id ? shapesRef.current.find((candidate) => candidate.id === id) : undefined;
+      if (!shape?.sketchProfile || shape.locked) return;
+      const selected = selectedIdsRef.current;
+      if (selected.length !== 1 || selected[0] !== shape.id) return;
+      onEditSketchRef.current?.();
+    };
+    host.addEventListener("dblclick", openSketch);
+    return () => host.removeEventListener("dblclick", openSketch);
+  }, []);
+
   useEffect(() => {
     // Each design opens in the projection the app preference asks for. The
     // editor stays mounted between designs, so this follows the settings key
@@ -11636,6 +11658,22 @@ function pivotVector(point: PivotPoint | null | undefined) {
  * Any visible body counts, not only the selection, so the pivot can also sit
  * on the part the selection is meant to line up with.
  */
+/** The id of the body under the pointer, the nearest one the section view leaves visible. */
+function pickShapeIdAt(state: ThreeState, clientX: number, clientY: number): string | null {
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  state.raycaster.setFromCamera(state.pointer, state.camera);
+  state.raycaster.layers.set(RENDER_LAYER_SHAPES);
+  const hit = state.raycaster
+    .intersectObjects(state.shapeLayer.children, true)
+    .find((entry) => {
+      if (state.sectionPlane && state.sectionPlane.distanceToPoint(entry.point) < -0.001) return false;
+      return entry.object instanceof THREE.Mesh && typeof entry.object.userData.shapeId === "string";
+    });
+  return hit ? (hit.object.userData.shapeId as string) : null;
+}
+
 function pickRotationPivot(state: ThreeState, clientX: number, clientY: number): PivotPoint | null {
   const rect = state.renderer.domElement.getBoundingClientRect();
   state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
