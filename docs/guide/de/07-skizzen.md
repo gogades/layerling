@@ -49,7 +49,7 @@ Liegt die Arbeitsebene auf einer Seite eines Körpers, zeichnest du so, wie du a
 
 ![Aus dem Umriss ist ein Körper geworden. Die Ecke ist gerundet.](shot:sketch-result)
 
-Mit {{ui:inspector.editSketch}} kehrst du jederzeit in die Skizze zurück, um sie zu ändern. Kantenbearbeitungen, die du an dem Körper schon gemacht hast, gehen dabei allerdings verloren, weil die Kanten neu entstehen.
+Mit {{ui:inspector.editSketch}} kehrst du jederzeit in die Skizze zurück, um sie zu ändern. Ein Doppelklick auf den Körper tut dasselbe, wie bei Tinkercad (ein gesperrter Körper bleibt zu). Kantenbearbeitungen, die du an dem Körper schon gemacht hast, gehen dabei allerdings verloren, weil die Kanten neu entstehen.
 
 ### Rotieren
 

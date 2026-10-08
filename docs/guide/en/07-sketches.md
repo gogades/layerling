@@ -49,7 +49,7 @@ If the workplane lies on the side of a body, you draw the way you look at that s
 
 ![The outline has become a body. The corner is rounded.](shot:sketch-result)
 
-With {{ui:inspector.editSketch}} you can return to the sketch at any time to change it. Edge treatments you already made on the body are lost, though, because the edges are created anew.
+With {{ui:inspector.editSketch}} you can return to the sketch at any time to change it. A double click on the body does the same, as in Tinkercad (a locked body stays closed). Edge treatments you already made on the body are lost, though, because the edges are created anew.
 
 ### Revolving
 

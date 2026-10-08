@@ -79,7 +79,7 @@ Ein vollständiges CAD-Paket ist es nicht: Es gibt keine parametrische Zeitleist
 ### Bearbeiten
 
 - **Kanten fasen und verrunden** – jede Kante eines Körpers brechen oder abrunden und später wieder zurücknehmen.
-- **Aushöhlen** – aus einem Körper Wände gleicher Stärke machen, oben, unten oder beidseitig offen oder ganz geschlossen – für Dosen, Becher und Gehäuse.
+- **Aushöhlen** – aus einem Körper Wände gleicher Stärke machen, auf jeder gewünschten Seite offen (oben, unten, vorne, hinten, links, rechts, beliebig kombiniert) oder ganz geschlossen – für Dosen, Becher und Gehäuse.
 - **Eigene Formen** – Körper, die du immer wieder brauchst, oben in der Formenliste ablegen und per Klick oder Ziehen in jeden Entwurf setzen; im Browser oder, mit dem Serverspeicher, auf dem Server für jedes Gerät. „Alle sichern“ nimmt sie mit.
 - **Um einen Zylinder wickeln** – ein SVG-Muster, ein Logo oder einen Schriftzug auf die Wand eines Bechers oder Rohrs legen, erhaben oder als Gravur, und mittig am Zylinder ausrichten.
 

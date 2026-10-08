@@ -78,7 +78,7 @@ It is not a full CAD package: there is no parametric timeline and no assemblies.
 ### Refining
 
 - **Chamfer and fillet** – break or round any edge of a solid, and remove the treatment again later.
-- **Hollowing** – turn a body into walls of one thickness, open at the top, the bottom, both or closed – for boxes, cups and cases.
+- **Hollowing** – turn a body into walls of one thickness, open on any sides you choose (top, bottom, front, back, left, right, in any combination) or closed – for boxes, cups and cases.
 - **Custom shapes** – keep bodies you need again and again at the top of the shape library and insert them into any design with a click or by dragging; in the browser, or with the shared store on the server for every device. "Back up all" takes them along.
 - **Wrap around a cylinder** – lay an SVG pattern, a logo or lettering onto the wall of a cup or tube, raised or engraved, and centre it on the cylinder.
 
