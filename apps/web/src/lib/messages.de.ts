@@ -956,6 +956,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "inspector.solid": "Körper",
   "inspector.hole": "Aussparung",
   "inspector.transparent": "Durchsichtig darstellen",
+  "inspector.multicolor": "Mehrfarbig",
   "inspector.settingsFor": "Einstellungen für {name}",
   "inspector.expand": "Einstellungen aufklappen",
   "inspector.minimize": "Einstellungen einklappen",

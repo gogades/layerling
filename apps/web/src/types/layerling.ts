@@ -583,6 +583,11 @@ export type WorkplaneShape = {
    * its own body.
    */
   groupOperation?: "group" | "intersection" | "bundle";
+  /**
+   * A group shows each part in its own colour, like Tinkercad's "Multicolor".
+   * Left out, see groupShowsPartColors() for what a group shows.
+   */
+  multicolor?: boolean;
   locked?: boolean;
   hidden?: boolean;
   /** Drawn see-through in its own colour, like Tinkercad's "Transparent". Display only - a solid stays a solid. */
