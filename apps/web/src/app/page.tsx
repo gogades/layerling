@@ -722,6 +722,8 @@ export default function Home() {
   const [themePreference, setThemePreference] = useState<AppThemePreference>("system");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedAppTheme>("light");
   const [dashboardNotice, setDashboardNotice] = useState("");
+  // A design left with nothing in it, waiting for an answer on whether it stays.
+  const [emptyProjectPromptId, setEmptyProjectPromptId] = useState<string | null>(null);
   const [sharedProjects, setSharedProjects] = useState<SharedProject[]>([]);
   const [sharedFolders, setSharedFolders] = useState<SharedFolder[]>([]);
   const [sharedPath, setSharedPath] = useState("");
@@ -1799,8 +1801,12 @@ export default function Home() {
     createAndOpenProject();
   };
 
-  const openDashboard = () => {
+  const openDashboard = (leaving?: { shapeCount: number }) => {
     const leavingProject = activeProjectId ? projects.find((project) => project.id === activeProjectId) : undefined;
+    // A design on the server belongs to the folder; only a local one is offered for removal.
+    if (leavingProject && !leavingProject.sharedProject && leaving?.shapeCount === 0) {
+      setEmptyProjectPromptId(leavingProject.id);
+    }
     if (activeProjectId) {
       setProjects((current) => current.map((project) => (project.id === activeProjectId ? { ...project, updatedAt: Date.now() } : project)));
     }
@@ -1829,6 +1835,17 @@ export default function Home() {
     void deleteProjectShapes(projectId).catch(() => {
       setDashboardNotice(t("notice.projectShapesDeleteFailed"));
     });
+  };
+
+  const emptyProjectPrompt = view === "dashboard" && emptyProjectPromptId ? projects.find((project) => project.id === emptyProjectPromptId) ?? null : null;
+
+  const removeEmptyProject = () => {
+    if (!emptyProjectPrompt) return;
+    const projectId = emptyProjectPrompt.id;
+    setEmptyProjectPromptId(null);
+    // The last save on the way out may still be writing; removing first would let it bring the design back.
+    const pendingSave = projectShapeSaveQueuesRef.current[projectId] ?? Promise.resolve();
+    void pendingSave.catch(() => undefined).then(() => deleteProject(projectId));
   };
 
   /**
@@ -2009,6 +2026,33 @@ export default function Home() {
           onViewModeChange={setViewMode}
           onWorkspace={openLatestProject}
         />
+      ) : null}
+      {emptyProjectPrompt ? (
+        <section
+          className="dashboard-confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="empty-project-title"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setEmptyProjectPromptId(null);
+          }}
+        >
+          <div className="dashboard-confirm-dialog">
+            <header>
+              <strong id="empty-project-title">{t("confirm.emptyProjectTitle")}</strong>
+            </header>
+            <p>{t("confirm.emptyProjectBody", { name: emptyProjectPrompt.name })}</p>
+            <div className="dashboard-confirm-actions">
+              <button className="dashboard-confirm-cancel" type="button" onClick={removeEmptyProject}>
+                {t("confirm.no")}
+              </button>
+              {/* Focused, so Enter keeps the design. */}
+              <button className="dashboard-confirm-save" type="button" autoFocus onClick={() => setEmptyProjectPromptId(null)}>
+                {t("confirm.yes")}
+              </button>
+            </div>
+          </div>
+        </section>
       ) : null}
       {editorStarted && canRenderEditor ? (
         <div className={view === "editor" ? "editor-stage active" : "editor-stage"} aria-hidden={view !== "editor"}>

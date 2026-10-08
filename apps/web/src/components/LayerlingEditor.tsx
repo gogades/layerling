@@ -6661,7 +6661,7 @@ export function LayerlingEditor({
   initialWorkspace?: WorkplaneWorkspaceSettings;
   initialPlacementElevation?: number;
   initialPlacementWorkplane?: PlacementWorkplane;
-  onHome?: () => void;
+  onHome?: (leaving: { shapeCount: number }) => void;
   onOpenLylProjectFile?: (file: File) => Promise<{ ok: boolean; message: string } | void> | { ok: boolean; message: string } | void;
   onSaveSharedProject?: (request: { exportName: string; bytes: Uint8Array; thumbnailDataUrl: string; targetFileName?: string }) => Promise<string>;
   /** Set while the open project came from the server; then it saves back there by itself. */
@@ -7763,17 +7763,21 @@ export function LayerlingEditor({
    * to sleep - is the last moment a waiting save can still start. A hidden
    * window may be frozen or closed without another chance.
    */
+  const saveProjectShapesNow = useCallback(() => {
+    if (projectSyncTimerRef.current !== null) {
+      window.clearTimeout(projectSyncTimerRef.current);
+      projectSyncTimerRef.current = null;
+      const canonicalNext = shapesRef.current.map(canonicalizeShape);
+      emitProjectShapes(canonicalNext, projectShapesFingerprint(canonicalNext));
+    }
+    flushHeldProjectShapes();
+  }, [emitProjectShapes, flushHeldProjectShapes]);
+
   useEffect(() => {
     if (!projectId || !onProjectShapesChange) return;
     const saveNow = () => {
       if (document.visibilityState !== "hidden") return;
-      if (projectSyncTimerRef.current !== null) {
-        window.clearTimeout(projectSyncTimerRef.current);
-        projectSyncTimerRef.current = null;
-        const canonicalNext = shapesRef.current.map(canonicalizeShape);
-        emitProjectShapes(canonicalNext, projectShapesFingerprint(canonicalNext));
-      }
-      flushHeldProjectShapes();
+      saveProjectShapesNow();
     };
     document.addEventListener("visibilitychange", saveNow);
     window.addEventListener("pagehide", saveNow);
@@ -7781,7 +7785,7 @@ export function LayerlingEditor({
       document.removeEventListener("visibilitychange", saveNow);
       window.removeEventListener("pagehide", saveNow);
     };
-  }, [emitProjectShapes, flushHeldProjectShapes, onProjectShapesChange, projectId]);
+  }, [onProjectShapesChange, projectId, saveProjectShapesNow]);
 
   useEffect(() => {
     const limitChanged = historyLimitRef.current !== workspaceSettings.historyLimit;
@@ -12663,7 +12667,7 @@ export function LayerlingEditor({
     return { shapes: hasSelection ? selectedShapes : shapes, selection: hasSelection };
   }, [hasSelection, selectedShapes, shapes]);
 
-  const exportDesign = useCallback((format: DirectExportFormat, exportName: string) => {
+  const exportDesign = useCallback((format: DirectExportFormat, exportName: string, toSlicer = false) => {
     const source = exportSource();
     const selectionScoped = source.selection;
     // Ausgeblendetes bleibt draussen, wie bei Tinkercad: ein beiseitegelegtes
@@ -12711,7 +12715,16 @@ export function LayerlingEditor({
             return { ...mesh, name: source?.name || mesh.name, color: source?.color };
           });
           const bytes = exportMeshesTo3mf(bodies, { title: exportName.trim() || projectName });
-          await downloadBlobFile(projectExportFileName(exportName, "3mf"), new Blob([bytes as BlobPart], { type: THREE_MF_MEDIA_TYPE }));
+          if (toSlicer) {
+            // EXPERIMENT: Bambu Studio fetches the file itself, so it is parked on the server first.
+            const response = await fetch("/api/slicer-handoff", { method: "POST", body: bytes as BlobPart });
+            if (!response.ok) throw new Error(`Slicer handoff failed (${response.status})`);
+            const { id } = await response.json() as { id: string };
+            // Bambu Studio takes the last path segment as the name without decoding it, so keep it plain.
+            const fileName = projectExportFileName(exportName, "3mf").replace(/[^A-Za-z0-9._-]+/g, "_");
+            const fileUrl = new URL(`/api/slicer-handoff/${id}/${fileName}`, window.location.href).href;
+            window.location.href = `bambustudioopen://${encodeURIComponent(fileUrl)}`;
+          } else await downloadBlobFile(projectExportFileName(exportName, "3mf"), new Blob([bytes as BlobPart], { type: THREE_MF_MEDIA_TYPE }));
         } else {
           const bodies = fertig.map((mesh, index) => ({ ...mesh, color: exportable[quellen[index]]?.color }));
           await downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(bodies), "text/plain");
@@ -13074,7 +13087,8 @@ export function LayerlingEditor({
     const leave = () => {
       if (left) return;
       left = true;
-      onHome();
+      // Counted on the way out, so the start page can ask about a design left empty.
+      onHome({ shapeCount: shapesRef.current.length });
     };
     window.setTimeout(leave, LEAVE_SNAPSHOT_DEADLINE_MS);
     // Der Entwurf auf dem Server wartet sonst auf den Fuenf-Sekunden-Takt. Wer
@@ -13085,9 +13099,11 @@ export function LayerlingEditor({
       window.clearTimeout(serverSaveTimerRef.current);
       serverSaveTimerRef.current = null;
     }
+    // A save still waiting for its pause goes now, before the start page may remove the design.
+    saveProjectShapesNow();
     void saveToServerRef.current();
     void flushProjectSnapshot({ evenIfUnchanged: true }).finally(leave);
-  }, [flushProjectSnapshot, onHome]);
+  }, [flushProjectSnapshot, onHome, saveProjectShapesNow]);
 
   const clearDesign = useCallback(() => {
     commitShapes([], [], t("status.newDesign"));
@@ -15530,7 +15546,7 @@ function TopActionPanel({
   estimateShapes: readonly WorkplaneShape[];
   onEstimatePrint: (shapes: readonly WorkplaneShape[]) => Promise<ExportSolidVolume>;
   onClose: () => void;
-  onExport: (format: DirectExportFormat, exportName: string) => void;
+  onExport: (format: DirectExportFormat, exportName: string, toSlicer?: boolean) => void;
   onExportLyl: (exportName: string, historyLimit: LylHistoryLimit, target?: LylExportTarget) => void;
   onExportStep: (exportName: string) => void;
   onExportImage: (exportName: string, options: ViewImageOptions) => void;
@@ -15889,6 +15905,16 @@ function TopActionPanel({
                 >
                   <CloudUpload />
                   <span>{t("export.saveToShared")}</span>
+                </button>
+              ) : null}
+              {exportFormat === "3mf" ? (
+                <button
+                  className="export-shared-button"
+                  type="button"
+                  onClick={() => onExport("3mf", exportName, true)}
+                  disabled={shapeCount === 0}
+                >
+                  <span>Open in slicer</span>
                 </button>
               ) : null}
               <button className="export-primary-button" onClick={runSelectedExport} disabled={(shapeCount === 0 && exportsBodies) || stepExporting || lylExporting}>
