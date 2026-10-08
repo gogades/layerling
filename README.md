@@ -206,6 +206,23 @@ Everyday commands:
 
 The image runs `next start` in production mode, so the MCP bridge is off there unless you switch it on (see [Letting an AI client reach a copy on a NAS or server](#letting-an-ai-client-reach-a-copy-on-a-nas-or-server)). To offer a shared project folder, bind a writable directory and set `LAYERLING_SHARED_PROJECTS_DIR` in `compose.yml` to the path inside the container where it is mounted, for example `./shared-projects:/shared-projects` with `LAYERLING_SHARED_PROJECTS_DIR: "/shared-projects"` (see [Shared Designs on a Network](#shared-designs-on-a-network)). After changing it, run `docker compose up -d`: `docker compose restart` keeps the old setting. `docker exec <container> printenv LAYERLING_SHARED_PROJECTS_DIR` shows the one in use.
 
+### Static Hosting: Plain Files on a Web Server
+
+Any web server can serve layerling as plain files; no Node.js runs on it. Build the files once on a computer that has Node.js (see [What You Need](#what-you-need)):
+
+```bash
+npm install
+npm run export
+```
+
+The finished site is in **`apps/web/.next-export/`**. Copy the **contents** of that folder (not the folder itself) into the web server's document root, so that `index.html` lies directly in it.
+
+Three things to know:
+
+- **layerling needs an address of its own.** The files refer to each other with paths that start at the root (`/_next/...`), so layerling must be served at the root of an address, such as `https://layerling.example.com/` or `http://192.168.0.5:8080/`. It does not work in a subfolder (`https://example.com/layerling/`) and cannot be opened from disk (`file://`). If you only see a block of plain text without any styling, the script and style files did not load: open the browser's developer tools (F12), look at the Network tab for red `/_next/...` entries and compare their address with where you put the files.
+- **Folders that start with an underscore must be served.** Some servers hide them (GitHub Pages does without a `.nojekyll` file, for example), and `_next` holds the whole program.
+- **A quick test on your own computer:** `npx serve apps/web/.next-export` and open the address it prints.
+
 ### Shared Designs on a Network
 
 If you run layerling with `npm run dev` or `npm run start` on a machine other people open in their browser, it can offer a

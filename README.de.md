@@ -214,6 +214,23 @@ auf den Pfad im Container setzen, an dem es eingebunden ist, etwa `./shared-proj
 Nach einer Änderung `docker compose up -d` ausführen: `docker compose restart` behält die alte Einstellung.
 `docker exec <Container> printenv LAYERLING_SHARED_PROJECTS_DIR` zeigt die tatsächlich verwendete.
 
+### Statisches Hosting: reine Dateien auf einem Webserver
+
+Jeder Webserver kann layerling als reine Dateien ausliefern; auf ihm läuft kein Node.js. Du baust die Dateien einmal auf einem Rechner mit Node.js (siehe [Was du brauchst](#was-du-brauchst)):
+
+```bash
+npm install
+npm run export
+```
+
+Die fertige Seite liegt in **`apps/web/.next-export/`**. Kopiere den **Inhalt** dieses Ordners (nicht den Ordner selbst) in das Dokumentenverzeichnis des Webservers, sodass `index.html` direkt darin liegt.
+
+Drei Dinge zu wissen:
+
+- **layerling braucht eine eigene Adresse.** Die Dateien verweisen mit Pfaden aufeinander, die an der Wurzel beginnen (`/_next/...`). layerling muss deshalb an der Wurzel einer Adresse ausgeliefert werden, etwa `https://layerling.example.com/` oder `http://192.168.0.5:8080/`. In einem Unterordner (`https://example.com/layerling/`) läuft es nicht, und von der Festplatte (`file://`) lässt es sich nicht öffnen. Siehst du nur einen Block Text ohne jede Gestaltung, wurden die Skript- und Stildateien nicht geladen: Öffne die Entwicklerwerkzeuge des Browsers (F12), sieh im Reiter „Netzwerk“ nach roten Einträgen `/_next/...` und vergleiche deren Adresse mit dem Ort, an den du die Dateien gelegt hast.
+- **Ordner, die mit einem Unterstrich beginnen, müssen ausgeliefert werden.** Manche Server verstecken sie (GitHub Pages zum Beispiel ohne eine Datei `.nojekyll`), und in `_next` steckt das ganze Programm.
+- **Ein schneller Test auf dem eigenen Rechner:** `npx serve apps/web/.next-export` und die angezeigte Adresse öffnen.
+
 ### Gemeinsame Entwürfe im Netz
 
 Betreibst du layerling mit `npm run dev` oder `npm run start` auf einem Rechner, den andere im Browser öffnen, kann es
