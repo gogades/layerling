@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **A smooth curve no longer reshapes the other lines in the sketch:** Adding a smooth curve recomputed the handles of every point in the sketch, so a circle, an arc or a Bezier curve drawn earlier flattened into straight sections. Now only the points on the smooth curve itself are recomputed. Reported by @bingo-the-pyro in #155.
 - **The size limit field of the shape defaults reads properly:** Its hint ("App limits") was set in the large bold type of a typed value and ran out of the narrow field. It is now smaller and fits.
 - **An empty design does not pile up on the start page:** Going back to the start page from a design with nothing in it (no shapes, notes or reference points) asks whether to keep it ("*name* is empty. Do you want to keep it?"). **Yes** (or Enter, or Esc) keeps it, **No** removes it. Designs from the shared folder on a server are not asked about. Changes still waiting for a pause are saved on the way out, so a shape added just before leaving counts.
 
