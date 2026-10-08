@@ -3667,6 +3667,17 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .inspector-bundle-note 
   color: #c3731f;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .property-subheading {
+  border-top: 1px solid rgba(94, 94, 94, 0.22);
+  color: #5e5e5e;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .property-subheading-action {
+  border: 1px solid rgba(94, 94, 94, 0.35);
+  color: inherit;
+  background: transparent;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .gear-type-property {
   color: #5e5e5e;
 }
@@ -5476,6 +5487,7 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .color-card-header {
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .check-property,
+html[data-theme="dark"]:where([data-palette="graphite"]) .property-subheading,
 html[data-theme="dark"]:where([data-palette="graphite"]) .gear-type-property,
 html[data-theme="dark"]:where([data-palette="graphite"]) .range-property,
 html[data-theme="dark"]:where([data-palette="graphite"]) .range-property-name,

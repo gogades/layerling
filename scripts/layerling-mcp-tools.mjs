@@ -278,6 +278,17 @@ export const tools = [
         hole: { type: "boolean" },
         transparent: { type: "boolean" },
         multicolor: { type: "boolean", description: "Groups only: show every part in its own colour (Tinkercad's Multicolor) instead of the group colour." },
+        rotationPivot: {
+          anyOf: [
+            {
+              type: "object",
+              properties: { x: { type: "number" }, z: { type: "number" }, elevation: { type: "number" } },
+              required: ["x", "z", "elevation"],
+            },
+            { type: "null" },
+          ],
+          description: "The point this body turns about, in workplane coordinates like x, z and elevation. It stays with the body: it moves, turns and scales with it, and the rotate handle and R key turn the body about it. null removes it.",
+        },
         locked: { type: "boolean" },
         hidden: { type: "boolean" },
         x: { type: "number" },

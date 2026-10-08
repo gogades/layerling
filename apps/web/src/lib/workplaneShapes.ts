@@ -582,6 +582,7 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.groupedBaseHeight === b.groupedBaseHeight &&
     a.groupOperation === b.groupOperation &&
     a.multicolor === b.multicolor &&
+    a.rotationPivot === b.rotationPivot &&
     a.locked === b.locked &&
     a.hidden === b.hidden &&
     a.transparent === b.transparent

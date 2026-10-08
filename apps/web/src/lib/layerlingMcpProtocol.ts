@@ -37,6 +37,8 @@ export type LayerlingMcpShapeSummary = {
     y: boolean;
     z: boolean;
   };
+  /** The body's own pivot, if it has one, in workplane coordinates. */
+  rotationPivot: { x: number; z: number; elevation: number } | null;
   edgeTreatments: unknown[];
   /**
    * Was diese Form ausmacht, ueber die Masse hinaus: Seitenzahl, Gewindegroesse,

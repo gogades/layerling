@@ -157,7 +157,7 @@ import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatment
 import { appendEditorHistorySnapshot, boundedEditorHistoryState, editorHistoryBranch, editorHistoryEntry, editorHistoryForExport, historyStateAt, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, projectShapesFingerprint, workplaneForHistoryIndex, type EditorHistoryEntry, type EditorHistoryExportLimit, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { composedShapeRotation, geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
-import type { PivotPoint } from "@/lib/rotationPivot";
+import { carryShapePivot, shapePivotFromWorld, shapePivotWorld, type PivotPoint } from "@/lib/rotationPivot";
 import { createLocalId, derivedLocalId } from "@/lib/localIds";
 import { canEditGroupAtLevel, openGroupLevelsStillOpen, trackOpenGroupLevels } from "@/lib/openGroupParts";
 import { projectExportFileName } from "@/lib/exportNames";
@@ -2873,7 +2873,8 @@ function bakeShapeTransformIntoMesh(shape: WorkplaneShape): WorkplaneShape {
     });
   });
 
-  return {
+  // The pivot stays on its spot in the world while the frame changes under it.
+  return carryShapePivot(shape, {
     ...shape,
     kind: "mesh",
     x: cleanNearZero(centerX, 0.0005),
@@ -2910,7 +2911,7 @@ function bakeShapeTransformIntoMesh(shape: WorkplaneShape): WorkplaneShape {
     groupedBaseWidth: undefined,
     groupedBaseDepth: undefined,
     groupedBaseHeight: undefined,
-  };
+  });
 }
 
 function readFileAsDataUrl(file: File) {
@@ -6324,6 +6325,21 @@ function debugShapeSummary(shape: WorkplaneShape): Record<string, unknown> {
   };
 }
 
+/** A body's own pivot in the coordinates the MCP tools use for positions. */
+function mcpPivotSummary(shape: WorkplaneShape) {
+  const pivot = shapePivotWorld(shape);
+  return pivot ? { x: Number(pivot.x.toFixed(3)), z: Number(pivot.z.toFixed(3)), elevation: Number(pivot.y.toFixed(3)) } : null;
+}
+
+/** The pivot an MCP update asks for: a point, null to clear it, undefined to leave it. */
+function mcpPivotRequest(value: unknown): PivotPoint | null | undefined {
+  if (value === null) return null;
+  if (!value || typeof value !== "object") return undefined;
+  const { x, z, elevation } = value as Record<string, unknown>;
+  if (![x, z, elevation].every((part) => typeof part === "number" && Number.isFinite(part))) return undefined;
+  return { x: x as number, y: elevation as number, z: z as number };
+}
+
 function compactShapeSummary(shape: WorkplaneShape, index: number) {
   const childSummary = shape.groupedShapes
     ?.map((child) => `${child.kind}${child.hole ? "H" : "S"}${child.importedMesh ? "I" : ""}`)
@@ -6404,6 +6420,7 @@ function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary {
       y: Boolean(shape.mirrorY),
       z: Boolean(shape.mirrorZ),
     },
+    rotationPivot: mcpPivotSummary(shape),
     edgeTreatments: shape.edgeTreatments ?? [],
     settings: mcpShapeSettings(shape),
     groupedCount: shape.groupedShapes?.length ?? 0,
@@ -6820,6 +6837,8 @@ export function LayerlingEditor({
   // turns around its own centre again.
   const [rotationPivot, setRotationPivot] = useState<{ selectionKey: string; point: PivotPoint } | null>(null);
   const [pivotPickMode, setPivotPickMode] = useState(false);
+  // Writes the pivot a single body carries; filled in once updateShape exists.
+  const writeOwnPivotRef = useRef<(shapeId: string, value: [number, number, number] | undefined) => void>(() => {});
   const [layFlatPickMode, setLayFlatPickMode] = useState(false);
   const [cruiseAsset, setCruiseAsset] = useState<ShapeAsset | null>(null);
   const cruiseAssetRef = useRef<ShapeAsset | null>(null);
@@ -7596,7 +7615,12 @@ export function LayerlingEditor({
   }, [alignAnchorId, selectedIds, selectedShapes.length]);
 
   const selectionKey = selectedIds.join("|");
-  const activeRotationPivot = rotationPivot?.selectionKey === selectionKey ? rotationPivot.point : null;
+  // One body selected: the pivot it carries. Several: the one set for them.
+  const ownPivotShape = selectedShapes.length === 1 ? selectedShapes[0] : null;
+  const ownRotationPivot = useMemo(() => (ownPivotShape ? shapePivotWorld(ownPivotShape) : null), [ownPivotShape]);
+  const activeRotationPivot = ownPivotShape
+    ? ownRotationPivot
+    : rotationPivot?.selectionKey === selectionKey ? rotationPivot.point : null;
   useEffect(() => {
     if (rotationPivot && rotationPivot.selectionKey !== selectionKey) setRotationPivot(null);
   }, [rotationPivot, selectionKey]);
@@ -7608,7 +7632,8 @@ export function LayerlingEditor({
       return;
     }
     if (activeRotationPivot) {
-      setRotationPivot(null);
+      if (ownPivotShape) writeOwnPivotRef.current(ownPivotShape.id, undefined);
+      else setRotationPivot(null);
       setNotice(t("status.pivotCleared"));
       return;
     }
@@ -7620,7 +7645,7 @@ export function LayerlingEditor({
     stopCruise();
     setPivotPickMode(true);
     setNotice(t("status.pivotPickStart"));
-  }, [activeRotationPivot, closeSplit, hasSelection, pivotPickMode, stopCruise]);
+  }, [activeRotationPivot, closeSplit, hasSelection, ownPivotShape, pivotPickMode, stopCruise]);
 
   // A pattern belongs to the selection it was opened for.
   useEffect(() => {
@@ -7664,9 +7689,11 @@ export function LayerlingEditor({
       setNotice(t("status.pivotMissed"));
       return;
     }
-    setRotationPivot({ selectionKey, point });
+    // A single body keeps its pivot; several bodies share one for this selection.
+    if (ownPivotShape) writeOwnPivotRef.current(ownPivotShape.id, shapePivotFromWorld(ownPivotShape, point));
+    else setRotationPivot({ selectionKey, point });
     setNotice(t("status.pivotSet"));
-  }, [selectionKey]);
+  }, [ownPivotShape, selectionKey]);
 
   /** Hands the shapes to the page above, which writes them to the browser's storage. */
   const emitProjectShapes = useCallback(
@@ -9007,6 +9034,7 @@ export function LayerlingEditor({
     },
     [commitShapes, scheduleRevolveShapeUpdate, selectedIds, shapes],
   );
+  writeOwnPivotRef.current = (shapeId, value) => updateShape(shapeId, { rotationPivot: value });
 
   const deleteSelected = useCallback(() => {
     if (!hasSelection) {
@@ -11607,17 +11635,21 @@ export function LayerlingEditor({
             patch.hole = threaded.threadRole === "bore";
           }
         }
+        const pivotRequest = mcpPivotRequest(params.rotationPivot);
+        const withPivotRequest = (shape: WorkplaneShape) => pivotRequest === undefined
+          ? shape
+          : { ...shape, rotationPivot: pivotRequest ? shapePivotFromWorld(shape, pivotRequest) : undefined };
         const nextShapes = currentShapes().map((shape) => {
           if (shape.id !== target.id) return shape;
           const sauber = cleanShapePatch(patch);
           const neugebaut = patchTouchesBodyParameters(sauber) ? rebuiltParametricShape(shape, sauber) : null;
-          if (neugebaut) return neugebaut;
+          if (neugebaut) return withPivotRequest(neugebaut);
           const merged = { ...shape, ...curvedTextPatch(shape, sauber) };
           // Solid/hole goes through the same rule as the inspector: a mixed group keeps its parts' own state.
           const patched = typeof sauber.hole === "boolean" ? withHoleMode(merged, sauber.hole, sauber.color) : merged;
           const width = shapeWidth(patched);
           const depth = shapeDepth(patched);
-          const canonical = canonicalizeShape({ ...patched, size: Math.max(width, depth) });
+          const canonical = withPivotRequest(canonicalizeShape({ ...patched, size: Math.max(width, depth) }));
           return rotationWasRequested ? canonicalizeShape(bakeShapeTransformIntoMesh(canonical)) : canonical;
         });
         const updated = nextShapes.find((shape) => shape.id === target.id) as WorkplaneShape;
