@@ -6344,6 +6344,17 @@ html[data-theme="dark"] .shell-openings-summary {
   font-weight: 800;
 }
 
+.sketch-point-actions button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.sketch-point-actions button:disabled:hover {
+  color: #725b43;
+  background: transparent;
+  border-color: transparent;
+}
+
 .sketch-point-actions button:hover {
   color: #8e5112;
   background: #f7f2ea;

@@ -2589,6 +2589,12 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .shell-openings-summary
   border: 1px solid transparent;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-point-actions button:disabled:hover {
+  color: #505050;
+  background: transparent;
+  border-color: transparent;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-point-actions button:hover {
   color: #8e5112;
   background: #f1f1f1;

@@ -41,6 +41,7 @@ import { createTextGeometry, curvedTextPatch } from "@/lib/textGeometry";
 import { canApplySketchCornerTreatment } from "@/lib/sketchFilletChamfer";
 import { sketchPrimitiveGeometry } from "@/lib/sketchPrimitives";
 import { cloneSketchProfile, orderedSketchPaths, withSegmentHandles, withSmoothSketchHandles } from "@/lib/sketchSmoothHandles";
+import { curveSketchSegment, straightenSketchSegment } from "@/lib/sketchSegmentCurve";
 import {
   SketchBoltCircleIcon,
   SketchEllipseIcon,
@@ -8811,6 +8812,16 @@ export function LayerlingEditor({
     commitSketchProfile(next, mode === "corner" ? t("status.sketchMadeCorner") : mode === "smooth" ? t("status.sketchMadeSmooth") : t("status.sketchHandlesSplit"));
   }, [commitSketchProfile, sketchProfile]);
 
+  const curveSketchSegmentAction = useCallback((id: string) => {
+    const next = curveSketchSegment(sketchProfile, id);
+    if (next) commitSketchProfile(next, t("status.sketchLineCurved"));
+  }, [commitSketchProfile, sketchProfile]);
+
+  const straightenSketchSegmentAction = useCallback((id: string) => {
+    const next = straightenSketchSegment(sketchProfile, id);
+    if (next) commitSketchProfile(next, t("status.sketchLineStraightened"));
+  }, [commitSketchProfile, sketchProfile]);
+
   const insertSketchPoint = useCallback((segmentId: string, _position: { x: number; z: number }, amount: number) => {
     const result = splitSketchSegment(sketchProfile, segmentId, amount, createLocalId);
     if (!result.pointId) return;
@@ -14137,6 +14148,8 @@ export function LayerlingEditor({
             onMoveHandle={moveSketchHandle}
             onInsertPoint={insertSketchPoint}
             onSetPointMode={setSketchPointMode}
+            onCurveSegment={curveSketchSegmentAction}
+            onStraightenSegment={straightenSketchSegmentAction}
             onApplyFillet={applySketchFilletHandler}
             onApplyChamfer={applySketchChamferHandler}
             onClearMeasurement={clearSketchMeasurement}

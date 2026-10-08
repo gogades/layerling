@@ -11,6 +11,7 @@ import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel
 import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { applySegmentDimension, SEGMENT_DIMENSION_CENTER } from "@/lib/sketchDimensions";
 import { applyCornerAngle, sketchCornerAt, type CornerTurn } from "@/lib/sketchAngles";
+import { isSegmentCurved } from "@/lib/sketchSegmentCurve";
 import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, workplaneGridLayout } from "@/lib/workplaneGrid";
 import { closestPointOnSketchSegment, type SketchSegmentPlacement } from "@/lib/sketchPointRefinement";
 import { isSketchPanGesture, SKETCH_MANUAL_MAX_ZOOM, SKETCH_MAX_ZOOM, SKETCH_WHEEL_ZOOM_BOOST, SKETCH_MIN_ZOOM, sketchWheelZoomFactor, zoomSketchViewAt, type SketchView } from "@/lib/sketchPointerControls";
@@ -59,6 +60,9 @@ type SketchWorkspaceProps = {
   onMoveHandle: (id: string, handle: "in" | "out", point: { x: number; z: number }) => void;
   onInsertPoint: (segmentId: string, point: { x: number; z: number }, amount: number) => void;
   onSetPointMode: (id: string, mode: "corner" | "smooth" | "split") => void;
+  /** Bends a straight side into a curve with handles, or makes a curved side straight again. */
+  onCurveSegment?: (id: string) => void;
+  onStraightenSegment?: (id: string) => void;
   onApplyFillet?: (id: string, radius: number) => void;
   onApplyChamfer?: (id: string, distance: number) => void;
   onClearMeasurement: () => void;
@@ -509,6 +513,8 @@ export function SketchWorkspace({
   onMoveHandle,
   onInsertPoint,
   onSetPointMode,
+  onCurveSegment,
+  onStraightenSegment,
   onApplyFillet,
   onApplyChamfer,
   onClearMeasurement,
@@ -646,6 +652,9 @@ export function SketchWorkspace({
     : selected?.kind === "multiple" && selected.pointIds.length === 1 && selected.segmentIds.length === 0
       ? pointById.get(selected.pointIds[0]) ?? null
       : null;
+  // A single side that is selected: it can be curved, and a curved one shows its two handles.
+  const selectedSegment = selected?.kind === "segment" ? displayProfile.segments.find((segment) => segment.id === selected.id) ?? null : null;
+  const selectedSegmentCurved = selectedSegment ? isSegmentCurved(displayProfile, selectedSegment) : false;
   const selectedImage = selected?.kind === "image" ? displayImages.find((image) => image.id === selected.id) ?? null : null;
   const selectedGeometryPoints = selected?.kind === "multiple"
     ? selected.pointIds.map((id) => pointById.get(id)).filter((point): point is SketchPoint => Boolean(point))
@@ -1612,6 +1621,19 @@ export function SketchWorkspace({
               {hover ? <circle className="sketch-measurement-point hover" cx={hover.x} cy={hover.z} r={pointRadius} /> : null}
             </g>
           ) : null}
+          {selectedSegment && selectedSegmentCurved && tool === "select" ? (() => {
+            const start = pointById.get(selectedSegment.startId);
+            const end = pointById.get(selectedSegment.endId);
+            if (!start?.handleOut || !end?.handleIn) return null;
+            return (
+              <g className="sketch-curve-handles">
+                <line x1={start.x} y1={start.z} x2={start.handleOut.x} y2={start.handleOut.z} />
+                <circle data-sketch-entity="handle" cx={start.handleOut.x} cy={start.handleOut.z} r={controlPointRadius} onPointerDown={(event) => event.button === 1 ? beginPan(event) : beginEntityDrag(event, { kind: "move-handle", pointerId: event.pointerId, pointId: start.id, handle: "out", current: start.handleOut! })} />
+                <line x1={end.x} y1={end.z} x2={end.handleIn.x} y2={end.handleIn.z} />
+                <circle data-sketch-entity="handle" cx={end.handleIn.x} cy={end.handleIn.z} r={controlPointRadius} onPointerDown={(event) => event.button === 1 ? beginPan(event) : beginEntityDrag(event, { kind: "move-handle", pointerId: event.pointerId, pointId: end.id, handle: "in", current: end.handleIn! })} />
+              </g>
+            );
+          })() : null}
           {selectedPoint && tool === "select" ? (
             <g className="sketch-curve-handles">
               {selectedPoint.handleIn ? <><line x1={selectedPoint.x} y1={selectedPoint.z} x2={selectedPoint.handleIn.x} y2={selectedPoint.handleIn.z} /><circle data-sketch-entity="handle" cx={selectedPoint.handleIn.x} cy={selectedPoint.handleIn.z} r={controlPointRadius} onPointerDown={(event) => event.button === 1 ? beginPan(event) : beginEntityDrag(event, { kind: "move-handle", pointerId: event.pointerId, pointId: selectedPoint.id, handle: "in", current: selectedPoint.handleIn! })} /></> : null}
@@ -1865,6 +1887,12 @@ export function SketchWorkspace({
               ) : null}
             </>
           )}
+        </div>
+      ) : null}
+      {selectedSegment && tool === "select" && onCurveSegment && onStraightenSegment ? (
+        <div className="sketch-point-actions" aria-label={t("sketch.segmentActions")}>
+          <button type="button" title={t("sketch.curveLineHint")} disabled={selectedSegmentCurved} onClick={() => onCurveSegment(selectedSegment.id)}><Spline /><span>{t("sketch.curveLine")}</span></button>
+          <button type="button" title={t("sketch.straightenLineHint")} disabled={!selectedSegmentCurved && (selectedSegment.kind ?? "line") === "line"} onClick={() => onStraightenSegment(selectedSegment.id)}><Minus /><span>{t("sketch.straightenLine")}</span></button>
         </div>
       ) : null}
       <div className="grid-settings">

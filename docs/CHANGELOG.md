@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Curve a straight side:** Select a line in the sketch and click **Curve line**: the side bows out into a curve, as in Tinkercad, and shows its two handles to drag. **Straight line** makes it straight again. Asked for by @lukyanenkomax in #171.
 - **The "Smooth" button on a sketch point works again:** Since 1.47.0 it changed the point's mode but gave it no handles, so a corner stayed a corner and there was nothing to drag. It now turns the point into a rounded one with handles, and the lines around it become curves. Reported by @lukyanenkomax in #171.
 - **Static hosting is explained:** The README (English and German) now has a section on serving the static export from plain web hosting: where `npm run export` puts the files, that they belong at the root of an address (not a subfolder, not `file://`), that folders starting with an underscore must be served, and how to tell when the script files did not load. Asked about by @CTI-Tim in #173.
 - **The sketch shows the cut where the workplane runs through a body:** With the workplane inside a body (in the cavity of a hollowed box, for example), the sketch view drew a strange outline - the body's top face - instead of what the workplane cuts. It now shows the outline of the cut, so a hollow body is a ring and the sketch can be lined up with its walls. A workplane on a face still shows that face. Reported by @danielB801 in #172.
