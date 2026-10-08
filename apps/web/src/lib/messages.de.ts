@@ -419,6 +419,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "shell.errorTooThick": "Die Wände können für diesen Körper nicht so dick sein. Bitte eine dünnere Wandstärke wählen.",
   "shell.errorNoFlatTop": "Dieser Körper hat oben keine ebene Fläche, die geöffnet werden kann. Kugeln und freie Formen können so nicht ausgehöhlt werden.",
   "shell.errorNoFlatBottom": "Dieser Körper hat unten keine ebene Fläche, die geöffnet werden kann.",
+  "edge.errorOldRevolve": "Dieser gedrehte Körper wurde von einer älteren layerling-Fassung als Netz gebaut. Öffne „Skizze bearbeiten“ und schließe ihn neu ab, dann ist er ein exakter Körper und lässt sich aushöhlen, verrunden und fasen.",
   "shell.errorNoFlatSide": "Dieser Körper hat auf der gewählten Seite keine ebene Fläche, die geöffnet werden kann.",
   "shell.errorProjectChanged": "Das Objekt oder Projekt wurde während des Aushöhlens geändert. Bitte erneut versuchen.",
   "shell.errorFailed": "Der Körper konnte nicht ausgehöhlt werden. Bitte eine andere Wandstärke oder Öffnung wählen.",

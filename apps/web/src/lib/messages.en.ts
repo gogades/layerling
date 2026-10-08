@@ -420,6 +420,7 @@ export const MESSAGES_EN = {
   "shell.errorTooThick": "The walls cannot be this thick for this body. Choose a thinner wall.",
   "shell.errorNoFlatTop": "This body has no flat top face to leave open. Spheres and free shapes cannot be hollowed this way.",
   "shell.errorNoFlatBottom": "This body has no flat bottom face to leave open.",
+  "edge.errorOldRevolve": "This revolved body was built as a mesh by an older layerling. Open Edit sketch and finish it again to make it an exact body; then it can be hollowed, rounded and chamfered.",
   "shell.errorNoFlatSide": "This body has no flat face on the chosen side to leave open.",
   "shell.errorProjectChanged": "The object or project changed while it was being hollowed; please try again.",
   "shell.errorFailed": "The body could not be hollowed. Please choose a different wall thickness or opening.",

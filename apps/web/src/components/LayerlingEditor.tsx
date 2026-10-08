@@ -179,6 +179,7 @@ import { addLineIntersectionPoints, splitSketchSegment } from "@/lib/sketchPoint
 import { copySketchSelection, freeSketchPasteOffset, pasteSketchClipboard, type SketchClipboard } from "@/lib/sketchClipboard";
 import { sketchSelectionCount, toggleSketchSelection } from "@/lib/sketchSelection";
 import { applySketchChamfer, applySketchFillet } from "@/lib/sketchFilletChamfer";
+import { revolveProfileFitsAxis } from "@/lib/cadSketchRevolve";
 import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketchRevolveSettings, type SketchRevolveMesh } from "@/lib/sketchRevolve";
 import { AppFooter } from "@/components/AppFooter";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
@@ -720,11 +721,81 @@ async function cadShapeFromSketchProfile(profile: SketchProfile, height: number,
   return { ...shape, sketchProfile: cloneSketchProfile(profile), sketchOperation: "extrude" as const };
 }
 
+/**
+ * A revolved sketch as an exact CAD body, like an extruded one: the profile is turned about the
+ * axis by OpenCascade, so Hollow, Fillet and Chamfer work on it and it has a few hundred
+ * triangles, not tens of thousands (#167). Null when the profile cannot be built that way (it
+ * crosses the axis) or the kernel refuses; the mesh revolve takes over then.
+ */
+async function cadShapeFromSketchRevolve(
+  profile: SketchProfile,
+  settings: SketchRevolveSettings,
+  existing?: WorkplaneShape | null,
+): Promise<WorkplaneShape | null> {
+  if (!revolveProfileFitsAxis(profile)) return null;
+  try {
+    const worker = ensureSketchCadWorker();
+    const requestId = ++sketchCadRequestId;
+    const response = await new Promise<SketchCadBuildResponse>((resolve, reject) => {
+      const timer = window.setTimeout(() => {
+        sketchCadPending.delete(requestId);
+        reject(new Error("OpenCascade timed out while building the sketch"));
+      }, 30_000);
+      sketchCadPending.set(requestId, { resolve, reject, timer });
+      worker.postMessage({
+        type: "build",
+        requestId,
+        profile: cloneSketchProfile(profile),
+        height: MIN_SHAPE_DIMENSION,
+        revolve: { startAngle: settings.startAngle, sweepAngle: settings.sweepAngle },
+      });
+    });
+    if (response.type === "error") return null;
+    const source = canonicalizeShape({
+      id: existing?.id ?? createLocalId("sketch-revolve"),
+      name: existing?.name ?? "Sketch revolve",
+      kind: "mesh",
+      color: existing?.color ?? "#78b96b",
+      hole: existing?.hole,
+      x: 0,
+      z: 0,
+      elevation: 0,
+      size: 1,
+      width: 1,
+      depth: 1,
+      height: MIN_SHAPE_DIMENSION,
+      rotation: 0,
+      sketchProfile: cloneSketchProfile(profile),
+      sketchOperation: "revolve",
+      sketchRevolve: settings,
+      locked: existing?.locked ?? false,
+      hidden: existing?.hidden ?? false,
+    } satisfies WorkplaneShape);
+    const shape = shapeFromCadMesh(source, response.positions, response.normals, response.indices, response.brep, SKETCH_CAD_DEFLECTION);
+    if (!shape) return null;
+    // Like the mesh revolve: the body stands at the origin (or where the edited one stood); the
+    // exact body keeps its own frame, so it follows the move.
+    return canonicalizeShape({
+      ...shape,
+      x: existing?.x ?? 0,
+      z: existing?.z ?? 0,
+      elevation: existing?.elevation ?? 0,
+      sketchProfile: cloneSketchProfile(profile),
+      sketchOperation: "revolve",
+      sketchRevolve: settings,
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function shapeFromRevolvedSketchProfile(
   profile: SketchProfile,
   settings: Partial<SketchRevolveSettings>,
   existing?: WorkplaneShape | null,
 ) {
+  const exact = await cadShapeFromSketchRevolve(profile, normalizeSketchRevolveSettings(settings), existing);
+  if (exact) return exact;
   const runtime = await getManifoldRuntime();
   const normalizedSettings = normalizeSketchRevolveSettings(settings);
   const mesh = buildSketchRevolveMesh(runtime, profile, normalizedSettings);
@@ -9785,6 +9856,10 @@ export function LayerlingEditor({
     const prepareTimeoutMs = cadModifierPrepareTimeoutMs(triangleCount + (sendProfileMeshes ? profileTriangleCount : sendStepMeshes ? stepTriangleCount : 0), profilePartCount, profileSegmentCount);
     if (triangleCount === 0 && partInputs.every((part) => !part.brep && !part.step && !part.thread && !part.spring && !part.helicalGear && !part.primitive && !part.profile)) {
       throw new Error("The selected object has no printable surface");
+    }
+    // A body revolved before the exact revolve is a mesh; hollowing or rounding it fails in confusing ways.
+    if (partInputs.some((part) => !part.brep && part.shape.sketchOperation === "revolve" && part.shape.sketchProfile)) {
+      throw new Error("This revolved body is a mesh from an older layerling; open Edit sketch and finish it again to make it exact");
     }
     if (triangleCount > CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT) {
       throw new Error(`This mesh has ${triangleCount} triangles; interactive edge treatment stops at ${CAD_MODIFIER_PREPARE_TRIANGLE_LIMIT}. For a shape from the catalogue, use its own parameters for now. For an imported part, import it as STEP or with fewer triangles.`);

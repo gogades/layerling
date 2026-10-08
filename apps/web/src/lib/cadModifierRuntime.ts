@@ -326,6 +326,9 @@ export function cadModifierUserErrorMessage(rawError: string | null | undefined)
   ) {
     return t("shell.errorTooThick");
   }
+  if (rawError.includes("This revolved body is a mesh from an older layerling")) {
+    return t("edge.errorOldRevolve");
+  }
   if (rawError.includes("no flat bottom face to leave open")) {
     return t("shell.errorNoFlatBottom");
   }

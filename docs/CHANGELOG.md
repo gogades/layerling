@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **A revolved sketch is an exact body:** The Revolve command now builds the body with OpenCascade, like an extrusion, instead of as a mesh of tens of thousands of triangles. So Hollow, Fillet and Chamfer work on it (hollowing a revolved cup failed with "The walls cannot be this thick" even at 0.2 mm), and it has a few hundred triangles. Start angle and sweep work as before; the side count no longer applies to an exact body. A profile that reaches across the axis, and bodies revolved earlier, stay meshes; open **Edit sketch** and finish again to make an old one exact. Reported by @ucito in #167.
+
 ## 1.47.0
 
 - **A new welcome text:** The start page now says what layerling is - as easy to use as Tinkercad, but a step towards Fusion 360 - lists what Tinkercad cannot do, and puts installing it as an app or hosting it yourself at the end. The READMEs and the quick guide follow.

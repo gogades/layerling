@@ -3,6 +3,7 @@
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
 import { CAD_MODIFIER_RUNTIME_BASE, SKETCH_CAD_DEFLECTION } from "@/lib/cadModifierRuntime";
 import { cadSketchRegions, type OrderedCadSketchPath } from "@/lib/sketchCadProfile";
+import { buildRevolvedSketchSolid } from "@/lib/cadSketchRevolve";
 import type { SketchCadBuildRequest, SketchCadBuildResponse } from "@/lib/sketchCadTypes";
 
 let kernelPromise: Promise<OcctKernel> | null = null;
@@ -56,15 +57,20 @@ self.onmessage = async (event: MessageEvent<SketchCadBuildRequest>) => {
   try {
     cad = await kernel();
     cad.releaseAll();
-    const regions = cadSketchRegions(request.profile);
-    if (regions.length === 0) throw new Error("No closed profile found. Draw at least one closed loop and ensure it has no degenerate (zero-area) geometry.");
-    const solids: ShapeHandle[] = regions.map((region) => {
-      let face = cad!.makeFace(pathWire(cad!, region.outer));
-      if (region.holes.length > 0) face = cad!.addHolesInFace(face, region.holes.map((hole) => pathWire(cad!, hole)));
-      return cad!.extrude(face, 0, request.height, 0);
-    });
-    const result = solids.length === 1 ? solids[0] : cad.makeCompound(solids);
-    if (!cad.isValid(result)) throw new Error("OpenCascade produced invalid sketch topology");
+    let result: ShapeHandle;
+    if (request.revolve) {
+      result = buildRevolvedSketchSolid(cad, request.profile, request.revolve.startAngle, request.revolve.sweepAngle);
+    } else {
+      const regions = cadSketchRegions(request.profile);
+      if (regions.length === 0) throw new Error("No closed profile found. Draw at least one closed loop and ensure it has no degenerate (zero-area) geometry.");
+      const solids: ShapeHandle[] = regions.map((region) => {
+        let face = cad!.makeFace(pathWire(cad!, region.outer));
+        if (region.holes.length > 0) face = cad!.addHolesInFace(face, region.holes.map((hole) => pathWire(cad!, hole)));
+        return cad!.extrude(face, 0, request.height, 0);
+      });
+      result = solids.length === 1 ? solids[0] : cad.makeCompound(solids);
+      if (!cad.isValid(result)) throw new Error("OpenCascade produced invalid sketch topology");
+    }
     const mesh = cad.tessellate(result, { linearDeflection: SKETCH_CAD_DEFLECTION.linear, angularDeflection: SKETCH_CAD_DEFLECTION.angular });
     const positions = new Float32Array(mesh.positions);
     const normals = new Float32Array(mesh.normals);
