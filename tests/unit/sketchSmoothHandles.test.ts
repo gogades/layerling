@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sketchPrimitiveGeometry } from "@/lib/sketchPrimitives";
-import { withSmoothSketchHandles } from "@/lib/sketchSmoothHandles";
+import { withSegmentHandles, withSmoothSketchHandles } from "@/lib/sketchSmoothHandles";
 import type { SketchProfile } from "@/types/layerling";
 
 let counter = 0;
@@ -57,5 +57,35 @@ describe("smooth sketch handles", () => {
     };
     const after = withSmoothSketchHandles(profile);
     expect(after.points.every((point) => point.mode === "smooth" && point.handleIn && point.handleOut)).toBe(true);
+  });
+});
+
+describe("the point button 'smooth' (#171)", () => {
+  const square = (): SketchProfile => {
+    const points = [{ id: "a", x: 0, z: 0 }, { id: "b", x: 40, z: 0 }, { id: "c", x: 40, z: 40 }, { id: "d", x: 0, z: 40 }];
+    return { points, segments: points.map((p, i) => ({ id: `s${i}`, kind: "line" as const, startId: p.id, endId: points[(i + 1) % 4].id })) };
+  };
+
+  it("gives the chosen point its handles even though its lines are not smooth curves yet", () => {
+    const profile = square();
+    const next = withSmoothSketchHandles(profile, new Set(["b"]));
+    const b = next.points.find((point) => point.id === "b")!;
+    expect(b.handleIn && b.handleOut).toBeTruthy();
+    expect(b.mode).toBe("smooth");
+    // The others keep what they had.
+    expect(next.points.find((point) => point.id === "a")).toEqual(profile.points[0]);
+  });
+
+  it("gives the curved segments around it the handles they lack at their other ends", () => {
+    const profile = square();
+    profile.segments = profile.segments.map((segment) => ({ ...segment, kind: segment.startId === "b" || segment.endId === "b" ? "bezier" as const : "line" as const }));
+    const next = withSegmentHandles(withSmoothSketchHandles(profile, new Set(["b"])), new Set(["s0", "s1"]));
+    const byId = (id: string) => next.points.find((point) => point.id === id)!;
+    // s0 runs a -> b and s1 b -> c: a needs its out handle, c its in handle.
+    expect(byId("a").handleOut).toEqual({ x: 40 / 3, z: 0 });
+    expect(byId("c").handleIn).toEqual({ x: 40, z: 40 - 40 / 3 });
+    // A handle that is there is not replaced, and a line segment is left alone.
+    expect(byId("b").handleOut).toBeDefined();
+    expect(byId("d").handleIn).toBeUndefined();
   });
 });

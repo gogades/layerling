@@ -70,16 +70,19 @@ export function orderedSketchPaths(profile: SketchProfile): OrderedSketchPath[] 
  * that only touch lines and Bezier curves keep what they have: a circle, an arc or a line
  * drawn earlier must not change when another smooth curve is added elsewhere.
  */
-export function withSmoothSketchHandles(profile: SketchProfile) {
+export function withSmoothSketchHandles(profile: SketchProfile, onlyPointIds?: ReadonlySet<string>) {
   const next = cloneSketchProfile(profile);
   const points = new Map(next.points.map((point) => [point.id, point]));
   orderedSketchPaths(next).forEach((path) => {
-    const smoothPointIds = new Set<string>();
-    path.steps.forEach((step) => {
-      if (step.segment.kind !== "smooth") return;
-      smoothPointIds.add(step.from.id);
-      smoothPointIds.add(step.to.id);
-    });
+    // Which points: the ones asked for (the point button), or those on a smooth curve being drawn.
+    const smoothPointIds = new Set<string>(onlyPointIds ?? []);
+    if (!onlyPointIds) {
+      path.steps.forEach((step) => {
+        if (step.segment.kind !== "smooth") return;
+        smoothPointIds.add(step.from.id);
+        smoothPointIds.add(step.to.id);
+      });
+    }
     path.points.forEach((sourcePoint, index) => {
       if (!smoothPointIds.has(sourcePoint.id)) return;
       const point = points.get(sourcePoint.id);
@@ -92,6 +95,28 @@ export function withSmoothSketchHandles(profile: SketchProfile) {
       point.handleOut = { x: point.x + tangentX, z: point.z + tangentZ };
       point.mode = "smooth";
     });
+  });
+  return next;
+}
+
+/**
+ * A curved segment is drawn only when both of its ends have the handle that faces it (the start's
+ * out handle, the end's in handle). Gives each curved segment among `segmentIds` the ones it lacks,
+ * a third of the way along the segment, so it first looks straight and the handles can be dragged.
+ * Handles that exist stay as they are.
+ */
+export function withSegmentHandles(profile: SketchProfile, segmentIds: ReadonlySet<string>) {
+  const next = cloneSketchProfile(profile);
+  const points = new Map(next.points.map((point) => [point.id, point]));
+  next.segments.forEach((segment) => {
+    if (!segmentIds.has(segment.id) || (segment.kind ?? "line") === "line") return;
+    const start = points.get(segment.startId);
+    const end = points.get(segment.endId);
+    if (!start || !end) return;
+    const dx = (end.x - start.x) / 3;
+    const dz = (end.z - start.z) / 3;
+    if (!start.handleOut) start.handleOut = { x: start.x + dx, z: start.z + dz };
+    if (!end.handleIn) end.handleIn = { x: end.x - dx, z: end.z - dz };
   });
   return next;
 }

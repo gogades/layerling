@@ -40,7 +40,7 @@ import { createSpringGeometry } from "@/lib/springGeometry";
 import { createTextGeometry, curvedTextPatch } from "@/lib/textGeometry";
 import { canApplySketchCornerTreatment } from "@/lib/sketchFilletChamfer";
 import { sketchPrimitiveGeometry } from "@/lib/sketchPrimitives";
-import { cloneSketchProfile, orderedSketchPaths, withSmoothSketchHandles } from "@/lib/sketchSmoothHandles";
+import { cloneSketchProfile, orderedSketchPaths, withSegmentHandles, withSmoothSketchHandles } from "@/lib/sketchSmoothHandles";
 import {
   SketchBoltCircleIcon,
   SketchEllipseIcon,
@@ -8801,7 +8801,10 @@ export function LayerlingEditor({
       next.segments = next.segments.map((segment) => segment.startId === id || segment.endId === id ? { ...segment, kind: "line" } : segment);
     } else {
       next.segments = next.segments.map((segment) => segment.startId === id || segment.endId === id ? { ...segment, kind: "bezier" } : segment);
-      if (!point.handleIn || !point.handleOut) next = withSmoothSketchHandles(next);
+      // The point's own handles along its neighbours; the segments around it then need the handle at
+      // their other end too, or they would stay straight.
+      if (!point.handleIn || !point.handleOut) next = withSmoothSketchHandles(next, new Set([id]));
+      next = withSegmentHandles(next, new Set(next.segments.filter((segment) => segment.startId === id || segment.endId === id).map((segment) => segment.id)));
       const updated = next.points.find((entry) => entry.id === id);
       if (updated) updated.mode = mode;
     }
