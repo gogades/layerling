@@ -56,6 +56,7 @@ export function TransformOverlay({
   editingCorner,
   editingRotation,
   rotationReadout,
+  angleBadge = null,
   showRotationWheel,
   hideSelectionChrome,
   hideDimensionMarks,
@@ -345,6 +346,18 @@ export function TransformOverlay({
           aria-hidden="true"
           style={{ "--overlay-x": `${box.pivotMarker.x}px`, "--overlay-y": `${box.pivotMarker.y}px` } as CSSProperties}
         />
+      ) : null}
+      {!hideDimensionMarks && !rotationReadout && angleBadge && box.handles.length > 0 ? (
+        // Below the lowest handle, centred under the selection.
+        <div
+          className="rotation-angle-badge"
+          style={{
+            "--overlay-x": `${box.handles.reduce((sum, handle) => sum + handle.x, 0) / box.handles.length}px`,
+            "--overlay-y": `${Math.max(...box.handles.map((handle) => handle.y)) + 30}px`,
+          } as CSSProperties}
+        >
+          {angleBadge}
+        </div>
       ) : null}
       {!hideDimensionMarks && rotationReadout ? (
         <div className="rotation-readout" style={{ "--overlay-x": `${rotationReadout.x}px`, "--overlay-y": `${rotationReadout.y}px` } as CSSProperties}>

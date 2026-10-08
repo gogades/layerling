@@ -712,6 +712,11 @@ export function WorkspaceSettingsModal({
                     onChange={(dimensionsAlwaysVisible) => patchWorkspace({ dimensionsAlwaysVisible })}
                   />
                   <WorkspaceToggle
+                    label={t("workspace.showRotationAngles")}
+                    checked={workspace.showRotationAngles}
+                    onChange={(showRotationAngles) => patchWorkspace({ showRotationAngles })}
+                  />
+                  <WorkspaceToggle
                     label={t("workspace.startInPerspective")}
                     checked={startInPerspective}
                     onChange={onStartInPerspectiveChange}

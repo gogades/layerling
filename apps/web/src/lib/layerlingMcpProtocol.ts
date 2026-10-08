@@ -94,6 +94,7 @@ export type LayerlingMcpCommandName =
   | "update_object"
   | "align_objects"
   | "lay_flat"
+  | "mate_faces"
   | "open_group"
   | "close_group"
   | "group_objects"

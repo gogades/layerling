@@ -158,6 +158,7 @@ import { selectWholeValue } from "@/lib/numberField";
 import { useRecentColors } from "@/lib/recentColors";
 import { canToggleGroupColors, groupShowsPartColors } from "@/lib/groupColors";
 import { shapePivotFromWorld, shapePivotWorld } from "@/lib/rotationPivot";
+import { signedDegrees } from "@/lib/geometryRotation";
 
 /**
  * Docked at the right edge, full height. Moved away, it floats: no longer
@@ -292,6 +293,7 @@ function formatPropertyNumber(value: number, accuracy: MeasurementAccuracy, step
 }
 
 const RELATIVE_SIZE_PROPERTY_IDS = new Set(["width", "height", "length", "diameter", "starOuterSize"]);
+const ROTATION_PROPERTY_IDS = new Set(["rotateX", "rotateY", "rotateZ"]);
 
 function propertyUsesLengthUnit(key: string) {
   return ["positionX", "positionY", "positionZ", "pivotX", "pivotY", "pivotZ", "radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "boltClearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet", "bentTubeSize", "bentTubeWall", "bentTubeSegmentLength", "bentTubeBendRadius", "dovetailNeckWidth", "dovetailClearance", "hingePinDiameter", "hingeLeafThickness", "hingeClearance", "screwHoleShaft", "screwHoleHeadDepth", "knurlDepth", "knurlChamfer"].includes(key);
@@ -1649,6 +1651,29 @@ export function ShapeInspector({
     { id: "positionY", label: t("prop.positionY"), value: shape.z, min: -reachY, max: reachY, step: 0.5, onChange: (z) => onUpdate({ z }) },
     { id: "positionZ", label: t("prop.positionZ"), value: shape.elevation ?? 0, min: -180, max: 220, step: 0.5, onChange: (elevation) => onUpdate({ elevation }) },
   ];
+  // The body's turn about X, Y and Z, as it is drawn. A new angle turns it
+  // about its centre, or about its own pivot if it has one.
+  const turnTo = (patch: Pick<Partial<WorkplaneShape>, "rotation" | "rotationX" | "rotationZ">) => {
+    const before = shapePivotWorld(shape);
+    const turned = { ...shape, ...patch };
+    const after = shapePivotWorld(turned);
+    if (!before || !after) {
+      onUpdate(patch);
+      return;
+    }
+    onUpdate({
+      ...patch,
+      x: shape.x + before.x - after.x,
+      z: shape.z + before.z - after.z,
+      elevation: (shape.elevation ?? 0) + before.y - after.y,
+    });
+  };
+  const rotationProperties: ShapePropertyConfig[] = [
+    { id: "rotateX", label: t("prop.rotateX"), value: signedDegrees(shape.rotationX ?? 0), min: -180, max: 180, step: 1, onChange: (rotationX) => turnTo({ rotationX }) },
+    // Named like the position: Y runs across the plate (depth), Z is up.
+    { id: "rotateY", label: t("prop.rotateY"), value: signedDegrees(shape.rotationZ ?? 0), min: -180, max: 180, step: 1, onChange: (rotationZ) => turnTo({ rotationZ }) },
+    { id: "rotateZ", label: t("prop.rotateZ"), value: signedDegrees(shape.rotation ?? 0), min: -180, max: 180, step: 1, onChange: (rotation) => turnTo({ rotation }) },
+  ];
   // The pivot this body carries, in the same coordinates as its position.
   const pivot = shapePivotWorld(shape);
   const movePivot = (change: Partial<{ x: number; y: number; z: number }>) => {
@@ -1667,6 +1692,7 @@ export function ShapeInspector({
   const inspectorRef = movable.panelRef;
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [positionOpen, setPositionOpen] = useState(false);
+  const [rotationOpen, setRotationOpen] = useState(false);
   const [taperOpen, setTaperOpen] = useState(false);
   const [twistOpen, setTwistOpen] = useState(false);
   const [gearTeethOpen, setGearTeethOpen] = useState(true);
@@ -1993,6 +2019,23 @@ export function ShapeInspector({
                 <ShapePropertyRows properties={pivotProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
               </>
             ) : null}
+          </div>
+        ) : null}
+      </div>
+      <div className={`property-card ${rotationOpen ? "" : "collapsed"}`}>
+        <button
+          className="property-card-header"
+          type="button"
+          aria-expanded={rotationOpen}
+          aria-controls={`rotation-${shape.id}`}
+          onClick={() => setRotationOpen((open) => !open)}
+        >
+          <span>{t("inspector.rotation")}</span>
+          <ChevronUp className={rotationOpen ? "" : "collapsed"} size={25} strokeWidth={2.8} />
+        </button>
+        {rotationOpen ? (
+          <div className="property-list" id={`rotation-${shape.id}`}>
+            <ShapePropertyRows properties={rotationProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
           </div>
         ) : null}
       </div>
@@ -2547,7 +2590,7 @@ function RangeProperty({
   const position = ((sliderValue - controlMin) / Math.max(Number.EPSILON, controlMax - controlMin)) * 100;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(formatPropertyNumber(controlValue, accuracy, controlStep));
-  const unit = isLength ? lengthDisplayUnit(workspace).label : null;
+  const unit = isLength ? lengthDisplayUnit(workspace).label : ROTATION_PROPERTY_IDS.has(id) ? "°" : null;
   // Inches read as fractions (1⅝), like Tinkercad; the slider and typed decimals stay exact.
   const formatShown = (shown: number) => (unit === "in" && showsInchFractions(workspace) ? formatFractionalInches(shown) : formatPropertyNumber(shown, accuracy, controlStep));
   const toModelValue = (nextValue: number) => isLength ? displayToMillimeters(nextValue, workspace) : nextValue;

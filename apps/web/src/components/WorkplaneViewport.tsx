@@ -134,7 +134,7 @@ import { NOTE_TEXT_LIMIT, referencePoints } from "@/lib/workplaneNotes";
 import { planarFaceCentroid, planarFaceTriangles, type PivotPoint } from "@/lib/rotationPivot";
 import { outwardFaceNormal } from "@/lib/layFlat";
 import { OVERHANG_PLATE_TOLERANCE, overhangDownwardLimit } from "@/lib/overhangLimits";
-import { directionIsOwnShapeAxis, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
+import { directionIsOwnShapeAxis, rotatedGeometryShapePatch, rotationPatchFromQuaternion as sharedRotationPatchFromQuaternion, signedDegrees } from "@/lib/geometryRotation";
 import type { CadModifierEdge } from "@/lib/cadModifierTypes";
 
 const WORKPLANE_WIDTH = 200;
@@ -343,6 +343,9 @@ type WorkplaneViewportProps = {
   /** Waiting for a click on a face of the selection to lay it flat. */
   layFlatPickMode?: boolean;
   onLayFlatPick?: (pick: LayFlatPick | null) => void;
+  /** "Align faces" waiting for a click on a face of one of these bodies. */
+  mateFacePick?: { shapeIds: string[] } | null;
+  onMateFacePick?: (pick: LayFlatPick | null) => void;
   onNoteAdd?: (note: { x: number; y: number; z: number; anchor?: WorkplaneNoteAnchor }) => string | null;
   onNoteUpdate?: (id: string, patch: Partial<WorkplaneNote>, transient?: boolean) => void;
   onNoteRemove?: (id: string) => void;
@@ -909,12 +912,7 @@ function quaternionForShape(shape: WorkplaneShape) {
 }
 
 function rotationPatchFromQuaternion(quaternion: THREE.Quaternion): Partial<WorkplaneShape> {
-  const euler = new THREE.Euler().setFromQuaternion(quaternion, "XYZ");
-  return {
-    rotationX: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.x)),
-    rotation: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.y)),
-    rotationZ: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.z)),
-  };
+  return sharedRotationPatchFromQuaternion(quaternion);
 }
 
 function canvasPngDataUrl(canvas: HTMLCanvasElement) {
@@ -4260,6 +4258,8 @@ export function WorkplaneViewport({
   onPivotPick,
   layFlatPickMode = false,
   onLayFlatPick,
+  mateFacePick = null,
+  onMateFacePick,
   onNoteAdd,
   onNoteUpdate,
   onNoteRemove,
@@ -4293,6 +4293,16 @@ export function WorkplaneViewport({
   const [hoverMeasureKey, setHoverMeasureKey] = useState<string | null>(null);
   const [pinnedMeasureKey, setPinnedMeasureKey] = useState<string | null>(null);
   const [rotationReadout, setRotationReadout] = useState<RotationReadout>(null);
+  // A turned body's angles under it, named like its position: Y across the
+  // plate, Z up.
+  const angleBadge = useMemo(() => {
+    if (!workspace.showRotationAngles || selectedIds.length !== 1) return null;
+    const shape = shapes.find((candidate) => candidate.id === selectedIds[0]);
+    if (!shape) return null;
+    const angles = [shape.rotationX ?? 0, shape.rotationZ ?? 0, shape.rotation ?? 0].map((angle) => Number(signedDegrees(angle).toFixed(1)));
+    if (angles.every((angle) => angle === 0)) return null;
+    return ["X", "Y", "Z"].map((axis, index) => `${axis} ${angles[index]}°`).join(" · ");
+  }, [selectedIds, shapes, workspace.showRotationAngles]);
   const suppressNextRotationEditRef = useRef(false);
   const [activeRotationWheel, setActiveRotationWheel] = useState(false);
   const [activeTransformKind, setActiveTransformKind] = useState<TransformHandleKind | null>(null);
@@ -4444,6 +4454,8 @@ export function WorkplaneViewport({
   const pivotPickModeRef = useRef(pivotPickMode);
   const layFlatPickModeRef = useRef(layFlatPickMode);
   layFlatPickModeRef.current = layFlatPickMode;
+  const mateFacePickRef = useRef(mateFacePick);
+  mateFacePickRef.current = mateFacePick;
   const notesVisibleRef = useRef(notesVisible);
   const noteOverlayRef = useRef<NoteOverlayState | null>(null);
   const noteDragRef = useRef<NoteDragState | null>(null);
@@ -5047,8 +5059,8 @@ export function WorkplaneViewport({
   }, [pivotPickMode]);
 
   useEffect(() => {
-    if (!layFlatPickMode) syncLayFlatHover(threeRef.current, [], resolvedThemeRef.current, null, null);
-  }, [layFlatPickMode]);
+    if (!layFlatPickMode && !mateFacePick) syncLayFlatHover(threeRef.current, [], resolvedThemeRef.current, null, null);
+  }, [layFlatPickMode, mateFacePick]);
 
   useLayoutEffect(() => {
     rotationPivotRef.current = rotationPivot;
@@ -7491,6 +7503,12 @@ export function WorkplaneViewport({
         return;
       }
 
+      if (mateFacePickRef.current) {
+        event.preventDefault();
+        onMateFacePick?.(pickLayFlatFace(state, event.clientX, event.clientY));
+        return;
+      }
+
       if (noteModeRef.current) {
         event.preventDefault();
         const anchor = resolveNoteAnchor(event.clientX, event.clientY);
@@ -7828,6 +7846,7 @@ export function WorkplaneViewport({
       onModifierEdgeToggle,
       onPivotPick,
       onLayFlatPick,
+      onMateFacePick,
       placeCornerRuler,
       resolveCornerRulerPoint,
       onSelectShape,
@@ -7909,6 +7928,10 @@ export function WorkplaneViewport({
       }
       if (layFlatPickModeRef.current) {
         syncLayFlatHover(threeRef.current, selectedIdsRef.current, resolvedThemeRef.current, event.clientX, event.clientY);
+        return;
+      }
+      if (mateFacePickRef.current) {
+        syncLayFlatHover(threeRef.current, mateFacePickRef.current.shapeIds, resolvedThemeRef.current, event.clientX, event.clientY);
         return;
       }
       if (modifierActiveRef.current) {
@@ -9250,7 +9273,7 @@ export function WorkplaneViewport({
         )}
       </div>
 
-      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${splitActive ? "split-mode" : ""} ${splitHandleState ? `split-handle-${splitHandleState}` : ""} ${splitSurfacePick ? "split-picking" : ""} ${splitSurfacePick && splitPickOverFace ? "split-pick-over-face" : ""} ${cruiseAsset ? "cruising" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${pivotPickMode || layFlatPickMode ? "pivot-pick-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""} ${sectionMeasureMode && sectionSettings.enabled ? "section-measure-mode" : ""}`} aria-label={t("aria.workplane")}>
+      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${splitActive ? "split-mode" : ""} ${splitHandleState ? `split-handle-${splitHandleState}` : ""} ${splitSurfacePick ? "split-picking" : ""} ${splitSurfacePick && splitPickOverFace ? "split-pick-over-face" : ""} ${cruiseAsset ? "cruising" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${pivotPickMode || layFlatPickMode || mateFacePick ? "pivot-pick-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""} ${sectionMeasureMode && sectionSettings.enabled ? "section-measure-mode" : ""}`} aria-label={t("aria.workplane")}>
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
@@ -9277,7 +9300,7 @@ export function WorkplaneViewport({
           {!workplaneMode && !splitActive && originDimensionsEnabled && originDimensionOverlay ? (
             <OriginDimensionOverlay overlay={originDimensionOverlay} />
           ) : null}
-          {!workplaneMode && !splitActive && !pivotPickMode && !layFlatPickMode && transformOverlay && !alignMode && !mirrorMode && !tapeMode && !tapeDeleteMode && !tapeMoveMode && !modifierActive ? (
+          {!workplaneMode && !splitActive && !pivotPickMode && !layFlatPickMode && !mateFacePick && transformOverlay && !alignMode && !mirrorMode && !tapeMode && !tapeDeleteMode && !tapeMoveMode && !modifierActive ? (
             <TransformOverlay
               box={transformOverlay}
               measureKey={pinnedMeasureKey ?? hoverMeasureKey}
@@ -9285,6 +9308,7 @@ export function WorkplaneViewport({
               editingCorner={editingCorner}
               editingRotation={editingRotation}
               rotationReadout={rotationReadout}
+              angleBadge={angleBadge}
               showRotationWheel={activeRotationWheel}
               hideSelectionChrome={activeTransformKind === "rotate"}
               hideDimensionMarks={false}
@@ -11735,7 +11759,7 @@ function pickRotationPivot(state: ThreeState, clientX: number, clientY: number):
   return planarFaceCentroid(positions, hit.faceIndex) ?? { x: hit.point.x, y: hit.point.y, z: hit.point.z };
 }
 
-export type LayFlatPick = { shapeId: string; normal: { x: number; y: number; z: number } };
+export type LayFlatPick = { shapeId: string; normal: { x: number; y: number; z: number }; point: { x: number; y: number; z: number } };
 
 /** The clicked face of any body, as the body's id and the face's outward normal in world space. */
 function pickLayFlatFace(state: ThreeState, clientX: number, clientY: number): LayFlatPick | null {
@@ -11756,7 +11780,7 @@ function pickLayFlatFace(state: ThreeState, clientX: number, clientY: number): L
   const position = mesh.geometry.getAttribute("position");
   const corner = (index: number) => new THREE.Vector3().fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld);
   const normal = outwardFaceNormal(corner(hit.face.a), corner(hit.face.b), corner(hit.face.c), state.raycaster.ray.direction);
-  return normal ? { shapeId: mesh.userData.shapeId as string, normal } : null;
+  return normal ? { shapeId: mesh.userData.shapeId as string, normal, point: { x: hit.point.x, y: hit.point.y, z: hit.point.z } } : null;
 }
 
 /**

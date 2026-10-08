@@ -56,11 +56,15 @@ The key is [[L]]. [[Esc]] cancels.
 
 You rotate with the curved arrows on the shape, with the numbers in the settings or with [[R]] in 45° steps. Normally the selection turns about its centre. Sometimes it should not, for example when a tilted tube is to be turned further at its end. For that there is {{ui:editor.tool.rotationPivot}}: afterwards click on a face. A flat face supplies its centre, for example the axis of a tube end. The selection now turns about that point. A second click on the tool removes it again.
 
+The angles stay with the body. In its settings, {{ui:inspector.rotation}} shows them as {{ui:prop.rotateX}}, {{ui:prop.rotateY}} and {{ui:prop.rotateZ}}, named like the position: Y runs across the plate, Z is up. Type an angle there and the body turns to it - about its centre, or about its own pivot if it has one. While a turned body is selected, its angles also show below it on the workplane; {{ui:workspace.showRotationAngles}} in the settings switches that off.
+
 With **one body** selected, the pivot belongs to that body: select other parts and come back, and it is still there. It moves, turns and scales with the body, is saved in the project and comes back with Undo. Under {{ui:inspector.position}} the pivot has its own X, Y and Z, which you can type or nudge, and {{ui:inspector.pivotRemove}} takes it away. With several bodies selected the pivot is only for that selection, and a new selection removes it.
 
 ## Laying flat on a face
 
 Should a part lie on its best side for printing? Select it, click {{ui:editor.tool.layFlat}} and then the face that should go down. While you move the pointer over the part, the face under it lights up, so you see which one you are about to pick; turn the view to check the other sides. The part turns so that this face rests on the workplane.
+
+Two parts should meet face to face, or line up flush? Select the part that should move, click {{ui:editor.tool.mateFaces}}, then click its face and after that the face of the other part. In the panel, {{ui:mate.mode.against}} puts the faces against each other (back to back, touching), {{ui:mate.mode.flush}} lays them in one plane side by side; {{ui:mate.gap}} leaves room between them, for example for clearance. {{ui:mate.apply}} moves the part: it turns the shortest way until the faces are parallel - not at all if they already are - and then slides only towards the other face, so it keeps its place sideways. The other part stays where it is, and one Undo takes it all back.
 
 Just as simple are {{ui:editor.tool.dropToWorkplane}} ([[D]]), which drops the selection onto the workplane, and {{ui:editor.tool.centerOnWorkplane}}.
 
