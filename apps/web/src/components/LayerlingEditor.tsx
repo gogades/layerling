@@ -184,6 +184,7 @@ import { copySketchSelection, freeSketchPasteOffset, pasteSketchClipboard, type 
 import { sketchSelectionCount, toggleSketchSelection } from "@/lib/sketchSelection";
 import { applySketchChamfer, applySketchFillet } from "@/lib/sketchFilletChamfer";
 import { revolveProfileFitsAxis } from "@/lib/cadSketchRevolve";
+import { revolveAxisShift } from "@/lib/revolveAxis";
 import { buildSketchRevolveMesh, DEFAULT_SKETCH_REVOLVE_SETTINGS, normalizeSketchRevolveSettings, type SketchRevolveMesh } from "@/lib/sketchRevolve";
 import { AppFooter } from "@/components/AppFooter";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
@@ -8853,6 +8854,20 @@ export function LayerlingEditor({
         setNotice(t("status.buildingSketch"), true);
         const revolved = await shapeFromRevolvedSketchProfile(sketchProfile, sketchRevolveSettings, existing);
         resolved = placeSketchShape(revolved, activeSketchWorkplane, existing);
+        if (existing?.sketchProfile && resolved) {
+          // The rebuilt body is centred on its outline again: keep its axis where it was.
+          const base = existing.importedMesh;
+          const shift = revolveAxisShift(
+            existing,
+            { profile: existing.sketchProfile, settings: existing.sketchRevolve ?? {} },
+            { profile: sketchProfile, settings: sketchRevolveSettings },
+            base ? existing.width / Math.max(0.001, base.baseWidth) : 1,
+            base ? existing.depth / Math.max(0.001, base.baseDepth) : 1,
+            1,
+            1,
+          );
+          resolved = canonicalizeShape({ ...resolved, x: resolved.x + shift.x, z: resolved.z + shift.z, elevation: (resolved.elevation ?? 0) + shift.y });
+        }
       } else {
         setNotice(t("status.buildingSketch"), true);
         const extrusion = await cadShapeFromSketchProfile(sketchProfile, height, existing);
@@ -9006,15 +9021,23 @@ export function LayerlingEditor({
           const width = generated.width * widthScale;
           const depth = generated.depth * depthScale;
           const height = generated.height * heightScale;
+          // The body is centred on its outline, which moves with the sweep: carry its middle so the axis stays put.
+          const shift = revolveAxisShift(
+            current,
+            { profile: source.sketchProfile!, settings: current.sketchRevolve ?? {} },
+            { profile: source.sketchProfile!, settings },
+            widthScale,
+            depthScale,
+          );
           const updated = canonicalizeShape({
             ...generated,
             id: current.id,
             name: current.name,
             color: current.color,
             hole: current.hole,
-            x: current.x,
-            z: current.z,
-            elevation: current.elevation,
+            x: current.x + shift.x,
+            z: current.z + shift.z,
+            elevation: (current.elevation ?? 0) + shift.y,
             width,
             depth,
             height,

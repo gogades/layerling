@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## 1.49.1
+
+- **A revolved body stays in place when you change its sweep or start angle:** The body is centred on its outline, so with a partial sweep its middle lies elsewhere than the axis it turns around - changing the sweep slid the whole body across the plate. The axis now stays where it was, so the body grows and shrinks around it. The same holds when you edit the sketch of a revolved body and finish it again. Reported by @prmod3d in #176.
+
 ## 1.49.0
 
 - **Curve a straight side:** Select a line in the sketch and click **Curve line**: the side bows out into a curve, as in Tinkercad, and shows its two handles to drag. **Straight line** makes it straight again. Asked for by @lukyanenkomax in #171.

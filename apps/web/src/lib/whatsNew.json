@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.49.1",
+    "items": [
+      {
+        "title": {
+          "de": "Drehkörper bleibt an seinem Platz",
+          "en": "A revolved body stays in place"
+        },
+        "body": {
+          "de": "Wenn du bei einem Drehkörper den Sweep oder den Startwinkel änderst, bleibt die Drehachse jetzt an ihrer Stelle. Vorher rutschte der ganze Körper über die Platte, sobald er nur einen Teil der Drehung ausfüllte.",
+          "en": "When you change the sweep or start angle of a revolved body, its axis now stays where it was. Before, the whole body slid across the plate whenever it filled only part of a turn."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.49.0",
     "items": [
       {

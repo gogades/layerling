@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { OcctKernel } from "occt-wasm";
 import { buildRevolvedSketchSolid } from "@/lib/cadSketchRevolve";
 import { shellSolid } from "@/lib/cadShell";
+import { revolveAxisOffset } from "@/lib/revolveAxis";
 import type { SketchPoint, SketchProfile } from "@/types/layerling";
 
 function polygon(coordinates: Array<[number, number]>): SketchProfile {
@@ -51,6 +52,15 @@ describe("a revolved sketch as an exact solid, with the real OCCT kernel", () =>
     const backBounds = kernel.getBoundingBox(back, false);
     expect(backBounds.xmin).toBeGreaterThan(-1e-6);
     expect(backBounds.zmax).toBeLessThan(1e-6);
+  });
+
+  it.each([[0, 90], [0, 180], [30, 200], [0, -120], [300, 150]])("lies about its axis the way revolveAxisOffset says (start %d, sweep %d)", (startAngle, sweepAngle) => {
+    const ring = polygon([[-20, 0], [-8, 0], [-8, 30], [-20, 30]]);
+    const bounds = kernel.getBoundingBox(buildRevolvedSketchSolid(kernel, ring, startAngle, sweepAngle), false);
+    const offset = revolveAxisOffset(ring, { startAngle, sweepAngle });
+    // The axis is at the origin of the solid, so the middle of its box is minus the offset.
+    expect((bounds.xmin + bounds.xmax) / 2).toBeCloseTo(-offset.x, 2);
+    expect((bounds.zmin + bounds.zmax) / 2).toBeCloseTo(-offset.z, 2);
   });
 
   it("keeps a curve exact: a quarter circle profile makes a dome with the volume of a half sphere", () => {

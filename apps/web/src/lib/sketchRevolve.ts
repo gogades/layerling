@@ -20,6 +20,8 @@ export type SketchRevolveMesh = {
   depth: number;
   height: number;
   triangleCount: number;
+  /** Where the revolve axis lies from the middle of the body. */
+  axis: { x: number; z: number };
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -248,6 +250,7 @@ export function buildSketchRevolveMesh(runtime: ManifoldToplevel, profile: Sketc
       depth: Math.max(0.01, maxZ - minZ),
       height: Math.max(0.01, maxY - minY),
       triangleCount: Math.floor(positions.length / 9),
+      axis: { x: -centerX, z: -centerZ },
     };
   } finally {
     [...new Set(disposable)].reverse().forEach(dispose);
