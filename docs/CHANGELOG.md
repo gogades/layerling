@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **An empty design does not pile up on the start page:** Going back to the start page from a design with nothing in it asks whether to keep it ("*name* is empty. Do you want to keep it?"). **Yes** (or Enter, or Esc) keeps it, **No** removes it. Designs from the shared folder on a server are not asked about. Changes still waiting for a pause are saved on the way out, so a shape added just before leaving counts.
+
 ## 1.46.0
 
 - **The sketch can be nudged, locked to an axis, and its lines dragged:** The arrow keys move the selected points, lines or image by one grid step ([[Shift]]: a larger step), as on the workplane. Holding Shift while dragging a point, line or selection keeps the move on one axis. A line can be dragged: it moves by its two ends, or the whole selection when it is part of one. A click on a line without dragging no longer writes an undo step. Asked for by @prmod3d in #144.

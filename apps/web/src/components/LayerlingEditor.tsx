@@ -12667,7 +12667,7 @@ export function LayerlingEditor({
     return { shapes: hasSelection ? selectedShapes : shapes, selection: hasSelection };
   }, [hasSelection, selectedShapes, shapes]);
 
-  const exportDesign = useCallback((format: DirectExportFormat, exportName: string, toSlicer = false) => {
+  const exportDesign = useCallback((format: DirectExportFormat, exportName: string) => {
     const source = exportSource();
     const selectionScoped = source.selection;
     // Ausgeblendetes bleibt draussen, wie bei Tinkercad: ein beiseitegelegtes
@@ -12715,16 +12715,7 @@ export function LayerlingEditor({
             return { ...mesh, name: source?.name || mesh.name, color: source?.color };
           });
           const bytes = exportMeshesTo3mf(bodies, { title: exportName.trim() || projectName });
-          if (toSlicer) {
-            // EXPERIMENT: Bambu Studio fetches the file itself, so it is parked on the server first.
-            const response = await fetch("/api/slicer-handoff", { method: "POST", body: bytes as BlobPart });
-            if (!response.ok) throw new Error(`Slicer handoff failed (${response.status})`);
-            const { id } = await response.json() as { id: string };
-            // Bambu Studio takes the last path segment as the name without decoding it, so keep it plain.
-            const fileName = projectExportFileName(exportName, "3mf").replace(/[^A-Za-z0-9._-]+/g, "_");
-            const fileUrl = new URL(`/api/slicer-handoff/${id}/${fileName}`, window.location.href).href;
-            window.location.href = `bambustudioopen://${encodeURIComponent(fileUrl)}`;
-          } else await downloadBlobFile(projectExportFileName(exportName, "3mf"), new Blob([bytes as BlobPart], { type: THREE_MF_MEDIA_TYPE }));
+          await downloadBlobFile(projectExportFileName(exportName, "3mf"), new Blob([bytes as BlobPart], { type: THREE_MF_MEDIA_TYPE }));
         } else {
           const bodies = fertig.map((mesh, index) => ({ ...mesh, color: exportable[quellen[index]]?.color }));
           await downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(bodies), "text/plain");
@@ -15546,7 +15537,7 @@ function TopActionPanel({
   estimateShapes: readonly WorkplaneShape[];
   onEstimatePrint: (shapes: readonly WorkplaneShape[]) => Promise<ExportSolidVolume>;
   onClose: () => void;
-  onExport: (format: DirectExportFormat, exportName: string, toSlicer?: boolean) => void;
+  onExport: (format: DirectExportFormat, exportName: string) => void;
   onExportLyl: (exportName: string, historyLimit: LylHistoryLimit, target?: LylExportTarget) => void;
   onExportStep: (exportName: string) => void;
   onExportImage: (exportName: string, options: ViewImageOptions) => void;
@@ -15905,16 +15896,6 @@ function TopActionPanel({
                 >
                   <CloudUpload />
                   <span>{t("export.saveToShared")}</span>
-                </button>
-              ) : null}
-              {exportFormat === "3mf" ? (
-                <button
-                  className="export-shared-button"
-                  type="button"
-                  onClick={() => onExport("3mf", exportName, true)}
-                  disabled={shapeCount === 0}
-                >
-                  <span>Open in slicer</span>
                 </button>
               ) : null}
               <button className="export-primary-button" onClick={runSelectedExport} disabled={(shapeCount === 0 && exportsBodies) || stepExporting || lylExporting}>
