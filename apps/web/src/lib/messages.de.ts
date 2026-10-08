@@ -141,7 +141,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "welcome.moreLayFlatTitle": "Auf Fläche legen",
   "welcome.moreLayFlatBody": "eine Fläche anklicken, und das Teil liegt mit dieser Seite auf der Platte - die beste Druckrichtung mit einem Klick.",
   "welcome.morePivotTitle": "Drehpunkt setzen",
-  "welcome.morePivotBody": "um die Achse eines Rohrendes oder die Mitte einer Fläche drehen statt um die Mitte des Körpers.",
+  "welcome.morePivotBody": "um die Achse eines Rohrendes oder die Mitte einer Fläche drehen statt um die Mitte des Körpers. Bei einem einzelnen Körper bleibt der Drehpunkt an ihm hängen.",
   "welcome.moreMeasureTitle": "Messen",
   "welcome.moreMeasureBody": "Maßband, Lineal und Winkellineal, Abstände zum Nullpunkt – auch für mehrere markierte Körper –, Notizen direkt an der Arbeitsfläche und eine Schnittansicht, die das Modell zum Hineinschauen aufschneidet, darauf Wandstärken und Spalte misst und den Schnitt als SVG für Laser oder Schablone speichert.",
   "welcome.moreBackupTitle": "Alle Entwürfe sichern",

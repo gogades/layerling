@@ -54,7 +54,9 @@ Die Taste dafür ist [[L]]. [[Esc]] bricht ab.
 
 ## Drehen und den Drehpunkt setzen
 
-Gedreht wird mit den gebogenen Pfeilen an der Form, mit den Zahlen in den Einstellungen oder mit [[R]] in 45°-Schritten. Normalerweise dreht sich die Auswahl um ihre Mitte. Manchmal soll sie das nicht, etwa wenn ein gekipptes Rohr an seinem Ende weitergedreht werden soll. Dafür gibt es {{ui:editor.tool.rotationPivot}}: Klicke danach auf eine Fläche. Eine ebene Fläche gibt ihren Mittelpunkt vor, zum Beispiel die Achse eines Rohrendes. Die Auswahl dreht sich jetzt um diesen Punkt. Ein zweiter Klick auf das Werkzeug oder eine neue Auswahl hebt ihn wieder auf.
+Gedreht wird mit den gebogenen Pfeilen an der Form, mit den Zahlen in den Einstellungen oder mit [[R]] in 45°-Schritten. Normalerweise dreht sich die Auswahl um ihre Mitte. Manchmal soll sie das nicht, etwa wenn ein gekipptes Rohr an seinem Ende weitergedreht werden soll. Dafür gibt es {{ui:editor.tool.rotationPivot}}: Klicke danach auf eine Fläche. Eine ebene Fläche gibt ihren Mittelpunkt vor, zum Beispiel die Achse eines Rohrendes. Die Auswahl dreht sich jetzt um diesen Punkt. Ein zweiter Klick auf das Werkzeug hebt ihn wieder auf.
+
+Ist **ein Körper** gewählt, gehört der Drehpunkt zu diesem Körper: Wähle andere Teile und komm zurück, und er ist noch da. Er wandert, dreht sich und skaliert mit dem Körper, wird im Projekt gespeichert und kommt mit „Rückgängig“ zurück. Unter {{ui:inspector.position}} hat der Drehpunkt eigene Werte für X, Y und Z, die du eintippen oder verschieben kannst, und {{ui:inspector.pivotRemove}} nimmt ihn weg. Sind mehrere Körper gewählt, gilt der Drehpunkt nur für diese Auswahl, und eine neue Auswahl hebt ihn auf.
 
 ## Auf eine Fläche legen
 

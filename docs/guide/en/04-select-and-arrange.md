@@ -54,7 +54,9 @@ The key is [[L]]. [[Esc]] cancels.
 
 ## Rotating and setting the pivot
 
-You rotate with the curved arrows on the shape, with the numbers in the settings or with [[R]] in 45° steps. Normally the selection turns about its centre. Sometimes it should not, for example when a tilted tube is to be turned further at its end. For that there is {{ui:editor.tool.rotationPivot}}: afterwards click on a face. A flat face supplies its centre, for example the axis of a tube end. The selection now turns about that point. A second click on the tool or a new selection removes it.
+You rotate with the curved arrows on the shape, with the numbers in the settings or with [[R]] in 45° steps. Normally the selection turns about its centre. Sometimes it should not, for example when a tilted tube is to be turned further at its end. For that there is {{ui:editor.tool.rotationPivot}}: afterwards click on a face. A flat face supplies its centre, for example the axis of a tube end. The selection now turns about that point. A second click on the tool removes it again.
+
+With **one body** selected, the pivot belongs to that body: select other parts and come back, and it is still there. It moves, turns and scales with the body, is saved in the project and comes back with Undo. Under {{ui:inspector.position}} the pivot has its own X, Y and Z, which you can type or nudge, and {{ui:inspector.pivotRemove}} takes it away. With several bodies selected the pivot is only for that selection, and a new selection removes it.
 
 ## Laying flat on a face
 

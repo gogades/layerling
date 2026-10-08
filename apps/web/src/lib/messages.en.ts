@@ -142,7 +142,7 @@ export const MESSAGES_EN = {
   "welcome.moreLayFlatTitle": "Lay flat on face",
   "welcome.moreLayFlatBody": "click a face and the part rests on the plate with that side down - the best print orientation in one click.",
   "welcome.morePivotTitle": "Rotation pivot",
-  "welcome.morePivotBody": "turn around the axis of a pipe end or the centre of a face instead of the body's centre.",
+  "welcome.morePivotBody": "turn around the axis of a pipe end or the centre of a face instead of the body's centre. On a single body the pivot stays with it.",
   "welcome.moreMeasureTitle": "Measure",
   "welcome.moreMeasureBody": "tape measure, ruler and framing square, distances to the origin - for several selected bodies too -, notes right on the workplane, and a section view that cuts the model open to look inside, measures wall thickness and gaps on the cut and saves it as an SVG for a laser or a template.",
   "welcome.moreBackupTitle": "Back up all designs",
