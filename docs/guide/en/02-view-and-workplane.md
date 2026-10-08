@@ -21,7 +21,7 @@ On a tablet or phone, two fingers zoom (spread and pinch) and move the view (sli
 
 The cube in the top left shows where you are looking. A click on one of its sides jumps to the straight view from top, bottom, front, back, left or right. The number keys [[1]] to [[6]] do the same. Hold [[Shift]] with them and the view also zooms to the selection, as [[Shift]]+[[F]] does.
 
-Drag the cube to turn the view around, just like dragging with the right mouse button. On a touch screen this works with one finger, without switching on {{ui:camera.touchRotate}}.
+Drag the cube to turn the view around, just like dragging with the right mouse button. With nothing selected, the arrow keys turn the view as well: 15° a press, 90° with [[Shift]]. They turn the model the way they point - [[→]] turns its front to the right, [[↑]] tilts its front upwards. If something is selected, the arrows move it; click on empty space first to turn the view. On a touch screen this works with one finger, without switching on {{ui:camera.touchRotate}}.
 
 ### The camera bar
 

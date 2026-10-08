@@ -382,6 +382,8 @@ declare global {
     layerlingCaptureCanvas?: () => string;
     layerlingCaptureCanvasAsync?: () => Promise<string>;
     layerlingCaptureView?: (face?: LayerlingMcpViewFace) => Promise<string> | string;
+    /** Turns the view about its centre: azimuth around the vertical, polar towards or away from straight down. */
+    layerlingOrbitView?: (azimuthDegrees: number, polarDegrees: number) => void;
     /** The section view for MCP: applies what is given, returns the settings it ends on and the plane's range. */
     layerlingSectionView?: (patch: Partial<SectionPlaneSettings> & { center?: boolean }) => { settings: SectionPlaneSettings; bounds: { min: number; max: number; center: number } };
     /** "Hide workplane" in the camera bar for MCP: sets it when given, returns whether the plate is shown. */
@@ -6145,6 +6147,8 @@ function rotationFromQuaternion(quaternion: THREE.Quaternion) {
     rotationZ: cleanRotationDegrees(THREE.MathUtils.radToDeg(euler.z)),
   };
 }
+
+const ARROW_KEYS: ReadonlySet<string> = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
 
 function cleanShapePatch(patch: ShapeUpdatePatch): Partial<WorkplaneShape> {
   const { bakeTransform: _bakeTransform, ...rest } = patch;
@@ -13609,6 +13613,19 @@ export function LayerlingEditor({
       // Follows the Snap Grid so a keyboard nudge lands on the same lattice
       // a pointer drag snaps to. Falls back to the old millimetre when the
       // grid is off.
+      // With nothing selected the arrow keys turn the view instead, 15 degrees
+      // a press (Shift: 90). The arrows turn the model: right turns its front
+      // to the right, up tilts its front upwards.
+      if (!hasSelection && !shortcut && !event.altKey && ARROW_KEYS.has(event.key) && window.layerlingOrbitView) {
+        event.preventDefault();
+        const angle = event.shiftKey ? 90 : 15;
+        if (event.key === "ArrowLeft") window.layerlingOrbitView(angle, 0);
+        else if (event.key === "ArrowRight") window.layerlingOrbitView(-angle, 0);
+        else if (event.key === "ArrowUp") window.layerlingOrbitView(0, angle);
+        else window.layerlingOrbitView(0, -angle);
+        return;
+      }
+
       const step = keyboardNudgeStep(snapGridRef.current, event.shiftKey);
       if (shortcut && event.key === "ArrowUp") {
         event.preventDefault();
