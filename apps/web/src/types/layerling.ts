@@ -201,6 +201,8 @@ export type WorkplaneWorkspaceSettings = {
   background: string;
   /** The workplane's surface colour in the light theme. */
   surfaceColor: string;
+  /** Arrows for the X, Y and Z directions at the corner of the plate. */
+  showAxes: boolean;
   /** Draw an edge line on every body, not only on selected and complex ones. */
   edgeLines: boolean;
   /** Colour of those edge lines. */

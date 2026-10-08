@@ -223,3 +223,18 @@ export function sceneLightLevels(contrast: number) {
   const c = Math.max(-100, Math.min(100, Number.isFinite(contrast) ? contrast : 0)) / 100;
   return { ambient: 2.1 * (1 - 0.5 * c), key: 3.1 * (1 + 0.5 * c), fill: 1.2 };
 }
+
+/** The colours of the axis arrows, as in Bambu Studio and OrcaSlicer: X red, Y green, Z blue. */
+export const AXIS_ARROW_COLORS = { x: "#e5484d", y: "#3fae5a", z: "#3b82f6" } as const;
+
+/**
+ * Where the axis arrows stand and how long they are: at the far left corner of the plate, where
+ * they stay out of the way, long enough to read at a glance and never longer than a fifth of the
+ * smaller side. The arrows point along the numbers' directions: X to the right, Y towards the
+ * front (the way the Y field counts) and Z up.
+ */
+export function axisArrowLayout(width: number, depth: number) {
+  const smaller = Math.max(1, Math.min(width, depth));
+  const length = Math.max(6, Math.min(24, smaller * 0.12, smaller * 0.2));
+  return { x: -width / 2, z: -depth / 2, length };
+}

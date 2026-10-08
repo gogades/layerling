@@ -98,7 +98,7 @@ import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { makeShapeFromAsset, parseDroppedShapeAsset } from "@/lib/shapeCatalog";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { withShapeDefaults } from "@/lib/shapeDefaults";
-import { DEFAULT_EDGE_LINE_COLOR, sceneLightLevels, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
+import { AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, sceneLightLevels, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { LayerlingMcpViewFace } from "@/lib/layerlingMcpProtocol";
@@ -10053,6 +10053,9 @@ function rebuildWorkplane(
         }
       }
     }
+    if (!muted && workspace.showAxes) {
+      group.add(createAxisArrows(workspace.width, workspace.depth));
+    }
     if (showMarker) {
       const markerMaterial = new THREE.MeshBasicMaterial({
         color: theme === "dark" ? "#d7f4ff" : "#17405c",
@@ -10188,6 +10191,66 @@ const WORKPLANE_LABEL_FONT_STACK = '"Avenir Next", Avenir, "Helvetica Neue", Ari
  * Drawn into a canvas rather than built from glyph geometry: it is a single
  * static string that never needs to be a solid, and a texture costs one quad.
  */
+/**
+ * Arrows for X, Y and Z at the plate's back left corner, in the frame of the workplane they sit
+ * on: X to the right, Y towards the front (as the Y field counts), Z up. They are flat-coloured,
+ * never take a click, and the letters stay readable from every side.
+ */
+function createAxisArrows(width: number, depth: number) {
+  const layout = axisArrowLayout(width, depth);
+  const group = new THREE.Group();
+  group.name = "WorkplaneAxisArrows";
+  group.position.set(layout.x, 0.06, layout.z);
+  const headLength = Math.min(layout.length * 0.3, 5);
+  const shaftRadius = Math.max(0.3, layout.length * 0.022);
+  const headRadius = shaftRadius * 3;
+  const axes = [
+    { letter: "X", color: AXIS_ARROW_COLORS.x, direction: new THREE.Vector3(1, 0, 0) },
+    { letter: "Y", color: AXIS_ARROW_COLORS.y, direction: new THREE.Vector3(0, 0, 1) },
+    { letter: "Z", color: AXIS_ARROW_COLORS.z, direction: new THREE.Vector3(0, 1, 0) },
+  ];
+  axes.forEach(({ letter, color, direction }) => {
+    const arrow = new THREE.Group();
+    arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+    const material = new THREE.MeshBasicMaterial({ color });
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(shaftRadius, shaftRadius, layout.length - headLength, 14), material);
+    shaft.position.y = (layout.length - headLength) / 2;
+    const head = new THREE.Mesh(new THREE.ConeGeometry(headRadius, headLength, 20), material);
+    head.position.y = layout.length - headLength / 2;
+    arrow.add(shaft, head);
+    group.add(arrow);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const context = canvas.getContext("2d");
+    if (context) {
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.font = `700 46px ${WORKPLANE_LABEL_FONT_STACK}`;
+      context.lineJoin = "round";
+      context.lineWidth = 8;
+      context.strokeStyle = "rgba(255, 255, 255, 0.92)";
+      context.strokeText(letter, 32, 34);
+      context.fillStyle = color;
+      context.fillText(letter, 32, 34);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+      const size = Math.max(4, layout.length * 0.3);
+      sprite.scale.set(size, size, 1);
+      sprite.position.copy(direction.clone().multiplyScalar(layout.length + size * 0.65));
+      sprite.renderOrder = 5;
+      group.add(sprite);
+    }
+  });
+  // The arrows are a picture, not a body: nothing under the pointer may stop at them.
+  group.traverse((object) => {
+    object.raycast = () => undefined;
+  });
+  return group;
+}
+
 function createWorkplaneLabel(
   width: number,
   depth: number,

@@ -658,6 +658,12 @@ export function WorkspaceSettingsModal({
                     onChange={(nextSurface) => patchWorkspace({ surfaceColor: nextSurface })}
                   />
                   <WorkspaceToggle
+                    label={t("workspace.showAxes")}
+                    description={t("workspace.showAxesHint")}
+                    checked={workspace.showAxes}
+                    onChange={(showAxes) => patchWorkspace({ showAxes })}
+                  />
+                  <WorkspaceToggle
                     label={t("workspace.edgeLines")}
                     description={t("workspace.edgeLinesHint")}
                     checked={workspace.edgeLines}
