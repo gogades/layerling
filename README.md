@@ -61,6 +61,7 @@ It is not a full CAD package: there is no parametric timeline and no assemblies.
 
 - **A real build plate** – grid, snapping, handles for moving, resizing and rotating, and a panel with the exact numbers when you need them.
 - **Type a position** – the Position card puts a body at exact X, Y and Z, and parts can be parked beside the plate, as in Tinkercad.
+- **Align faces and see the angles** – the Align faces tool brings a face of one part against a face of another, touching or flush, with an optional gap; a turned body shows its angles about X, Y and Z under the selection, and the Rotation card in its settings takes them as numbers.
 - **Snap to other shapes** – while moving, a shape locks its edges or centre onto the edges and centres of the shapes around it, with a guide line, so parts sit flush without typing numbers. Alt during the drag pauses it; Shift keeps the move on one axis, and Alt held from the start drags a copy, as in Tinkercad.
 - **Reference points** – right-click a body to mark its centre, corners or edge middles with points that nothing prints and that dragged shapes snap to; drag a point or type its coordinates, and the marks are saved with the design.
 - **Command search** – press Ctrl+K and type a tool, a shape or a command ("fillet", "mirror", "cylinder") to jump straight to it; it understands English and German words and shows the keyboard shortcuts beside each entry.
