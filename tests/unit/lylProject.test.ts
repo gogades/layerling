@@ -133,6 +133,13 @@ describe("layerling .lyl project packages", () => {
     expect(document.assets.filter((entry) => entry.kind === "derived-mesh")).toHaveLength(0);
   });
 
+  it("keeps a group's Multicolor choice through saving and opening", async () => {
+    const group = shape("box", "group-1", { multicolor: false });
+    const other = shape("box", "group-2", { multicolor: true });
+    const restored = await importLylProject(await exportLylProject(input([group, other])));
+    expect(restored.shapes.map((entry) => entry.multicolor)).toEqual([false, true]);
+  });
+
   it("loads an old cylinder with mismatched width and depth as circular instead of refusing it", async () => {
     const legacyCylinder = shape("cylinder", "legacy-cylinder", { width: 24, depth: 15 });
     const exported = await exportLylProject(input([legacyCylinder]));
