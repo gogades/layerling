@@ -1,3 +1,8 @@
+import * as THREE from "three";
+import { quaternionForShape } from "@/lib/geometryRotation";
+import { mirrorSign, shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
+import type { WorkplaneShape } from "@/types/layerling";
+
 export type PivotPoint = { x: number; y: number; z: number };
 
 /**
@@ -136,4 +141,46 @@ export function planarFaceTriangles(positions: ArrayLike<number>, hitTriangle: n
   }
 
   return { triangles, areas };
+}
+
+/**
+ * A pivot that stays with one body is stored in the body's own frame, as a
+ * fraction of its width, height and depth from its centre: it moves, turns
+ * and scales with the body, the way a note anchored to a body does.
+ */
+function shapePivotFrame(shape: WorkplaneShape) {
+  const size = new THREE.Vector3(
+    Math.max(1e-6, shapeWidth(shape)),
+    Math.max(1e-6, shape.height),
+    Math.max(1e-6, shapeDepth(shape)),
+  );
+  const mirror = new THREE.Vector3(mirrorSign(shape.mirrorX), mirrorSign(shape.mirrorY), mirrorSign(shape.mirrorZ));
+  const center = new THREE.Vector3(shape.x, (shape.elevation ?? 0) + shape.height / 2, shape.z);
+  return { size, mirror, center, turn: quaternionForShape(shape) };
+}
+
+/** Where a body's own pivot lies in the world, or null if it has none. */
+export function shapePivotWorld(shape: WorkplaneShape): PivotPoint | null {
+  const stored = shape.rotationPivot;
+  if (!stored || !stored.every(Number.isFinite)) return null;
+  const { size, mirror, center, turn } = shapePivotFrame(shape);
+  const point = new THREE.Vector3(...stored).multiply(size).multiply(mirror).applyQuaternion(turn).add(center);
+  return { x: point.x, y: point.y, z: point.z };
+}
+
+/** The value to store on a body for a pivot at a point in the world. */
+export function shapePivotFromWorld(shape: WorkplaneShape, point: PivotPoint): [number, number, number] {
+  const { size, mirror, center, turn } = shapePivotFrame(shape);
+  const local = new THREE.Vector3(point.x, point.y, point.z).sub(center).applyQuaternion(turn.clone().invert()).multiply(mirror).divide(size);
+  return [local.x, local.y, local.z];
+}
+
+/**
+ * Keeps a body's pivot on the same spot in the world when the body is
+ * rebuilt in a new frame (a turn baked into its mesh, say).
+ */
+export function carryShapePivot(from: WorkplaneShape, to: WorkplaneShape): WorkplaneShape {
+  const world = shapePivotWorld(from);
+  if (!world) return to;
+  return { ...to, rotationPivot: shapePivotFromWorld(to, world) };
 }
