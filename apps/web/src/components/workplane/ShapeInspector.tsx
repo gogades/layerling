@@ -156,6 +156,7 @@ import { DEFAULT_TAPER_DIMENSION_MAX, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLU
 import type { BentTubeInnerProfile, BentTubeProfile, CustomSnapGrid, GearType, GridSize, MeasurementAccuracy, ShapeCustomization, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
 import { useRecentColors } from "@/lib/recentColors";
+import { canToggleGroupColors, groupShowsPartColors } from "@/lib/groupColors";
 
 /**
  * Docked at the right edge, full height. Moved away, it floats: no longer
@@ -1529,6 +1530,8 @@ export function ShapeInspector({
 }) {
   useLanguage();
   const solidColor = shape.color;
+  // Picking one colour for a group means one colour for all of it, as in Tinkercad.
+  const singleColorPatch: Partial<WorkplaneShape> = canToggleGroupColors(shape) ? { multicolor: false } : {};
   const locked = Boolean(shape.locked);
   const properties = getShapeProperties(shape, onUpdate, workspace);
   // What each value would be on a shape of this kind made new, with the saved defaults: the
@@ -1779,6 +1782,14 @@ export function ShapeInspector({
           disabled={locked || Boolean(shape.hole)}
           onChange={(transparent) => onUpdate({ transparent: transparent || undefined })}
         />
+        {canToggleGroupColors(shape) ? (
+          <ToggleProperty
+            label={t("inspector.multicolor")}
+            value={groupShowsPartColors(shape)}
+            disabled={locked}
+            onChange={(multicolor) => onUpdate({ multicolor })}
+          />
+        ) : null}
       </div>
       ) : null}
 
@@ -1799,7 +1810,7 @@ export function ShapeInspector({
                 aria-label={t("aria.setColor", { color })}
                 disabled={locked}
                 onClick={() => {
-                  onUpdate({ color, hole: false });
+                  onUpdate({ color, hole: false, ...singleColorPatch });
                   setColorOpen(false);
                 }}
               />
@@ -1809,7 +1820,7 @@ export function ShapeInspector({
                 color={solidColor}
                 disabled={locked}
                 onCommit={(color) => {
-                  onUpdate({ color, hole: false });
+                  onUpdate({ color, hole: false, ...singleColorPatch });
                   rememberColor(color);
                 }}
                 onInteractionActiveChange={onInteractionActiveChange}
@@ -1831,7 +1842,7 @@ export function ShapeInspector({
                     aria-label={t("aria.setColor", { color })}
                     disabled={locked}
                     onClick={() => {
-                      onUpdate({ color, hole: false });
+                      onUpdate({ color, hole: false, ...singleColorPatch });
                       rememberColor(color);
                       setColorOpen(false);
                     }}

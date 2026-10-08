@@ -277,6 +277,7 @@ export const tools = [
         color: { type: "string" },
         hole: { type: "boolean" },
         transparent: { type: "boolean" },
+        multicolor: { type: "boolean", description: "Groups only: show every part in its own colour (Tinkercad's Multicolor) instead of the group colour." },
         locked: { type: "boolean" },
         hidden: { type: "boolean" },
         x: { type: "number" },
