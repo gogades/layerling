@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import * as THREE from "three";
+import { GuideHelpLink } from "@/components/GuideHelpLink";
 
 export function SketchRevolvePreview({ positions }: { positions: number[] | null }) {
   useLanguage();
@@ -68,7 +69,10 @@ export function SketchRevolvePreview({ positions }: { positions: number[] | null
 
   return (
     <aside className="sketch-revolve-preview" aria-label={t("sketch.revolvePreview")}>
-      <div className="sketch-revolve-preview-title">{t("sketch.revolvePreviewTitle")}</div>
+      <div className="sketch-revolve-preview-title">
+        {t("sketch.revolvePreviewTitle")}
+        <GuideHelpLink section="sketchToBody" iconSize={15} />
+      </div>
       {positions?.length ? <canvas ref={canvasRef} /> : <div className="sketch-revolve-preview-empty">{t("sketch.revolvePreviewEmpty")}</div>}
     </aside>
   );

@@ -14738,7 +14738,7 @@ function SecondaryToolbar({
             <div className="shape-menu-dropdown">
               <div className="shape-menu-title">
                 {t("shape.basicShapes")}
-                <GuideHelpLink chapter="shapes" />
+                <GuideHelpLink section="addShape" />
               </div>
               <div className="shape-menu-body">
               {renderMyShapes ? (
@@ -14901,6 +14901,7 @@ function SecondaryToolbar({
                 <span>{t("visibility.eyeAgain")}</span>
                 <span aria-hidden="true">·</span>
                 <span><kbd>Ctrl/Cmd</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd>{t("visibility.allShortcut")}</span>
+                <GuideHelpLink section="selecting" iconSize={14} />
               </div>
             </div>
           ) : null}
@@ -14997,7 +14998,7 @@ function SecondaryToolbar({
                     <div className="shape-menu-dropdown sketch-shape-menu-dropdown" role="menu" aria-label={t("sketch.shapesMenu")}>
                       <div className="shape-menu-title">
                         {t("sketch.shapesTitle")}
-                        <GuideHelpLink chapter="sketches" />
+                        <GuideHelpLink section="sketchDrawing" />
                       </div>
                       <div className="shape-menu-list">
                         {sketchShapeMenuItems.map(({ primitive, label, icon: Icon }) => (
@@ -15132,6 +15133,10 @@ function SecondaryToolbar({
                     </button>
                     {sketchCreateOpen ? (
                       <div className="sketch-create-dropdown" role="menu" aria-label={t("sketch.to3dMethod")}>
+                        <div className="sketch-create-title">
+                          {t("sketch.to3dMethod")}
+                          <GuideHelpLink section="sketchToBody" />
+                        </div>
                         <button type="button" role="menuitem" onClick={() => startSketch("extrude")}>
                           <strong>{t("sketch.extrude")}</strong>
                           <span>{t("sketch.extrudeHint")}</span>

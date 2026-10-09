@@ -3990,6 +3990,18 @@ html[data-theme="dark"] .shell-openings-summary {
   height: 13px;
 }
 
+/* The heading of the "Sketch to 3D" menu, with its question mark. */
+.sketch-create-dropdown .sketch-create-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 6px 5px;
+  color: #84715d;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .sketch-create-dropdown {
   position: absolute;
   top: calc(100% + 5px);
@@ -5868,6 +5880,13 @@ html[data-theme="dark"] .shell-openings-summary {
   border-radius: 12px;
   box-shadow: 0 12px 34px rgba(86, 61, 34, 0.16);
   pointer-events: none;
+}
+
+/* The preview's title carries the question mark beside it. */
+.sketch-revolve-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .sketch-revolve-preview-title {

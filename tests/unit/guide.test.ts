@@ -214,7 +214,11 @@ describe("guide content", () => {
     expect(guideHref("de", guideChapterForShape({ kind: "knurl" }), guideSectionForShape({ kind: "knurl" }))).toBe("/anleitung/gewinde-und-mechanik.html#raendelung");
     expect(guideHref("en", guideChapterForShape({ kind: "box" }), guideSectionForShape({ kind: "box" }))).toBe("/guide/shapes.html#the-shape-s-settings");
     expect(guideSectionForShape({ kind: "mesh", groupedShapes: [{}], groupOperation: "bundle" })).toBe("bundling");
-    expect(guideSectionForShape({ kind: "text" })).toBeUndefined();
+    // Every shape's question mark jumps to a heading, not just into a chapter.
+    expect(guideSectionForShape({ kind: "text" })).toBe("addingText");
+    expect(guideSectionForShape({ kind: "mesh", sketchProfile: {} })).toBe("sketchToBody");
+    expect(guideSectionForShape({ kind: "mesh", importedMesh: { sourceFormat: "stl" } })).toBe("importing");
+    expect(guideHref("de", guideChapterForShape({ kind: "mesh", sketchProfile: {} }), guideSectionForShape({ kind: "mesh", sketchProfile: {} }))).toBe("/anleitung/skizzen.html#ein-koerper-daraus-machen");
     for (const kind of ["thread", "gear", "spring", "bentTube", "honeycomb", "hinge", "knurl", "dovetail", "teardrop", "counterbore", "countersink", "ruler"] as const) {
       const section = guideSectionForShape({ kind });
       expect(section && GUIDE_SECTIONS[section].chapter, kind).toBe(guideChapterForShape({ kind }));

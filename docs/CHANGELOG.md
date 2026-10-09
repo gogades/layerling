@@ -13,6 +13,7 @@ code still carries it - so a lower number further down is older, not newer.
 - **A server project opened twice stays one copy:** Opening a design from the shared folder looked for its existing working copy in a list that could be out of date, and could then make a second one.
 - **Touch and pen drags no longer break off:** Starting a drag with a pointer that was already gone made the browser throw and stopped the whole drag handler; now the drag carries on.
 - **Security updates:** Next.js 15.5.27 and sharp 0.35.5, within their version ranges.
+- **A question mark on every window:** Align faces, the "Sketch to 3D" menu, the visibility menu, the point and line bars in a sketch and the revolve preview now have one too; the shape menus, text, sketch bodies and imported meshes jump straight to their own section of the guide, and a reference point's card opens "Reference points" instead of "Notes".
 - **Cleaner code:** About 1,000 lines of code that nothing used any more, unused imports and four unused texts are gone.
 - **Docs caught up:** The README, the quick guide and the welcome text now mention the sketch stroke, the light and shadow settings, the draggable pivot, Multicolor in the export and the workplane on corners and edges; the quick guide no longer says that only a closed outline makes a body.
 

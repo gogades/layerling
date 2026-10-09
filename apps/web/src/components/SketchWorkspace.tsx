@@ -2149,6 +2149,7 @@ export function SketchWorkspace({
                   </button>
                 </>
               ) : null}
+              <GuideHelpLink section="sketchCurve" className="sketch-corner-help" iconSize={17} />
             </>
           )}
         </div>
@@ -2157,6 +2158,7 @@ export function SketchWorkspace({
         <div className="sketch-point-actions" aria-label={t("sketch.segmentActions")}>
           <button type="button" title={t("sketch.curveLineHint")} disabled={selectedSegmentCurved} onClick={() => onCurveSegment(selectedSegment.id)}><Spline /><span>{t("sketch.curveLine")}</span></button>
           <button type="button" title={t("sketch.straightenLineHint")} disabled={!selectedSegmentCurved && (selectedSegment.kind ?? "line") === "line"} onClick={() => onStraightenSegment(selectedSegment.id)}><Minus /><span>{t("sketch.straightenLine")}</span></button>
+          <GuideHelpLink section="sketchCurve" className="sketch-corner-help" iconSize={17} />
         </div>
       ) : null}
       <div className="grid-settings">

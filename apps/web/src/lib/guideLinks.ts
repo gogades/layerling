@@ -71,6 +71,14 @@ export const GUIDE_SECTIONS = {
   sketchCorners: { chapter: "sketches", de: "ecken-runden-oder-fasen", en: "rounding-or-chamfering-corners" },
   sketchImage: { chapter: "sketches", de: "ein-bild-als-vorlage", en: "a-picture-as-template" },
   sketchStroke: { chapter: "sketches", de: "als-kontur-bauen", en: "building-as-a-stroke" },
+  sketchDrawing: { chapter: "sketches", de: "zeichnen", en: "drawing" },
+  sketchToBody: { chapter: "sketches", de: "ein-koerper-daraus-machen", en: "making-a-body-from-it" },
+  addShape: { chapter: "shapes", de: "eine-form-hinzufuegen", en: "adding-a-shape" },
+  selecting: { chapter: "select", de: "auswaehlen", en: "selecting" },
+  layFlat: { chapter: "select", de: "auf-eine-flaeche-legen", en: "laying-flat-on-a-face" },
+  referencePoints: { chapter: "measuring", de: "bezugspunkte", en: "reference-points" },
+  addingText: { chapter: "text", de: "text-hinzufuegen", en: "adding-text" },
+  sketchCurve: { chapter: "sketches", de: "eine-gerade-seite-kruemmen", en: "curving-a-straight-side" },
   commandSearch: { chapter: "shortcuts", de: "befehlssuche", en: "command-search" },
   whatsNew: { chapter: "start", de: "neu-seit-deinem-letzten-besuch", en: "new-since-your-last-visit" },
 } as const satisfies Record<string, { chapter: GuideChapter } & Record<Language, string>>;
@@ -90,17 +98,29 @@ export function guideHref(language: Language, chapter?: GuideChapter, section?: 
  * Where in its chapter a shape is explained - the heading its question mark
  * jumps to. Text and sketches have a chapter of their own and open its top.
  */
-export function guideSectionForShape(shape: { kind: ShapeKind; groupedShapes?: readonly unknown[]; groupOperation?: string }): GuideSection | undefined {
+type GuideShape = {
+  kind: ShapeKind;
+  groupedShapes?: readonly unknown[];
+  groupOperation?: string;
+  sketchProfile?: unknown;
+  importedMesh?: { sourceFormat?: string };
+};
+
+export function guideSectionForShape(shape: GuideShape): GuideSection | undefined {
   if (shape.groupedShapes?.length) {
     if (shape.groupOperation === "bundle") return "bundling";
     if (shape.groupOperation === "intersection") return "intersection";
     return "grouping";
   }
+  // A body made from a sketch, or a file brought in, is explained where it was made.
+  if (shape.sketchProfile) return "sketchToBody";
+  if (shape.kind === "mesh" && shape.importedMesh && shape.importedMesh.sourceFormat !== "json") return "importing";
   switch (shape.kind) {
     case "text":
+      return "addingText";
     case "sketch":
     case "scribble":
-      return undefined;
+      return "sketchToBody";
     case "thread":
       return "threads";
     case "gear":
@@ -130,7 +150,10 @@ export function guideSectionForShape(shape: { kind: ShapeKind; groupedShapes?: r
 }
 
 /** Which chapter explains a shape - the one its question mark opens. */
-export function guideChapterForShape(shape: { kind: ShapeKind; groupedShapes?: readonly unknown[] }): GuideChapter {
+export function guideChapterForShape(shape: GuideShape): GuideChapter {
+  // The chapter always matches the section the question mark jumps to.
+  const section = guideSectionForShape(shape);
+  if (section) return GUIDE_SECTIONS[section].chapter;
   if (shape.groupedShapes?.length) return "solids";
   switch (shape.kind) {
     case "text":

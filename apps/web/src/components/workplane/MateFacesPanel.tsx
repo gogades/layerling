@@ -3,6 +3,7 @@
 import { MovableToolPanel } from "@/components/workplane/MovableToolPanel";
 import { Check, X } from "lucide-react";
 import { EdgeModifierSlider } from "@/components/workplane/EdgeModifierPanel";
+import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import type { MateMode } from "@/lib/mateFaces";
@@ -47,6 +48,7 @@ export function MateFacesPanel({
           <span>{t("mate.subtitle")}</span>
         </div>
         <div className="panel-header-actions">
+          <GuideHelpLink section="layFlat" />
           <button type="button" aria-label={t("mate.cancel")} onClick={onCancel}><X size={20} /></button>
         </div>
       </div>

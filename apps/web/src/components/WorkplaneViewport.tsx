@@ -2172,7 +2172,7 @@ function NoteOverlay({
                 <div className="note-card-actions">
                   <span className="note-hint">{t("point.hint")}</span>
                   <span className="note-card-end">
-                    <GuideHelpLink section="notes" className="note-help-link" iconSize={16} />
+                    <GuideHelpLink section="referencePoints" className="note-help-link" iconSize={16} />
                     <button type="button" className="note-action danger" onClick={() => onRemove(note.id)}>{t("common.delete")}</button>
                   </span>
                 </div>

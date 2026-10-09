@@ -1522,6 +1522,10 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .shell-openings-summary
   border-color: #c8c8c8;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-create-dropdown .sketch-create-title {
+  color: #636363;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-create-dropdown {
   background: rgba(252, 252, 252, 0.99);
   border: 1px solid #cdcdcd;
