@@ -7105,6 +7105,9 @@ export function WorkplaneViewport({
     state.raycaster.layers.set(RENDER_LAYER_SHAPES);
 
     const pickable = (entry: THREE.Intersection) => {
+      // Only surfaces pick a body. Its edge lines count as hit within 1.15 mm of the ray, so
+      // through a slot narrower than about 3 mm the rim always won over the body behind it (#193).
+      if (!(entry.object instanceof THREE.Mesh)) return false;
       if (state.sectionPlane && state.sectionPlane.distanceToPoint(entry.point) < -0.001) return false;
       const shapeId = entry.object.userData.shapeId;
       if (typeof shapeId !== "string") return false;
@@ -7240,6 +7243,8 @@ export function WorkplaneViewport({
     state.raycaster.setFromCamera(state.pointer, state.camera);
     state.raycaster.layers.set(RENDER_LAYER_SHAPES);
     const hit = state.raycaster.intersectObjects(state.shapeLayer.children, true).find((entry) => {
+      // A note sits on a surface; an edge line near the pointer is not one (#193).
+      if (!(entry.object instanceof THREE.Mesh)) return false;
       if (state.sectionPlane && state.sectionPlane.distanceToPoint(entry.point) < -0.001) return false;
       const shapeId = entry.object.userData.shapeId;
       if (typeof shapeId !== "string") return false;

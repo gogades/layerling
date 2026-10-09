@@ -6,6 +6,8 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Click through a narrow slot:** A body seen through a slot or hole narrower than about 3 mm could not be selected - every click picked the body around it. Its edge lines counted as hit within 1.15 mm of the pointer, so the rim always won, however far you zoomed in. Only surfaces pick a body now. Reported by @mobiusfix in #193.
+- **Click through a narrow slot:** A body seen through a slot or hole narrower than about 3 mm could not be selected - every click picked the body around it. Its edge lines counted as hit within 1.15 mm of the pointer, so the rim always won, however far you zoomed in. Only surfaces pick a body now. Reported by @mobiusfix in #193.
 - **The plate labels switch moved to Workplane:** "Plate labels" sat under Appearance in the settings; it now sits under Workplane, right below the printer whose name it shows.
 
 ## 1.53.0
