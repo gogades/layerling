@@ -2354,6 +2354,14 @@ html[data-theme="dark"] .whats-new-older:hover {
   background: #fbf9f6;
 }
 
+/* A card lifts itself on hover with a transform, which makes it a stacking context of its own:
+   its open menu then only counted inside that card, and the next card in the list was painted
+   over it - the menu slipped behind the next row whenever the pointer was on its own card (#200).
+   The card with an open menu stands in front of the others. */
+.project-card:has(.project-card-menu) {
+  z-index: 6;
+}
+
 .project-card-menu {
   position: absolute;
   top: 52px;

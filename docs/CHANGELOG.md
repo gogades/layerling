@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **The design menu stays in front in the list view:** On the start page's list view, a design's Options menu slipped behind the next row while the pointer was on its own card. Hovering lifts a card with a transform, which made it a stacking context of its own, so its menu only counted inside it; the card with an open menu now stands in front. Reported by @ucito in #200.
+
 ## 1.55.1
 
 - **Smooth curves no longer loop at every point:** The handles of a smooth curve - drawn with Smooth curve or given by the Smooth button on a point - pointed the wrong way, so the curve made a loop at each point. They were laid out the way the path happened to be walked, which mostly started at the last point drawn, while a curve is drawn the way its segments are stored. Reported by @luk-saw in #199.
