@@ -1188,6 +1188,11 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older:hover 
   box-shadow: 0 14px 38px rgba(56, 56, 56, 0.2);
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .edge-modifier-note {
+  background: rgba(210, 112, 9, 0.1);
+  color: #7a4a12;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .edge-modifier-header {
   border-bottom: 1px solid #e4e4e4;
 }

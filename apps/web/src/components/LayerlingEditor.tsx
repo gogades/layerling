@@ -7599,6 +7599,16 @@ export function LayerlingEditor({
     setEdgeModifier((latest) => latest ? { ...latest, sharpAngle, selectedEdgeIds: [...next], preview: null, busy: next.size > 0, error: next.size ? null : t("edge.selectAtLeastOne") } : latest);
     if (notice) setNotice(notice, true);
   }, []);
+  // Edges the CAD kernel will treat too: OpenCascade takes a picked edge together with every
+  // edge that runs on from it smoothly, whatever was clicked (#161).
+  const edgeModifierImpliedEdges = useMemo(() => {
+    if (!edgeModifier?.prepared || !edgeModifier.selectedEdgeIds.length) return 0;
+    const real = new Set(edgeModifier.edges.filter((edge) => cadModifierCandidateEdge(edge)).map((edge) => edge.id));
+    const picked = new Set(edgeModifier.selectedEdgeIds);
+    const reached = new Set<number>();
+    edgeModifier.selectedEdgeIds.forEach((id) => tangentCadEdgeChain(edgeModifier.edges, id, real).forEach((edgeId) => reached.add(edgeId)));
+    return [...reached].filter((edgeId) => !picked.has(edgeId)).length;
+  }, [edgeModifier?.edges, edgeModifier?.prepared, edgeModifier?.selectedEdgeIds]);
   // Im Verlaufsblick wird der gezeigte Stand exportiert, ganz und ohne Auswahl.
   const exportSelectionScoped = hasSelection && !historyViewState;
   const exportTargetShapes = useMemo(
@@ -14695,6 +14705,7 @@ export function LayerlingEditor({
           sharpAngle={edgeModifier.sharpAngle}
           workspace={workspaceSettings}
           tangentChain={edgeModifier.tangentChain}
+          impliedEdgeCount={edgeModifierImpliedEdges}
           preserveEdgeSize={edgeModifier.preserveEdgeSize}
           targetName={selectedShape?.name ?? "Object"}
           groupedCount={selectedShape?.groupedShapes?.length ?? 0}

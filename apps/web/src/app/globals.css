@@ -3199,6 +3199,17 @@ html[data-theme="dark"] .whats-new-older:hover {
   align-items: center;
 }
 
+/* What the CAD kernel will treat beyond the picked edges (#161). */
+.edge-modifier-note {
+  margin: -2px 0 0;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: rgba(210, 112, 9, 0.1);
+  color: #7a4a12;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .edge-modifier-header {
   justify-content: space-between;
   gap: 12px;

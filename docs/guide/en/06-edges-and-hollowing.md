@@ -23,7 +23,7 @@ In the panel you find:
 - {{ui:edge.allSharpEdges}} selects every edge at once, {{ui:edge.clear}} empties the selection.
 - **{{ui:edge.radius}}** for the fillet. For the chamfer you set {{ui:edge.distance}} or {{ui:edge.angle}}.
 - {{ui:edge.sharpThreshold}} decides which edges count as sharp at all. A value of 25° treats only clear kinks as edges and leaves flat transitions alone.
-- {{ui:edge.tangentChains}} takes along edges that flow smoothly into each other, for example all edges around a face with rounded corners.
+- {{ui:edge.tangentChains}}: a click then also picks edges that flow smoothly into each other, for example all edges around a face with rounded corners. The switch only decides what a click picks: the CAD kernel always carries a chamfer or fillet on along such smoothly continuing edges. The panel tells you along how many more edges that happens.
 - {{ui:edge.keepSize}} keeps the chamfer or fillet as large as it is, even if you scale the body later.
 - {{ui:edge.previewQuality}} ({{ui:edge.draft}}, {{ui:edge.standard}} or {{ui:edge.fine}}) decides how finely the preview is calculated. For difficult parts {{ui:edge.draft}} is faster.
 

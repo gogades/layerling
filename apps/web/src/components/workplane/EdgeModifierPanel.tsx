@@ -158,6 +158,7 @@ export function EdgeModifierPanel({
   sharpAngle,
   workspace,
   tangentChain,
+  impliedEdgeCount = 0,
   preserveEdgeSize,
   targetName,
   groupedCount,
@@ -189,6 +190,8 @@ export function EdgeModifierPanel({
   sharpAngle: number;
   workspace: WorkplaneWorkspaceSettings;
   tangentChain: boolean;
+  /** Edges the kernel will treat as well, because they run on smoothly from a picked one (#161). */
+  impliedEdgeCount?: number;
   preserveEdgeSize: boolean;
   targetName: string;
   groupedCount: number;
@@ -301,10 +304,17 @@ export function EdgeModifierPanel({
 
       <EdgeModifierSlider label={t("edge.sharpThreshold")} value={sharpAngle} min={1} max={CAD_MODIFIER_MAX_SHARP_ANGLE} step={1} unit="°" workspace={workspace} disabled={!prepared} onChange={onSharpAngleChange} />
 
-      <label className="edge-modifier-check">
+      <label className="edge-modifier-check" title={t("edge.tangentChainsHint")}>
         <input type="checkbox" checked={tangentChain} disabled={!prepared} onChange={(event) => onTangentChainChange(event.currentTarget.checked)} />
         <span>{t("edge.tangentChains")}</span>
       </label>
+      {impliedEdgeCount > 0 ? (
+        // The kernel always carries a chamfer or fillet on along edges that continue smoothly;
+        // the switch above only decides what a click picks, so say what will happen (#161).
+        <p className="edge-modifier-note" role="note">
+          {t(impliedEdgeCount === 1 ? "edge.tangentImpliedOne" : "edge.tangentImpliedMany", { count: impliedEdgeCount })}
+        </p>
+      ) : null}
 
       <label className="edge-modifier-check">
         <input type="checkbox" checked={preserveEdgeSize} disabled={!prepared} onChange={(event) => onPreserveEdgeSizeChange(event.currentTarget.checked)} />
