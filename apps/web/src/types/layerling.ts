@@ -297,10 +297,18 @@ export type SketchImage = {
   locked?: boolean;
 };
 
+/** Where the wall of a stroked closed outline lies against the drawn line. */
+export type SketchStrokeAlign = "center" | "inside" | "outside";
+export type SketchStrokeJoin = "miter" | "round" | "bevel";
+export type SketchStrokeCap = "flat" | "square" | "round";
+/** A sketch drawn as a line of this width instead of a filled area (#154). */
+export type SketchStroke = { width: number; align: SketchStrokeAlign; join: SketchStrokeJoin; cap: SketchStrokeCap };
+
 export type SketchProfile = {
   points: SketchPoint[];
   segments: SketchSegment[];
   images?: SketchImage[];
+  stroke?: SketchStroke;
 };
 
 export type SketchOperation = "extrude" | "revolve";

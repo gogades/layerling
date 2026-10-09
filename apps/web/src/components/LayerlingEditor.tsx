@@ -220,6 +220,7 @@ import {
 } from "@/lib/placementWorkplane";
 import { localizedError } from "@/lib/userErrors";
 import { sketchBodyStretch, stretchedSketchProfile } from "@/lib/sketchResize";
+import { normalizeSketchStroke, strokedSketchProfile } from "@/lib/sketchStroke";
 import { placeSketchExtrusion, placeSketchShape } from "@/lib/sketchPlacement";
 import { meshSlicePath, planeCutsMesh } from "@/lib/sketchSlice";
 import { BUG_REPORT_FILE, bugReportText, rememberBugReportEvent, type BugReportEvent } from "@/lib/bugReport";
@@ -694,6 +695,13 @@ function ensureSketchCadWorker() {
 
 async function cadShapeFromSketchProfile(profile: SketchProfile, height: number, existing?: WorkplaneShape | null) {
   const safeHeight = Math.max(MIN_SHAPE_DIMENSION, height);
+  // A stroked sketch builds from the outline of its line; the body keeps the drawn line (#154).
+  let buildProfile = profile;
+  if (profile.stroke) {
+    const stroked = strokedSketchProfile(await getManifoldRuntime(), profile);
+    if (!stroked) throw new Error(t("sketch.strokeEmpty"));
+    buildProfile = stroked;
+  }
   const worker = ensureSketchCadWorker();
   const requestId = ++sketchCadRequestId;
   const response = await new Promise<SketchCadBuildResponse>((resolve, reject) => {
@@ -702,7 +710,7 @@ async function cadShapeFromSketchProfile(profile: SketchProfile, height: number,
       reject(new Error("OpenCascade timed out while building the sketch"));
     }, 30_000);
     sketchCadPending.set(requestId, { resolve, reject, timer });
-    worker.postMessage({ type: "build", requestId, profile: cloneSketchProfile(profile), height: safeHeight });
+    worker.postMessage({ type: "build", requestId, profile: cloneSketchProfile(buildProfile), height: safeHeight });
   });
   if (response.type === "error") throw new Error(response.message);
   const source = canonicalizeShape({
@@ -7013,6 +7021,9 @@ export function LayerlingEditor({
   const [sketchMeasurement, setSketchMeasurement] = useState<SketchMeasurement>(null);
   const [editingSketchShapeId, setEditingSketchShapeId] = useState<string | null>(null);
   const [sketchCornerDialog, setSketchCornerDialog] = useState<"fillet" | "chamfer" | null>(null);
+  // Stroke for sketches (#154): the panel, and the stroked outline shown while drawing.
+  const [sketchStrokePanelOpen, setSketchStrokePanelOpen] = useState(false);
+  const [sketchStrokePreview, setSketchStrokePreview] = useState<string | null>(null);
   const selectedSketchPointId = useMemo(() => {
     if (sketchSelection?.kind === "point") return sketchSelection.id;
     if (sketchSelection?.kind === "multiple" && sketchSelection.pointIds.length === 1 && sketchSelection.segmentIds.length === 0) {
@@ -8275,11 +8286,14 @@ export function LayerlingEditor({
 
   const commitSketchProfile = useCallback(
     (next: SketchProfile, message?: string) => {
-      const snapshot = cloneSketchProfile(addLineIntersectionPoints(next, createLocalId));
       const current = sketchHistoryRef.current;
       const currentIndex = Math.min(sketchHistoryIndexRef.current, Math.max(0, current.length - 1));
       const trimmed = current.slice(0, currentIndex + 1);
       const latest = trimmed.at(-1);
+      // Most edits build a new profile from points and lines only; the stroke (#154) carries over
+      // unless the edit sets it - or clears it with `stroke: undefined`.
+      const carried = "stroke" in next || !latest?.stroke ? next : { ...next, stroke: latest.stroke };
+      const snapshot = cloneSketchProfile(addLineIntersectionPoints(carried, createLocalId));
       setSketchProfile(snapshot);
       if (latest && JSON.stringify(latest) === JSON.stringify(snapshot)) {
         return;
@@ -8870,6 +8884,36 @@ export function LayerlingEditor({
     setSketchSelection(null);
   }, [commitSketchProfile, sketchProfile]);
 
+  useEffect(() => {
+    if (!sketchActive || !sketchProfile.stroke) {
+      setSketchStrokePreview(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void getManifoldRuntime().then((runtime) => {
+        if (cancelled) return;
+        const stroked = strokedSketchProfile(runtime, sketchProfile);
+        if (!stroked) {
+          setSketchStrokePreview(null);
+          return;
+        }
+        const byId = new Map(stroked.points.map((point) => [point.id, point]));
+        const loops = new Map<string, string[]>();
+        stroked.segments.forEach((segment) => {
+          const loop = segment.id.replace(/-s\d+$/, "");
+          const point = byId.get(segment.startId);
+          if (point) loops.set(loop, [...(loops.get(loop) ?? []), `${point.x} ${point.z}`]);
+        });
+        setSketchStrokePreview([...loops.values()].map((loop) => `M ${loop.join(" L ")} Z`).join(" "));
+      }).catch(() => setSketchStrokePreview(null));
+    }, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [sketchActive, sketchProfile]);
+
   const finishSketch = useCallback(async () => {
     const existing = editingSketchShapeId ? shapes.find((shape) => shape.id === editingSketchShapeId) ?? null : null;
     const height = existing?.height ?? 10;
@@ -8917,6 +8961,7 @@ export function LayerlingEditor({
           : t("status.exactSketchCreated"),
     );
     setSketchActive(false);
+    setSketchStrokePanelOpen(false);
     setSketchRevolvePreview(null);
     setEditingSketchShapeId(null);
     setToolbarMode("geometry");
@@ -11662,7 +11707,9 @@ export function LayerlingEditor({
         const requestedHeight = mcpOptionalNumber(params.height ?? params.size) ?? (rawKind === "cube" ? requestedWidth : undefined);
         let shape: WorkplaneShape;
         if (kind === "sketch") {
-          const profile = defaultMcpSketchProfile(width, depth);
+          // A stroke builds the outline as a frame, as the editor's Stroke does (#154).
+          const stroke = normalizeSketchStroke(params.stroke);
+          const profile = { ...defaultMcpSketchProfile(width, depth), ...(stroke ? { stroke } : {}) };
           const extruded = await cadShapeFromSketchProfile(profile, height);
           shape = canonicalizeShape({
             ...extruded,
@@ -14113,6 +14160,8 @@ export function LayerlingEditor({
         canFilletSketchPoint={canFilletSketchPoint}
         sketchCornerDialog={sketchCornerDialog}
         onSketchCornerDialog={setSketchCornerDialog}
+        sketchStrokeActive={sketchStrokePanelOpen || Boolean(sketchProfile.stroke)}
+        onSketchStroke={() => setSketchStrokePanelOpen((open) => !open)}
         onStartSketch={(operation) => beginSketch(operation)}
         onEditSketch={beginSketchEdit}
         onSketchTool={setActiveSketchTool}
@@ -14297,6 +14346,13 @@ export function LayerlingEditor({
             onMeasureTool={() => setActiveSketchTool(sketchTool === "measure" ? "select" : "measure")}
             cornerDialog={sketchCornerDialog}
             onCornerDialogChange={setSketchCornerDialog}
+            strokePanelOpen={sketchStrokePanelOpen && sketchOperation !== "revolve"}
+            onCloseStrokePanel={() => setSketchStrokePanelOpen(false)}
+            onStrokeChange={(stroke) => commitSketchProfile(
+              { ...sketchProfile, stroke },
+              t(stroke ? "status.sketchStrokeSet" : "status.sketchStrokeOff"),
+            )}
+            strokePreview={sketchStrokePreview}
           />
         ) : (
           <WorkplaneViewport
@@ -14803,6 +14859,8 @@ function SecondaryToolbar({
   canFilletSketchPoint,
   sketchCornerDialog,
   onSketchCornerDialog,
+  sketchStrokeActive,
+  onSketchStroke,
   onStartSketch,
   onEditSketch,
   onSketchTool,
@@ -14904,6 +14962,8 @@ function SecondaryToolbar({
   canFilletSketchPoint?: boolean;
   sketchCornerDialog?: "fillet" | "chamfer" | null;
   onSketchCornerDialog?: (dialog: "fillet" | "chamfer" | null) => void;
+  sketchStrokeActive?: boolean;
+  onSketchStroke?: () => void;
   onStartSketch: (operation: SketchOperation) => void;
   onEditSketch: () => void;
   onSketchTool: (tool: SketchTool) => void;
@@ -15312,6 +15372,7 @@ function SecondaryToolbar({
         ...sketchClipboardTools.map((tool) => fromTool(tool, t("editor.group.clipboard"))),
         plain("sketch-undo", t("editor.tool.undo"), t("editor.group.history"), sketchCanUndo, onSketchUndo, { icon: ToolbarUndoIcon }),
         plain("sketch-redo", t("editor.tool.redo"), t("editor.group.history"), sketchCanRedo, onSketchRedo, { icon: ToolbarRedoIcon }),
+        ...(sketchOperation === "revolve" ? [] : [plain("sketch-stroke", t("sketch.strokeHint"), finishGroup, true, () => onSketchStroke?.(), { icon: SKETCH_PALETTE_ICONS.line, active: Boolean(sketchStrokeActive) })]),
         plain("sketch-finish", sketchOperation === "revolve" ? t("sketch.finishRevolve") : t("sketch.finishSketch"), finishGroup, true, onSketchFinish),
         plain("sketch-cancel", t("sketch.cancel"), finishGroup, true, onSketchCancel),
         modeCommand,
@@ -15764,6 +15825,16 @@ function SecondaryToolbar({
                 <div className="toolbar-section sketch-finish-section" data-group="finish">
                   <div className="toolbar-section-label">{t("sketch.group.finish")}</div>
                   <div className="toolbar-section-tools">
+                    {sketchOperation === "revolve" ? null : <button
+                      className={`sketch-command-button ${sketchStrokeActive ? "active" : ""}`}
+                      type="button"
+                      aria-pressed={Boolean(sketchStrokeActive)}
+                      title={t("sketch.strokeHint")}
+                      onClick={onSketchStroke}
+                    >
+                      <SketchReferenceIcon name="line" />
+                      <span>{t("sketch.stroke")}</span>
+                    </button>}
                     <button className="sketch-command-button primary" type="button" onClick={onSketchFinish}>
                       <Check />
                       <span>{sketchOperation === "revolve" ? t("sketch.finishRevolve") : t("sketch.finishSketch")}</span>

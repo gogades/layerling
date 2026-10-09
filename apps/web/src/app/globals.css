@@ -3941,6 +3941,13 @@ html[data-theme="dark"] .shell-openings-summary {
   color: #835059;
 }
 
+/* The stroke is on, or its panel is open (#154). */
+.sketch-command-button.active {
+  color: #5d3b17;
+  background: #f3e3cf;
+  border-color: #d9a978;
+}
+
 .sketch-command-button.disabled,
 .sketch-command-button:disabled {
   opacity: 0.32;
@@ -6125,6 +6132,40 @@ html[data-theme="dark"] .shell-openings-summary {
   fill: rgba(199, 128, 52, 0.2);
   fill-rule: evenodd;
   stroke: none;
+}
+
+/* A stroked sketch fills only its line; the outline's own area stays faint (#154). */
+.sketch-profile-fills.stroked path {
+  fill: rgba(199, 128, 52, 0.06);
+}
+
+.sketch-stroke-preview {
+  fill: rgba(199, 128, 52, 0.42);
+  stroke: rgba(142, 81, 18, 0.7);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.sketch-stroke-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sketch-stroke-toggle input {
+  accent-color: #d27009;
+  width: 16px;
+  height: 16px;
+}
+
+.sketch-stroke-note {
+  display: block;
+  margin-top: 4px;
+  color: #7a6e60;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .sketch-segments path {

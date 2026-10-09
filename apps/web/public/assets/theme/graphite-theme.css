@@ -1505,6 +1505,12 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .shell-openings-summary
   color: #835059;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-command-button.active {
+  color: #5d3b17;
+  background: #e1e1e1;
+  border-color: #d9a978;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-create-menu-trigger.active {
   color: #5d3b17;
   background: #f1f1f1;
@@ -2444,6 +2450,23 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .shell-openings-summary
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-profile-fills path {
   fill: rgba(199, 128, 52, 0.2);
   stroke: none;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-profile-fills.stroked path {
+  fill: rgba(199, 128, 52, 0.06);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-stroke-preview {
+  fill: rgba(199, 128, 52, 0.42);
+  stroke: rgba(142, 81, 18, 0.7);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-stroke-toggle input {
+  accent-color: #d27009;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-stroke-note {
+  color: #606060;
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-segments path {

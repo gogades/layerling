@@ -668,6 +668,7 @@ async function serializeShapeNode(
       points: sketchProfile.points,
       segments: sketchProfile.segments,
       ...(images.length ? { images } : {}),
+      ...(sketchProfile.stroke ? { stroke: sketchProfile.stroke } : {}),
     };
   }
 

@@ -65,6 +65,16 @@ Beim Rotieren zeichnest du den halben Querschnitt **links von der Achse**, die i
 
 Ein gedrehter Körper ist ein exakter Körper wie ein ausgezogener: Er nimmt Fasen und Verrundungen an, und du kannst ihn aushöhlen, für einen Becher oder eine Vase. Ein Körper, der mit einer älteren layerling-Fassung gedreht wurde, ist ein Netz; öffne {{ui:inspector.editSketch}} und schließe ihn neu ab, dann ist er exakt. Ein Umriss, der über die Achse hinausreicht, lässt sich nicht exakt bauen und wird wie bisher ein Netz.
 
+## Als Kontur bauen
+
+Normalerweise wird die Fläche innerhalb eines geschlossenen Umrisses zum Körper. Mit {{ui:sketch.stroke}} im Abschnitt {{ui:sketch.group.finish}} baust du stattdessen die Linie selbst, mit einer Breite, die du einstellst. Setze dazu in der Tafel das Häkchen bei {{ui:sketch.strokeOn}}. Die Skizze zeigt dann gleich, was entsteht.
+
+- Ein **geschlossener Umriss** wird zu einem Rahmen. {{ui:sketch.strokeAlign}} sagt, wo die Wand liegt: {{ui:sketch.strokeAlign.center}} auf der gezeichneten Linie, {{ui:sketch.strokeAlign.inside}} innerhalb oder {{ui:sketch.strokeAlign.outside}} außerhalb. Außen ist praktisch für eine Toleranz: Zeichne den Umriss einer Aussparung, etwa eines Schwalbenschwanzes, und gib ihm 0,2 mm Kontur außen. So entsteht der Spalt, den der Druck braucht.
+- Eine **offene Linie** wird zu einem Streifen, mittig auf der Linie. Unter {{ui:sketch.strokeCap}} wählst du, wie ihre Enden aussehen: {{ui:sketch.strokeCap.flat}}, {{ui:sketch.strokeCap.square}} (um die halbe Breite verlängert) oder {{ui:sketch.strokeCap.round}}.
+- {{ui:sketch.strokeJoin}} gilt für beide: {{ui:sketch.strokeJoin.miter}}, {{ui:sketch.strokeJoin.round}} oder {{ui:sketch.strokeJoin.bevel}}.
+
+Die Skizze behält die gezeichnete Linie. Öffnest du sie wieder, änderst du Linie und Kontur weiter, und ohne Häkchen wird wieder die Fläche gebaut. Kurven werden dabei in kurze gerade Stücke zerlegt. Beim Rotieren gibt es die Kontur nicht.
+
 ## Ein Bild als Vorlage
 
 Mit {{ui:sketch.addImage}} legst du ein Foto oder eine Zeichnung unter die Skizze und zeichnest sie nach. Du kannst die Größe, die Deckkraft und die Lage einstellen. Sobald das Bild richtig liegt, sperrst du es mit [[L]], damit du es beim Zeichnen nicht versehentlich verschiebst. Ein gesperrtes Bild ist aus dem Weg: Klicks gehen durch es hindurch, du wählst also Linien und Punkte darauf an und ziehst einen Rahmen darüber. Um es wieder auszuwählen, etwa zum Entsperren, klickst du mit [[Alt]] darauf. Verdecken seine Einstellungen am rechten Rand das Bild, ziehst du sie an ihrer Titelleiste weg; ein Doppelklick darauf dockt sie wieder an.

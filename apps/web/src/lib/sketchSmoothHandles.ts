@@ -9,6 +9,7 @@ export function cloneSketchProfile(profile: SketchProfile): SketchProfile {
     })),
     segments: profile.segments.map((segment) => ({ ...segment })),
     images: (profile.images ?? []).map((image) => ({ ...image })),
+    ...(profile.stroke ? { stroke: { ...profile.stroke } } : {}),
   };
 }
 

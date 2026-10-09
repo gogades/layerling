@@ -18,7 +18,8 @@ import { isSketchPanGesture, SKETCH_MANUAL_MAX_ZOOM, SKETCH_MAX_ZOOM, SKETCH_WHE
 import { isSketchPrimitive, type SketchPrimitive } from "@/lib/sketchPrimitives";
 import { mirrorSign, resizedImportedMeshPositions } from "@/lib/workplaneShapes";
 import { DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, keyboardNudgeStep, normalizeSnapGrid, normalizeWorkspaceSettings, snapGridStep as snapStep, orbitControlsZoomSpeed, zoomDistanceScale } from "@/lib/workplaneSettings";
-import type { GridSize, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchSegment, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { GridSize, SketchImage, SketchOperation, SketchPoint, SketchProfile, SketchSegment, SketchStroke, SketchStrokeAlign, SketchStrokeCap, SketchStrokeJoin, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import { DEFAULT_SKETCH_STROKE, SKETCH_STROKE_ALIGNS, SKETCH_STROKE_CAPS, SKETCH_STROKE_JOINS } from "@/lib/sketchStroke";
 import { selectWholeValue } from "@/lib/numberField";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { clampNudge, constrainToAxis, sketchSegmentDragPointIds, sketchSelectionMovePointIds, type SketchSelectableEntity, type SketchSelection } from "@/lib/sketchSelection";
@@ -69,6 +70,11 @@ type SketchWorkspaceProps = {
   onMeasureTool: () => void;
   cornerDialog?: "fillet" | "chamfer" | null;
   onCornerDialogChange?: (dialog: "fillet" | "chamfer" | null) => void;
+  /** The stroke panel (#154): open, its changes, and the stroked outline to show (an SVG path). */
+  strokePanelOpen?: boolean;
+  onCloseStrokePanel?: () => void;
+  onStrokeChange?: (stroke: SketchStroke | undefined) => void;
+  strokePreview?: string | null;
 };
 
 type SketchReferenceFootprint = { fillD: string | null; outlineD: string | null };
@@ -555,6 +561,10 @@ export function SketchWorkspace({
   onMeasureTool,
   cornerDialog: propCornerDialog,
   onCornerDialogChange,
+  strokePanelOpen = false,
+  onCloseStrokePanel,
+  onStrokeChange,
+  strokePreview = null,
 }: SketchWorkspaceProps) {
   useLanguage();
   const workspace = useMemo(() => normalizeWorkspaceSettings(initialWorkspace, DEFAULT_WORKPLANE_WORKSPACE), [initialWorkspace]);
@@ -1542,9 +1552,13 @@ export function SketchWorkspace({
               pointerEvents="none"
             />
           ) : null}
-          <g className="sketch-profile-fills" pointerEvents="none">
+          <g className={`sketch-profile-fills ${profile.stroke ? "stroked" : ""}`} pointerEvents="none">
             {paths.some((path) => path.closed) ? <path d={paths.filter((path) => path.closed).map(pathData).join(" ")} /> : null}
           </g>
+          {profile.stroke && strokePreview ? (
+            // What the body will be: the drawn line with its width (#154).
+            <path className="sketch-stroke-preview" d={strokePreview} fillRule="evenodd" pointerEvents="none" />
+          ) : null}
           <g className="sketch-segments">
             {displayProfile.segments.map((segment) => (
               <path
@@ -2042,6 +2056,16 @@ export function SketchWorkspace({
           );
         })() : null}
       </section>
+      {strokePanelOpen ? (
+        <SketchStrokePanel
+          stroke={profile.stroke}
+          hasClosed={paths.some((path) => path.closed)}
+          hasOpen={paths.some((path) => !path.closed)}
+          accuracy={workspace.accuracy}
+          onChange={(stroke) => onStrokeChange?.(stroke)}
+          onClose={() => onCloseStrokePanel?.()}
+        />
+      ) : null}
       {selectedImage && tool === "select" ? (
         <SketchImageInspector
           image={selectedImage}
@@ -2214,6 +2238,90 @@ function SketchImageInspector({
             {image.lockAspect !== false ? <Link size={17} /> : <Link2Off size={17} />}
             <span>{image.lockAspect !== false ? t("sketch.aspectLocked") : t("sketch.aspectUnlocked")}</span>
           </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+const STROKE_PANEL: MovablePanelOptions = {
+  floatingStyle: { right: "auto", bottom: "auto" },
+  dockedAt: (area, panel) => ({ left: area.width - panel.width, top: 0 }),
+};
+
+/**
+ * Stroke (#154): the sketch becomes a line of a width instead of a filled area - a closed outline
+ * a frame, an open line a stripe. Where the wall lies only matters for closed outlines, the ends
+ * only for open lines; both are always shown, with a hint when nothing in the sketch uses them.
+ */
+function SketchStrokePanel({
+  stroke,
+  hasClosed,
+  hasOpen,
+  accuracy,
+  onChange,
+  onClose,
+}: {
+  stroke: SketchStroke | undefined;
+  hasClosed: boolean;
+  hasOpen: boolean;
+  accuracy: 1 | 2 | 3;
+  onChange: (stroke: SketchStroke | undefined) => void;
+  onClose: () => void;
+}) {
+  const movable = useMovablePanel<HTMLElement>("layerling.sketch.strokePanelPosition", STROKE_PANEL);
+  const lastStroke = useRef<SketchStroke>(stroke ?? DEFAULT_SKETCH_STROKE);
+  if (stroke) lastStroke.current = stroke;
+  const current = stroke ?? lastStroke.current;
+  const set = (patch: Partial<SketchStroke>) => onChange({ ...current, ...patch });
+  const options = <T extends string>(label: string, values: readonly T[], value: T, labelOf: (option: T) => string, apply: (next: T) => void, note?: string) => (
+    <div className="edge-modifier-field shell-openings" role="radiogroup" aria-label={label}>
+      <span>{label}</span>
+      <div className="shell-opening-options">
+        {values.map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={value === option}
+            className={value === option ? "active" : ""}
+            disabled={!stroke}
+            onClick={() => apply(option)}
+          >
+            {labelOf(option)}
+          </button>
+        ))}
+      </div>
+      {note ? <small className="sketch-stroke-note">{note}</small> : null}
+    </div>
+  );
+  return (
+    <aside
+      ref={movable.panelRef}
+      className={`shape-inspector sketch-stroke-panel ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
+      style={movable.style}
+      aria-label={t("sketch.strokeTitle")}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <div className="shape-inspector-header movable" title={t("panel.moveHint")} {...movable.handleProps}>
+        <button className="inspector-header-icon" type="button" aria-label={t("sketch.strokeClose")} onClick={onClose}>
+          <ChevronUp size={16} />
+        </button>
+        <strong>{t("sketch.strokeTitle")}</strong>
+        <div className="inspector-header-actions">
+          <GuideHelpLink section="sketchStroke" className="inspector-help-link" />
+        </div>
+      </div>
+      <div className="property-card">
+        <div className="property-list">
+          <label className="sketch-stroke-toggle">
+            <input type="checkbox" checked={Boolean(stroke)} onChange={(event) => onChange(event.currentTarget.checked ? current : undefined)} />
+            <span>{t("sketch.strokeOn")}</span>
+          </label>
+          <SketchImageRange label={t("sketch.strokeWidth")} value={current.width} min={0.05} max={20} accuracy={accuracy} disabled={!stroke} onChange={(width) => set({ width })} />
+          {options<SketchStrokeAlign>(t("sketch.strokeAlign"), SKETCH_STROKE_ALIGNS, current.align, (option) => t(`sketch.strokeAlign.${option}`), (align) => set({ align }), hasClosed ? undefined : t("sketch.strokeAlignHint"))}
+          {options<SketchStrokeJoin>(t("sketch.strokeJoin"), SKETCH_STROKE_JOINS, current.join, (option) => t(`sketch.strokeJoin.${option}`), (join) => set({ join }))}
+          {options<SketchStrokeCap>(t("sketch.strokeCap"), SKETCH_STROKE_CAPS, current.cap, (option) => t(`sketch.strokeCap.${option}`), (cap) => set({ cap }), hasOpen ? undefined : t("sketch.strokeCapHint"))}
         </div>
       </div>
     </aside>

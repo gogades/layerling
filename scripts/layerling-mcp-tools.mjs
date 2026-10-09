@@ -223,6 +223,17 @@ export const tools = [
         rotation: { type: "number" },
         rotationX: { type: "number" },
         rotationZ: { type: "number" },
+        stroke: {
+          type: "object",
+          description: "Only for kind sketch: build the sketch's outline as a frame of this width instead of a filled area, as the editor's Stroke does. align says where the wall lies against the outline (center, inside or outside), join how corners are filled (miter, round or bevel), cap the ends of an open line (flat, square or round).",
+          properties: {
+            width: { type: "number" },
+            align: { type: "string", enum: ["center", "inside", "outside"] },
+            join: { type: "string", enum: ["miter", "round", "bevel"] },
+            cap: { type: "string", enum: ["flat", "square", "round"] },
+          },
+          required: ["width"],
+        },
         ...shapeSettingSchema,
         ...threadSizeSetting,
       },
