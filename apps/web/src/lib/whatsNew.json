@@ -1,5 +1,40 @@
 [
   {
+    "version": "1.52.0",
+    "items": [
+      {
+        "title": {
+          "de": "Mehrfarbig auch im Export",
+          "en": "Multicolor in the export too"
+        },
+        "body": {
+          "de": "Eine Gruppe mit „Mehrfarbig“ behält ihre Teilfarben jetzt auch im 3MF und OBJ, so dass der Slicer die Teile verschiedenen Filamenten zuordnen kann.",
+          "en": "A group with Multicolor now keeps its part colours in 3MF and OBJ too, so the slicer can map the parts onto filaments."
+        }
+      },
+      {
+        "title": {
+          "de": "Fase und Rundung: klarer, was mitkommt",
+          "en": "Chamfer and fillet: clearer what comes along"
+        },
+        "body": {
+          "de": "Die Kantentafel sagt jetzt, an wie vielen glatt anschließenden Kanten der CAD-Kern eine Fase oder Rundung weiterführt.",
+          "en": "The edge panel now says along how many smoothly continuing edges the CAD kernel carries a chamfer or fillet on."
+        }
+      },
+      {
+        "title": {
+          "de": "Ausrichten an der richtigen Kante",
+          "en": "Align at the right edge"
+        },
+        "body": {
+          "de": "Die Griffe beim Ausrichten stehen jetzt dort, wo die Teile wirklich hinrücken, auch bei gedrehten Formen.",
+          "en": "The Align handles now stand where the parts really move to, turned shapes included."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.51.0",
     "items": [
       {

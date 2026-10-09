@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.52.0
 
 - **Align handles where the parts will go:** The handles and guide lines of the Align tool stood at the box round each part's own, turned box, while the parts moved to the box round what is actually drawn. For a turned star, cone or tipped part those differ, so the parts seemed to jump to a different edge than the one shown. The handles now stand where the parts line up. Prompted by @voltage3d's stream in #187.
 - **Say when a chamfer runs on along smooth edges:** "Select tangent chains" looked as if switching it off would keep a chamfer or fillet to the edge that was picked, but the CAD kernel always carries it on along edges that continue smoothly. The switch is now called "A click also picks edges that continue smoothly", and the panel says along how many more edges the kernel will carry the treatment. Reported by @RobbieKnobbie in #161.
