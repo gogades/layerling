@@ -94,6 +94,7 @@ import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
 import { ScalePercentPanel, type ScalePercentSettings } from "./workplane/ScalePercentPanel";
 import { scaleShapesByPercent } from "@/lib/scaleByPercent";
+import { canToggleGroupColors } from "@/lib/groupColors";
 import { meshForTwist, twistBandCount } from "@/lib/heightSlices";
 import { SHELL_SIDES, shellMaxThickness, shellOpeningsFor, shellOpenSides } from "@/lib/shellLimits";
 import { circleStepDegrees, clampArrayCount, moveAlongRadius, rotateAroundVertical, rowOffset, singleAxisSpacing, type ArraySettings } from "@/lib/shapeArray";
@@ -10615,6 +10616,27 @@ export function LayerlingEditor({
     [commitShapes, hasSelection, selectedIds, shapes],
   );
 
+  /** One colour for every selected part (#183); locked ones stay as they are, a group shows it whole. */
+  const setSelectionColor = useCallback(
+    (color: string) => {
+      if (!hasSelection) {
+        setNotice(t("status.selectShapeFirst"));
+        return;
+      }
+      const selected = new Set(selectedIds);
+      commitShapes(
+        shapes.map((shape) => {
+          if (!selected.has(shape.id) || shape.locked || isNonSolidShapeKind(shape.kind)) return shape;
+          const solid = withHoleMode(shape, false, color);
+          return canonicalizeShape({ ...solid, color, ...(canToggleGroupColors(solid) ? { multicolor: false } : {}) });
+        }),
+        selectedIds,
+        t("status.selectionColored", { count: selected.size }),
+      );
+    },
+    [commitShapes, hasSelection, selectedIds, shapes],
+  );
+
   const cutSelected = useCallback(() => {
     if (!hasSelection) {
       setNotice(t("status.selectShapeFirst"));
@@ -14314,6 +14336,9 @@ export function LayerlingEditor({
           onOpenGroup={selectedShapes.length === 1 && canEditGroup(selectedShape) ? openGroupForEditing : undefined}
           canSeparateParts={canSeparateSelectedParts}
           onSeparateParts={separateSelectedParts}
+          onSelectionHole={setSelectionHoleMode}
+          onSelectionColor={setSelectionColor}
+          onSelectionLock={toggleLocked}
           onWrapAroundCylinder={selectedShapes.length === 1 && offersCylinderWrap(selectedShape) ? wrapSelectionAroundCylinder : undefined}
           onUpdateShape={updateShape}
           onDuplicateShapeAt={duplicateShapeAt}

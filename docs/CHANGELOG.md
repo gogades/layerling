@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Colour and solid/hole for several parts at once:** With more than one part selected, the properties panel used to disappear. It now stays, as in Tinkercad, with the number of parts, solid or hole for all of them (a mixed selection says so), one colour for all and the lock. Sizes stay with a single part, the handles and Scale by percent. Asked about by @kwjaarsveld-star in #183.
 - **The STEP export says what it left out:** A body STEP cannot carry exactly - a twisted one, say, or a mesh imported as STL - is skipped, and the status line only said "1 shape skipped". It now names the bodies and the reason. Reported by @nnikzat in #184.
 - **Twisted shapes are exact bodies:** A twisted box, cylinder, polygon, star, tube and the other shapes that taper now build as exact CAD geometry - a smooth loft through sections 7.5° apart, within 0.05 % of the true twist. So they go into the STEP file, and chamfers, fillets and hollowing work on them. Prompted by #184.
 - **A twist is drawn as a twist:** A box or a prism has nothing between its bottom and its top, so a twist only turned its lid, and the sides folded along their diagonals - on screen and in the STL. The mesh is now cut into fine bands and short edges first, so the sides wind round smoothly, and the outline shows only the real edges.

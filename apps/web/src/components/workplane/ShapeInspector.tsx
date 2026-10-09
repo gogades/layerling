@@ -2877,3 +2877,136 @@ function GearTypeSelector({ value, disabled, onChange }: { value: GearType; disa
     </div>
   );
 }
+
+/**
+ * The properties panel for several parts at once (#183), as in Tinkercad: how many are
+ * selected, solid or hole and a colour for all of them, and locking. Sizes stay with a single
+ * body, the handles and Scale by percent. Locked parts are left as they are.
+ */
+export function SelectionInspector({
+  shapes,
+  onSetHole,
+  onSetColor,
+  onToggleLocked,
+  onInteractionActiveChange,
+}: {
+  shapes: readonly WorkplaneShape[];
+  onSetHole: (hole: boolean) => void;
+  onSetColor: (color: string) => void;
+  onToggleLocked: () => void;
+  onInteractionActiveChange?: (active: boolean) => void;
+}) {
+  useLanguage();
+  const movable = useMovablePanel<HTMLElement>("layerling.editor.inspectorPosition", INSPECTOR_PANEL);
+  const [colorOpen, setColorOpen] = useState(false);
+  const { colors: recentColors, remember: rememberColor } = useRecentColors(SOLID_COLORS);
+  const solidKinds = shapes.filter((shape) => !isNonSolidShapeKind(shape.kind));
+  const allLocked = shapes.length > 0 && shapes.every((shape) => shape.locked);
+  const allHoles = solidKinds.length > 0 && solidKinds.every((shape) => shape.hole);
+  const noHoles = solidKinds.every((shape) => !shape.hole);
+  const solids = solidKinds.filter((shape) => !shape.hole);
+  const sharedColor = solids.length > 0 && solids.every((shape) => shape.color.toLowerCase() === solids[0].color.toLowerCase()) ? solids[0].color : null;
+  const swatch = sharedColor ?? solids[0]?.color ?? SOLID_COLORS[0];
+  const pick = (color: string) => {
+    onSetColor(color);
+    rememberColor(color);
+    setColorOpen(false);
+  };
+  return (
+    <aside
+      ref={movable.panelRef}
+      className={`shape-inspector selection-inspector ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
+      style={movable.style}
+      aria-label={t("inspector.selectionTitle", { count: shapes.length })}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      <div className="shape-inspector-header movable" title={t("inspector.moveHint")} {...movable.handleProps}>
+        <div className="inspector-name">
+          <strong>{t("inspector.selectionTitle", { count: shapes.length })}</strong>
+        </div>
+        <div className="inspector-header-actions">
+          <GuideHelpLink section="selectionProperties" className="inspector-help-link" />
+          <button className={allLocked ? "inspector-header-icon active" : "inspector-header-icon"} aria-label={allLocked ? t("outliner.unlock") : t("outliner.lock")} onClick={onToggleLocked}>
+            {allLocked ? <Lock size={16} /> : <Unlock size={16} />}
+          </button>
+        </div>
+      </div>
+      {solidKinds.length > 0 ? (
+        <div className="shape-state-card" role="group" aria-label={t("inspector.shapeMode")}>
+          <button
+            className={noHoles ? "active solid-choice" : "solid-choice"}
+            onClick={() => {
+              if (noHoles) setColorOpen((open) => !open);
+              else onSetHole(false);
+            }}
+            disabled={allLocked}
+            aria-pressed={noHoles}
+            aria-expanded={colorOpen}
+          >
+            <span className="large-solid-swatch" style={{ "--swatch": swatch } as CSSProperties} />
+            <span>{t("inspector.solid")}</span>
+          </button>
+          <button
+            className={allHoles ? "active hole-choice" : "hole-choice"}
+            onClick={() => {
+              onSetHole(true);
+              setColorOpen(false);
+            }}
+            disabled={allLocked}
+            aria-pressed={allHoles}
+          >
+            <span className="large-hole-swatch" />
+            <span>{t("inspector.hole")}</span>
+          </button>
+          {!noHoles && !allHoles ? <p className="selection-mixed-note">{t("inspector.selectionMixed")}</p> : null}
+        </div>
+      ) : null}
+      {colorOpen ? (
+        <div className="color-card" aria-label={t("inspector.shapeColor")}>
+          <div className="color-card-header">
+            <span>{t("inspector.color")}</span>
+            <span className="color-value">{sharedColor ? sharedColor.toUpperCase() : t("inspector.selectionMixedColors")}</span>
+          </div>
+          <div className="color-grid">
+            {SOLID_COLORS.map((color) => (
+              <button
+                key={color}
+                className={sharedColor?.toLowerCase() === color.toLowerCase() ? "selected" : ""}
+                type="button"
+                style={{ "--shape-swatch": color } as CSSProperties}
+                title={color.toUpperCase()}
+                aria-label={t("aria.setColor", { color })}
+                disabled={allLocked}
+                onClick={() => pick(color)}
+              />
+            ))}
+            <label className={allLocked ? "custom-color disabled" : "custom-color"} title={t("inspector.customColor")}>
+              <CustomColorInput color={swatch} disabled={allLocked} onCommit={pick} onInteractionActiveChange={onInteractionActiveChange} />
+              <span>{t("inspector.custom")}</span>
+            </label>
+          </div>
+          {recentColors.length > 0 ? (
+            <div className="color-recent">
+              <span className="color-recent-label">{t("inspector.recentColors")}</span>
+              <div className="color-grid">
+                {recentColors.map((color) => (
+                  <button
+                    key={color}
+                    className={sharedColor?.toLowerCase() === color ? "selected" : ""}
+                    type="button"
+                    style={{ "--shape-swatch": color } as CSSProperties}
+                    title={color.toUpperCase()}
+                    aria-label={t("aria.setColor", { color })}
+                    disabled={allLocked}
+                    onClick={() => pick(color)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <p className="selection-inspector-hint">{t("inspector.selectionHint")}</p>
+    </aside>
+  );
+}

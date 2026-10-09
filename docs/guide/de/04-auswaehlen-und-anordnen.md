@@ -87,6 +87,10 @@ Tipp: Setze vorher mit {{ui:editor.tool.rotationPivot}} den Drehpunkt auf eine F
 
 Die Kopien erscheinen zuerst als Vorschau. Erst {{ui:array.apply}} legt sie an. Sind die Kopien Aussparungen, gruppierst du sie danach mit dem Körper, in den sie schneiden sollen.
 
+## Mehrere Teile auf einmal ändern
+
+Sind mehrere Teile ausgewählt, zeigt das Eigenschaften-Feld rechts, wie viele es sind, und bietet an, was für alle zugleich gilt: {{ui:inspector.solid}} oder {{ui:inspector.hole}}, eine Farbe für alle (ein Klick auf {{ui:inspector.solid}} öffnet die Farben) und das Schloss zum Sperren. Ist die Auswahl gemischt, macht ein Klick alle zu Körpern oder alle zu Aussparungen. Gesperrte Teile bleiben, wie sie sind. Maße änderst du an einem einzelnen Teil, mit den Griffen oder mit {{ui:scalePercent.title}}. Körper und Aussparung gehen auch per Rechtsklick oder mit [[S]] und [[H]].
+
 ## Um Prozent skalieren
 
 Sollen ein oder mehrere Teile um denselben Anteil größer oder kleiner werden, etwa alle Teile einer Druckdatei um 20 %, nimmst du {{ui:scalePercent.title}}. Wähle die Teile aus, klicke mit der rechten Maustaste darauf und wähle {{ui:scalePercent.title}}, oder suche es mit [[Strg]]+[[K]].

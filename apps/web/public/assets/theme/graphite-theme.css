@@ -6988,6 +6988,14 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-slider .r
   outline: 2px solid var(--primary);
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .selection-mixed-note {
+  color: var(--muted-strong);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .selection-inspector-hint {
+  color: var(--muted-strong);
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section-tools,
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section .action-buttons {
   background: var(--toolbar-tile);

@@ -87,6 +87,10 @@ Tip: first set the pivot on a face with {{ui:editor.tool.rotationPivot}}, then t
 
 The copies first appear as a preview. Only {{ui:array.apply}} creates them. If the copies are holes, group them afterwards with the body they should cut into.
 
+## Changing several parts at once
+
+With several parts selected, the properties panel on the right shows how many there are and offers what applies to all of them together: {{ui:inspector.solid}} or {{ui:inspector.hole}}, one colour for all (a click on {{ui:inspector.solid}} opens the colours) and the lock. With a mixed selection, one click makes them all solids or all holes. Locked parts stay as they are. Sizes are changed on a single part, with the handles or with {{ui:scalePercent.title}}. Solid and hole also work with a right-click or the [[S]] and [[H]] keys.
+
 ## Scaling by percent
 
 To make one or several parts larger or smaller by the same share, say all the parts of a print file by 20 %, use {{ui:scalePercent.title}}. Select the parts, right-click them and choose {{ui:scalePercent.title}}, or search for it with [[Ctrl]]+[[K]].

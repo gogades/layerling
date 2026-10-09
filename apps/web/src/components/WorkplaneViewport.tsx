@@ -23,7 +23,7 @@ import { GridEyeIcon } from "@/components/GridEyeIcon";
 import { AlignOverlay, MirrorOverlay, type AlignOverlayState, type MirrorOverlayState } from "@/components/workplane/ActionOverlays";
 import { MoveDimensionOverlay } from "@/components/workplane/MoveDimensionOverlay";
 import { OriginDimensionOverlay } from "@/components/workplane/OriginDimensionOverlay";
-import { ShapeInspector, SnapGridControl, type ShapeInspectorUpdateOptions } from "@/components/workplane/ShapeInspector";
+import { SelectionInspector, ShapeInspector, SnapGridControl, type ShapeInspectorUpdateOptions } from "@/components/workplane/ShapeInspector";
 import { WorkspaceSettingsModal } from "@/components/workplane/WorkspaceSettingsModal";
 import { appThemePalette, type AppThemePalette, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { cadModifierPrimitiveForBakedShape, cadTransformFromMatrix, cadTransformToMatrix } from "@/lib/cadBakeMetadata";
@@ -327,6 +327,10 @@ type WorkplaneViewportProps = {
   onOpenGroup?: (id: string) => void;
   canSeparateParts?: boolean;
   onSeparateParts?: () => void;
+  /** Several parts selected (#183): solid or hole, a colour and locking for all of them. */
+  onSelectionHole?: (hole: boolean) => void;
+  onSelectionColor?: (color: string) => void;
+  onSelectionLock?: () => void;
   /** Wraps the selected body around a cylinder of this diameter (#106). */
   onWrapAroundCylinder?: (diameter: number, inward: boolean) => void;
   onUpdateShape: (id: string, patch: ShapeUpdatePatch) => void;
@@ -4230,6 +4234,9 @@ export function WorkplaneViewport({
   onOpenGroup,
   canSeparateParts = false,
   onSeparateParts,
+  onSelectionHole,
+  onSelectionColor,
+  onSelectionLock,
   onWrapAroundCylinder,
   onUpdateShape,
   onDuplicateShapeAt,
@@ -9466,6 +9473,16 @@ export function WorkplaneViewport({
           onWrapAroundCylinder={onWrapAroundCylinder}
           onInteractionActiveChange={onInteractionActiveChange}
           onSnapGridAwayChange={setInspectorSnapGridAway}
+        />
+      ) : null}
+
+      {selectedIds.length > 1 && !splitActive && !modifierActive && !tapeMode && !tapeDeleteMode && !tapeMoveMode && onSelectionHole && onSelectionColor && onSelectionLock ? (
+        <SelectionInspector
+          shapes={shapes.filter((shape) => selectedIds.includes(shape.id))}
+          onSetHole={onSelectionHole}
+          onSetColor={onSelectionColor}
+          onToggleLocked={onSelectionLock}
+          onInteractionActiveChange={onInteractionActiveChange}
         />
       ) : null}
 
