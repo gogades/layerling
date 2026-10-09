@@ -2636,12 +2636,22 @@ function sketchReferenceShapeOnWorkplane(shape: WorkplaneShape, workplane: Place
     const local = placementWorkplaneCoordinates(workplane, { x, y, z });
     return { x: local.x, y: -local.y, z: local.z };
   });
-  const minX = Math.min(...projectedVertices.map((vertex) => vertex.x));
-  const maxX = Math.max(...projectedVertices.map((vertex) => vertex.x));
-  const minY = Math.min(...projectedVertices.map((vertex) => vertex.y));
-  const maxY = Math.max(...projectedVertices.map((vertex) => vertex.y));
-  const minZ = Math.min(...projectedVertices.map((vertex) => vertex.z));
-  const maxZ = Math.max(...projectedVertices.map((vertex) => vertex.z));
+  // A loop, not Math.min(...list): a large imported mesh has more points than a call takes
+  // arguments, and the spread overflowed the stack when the design was opened (#190).
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let minZ = Number.POSITIVE_INFINITY;
+  let maxZ = Number.NEGATIVE_INFINITY;
+  for (const vertex of projectedVertices) {
+    if (vertex.x < minX) minX = vertex.x;
+    if (vertex.x > maxX) maxX = vertex.x;
+    if (vertex.y < minY) minY = vertex.y;
+    if (vertex.y > maxY) maxY = vertex.y;
+    if (vertex.z < minZ) minZ = vertex.z;
+    if (vertex.z > maxZ) maxZ = vertex.z;
+  }
   const centerX = (minX + maxX) / 2;
   const centerY = (minY + maxY) / 2;
   const centerZ = (minZ + maxZ) / 2;
@@ -7540,12 +7550,13 @@ export function LayerlingEditor({
     [alignMode, alignPreview, arrayPreview, edgeModifier?.preview, effectiveAlignAnchorId, mirrorMode, mirrorPreviewAxis, selectedIds, selectedShapes, shapes],
   );
   const sketchReferenceShapes = useMemo(
-    () => sketchOperation === "revolve" || placementWorkplaneIsBase(activeSketchWorkplane)
+    // Only the sketch view shows them; outside it every body would be projected for nothing.
+    () => !sketchActive || sketchOperation === "revolve" || placementWorkplaneIsBase(activeSketchWorkplane)
       ? shapes
       : shapes.map((shape) => shape.hidden || shape.id === editingSketchShapeId
         ? shape
         : sketchReferenceShapeOnWorkplane(shape, activeSketchWorkplane)),
-    [activeSketchWorkplane, editingSketchShapeId, shapes, sketchOperation],
+    [activeSketchWorkplane, editingSketchShapeId, shapes, sketchActive, sketchOperation],
   );
   // A workplane inside a body cuts it: the sketch view shows the outline of the cut (a hollow body
   // gives a ring), where a workplane on a face shows that face. Per body, as an SVG path in the
@@ -12593,7 +12604,7 @@ export function LayerlingEditor({
           const [sx, sy, sz] = LAY_FLAT_SIDES[side as LayFlatSide];
           const normal = nearestFaceNormal(target, new THREE.Vector3(sx, sy, sz).applyQuaternion(quaternion)) ?? new THREE.Vector3(sx, sy, sz).applyQuaternion(quaternion);
           const { vertices } = meshForShape(target);
-          const reach = Math.max(...vertices.map((v) => v[0] * normal.x + v[1] * normal.y + v[2] * normal.z));
+          const reach = vertices.reduce((most, v) => Math.max(most, v[0] * normal.x + v[1] * normal.y + v[2] * normal.z), Number.NEGATIVE_INFINITY);
           const onFace = vertices.filter((v) => v[0] * normal.x + v[1] * normal.y + v[2] * normal.z >= reach - 1e-3);
           const origin = onFace.reduce((sum, v) => ({ x: sum.x + v[0] / onFace.length, y: sum.y + v[1] / onFace.length, z: sum.z + v[2] / onFace.length }), { x: 0, y: 0, z: 0 });
           const tangent = new THREE.Vector3(side === "left" || side === "right" ? 0 : 1, 0, side === "left" || side === "right" ? 1 : 0).applyQuaternion(quaternion);
