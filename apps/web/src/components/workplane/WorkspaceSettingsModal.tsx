@@ -757,6 +757,16 @@ export function WorkspaceSettingsModal({
                     onChange={(selectBeforeMove) => patchWorkspace({ selectBeforeMove })}
                   />
                   <WorkspaceToggle
+                    label={t("workspace.doubleClickOpensSketch")}
+                    checked={workspace.doubleClickOpensSketch}
+                    onChange={(doubleClickOpensSketch) => patchWorkspace({ doubleClickOpensSketch })}
+                  />
+                  <WorkspaceToggle
+                    label={t("workspace.doubleClickOpensGroup")}
+                    checked={workspace.doubleClickOpensGroup}
+                    onChange={(doubleClickOpensGroup) => patchWorkspace({ doubleClickOpensGroup })}
+                  />
+                  <WorkspaceToggle
                     label={t("workspace.objectSnap")}
                     checked={workspace.objectSnap}
                     onChange={(objectSnap) => patchWorkspace({ objectSnap })}

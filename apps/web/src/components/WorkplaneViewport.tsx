@@ -238,6 +238,8 @@ const RENDER_LAYER_HELPERS = 2;
 const RENDER_LAYER_MODIFIERS = 3;
 const RENDER_LAYER_PREVIEWS = 4;
 const BVH_PICKING_TRIANGLE_THRESHOLD = 512;
+/** How far the pointer goes before a pressed shape starts to move, in screen pixels - as the marquee. */
+const DRAG_START_PIXELS = 5;
 const importedGeometryCache = new WeakMap<
   NonNullable<WorkplaneShape["importedMesh"]>,
   { geometry: THREE.BufferGeometry; edges: Map<number, THREE.EdgesGeometry> }
@@ -587,6 +589,9 @@ type DragState = {
   items: DragItem[];
   /** Shift was held on a selected shape: if nothing moves, this was a click that takes it out of the selection. */
   toggleOnClick?: boolean;
+  /** Where the pointer went down, in screen pixels: the shape stays put until it has really travelled (#150). */
+  startClient: { x: number; y: number };
+  started?: boolean;
   /**
    * Alt was held when the drag began: what moves is a copy. Until the drop
    * creates it, the dragged shapes stand for the copy and these stand-ins
@@ -5626,10 +5631,13 @@ export function WorkplaneViewport({
     };
   }, []);
 
-  // A double click on a sketch body opens its sketch, as in Tinkercad. The
-  // first click has already selected it, so this is the same as Edit Sketch.
+  // A double click on a sketch body opens its sketch, as in Tinkercad; on a group or a bundle it
+  // opens that for editing (#150). The first click has already selected it, so this is the same
+  // as Edit Sketch or Edit group. Both can be switched off in the settings.
   const onEditSketchRef = useRef(onEditSketch);
   onEditSketchRef.current = onEditSketch;
+  const onOpenGroupRef = useRef(onOpenGroup);
+  onOpenGroupRef.current = onOpenGroup;
   useEffect(() => {
     const state = threeRef.current;
     // Pointer capture sends the clicks to the host, not to the canvas inside it.
@@ -5639,10 +5647,12 @@ export function WorkplaneViewport({
       if (event.button !== 0 || pivotPickModeRef.current) return;
       const id = pickShapeIdAt(state, event.clientX, event.clientY);
       const shape = id ? shapesRef.current.find((candidate) => candidate.id === id) : undefined;
-      if (!shape?.sketchProfile || shape.locked) return;
+      if (!shape || shape.locked) return;
       const selected = selectedIdsRef.current;
       if (selected.length !== 1 || selected[0] !== shape.id) return;
-      onEditSketchRef.current?.();
+      const settings = workspaceRef.current;
+      if (shape.sketchProfile && settings.doubleClickOpensSketch !== false) onEditSketchRef.current?.();
+      else if (shape.groupedShapes?.length && settings.doubleClickOpensGroup !== false) onOpenGroupRef.current?.(shape.id);
     };
     host.addEventListener("dblclick", openSketch);
     return () => host.removeEventListener("dblclick", openSketch);
@@ -8038,6 +8048,7 @@ export function WorkplaneViewport({
         primaryStartZ: shape.z,
         items,
         toggleOnClick,
+        startClient: { x: event.clientX, y: event.clientY },
         duplicate: event.altKey && onDuplicateShapesMoved
           ? {
               standIns: items.flatMap((item) => {
@@ -8231,6 +8242,12 @@ export function WorkplaneViewport({
       const drag = dragRef.current;
       if (!drag) {
         return;
+      }
+      // A shaky click or double click must not nudge the part: it moves once the pointer has
+      // gone a few pixels, and then follows it from where the drag began (#150).
+      if (!drag.started) {
+        if (Math.hypot(event.clientX - drag.startClient.x, event.clientY - drag.startClient.y) < DRAG_START_PIXELS) return;
+        drag.started = true;
       }
 
       const point = toPlacementWorkplanePoint(event.clientX, event.clientY, drag.workplane);

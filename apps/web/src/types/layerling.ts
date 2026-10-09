@@ -256,6 +256,9 @@ export type WorkplaneWorkspaceSettings = {
   showGrid: boolean;
   clickToPlaceShapes: boolean;
   selectBeforeMove: boolean;
+  /** A double click on a sketch body opens its sketch; on a group or bundle, opens it for editing (#150). */
+  doubleClickOpensSketch: boolean;
+  doubleClickOpensGroup: boolean;
   /** Moving a shape snaps its edges and centre to other shapes, with guide lines. */
   objectSnap: boolean;
   dimensionsAlwaysVisible: boolean;

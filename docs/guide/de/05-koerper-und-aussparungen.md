@@ -53,7 +53,7 @@ Manchmal sollen Teile nur zusammenbleiben, ohne eins zu werden – etwa ein wei�
 
 ## Eine Gruppe bearbeiten
 
-Ist eine Bohrung zu klein geraten, musst du die Gruppe nicht auflösen und neu bauen. Wähle die Gruppe aus und klicke in ihren Einstellungen auf {{ui:group.edit}}, in der Objektliste auf das Ordnersymbol, oder drücke [[E]]. Die Teile liegen jetzt einzeln da, und du änderst sie mit allen Werkzeugen: ein Loch größer machen, einen Körper verschieben, eine Aussparung hinzufügen.
+Ist eine Bohrung zu klein geraten, musst du die Gruppe nicht auflösen und neu bauen. Wähle die Gruppe aus und klicke in ihren Einstellungen auf {{ui:group.edit}}, in der Objektliste auf das Ordnersymbol, oder drücke [[E]]. Ein Doppelklick auf die Gruppe tut dasselbe, wie bei Tinkercad, auch bei einem Bündel; wer das nicht mag, schaltet {{ui:workspace.doubleClickOpensGroup}} in den Einstellungen ab. Ein Teil bewegt sich übrigens erst, wenn der Zeiger ein paar Pixel weit gezogen wurde, so verschiebt ein verwackelter Klick oder Doppelklick nichts. Die Teile liegen jetzt einzeln da, und du änderst sie mit allen Werkzeugen: ein Loch größer machen, einen Körper verschieben, eine Aussparung hinzufügen.
 
 ![Die Gruppe in Bearbeitung: Unten steht der Balken mit Abbrechen und Fertig, die Objektliste zeigt die Teile.](shot:open-group)
 
