@@ -3417,6 +3417,32 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .inspector-bundle-note 
   outline: none;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-typed-line {
+  border: 1px solid rgba(166, 86, 0, 0.85);
+  background: rgba(255, 255, 255, 0.98);
+  color: #2d2d2d;
+  box-shadow: 0 2px 8px rgba(166, 86, 0, 0.18);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-typed-line input {
+  border: 1px solid rgba(166, 86, 0, 0.45);
+  background: #ffffff;
+  color: inherit;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-typed-line input:focus {
+  outline: 2px solid rgba(166, 86, 0, 0.55);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-typed-line-warning {
+  color: #c62828;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-typed-line input[aria-invalid="true"] {
+  border-color: #c62828;
+  color: #c62828;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .rotation-protractor-plane {
   filter: drop-shadow(0 1px 2px rgba(44, 44, 44, 0.14));
 }

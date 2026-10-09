@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronUp, CornerDownRight, Crosshair, Home, Link, Link2Off, LockKeyhole, LockKeyholeOpen, Minus, Plus, Ruler, RulerDimensionLine, Slash, Spline, Split, Trash2, Waves, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { SnapGridControl } from "@/components/workplane/ShapeInspector";
 import { SketchRevolvePreview } from "@/components/SketchRevolvePreview";
 import { canApplySketchCornerTreatment } from "@/lib/sketchFilletChamfer";
@@ -25,6 +25,7 @@ import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { clampNudge, constrainToAxis, sketchSegmentDragPointIds, sketchSelectionMovePointIds, type SketchSelectableEntity, type SketchSelection } from "@/lib/sketchSelection";
 import { closedPathAt, cubicPoint, curveControls, isInsideEdges, orderedPaths, pathEdges, type DisplayPath, type PlaneEdge } from "@/lib/sketchPaths";
 import { capturePointer } from "@/lib/pointerCapture";
+import { constrainToAngle, sketchLineAngle, sketchPolarPoint, splitTypedLine } from "@/lib/sketchPolar";
 
 export type { SketchPrimitive } from "@/lib/sketchPrimitives";
 export type SketchTool = "line" | "bezier" | "smooth" | SketchPrimitive | "select" | "refine" | "erase" | "measure";
@@ -614,6 +615,17 @@ export function SketchWorkspace({
     turn: CornerTurn;
     sketchPos: { x: number; z: number };
   } | null>(null);
+  // Length and angle typed while a line is drawn (#194): a digit opens the two fields at the
+  // line, "<" or Tab moves between them, Enter sets the next point there.
+  const [typedLine, setTypedLine] = useState<{
+    length: string;
+    angle: string;
+    field: "length" | "angle";
+    sketchPos: { x: number; z: number };
+  } | null>(null);
+  const typedLineLengthRef = useRef<HTMLInputElement>(null);
+  const typedLineAngleRef = useRef<HTMLInputElement>(null);
+  const hoverRef = useRef(hover);
   const width = workspace.width / zoom;
   const depth = workspace.depth / zoom;
   const screenUnit = useMemo(() => {
@@ -834,6 +846,16 @@ export function SketchWorkspace({
     setEditingDimension(null);
     setEditingAngle(null);
   }, [selected, tool]);
+  useEffect(() => {
+    setTypedLine(null);
+  }, [activePointId, tool]);
+  useEffect(() => {
+    hoverRef.current = hover;
+  }, [hover]);
+  useEffect(() => {
+    if (!typedLine) return;
+    (typedLine.field === "angle" ? typedLineAngleRef : typedLineLengthRef).current?.focus();
+  }, [typedLine?.field, typedLine !== null]); // eslint-disable-line react-hooks/exhaustive-deps
   const gridLayout = workplaneGridLayout(workspace);
   const gridStep = gridLayout.step;
   // Counted from the origin, like the plate's own grid: a stronger line every
@@ -862,6 +884,11 @@ export function SketchWorkspace({
     const local = screenPoint.matrixTransform(matrix.inverse());
     return { x: local.x, z: local.y };
   };
+
+  // Shift while drawing turns the new line to the nearest 15°, horizontal and vertical among
+  // them (#194); dragging with Shift still keeps to one axis.
+  const constrainDrawing = (origin: { x: number; z: number }, point: { x: number; z: number }) =>
+    constrainToAngle(origin, point, 15, snapStep(snap));
 
   const pointFromEvent = (event: { clientX: number; clientY: number }) => {
     const local = unsnappedPointFromEvent(event);
@@ -928,16 +955,16 @@ export function SketchWorkspace({
     event.preventDefault();
     if (tool === "bezier") {
       capturePointer(event.currentTarget, event.pointerId);
-      const startPoint = event.shiftKey && activePoint ? constrainToAxis(activePoint, point) : point;
+      const startPoint = event.shiftKey && activePoint ? constrainDrawing(activePoint, point) : point;
       setPointerAction({ kind: "bezier", pointerId: event.pointerId, origin: startPoint, current: startPoint });
     } else if (tool === "select") {
       capturePointer(event.currentTarget, event.pointerId);
       setPointerAction({ kind: "marquee", pointerId: event.pointerId, origin: point, current: point, clientX: event.clientX, clientY: event.clientY });
     } else if (tool === "line" || tool === "smooth" || tool === "measure") {
       const clickPoint = event.shiftKey && activePoint && ["line", "smooth"].includes(tool)
-        ? constrainToAxis(activePoint, point)
+        ? constrainDrawing(activePoint, point)
         : event.shiftKey && pendingMeasurementStart && tool === "measure"
-        ? constrainToAxis(pendingMeasurementStart, point)
+        ? constrainDrawing(pendingMeasurementStart, point)
         : point;
       onPlanePoint(clickPoint);
     }
@@ -968,7 +995,7 @@ export function SketchWorkspace({
         : !pointerAction && pendingMeasurementStart && tool === "measure"
         ? pendingMeasurementStart
         : null;
-    const hoverPoint = event.shiftKey && drawingOrigin && point ? constrainToAxis(drawingOrigin, point) : point;
+    const hoverPoint = event.shiftKey && drawingOrigin && point ? constrainDrawing(drawingOrigin, point) : point;
     setHover(hoverPoint);
     if (point && pointerAction) {
       // Shift held while a point, a line or a selection is being dragged keeps the
@@ -1103,7 +1130,7 @@ export function SketchWorkspace({
           : !pointerAction && pendingMeasurementStart && tool === "measure"
           ? pendingMeasurementStart
           : null;
-      const hoverPoint = shiftKey && drawingOrigin ? constrainToAxis(drawingOrigin, point) : point;
+      const hoverPoint = shiftKey && drawingOrigin ? constrainDrawing(drawingOrigin, point) : point;
       setHover(hoverPoint);
       if (pointerAction) {
         const lockOrigin = pointerAction.kind === "move-point" || pointerAction.kind === "move-selection" || pointerAction.kind === "bezier"
@@ -1124,6 +1151,17 @@ export function SketchWorkspace({
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (activePoint && !pointerAction && (tool === "line" || tool === "smooth") && /^[0-9.,<]$/.test(event.key)) {
+        event.preventDefault();
+        const pointer = hoverRef.current;
+        setTypedLine({
+          length: event.key === "<" ? "" : event.key,
+          angle: "",
+          field: event.key === "<" ? "angle" : "length",
+          sketchPos: pointer ? { x: (activePoint.x + pointer.x) / 2, z: (activePoint.z + pointer.z) / 2 } : activePoint,
+        });
+        return;
+      }
       if (event.key.toLowerCase() === "f" && event.shiftKey) {
         event.preventDefault();
         focusSelection();
@@ -1178,8 +1216,25 @@ export function SketchWorkspace({
 
   const measurementLength = measurement ? Math.hypot(measurement.end.x - measurement.start.x, measurement.end.z - measurement.start.z) : 0;
   const measurementLabel = formatDimension(measurementLength, workspace.accuracy);
-  const previewLength = activePoint && hover ? Math.hypot(hover.x - activePoint.x, hover.z - activePoint.z) : 0;
-  const previewLabel = formatDimension(previewLength, workspace.accuracy);
+  // What the typed fields make of the next line: the angle left empty follows the pointer.
+  const pointerAngle = activePoint && hover ? sketchLineAngle(activePoint, hover) : 0;
+  const typedLineTarget = (() => {
+    if (!typedLine || !activePoint) return null;
+    const length = parseMeasurementInput(typedLine.length);
+    if (!Number.isFinite(length) || length <= 0.001) return null;
+    const typedAngle = typedLine.angle.trim() ? parseMeasurementInput(typedLine.angle) : pointerAngle;
+    return Number.isFinite(typedAngle) ? sketchPolarPoint(activePoint, length, typedAngle) : null;
+  })();
+  const typedLineOffPlate = Boolean(typedLineTarget && (Math.abs(typedLineTarget.x) > workspace.width / 2 + 1e-6 || Math.abs(typedLineTarget.z) > workspace.depth / 2 + 1e-6));
+  const commitTypedLine = () => {
+    if (!typedLineTarget || typedLineOffPlate) return;
+    setTypedLine(null);
+    onPlanePoint(typedLineTarget);
+  };
+  const previewEnd = typedLineTarget ?? hover;
+  const previewLength = activePoint && previewEnd ? Math.hypot(previewEnd.x - activePoint.x, previewEnd.z - activePoint.z) : 0;
+  const previewAngle = activePoint && previewEnd ? sketchLineAngle(activePoint, previewEnd) : 0;
+  const previewLabel = `${formatDimension(previewLength, workspace.accuracy)}  ${Math.round(previewAngle * 10) / 10}°`;
   const labelOffset = 22 * screenUnit;
   const pointRadius = 5 * screenUnit;
   const controlPointRadius = 6 * screenUnit;
@@ -1797,9 +1852,9 @@ export function SketchWorkspace({
             );
           })() : null}
           {hover && hoverOnReference ? <circle className="sketch-reference-snap" cx={hover.x} cy={hover.z} r={7 * screenUnit} pointerEvents="none" /> : null}
-          {activePoint && hover && ["line", "bezier", "smooth"].includes(tool) ? <line className="sketch-preview-line" x1={activePoint.x} y1={activePoint.z} x2={hover.x} y2={hover.z} pointerEvents="none" /> : null}
-          {activePoint && hover && ["line", "bezier", "smooth"].includes(tool) ? (
-            <g className="sketch-segment-dimensions preview" pointerEvents="none" transform={`translate(${(activePoint.x + hover.x) / 2} ${(activePoint.z + hover.z) / 2 - labelOffset})`}>
+          {activePoint && previewEnd && ["line", "bezier", "smooth"].includes(tool) ? <line className="sketch-preview-line" x1={activePoint.x} y1={activePoint.z} x2={previewEnd.x} y2={previewEnd.z} pointerEvents="none" /> : null}
+          {activePoint && previewEnd && !typedLine && ["line", "bezier", "smooth"].includes(tool) ? (
+            <g className="sketch-segment-dimensions preview" pointerEvents="none" transform={`translate(${(activePoint.x + previewEnd.x) / 2} ${(activePoint.z + previewEnd.z) / 2 - labelOffset})`}>
               {(() => {
                 const pill = dimensionPillSize(previewLabel, screenUnit, 18);
                 return (
@@ -1961,6 +2016,72 @@ export function SketchWorkspace({
           ) : null}
           {hover && ["line", "bezier", "smooth", "measure"].includes(tool) ? <circle className="sketch-cursor-point" cx={hover.x} cy={hover.z} r={hoverPointRadius} pointerEvents="none" /> : null}
         </svg>
+        {typedLine && activePoint ? (() => {
+          const overlayPos = getOverlayPos(typedLine.sketchPos);
+          if (!overlayPos) return null;
+          const fieldKeys = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commitTypedLine();
+            } else if (event.key === "Tab") {
+              event.preventDefault();
+              setTypedLine((prev) => prev ? { ...prev, field: prev.field === "length" ? "angle" : "length" } : null);
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              setTypedLine(null);
+            }
+          };
+          // Leaving both fields, e.g. for a click on the sheet, puts them away.
+          const leave = (event: ReactFocusEvent<HTMLInputElement>) => {
+            if (event.relatedTarget !== typedLineLengthRef.current && event.relatedTarget !== typedLineAngleRef.current) setTypedLine(null);
+          };
+          const lengthInvalid = !typedLineTarget && typedLine.length.trim() !== "";
+          return (
+            <div
+              className="sketch-typed-line"
+              role="group"
+              aria-label={t("sketch.typedLineHint")}
+              title={t("sketch.typedLineHint")}
+              style={{ "--overlay-x": `${overlayPos.x}px`, "--overlay-y": `${overlayPos.y}px` } as CSSProperties}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              <label>
+                <span>{t("sketch.typedLength")}</span>
+                <input
+                  ref={typedLineLengthRef}
+                  value={typedLine.length}
+                  inputMode="decimal"
+                  aria-invalid={lengthInvalid || typedLineOffPlate}
+                  onFocus={(event) => event.currentTarget.setSelectionRange(event.currentTarget.value.length, event.currentTarget.value.length)}
+                  onChange={(event) => {
+                    const { length, angle } = splitTypedLine(event.target.value);
+                    setTypedLine((prev) => prev ? angle === null
+                      ? { ...prev, length }
+                      : { ...prev, length, angle: angle || prev.angle, field: "angle" } : null);
+                  }}
+                  onKeyDown={fieldKeys}
+                  onBlur={leave}
+                />
+                <span>mm</span>
+              </label>
+              <label>
+                <span>{t("sketch.typedAngle")}</span>
+                <input
+                  ref={typedLineAngleRef}
+                  value={typedLine.angle}
+                  placeholder={String(Math.round(pointerAngle * 10) / 10)}
+                  inputMode="decimal"
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) => setTypedLine((prev) => prev ? { ...prev, angle: event.target.value.replace("<", "") } : null)}
+                  onKeyDown={fieldKeys}
+                  onBlur={leave}
+                />
+                <span>°</span>
+              </label>
+              {typedLineOffPlate ? <p className="sketch-typed-line-warning" role="alert">{t("sketch.typedLineOffPlate")}</p> : null}
+            </div>
+          );
+        })() : null}
         {editingAngle ? (() => {
           const overlayPos = getOverlayPos(editingAngle.sketchPos);
           if (!overlayPos) return null;

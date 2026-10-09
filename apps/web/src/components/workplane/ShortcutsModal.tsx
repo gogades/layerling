@@ -145,7 +145,9 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { combos: ["Shift+F"], label: "shortcuts.sketchFocusSelection" },
       { combos: ["Alt+Enter"], label: "shortcuts.sketchDimensionSymmetric" },
       { combos: ["← / → / ↑ / ↓", "Shift+← / → / ↑ / ↓"], label: "shortcuts.sketchNudge" },
+      { combos: ["Shift"], label: "shortcuts.sketchAngleSnap" },
       { combos: ["Shift"], label: "shortcuts.sketchAxisLock" },
+      { combos: ["0-9", "<", "Tab", "Enter"], label: "shortcuts.sketchTypedLine" },
     ],
   },
   {

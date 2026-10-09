@@ -18,7 +18,7 @@ The editor then shows a sheet with a grid. That is your drawing surface.
 
 The ribbon in sketch mode is divided into areas:
 
-- **Draw:** {{ui:sketch.line}} makes straight sections: click points one after another; holding [[Shift]] constrains the line horizontally or vertically. The {{ui:sketch.bezier}} is shaped with its handles: click a point and drag. Dragging while you place a point bends the curve; if you come from Tinkercad and just want to click points, take the {{ui:sketch.smooth}}. The {{ui:sketch.smooth}} lays a flowing path through the points you click. To close the outline, click the first point again at the end.
+- **Draw:** {{ui:sketch.line}} makes straight sections: click points one after another; holding [[Shift]] snaps the new line in 15° steps, horizontal and vertical included. The length and angle of the new line show at the pointer. You can also type how long it should be, see [Lines by numbers](#lines-by-numbers). The {{ui:sketch.bezier}} is shaped with its handles: click a point and drag. Dragging while you place a point bends the curve; if you come from Tinkercad and just want to click points, take the {{ui:sketch.smooth}}. The {{ui:sketch.smooth}} lays a flowing path through the points you click. To close the outline, click the first point again at the end.
 - **Shapes:** {{ui:sketch.addShape}} offers ready-made outlines: {{ui:sketch.rectangle}}, {{ui:sketch.circle}}, {{ui:sketch.ellipse}}, {{ui:sketch.halfCircle}}, {{ui:sketch.pieSlice}}, {{ui:sketch.boltCircle}} (a disc with holes), {{ui:sketch.triangle}} and {{ui:sketch.hexagon}}. Pick one and drag a frame.
 - **Selection:** {{ui:sketch.select}} moves points and lines. A click inside a closed outline selects the whole outline, so you can drag or resize it straight away; inside a hole it picks the hole. The frame around the selection has eight handles: the corners change width and height together, keeping the proportions while you hold [[Shift]]. The ones on the sides change one direction only. Click the width or height pill to type a new size, also as a sum ("60+12.5") or in percent ("150%"). With [[Shift]] held, a click on a point or line adds it to the selection or takes it away again, so you can pick several and move them together. Drag a box over empty space to select everything in it. A line can be dragged too (it moves by its two ends, or all of the selection if it is part of one). The arrow keys move the selection by one grid step, [[Shift]] with them by a larger one, and [[Shift]] held while you drag keeps the move on one axis. {{ui:sketch.refine}}: a click on a section adds a point, a click on a point removes it. Also there are {{ui:sketch.erase}} and inserting a template image ({{ui:sketch.addImage}}).
 - **Clipboard:** {{ui:editor.tool.copy}}, {{ui:editor.tool.paste}}, {{ui:editor.tool.duplicate}} and {{ui:editor.tool.delete}} work on the selected points, lines and images, as in the 3D editor; [[Ctrl]]+[[X]] cuts. Pasted and duplicated geometry lands next to the original with a 10 mm gap, on a free spot where it touches no existing line, so it never gets joined to what is already there. It stays selected, so you can drag it straight into place.
@@ -28,6 +28,12 @@ The ribbon in sketch mode is divided into areas:
 A body comes only from a **closed** outline.
 
 ![An L-shaped outline. At the selected corner point, top left, the lengths of the two lines are shown in millimetres, and the angle between them in degrees.](shot:sketch-outline)
+
+## Lines by numbers
+
+Once you have set the first point with {{ui:sketch.line}} or {{ui:sketch.smooth}}, just type a number: two fields open next to the line, {{ui:sketch.typedLength}} in millimetres and {{ui:sketch.typedAngle}} in degrees. [[<]] or [[Tab]] moves to the angle, so "50<30" gives a line 50 mm long at 30°, as in AutoCAD. [[Enter]] sets the point, and you can type the next line straight away; [[Esc]] closes the fields without ending the line chain.
+
+The angle counts counterclockwise from the right: 0° to the right, 90° up, 180° to the left, 270° down. Leave it empty and the line follows the pointer, so you give only the length and show the direction with the mouse. Sums like "40+12.5" work in both fields. If the point would land off the plate, the field says so and waits for another value.
 
 ## Curving a straight side
 
@@ -90,7 +96,8 @@ With {{ui:sketch.addImage}} you put a photo or a drawing under the sketch and tr
 | [[Ctrl]]+[[V]] | paste |
 | [[Ctrl]]+[[D]] | duplicate the selection |
 | [[Ctrl]]+[[Z]] | undo |
-| [[Shift]] | while drawing: constrain line horizontally or vertically; while dragging: keep movement on one axis |
+| [[Shift]] | while drawing: snap the line in 15° steps; while dragging: keep movement on one axis |
+| digit, [[<]], [[Tab]], [[Enter]] | while drawing: type and set the length and angle of the next line |
 | [[R]] | rotate the closed sketch by 45° |
 | [[L]] | lock or unlock the template image |
 

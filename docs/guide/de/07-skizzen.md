@@ -18,7 +18,7 @@ Danach zeigt der Editor ein Blatt mit Gitter. Das ist deine Zeichenfläche.
 
 Das Menüband des Skizzenmodus ist in Bereiche geteilt:
 
-- **Zeichnen:** {{ui:sketch.line}} setzt gerade Abschnitte: Punkte nacheinander anklicken; mit gehaltener [[Umschalt]]-Taste rastet die neue Linie horizontal oder vertikal ein. Die {{ui:sketch.bezier}} spannst du an ihren Griffen: Punkt anklicken und ziehen. Das Ziehen beim Setzen formt die Kurve; wer aus Tinkercad kommt und nur Punkte anklicken will, nimmt die {{ui:sketch.smooth}}. Die {{ui:sketch.smooth}} legt einen fließenden Verlauf durch die Punkte, die du anklickst. Um den Umriss zu schließen, klickst du am Ende wieder auf den ersten Punkt.
+- **Zeichnen:** {{ui:sketch.line}} setzt gerade Abschnitte: Punkte nacheinander anklicken; mit gehaltener [[Umschalt]]-Taste rastet die neue Linie in 15°-Schritten ein, waagerecht und senkrecht eingeschlossen. Am Zeiger stehen Länge und Winkel der neuen Linie. Wie lang sie werden soll, kannst du auch eintippen, siehe [Linien nach Maß](#linien-nach-mass). Die {{ui:sketch.bezier}} spannst du an ihren Griffen: Punkt anklicken und ziehen. Das Ziehen beim Setzen formt die Kurve; wer aus Tinkercad kommt und nur Punkte anklicken will, nimmt die {{ui:sketch.smooth}}. Die {{ui:sketch.smooth}} legt einen fließenden Verlauf durch die Punkte, die du anklickst. Um den Umriss zu schließen, klickst du am Ende wieder auf den ersten Punkt.
 - **Formen:** {{ui:sketch.addShape}} bietet fertige Umrisse: {{ui:sketch.rectangle}}, {{ui:sketch.circle}}, {{ui:sketch.ellipse}}, {{ui:sketch.halfCircle}}, {{ui:sketch.pieSlice}}, {{ui:sketch.boltCircle}} (eine Scheibe mit Bohrungen), {{ui:sketch.triangle}} und {{ui:sketch.hexagon}}. Wähle eine aus und ziehe einen Rahmen auf.
 - **Auswahl:** {{ui:sketch.select}} verschiebt Punkte und Linien. Ein Klick in einen geschlossenen Umriss wählt den ganzen Umriss, so dass du ihn gleich verschieben oder skalieren kannst; in einem Loch wird das Loch gewählt. Der Rahmen um die Auswahl hat acht Griffe: Die an den Ecken ändern Breite und Höhe zugleich, mit gehaltener [[Umschalt]]-Taste im gleichen Verhältnis. Die an den Seiten ändern nur eine Richtung. Die Maßblasen für Breite und Höhe lassen sich anklicken; dort tippst du ein neues Maß ein, gern auch als Rechnung („60+12,5“) oder in Prozent („150%“). Mit [[Umschalt]] nimmst du per Klick weitere Punkte und Linien dazu oder wieder weg, so dass du mehrere auf einmal verschieben kannst. Ein Rahmen über freier Fläche wählt alles darin. Auch eine Linie lässt sich ziehen (sie wandert an ihren beiden Enden, oder die ganze Auswahl, wenn sie zu einer gehört). Die Pfeiltasten verschieben die Auswahl um einen Rasterschritt, mit [[Umschalt]] um einen größeren, und [[Umschalt]] beim Ziehen hält die Bewegung auf einer Achse. {{ui:sketch.refine}}: Ein Klick auf einen Abschnitt setzt einen Punkt, ein Klick auf einen Punkt entfernt ihn. Dazu kommen {{ui:sketch.erase}} und das Einfügen eines Vorlagenbilds ({{ui:sketch.addImage}}).
 - **Zwischenablage:** {{ui:editor.tool.copy}}, {{ui:editor.tool.paste}}, {{ui:editor.tool.duplicate}} und {{ui:editor.tool.delete}} wirken auf die gewählten Punkte, Linien und Bilder, wie im 3D-Editor; [[Strg]]+[[X]] schneidet aus. Eingefügtes und Dupliziertes landet mit 10 mm Abstand neben dem Original, an einer freien Stelle, an der es keine vorhandene Linie berührt, so dass es nie mit dem Bestehenden verbunden wird. Es bleibt ausgewählt, so dass du es gleich an seinen Platz ziehen kannst.
@@ -28,6 +28,12 @@ Das Menüband des Skizzenmodus ist in Bereiche geteilt:
 Ein Körper entsteht nur aus einem **geschlossenen** Umriss.
 
 ![Ein L-förmiger Umriss. Am gewählten Eckpunkt oben links stehen die Längen der beiden Linien in Millimetern und der Winkel dazwischen in Grad.](shot:sketch-outline)
+
+## Linien nach Maß
+
+Hast du mit {{ui:sketch.line}} oder {{ui:sketch.smooth}} den ersten Punkt gesetzt, tippst du einfach eine Zahl: Neben der Linie öffnen sich zwei Felder, {{ui:sketch.typedLength}} in Millimetern und {{ui:sketch.typedAngle}} in Grad. Mit [[<]] oder [[Tab]] wechselst du zum Winkel, so dass „50<30“ eine 50 mm lange Linie unter 30° ergibt, wie in AutoCAD. [[Enter]] setzt den Punkt, und du tippst gleich die nächste Linie; [[Esc]] schließt die Felder, ohne den Linienzug zu beenden.
+
+Der Winkel zählt von rechts gegen den Uhrzeigersinn: 0° nach rechts, 90° nach oben, 180° nach links, 270° nach unten. Lässt du ihn leer, folgt die Linie dem Zeiger, du gibst also nur die Länge vor und zeigst die Richtung mit der Maus. Rechnungen wie „40+12,5“ gehen in beiden Feldern. Würde der Punkt neben der Platte landen, sagt das Feld es dir und wartet auf ein anderes Maß.
 
 ## Eine gerade Seite krümmen
 
@@ -90,7 +96,8 @@ Mit {{ui:sketch.addImage}} legst du ein Foto oder eine Zeichnung unter die Skizz
 | [[Strg]]+[[V]] | einfügen |
 | [[Strg]]+[[D]] | Auswahl duplizieren |
 | [[Strg]]+[[Z]] | rückgängig |
-| [[Umschalt]] | beim Zeichnen: Linie horizontal oder vertikal einrasten; beim Ziehen: Bewegung auf eine Achse beschränken |
+| [[Umschalt]] | beim Zeichnen: Linie in 15°-Schritten einrasten; beim Ziehen: Bewegung auf eine Achse beschränken |
+| Ziffer, [[<]], [[Tab]], [[Enter]] | beim Zeichnen: Länge und Winkel der nächsten Linie eintippen und setzen |
 | [[R]] | geschlossene Skizze um 45° drehen |
 | [[L]] | Vorlagenbild sperren oder entsperren |
 
