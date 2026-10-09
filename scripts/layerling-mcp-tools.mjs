@@ -322,6 +322,20 @@ export const tools = [
     },
   },
   {
+    name: "layerling_scale_objects",
+    description: "Scale objects by a percentage, the same in every direction - the editor's Scale by percent tool. 120 makes them a fifth larger, 50 half the size. mode together (default) scales them around their common centre, so the layout grows with them; each scales every object where it stands, so the gaps stay. The bottom stays where it is. Locked objects are left as they are. One undo step.",
+    inputSchema: {
+      ...editorTargetSchema,
+      required: ["percent"],
+      properties: {
+        ...editorTargetSchema.properties,
+        ids: { type: "array", items: { type: "string" }, description: "Object ids to scale. If omitted, uses the current selection." },
+        percent: { type: "number", minimum: 1, maximum: 1000, description: "The new size in percent of the current one." },
+        mode: { type: "string", enum: ["together", "each"], description: "together (default): around the common centre. each: every object in place." },
+      },
+    },
+  },
+  {
     name: "layerling_lay_flat",
     description: "Turn objects so one of their faces rests on the workplane - the editor's Lay flat on face tool. Name a side of the object's own box (face) or give the outward normal of the face in world coordinates (normal); either snaps to the nearest real face. Several objects turn together about their common centre and keep their spacing. One undo step.",
     inputSchema: {

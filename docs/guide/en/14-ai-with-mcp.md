@@ -51,6 +51,7 @@ The AI works with the same functions as you, through the same path as your opera
 | `layerling_import_mesh` | brings a triangle mesh into the design |
 | `layerling_update_object` | changes dimensions, position, colour, name, solid or hole and everything else that makes up the shape |
 | `layerling_align_objects` | aligns objects with each other |
+| `layerling_scale_objects` | scales objects by a percentage, together or each in place |
 | `layerling_lay_flat` | lays an object with one face on the plate |
 | `layerling_mate_faces` | brings a face of one object against a face of another, face to face or flush |
 | `layerling_open_group` | opens a group so its parts can be changed one by one, also a group inside an open one |

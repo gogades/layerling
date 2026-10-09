@@ -87,6 +87,19 @@ Tip: first set the pivot on a face with {{ui:editor.tool.rotationPivot}}, then t
 
 The copies first appear as a preview. Only {{ui:array.apply}} creates them. If the copies are holes, group them afterwards with the body they should cut into.
 
+## Scaling by percent
+
+To make one or several parts larger or smaller by the same share, say all the parts of a print file by 20 %, use {{ui:scalePercent.title}}. Select the parts, right-click them and choose {{ui:scalePercent.title}}, or search for it with [[Ctrl]]+[[K]].
+
+Under {{ui:scalePercent.percent}} you type the new size as a percentage of the current one: 120 % is a fifth larger, 50 % half the size. Width, depth and height change alike, so the proportions stay. The bottom stays where it is, so nothing sinks into the plate.
+
+With several parts you choose how they grow:
+
+- **{{ui:scalePercent.mode.together}}:** The parts grow around their common centre, and the gaps grow with them. The whole becomes larger as if it were one part.
+- **{{ui:scalePercent.mode.each}}:** Every part grows where it stands, and the gaps between them stay the same.
+
+Only {{ui:scalePercent.apply}} changes the design, and one step back undoes it. Locked parts stay as they are.
+
 ## Undoing
 
 {{ui:editor.tool.undo}} ([[Ctrl]]+[[Z]]) and {{ui:editor.tool.redo}} ([[Ctrl]]+[[Shift]]+[[Z]] or [[Ctrl]]+[[Y]]) step through your history. How many steps travel with the saved design you set in the settings under {{ui:workspace.history}}.

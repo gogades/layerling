@@ -96,6 +96,7 @@ import { roundSideCount } from "@/lib/roundSideCount";
 import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { makeShapeFromAsset, parseDroppedShapeAsset } from "@/lib/shapeCatalog";
+import { scaledHorizontalShapePatch } from "@/lib/scaleByPercent";
 import { canBeginShapeDrag, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, effectiveViewSettings, viewPixelRatio, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { withShapeDefaults } from "@/lib/shapeDefaults";
 import { AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, sceneLightLevels, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
@@ -3502,27 +3503,6 @@ function resizedShapePatchFromFrame(shape: WorkplaneShape, center: THREE.Vector3
   };
   if (shape.kind === "cone") {
     patch.baseRadius = width / 2;
-  }
-  return patch;
-}
-
-function scaledHorizontalShapePatch(shape: WorkplaneShape, scaleX: number, scaleZ: number): Partial<WorkplaneShape> {
-  const width = Math.max(MIN_SHAPE_SIZE, shapeWidth(shape) * scaleX);
-  const depth = Math.max(MIN_SHAPE_SIZE, shapeDepth(shape) * scaleZ);
-  const patch: Partial<WorkplaneShape> = {
-    width,
-    depth,
-    size: resizedShapeSize(width, depth),
-  };
-  if (shape.kind === "cone") {
-    patch.baseRadius = width / 2;
-  }
-  if (shapeHasTaper(shape)) {
-    const taper = shapeTaperDimensions(shape);
-    patch.taperTopWidth = Math.max(MIN_SHAPE_SIZE, taper.topWidth * scaleX);
-    patch.taperBottomWidth = Math.max(MIN_SHAPE_SIZE, taper.bottomWidth * scaleX);
-    patch.taperTopDepth = Math.max(MIN_SHAPE_SIZE, taper.topDepth * scaleZ);
-    patch.taperBottomDepth = Math.max(MIN_SHAPE_SIZE, taper.bottomDepth * scaleZ);
   }
   return patch;
 }

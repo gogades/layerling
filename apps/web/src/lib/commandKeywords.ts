@@ -25,6 +25,7 @@ export const COMMAND_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
   align: ["align", "ausrichten", "buendig", "bündig", "mitte", "center"],
   mirror: ["mirror", "flip", "spiegeln", "spiegelung"],
   pivot: ["pivot", "rotation point", "drehpunkt", "drehen", "rotate"],
+  scalePercent: ["scale", "percent", "resize", "bigger", "smaller", "skalieren", "prozent", "vergrößern", "vergroessern", "verkleinern", "größe"],
   array: ["array", "pattern", "repeat", "muster", "reihe", "kreis", "wiederholen", "vervielfachen"],
   split: ["split", "cut", "slice", "teilen", "schneiden", "trennen", "saegen", "sägen", "ebene"],
   snap: ["snap", "grid", "raster", "einrasten", "gitter"],

@@ -87,6 +87,19 @@ Tipp: Setze vorher mit {{ui:editor.tool.rotationPivot}} den Drehpunkt auf eine F
 
 Die Kopien erscheinen zuerst als Vorschau. Erst {{ui:array.apply}} legt sie an. Sind die Kopien Aussparungen, gruppierst du sie danach mit dem Körper, in den sie schneiden sollen.
 
+## Um Prozent skalieren
+
+Sollen ein oder mehrere Teile um denselben Anteil größer oder kleiner werden, etwa alle Teile einer Druckdatei um 20 %, nimmst du {{ui:scalePercent.title}}. Wähle die Teile aus, klicke mit der rechten Maustaste darauf und wähle {{ui:scalePercent.title}}, oder suche es mit [[Strg]]+[[K]].
+
+Bei {{ui:scalePercent.percent}} gibst du die neue Größe in Prozent der jetzigen ein: 120 % ist ein Fünftel größer, 50 % halb so groß. Breite, Tiefe und Höhe ändern sich dabei gleich, die Proportionen bleiben also erhalten. Die Unterseite bleibt, wo sie ist, so dass nichts in die Platte rutscht.
+
+Bei mehreren Teilen wählst du, wie sie wachsen:
+
+- **{{ui:scalePercent.mode.together}}:** Die Teile wachsen um ihre gemeinsame Mitte, die Abstände wachsen mit. Das Ganze wird größer, als wäre es ein Teil.
+- **{{ui:scalePercent.mode.each}}:** Jedes Teil wächst an seinem Platz, die Abstände dazwischen bleiben gleich.
+
+Erst {{ui:scalePercent.apply}} ändert den Entwurf, und ein Schritt zurück macht es wieder rückgängig. Gesperrte Teile bleiben, wie sie sind.
+
 ## Rückgängig machen
 
 {{ui:editor.tool.undo}} ([[Strg]]+[[Z]]) und {{ui:editor.tool.redo}} ([[Strg]]+[[Umschalt]]+[[Z]] oder [[Strg]]+[[Y]]) gehen Schritt für Schritt durch deinen Verlauf. Wie viele Schritte mit dem gespeicherten Entwurf mitreisen, stellst du in den Einstellungen unter {{ui:workspace.history}} ein.

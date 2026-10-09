@@ -1,7 +1,7 @@
 "use client";
 
 import { GuideHelpLink } from "@/components/GuideHelpLink";
-import { AlertTriangle, Check, Circle as CircleIcon, CloudUpload, Download, Eye, EyeOff, FilePlus2, FolderOpen, Hexagon as HexagonIcon, Info, ListTree, Pencil, Search, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
+import { AlertTriangle, Check, Percent, Circle as CircleIcon, CloudUpload, Download, Eye, EyeOff, FilePlus2, FolderOpen, Hexagon as HexagonIcon, Info, ListTree, Pencil, Search, Square as SquareIcon, Triangle as TriangleIcon, X } from "lucide-react";
 import { ObjectListPanel } from "@/components/workplane/ObjectListPanel";
 import type manifoldModule from "manifold-3d";
 import type { ManifoldToplevel } from "manifold-3d";
@@ -92,6 +92,8 @@ import { MateFacesPanel } from "./workplane/MateFacesPanel";
 import { mateMotion, type FacePick, type MateMode } from "@/lib/mateFaces";
 import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
+import { ScalePercentPanel, type ScalePercentSettings } from "./workplane/ScalePercentPanel";
+import { scaleShapesByPercent } from "@/lib/scaleByPercent";
 import { SHELL_SIDES, shellMaxThickness, shellOpeningsFor, shellOpenSides } from "@/lib/shellLimits";
 import { circleStepDegrees, clampArrayCount, moveAlongRadius, rotateAroundVertical, rowOffset, singleAxisSpacing, type ArraySettings } from "@/lib/shapeArray";
 import { bedOverhangs, printerPresetById, type BedOverhang } from "@/lib/printBed";
@@ -6873,6 +6875,8 @@ export function LayerlingEditor({
   const cruiseAssetRef = useRef<ShapeAsset | null>(null);
   cruiseAssetRef.current = cruiseAsset;
   const [arrayTool, setArrayTool] = useState<ArraySettings | null>(null);
+  const [scalePercentTool, setScalePercentTool] = useState<ScalePercentSettings | null>(null);
+  const [scalePercentError, setScalePercentError] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState("3D Design");
   const editorLanguage = useLanguage();
   // Leer heisst Ruhe: Dann steht kein Fenster auf der Arbeitsflaeche. Ein
@@ -7695,9 +7699,11 @@ export function LayerlingEditor({
     setNotice(t("status.pivotPickStart"));
   }, [activeRotationPivot, closeSplit, hasSelection, ownPivotShape, pivotPickMode, stopCruise]);
 
-  // A pattern belongs to the selection it was opened for.
+  // A pattern belongs to the selection it was opened for, and so does scaling by percent.
   useEffect(() => {
     setArrayTool(null);
+    setScalePercentTool(null);
+    setScalePercentError(null);
   }, [selectionKey]);
 
   const toggleArrayTool = useCallback(() => {
@@ -9167,6 +9173,53 @@ export function LayerlingEditor({
     const duplicates = selectedShapes.map((shape) => cloneWorkplaneShapeTreeWithFreshIds(shape, "copy"));
     commitShapes([...shapes, ...duplicates], duplicates.map((shape) => shape.id), t("status.duplicatedMany", { count: duplicates.length }));
   }, [commitShapes, hasSelection, selectedShapes, shapes]);
+
+  /** Scales the selection by a percentage (#179); the same code the MCP action uses. */
+  const scaleSelectionByPercent = useCallback((ids: readonly string[], percent: number, mode: ScalePercentSettings["mode"]) => {
+    const targets = shapesRef.current.filter((shape) => ids.includes(shape.id) && !shape.locked);
+    if (targets.length === 0) return { ok: false as const, message: t("status.selectShapeFirst") };
+    const result = scaleShapesByPercent(targets, percent, mode, (shape) => shapeDimensionLimit(workspaceSettingsRef.current, shape.kind, 1000));
+    if (!result.ok) {
+      const message = result.reason === "percent"
+        ? t("scalePercent.errorPercent")
+        : t(result.reason === "tooSmall" ? "scalePercent.errorTooSmall" : "scalePercent.errorTooLarge", { name: result.name ?? "" });
+      return { ok: false as const, message };
+    }
+    const byId = new Map(result.patches.map((entry) => [entry.id, entry.patch]));
+    const next = shapesRef.current.map((shape) => {
+      const patch = byId.get(shape.id);
+      return patch ? canonicalizeShape({ ...shape, ...patch }) : shape;
+    });
+    const skipped = ids.length - targets.length;
+    commitShapes(next, selectedIdsRef.current, t(skipped > 0 ? "status.scaledByPercentSkipped" : "status.scaledByPercent", { percent: Math.round(percent * 10) / 10, count: targets.length, skipped }));
+    return { ok: true as const, count: targets.length, skipped };
+  }, [commitShapes]);
+
+  const toggleScalePercentTool = useCallback(() => {
+    if (scalePercentTool) {
+      setScalePercentTool(null);
+      setScalePercentError(null);
+      return;
+    }
+    if (selectedShapes.length === 0) {
+      setNotice(t("status.selectShapeFirst"));
+      return;
+    }
+    setArrayTool(null);
+    setScalePercentError(null);
+    setScalePercentTool({ percent: 100, mode: "together" });
+  }, [scalePercentTool, selectedShapes.length]);
+
+  const applyScalePercentTool = useCallback(() => {
+    if (!scalePercentTool) return;
+    const result = scaleSelectionByPercent(selectedIdsRef.current, scalePercentTool.percent, scalePercentTool.mode);
+    if (!result.ok) {
+      setScalePercentError(result.message);
+      return;
+    }
+    setScalePercentTool(null);
+    setScalePercentError(null);
+  }, [scalePercentTool, scaleSelectionByPercent]);
 
   const applyArrayTool = useCallback(() => {
     if (!arrayTool || selectedShapes.length === 0) return;
@@ -11844,6 +11897,23 @@ export function LayerlingEditor({
         return { mode, gap, object: mcpShapeSummary(nextShapes.find((shape) => shape.id === mover.id) as WorkplaneShape) };
       }
 
+      if (command.action === "scale_objects") {
+        const requestedIds = mcpStringArray(params.ids ?? params.id);
+        const ids = requestedIds.length ? requestedIds : selectedIdsRef.current;
+        const percent = typeof params.percent === "number" ? params.percent : Number.NaN;
+        const mode = params.mode === "each" ? "each" : "together";
+        if (ids.length === 0) throw new Error("scale_objects needs ids or a selection");
+        const result = scaleSelectionByPercent(ids, percent, mode);
+        if (!result.ok) throw new Error(result.message);
+        const scaled = new Set(ids);
+        return {
+          percent,
+          mode,
+          skippedLocked: result.skipped,
+          objects: currentShapes().filter((shape) => scaled.has(shape.id)).map(mcpShapeSummary),
+        };
+      }
+
       if (command.action === "lay_flat") {
         const requestedIds = mcpStringArray(params.ids ?? params.id);
         const ids = new Set(requestedIds.length ? requestedIds : selectedIdsRef.current);
@@ -13669,6 +13739,11 @@ export function LayerlingEditor({
           setNotice(t("status.arrayCancelled"));
           return;
         }
+        if (scalePercentTool) {
+          setScalePercentTool(null);
+          setScalePercentError(null);
+          return;
+        }
         setSelectedIds([]);
         setNotice(t("status.selectionCleared"));
         return;
@@ -13932,6 +14007,7 @@ export function LayerlingEditor({
         { key: "hollow", label: t("editor.tool.hollow"), onSelect: startShellTool },
       );
     }
+    if (!allLocked) items.push({ key: "scalePercent", label: t("scalePercent.title"), separated: true, onSelect: toggleScalePercentTool });
     if (single && offersMeshSimplify(single) && !single.locked) items.push({ key: "simplify", label: t("contextMenu.simplify"), separated: true, onSelect: startSimplifyTool });
     if (!allHoles) {
       items.push(
@@ -14041,6 +14117,8 @@ export function LayerlingEditor({
         onRotationPivot={toggleRotationPivot}
         onArray={toggleArrayTool}
         arrayActive={Boolean(arrayTool)}
+        onScalePercent={toggleScalePercentTool}
+        scalePercentActive={Boolean(scalePercentTool)}
         rotationPivotActive={pivotPickMode || Boolean(activeRotationPivot)}
         onSplit={toggleSplitMode}
         onPaste={pasteShape}
@@ -14318,6 +14396,24 @@ export function LayerlingEditor({
           onCancel={() => {
             setArrayTool(null);
             setNotice(t("status.arrayCancelled"));
+          }}
+        />
+      ) : null}
+      {scalePercentTool && selectedShapes.length > 0 ? (
+        <ScalePercentPanel
+          targetName={selectedShapes.length === 1 ? selectedShapes[0].name : t("array.targetMany", { count: selectedShapes.length })}
+          count={selectedShapes.length}
+          settings={scalePercentTool}
+          workspace={workspaceSettings}
+          error={scalePercentError}
+          onChange={(patch) => {
+            setScalePercentError(null);
+            setScalePercentTool((current) => current ? { ...current, ...patch } : current);
+          }}
+          onApply={applyScalePercentTool}
+          onCancel={() => {
+            setScalePercentTool(null);
+            setScalePercentError(null);
           }}
         />
       ) : null}
@@ -14703,6 +14799,8 @@ function SecondaryToolbar({
   rotationPivotActive,
   onArray,
   arrayActive,
+  onScalePercent,
+  scalePercentActive,
   onSplit,
   onPaste,
   onRedo,
@@ -14802,6 +14900,8 @@ function SecondaryToolbar({
   rotationPivotActive: boolean;
   onArray: () => void;
   arrayActive: boolean;
+  onScalePercent: () => void;
+  scalePercentActive: boolean;
   onSplit: () => void;
   onPaste: () => void;
   onRedo: () => void;
@@ -15202,6 +15302,7 @@ function SecondaryToolbar({
       plain("overhangs", t("visibility.overhangs", { angle: overhangAngle }), visibilityGroup, true, onToggleOverhangs, { icon: AlertTriangle, active: overhangsVisible }),
       ...combineTools.map((tool) => fromTool(tool, t("editor.group.combine"))),
       ...modifyTools.map((tool) => fromTool(tool, t("editor.group.modify"))),
+      plain("scalePercent", t("scalePercent.title"), t("editor.group.modify"), hasSelection, onScalePercent, { icon: Percent, active: scalePercentActive }),
       ...arrangeTools.map((tool) => fromTool(tool, t("editor.group.arrange"))),
       plain("note", t("editor.tool.note"), manageGroup, true, onNoteTool, { icon: ToolbarNoteIcon, active: noteMode }),
       plain("import", t("editor.import"), manageGroup, true, () => onTopPanel("import"), { icon: ToolbarImportIcon }),

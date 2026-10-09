@@ -41,6 +41,7 @@ export const GUIDE_SECTIONS = {
   myShapes: { chapter: "shapes", de: "eigene-formen", en: "custom-shapes" },
   objectList: { chapter: "select", de: "die-objektliste", en: "the-object-list" },
   pattern: { chapter: "select", de: "muster-reihe-und-kreis", en: "patterns-row-and-circle" },
+  scaleByPercent: { chapter: "select", de: "um-prozent-skalieren", en: "scaling-by-percent" },
   historyView: { chapter: "select", de: "zurueckschauen-die-verlaufsansicht", en: "looking-back-the-history-view" },
   grouping: { chapter: "solids", de: "gruppieren", en: "grouping" },
   bundling: { chapter: "solids", de: "buendeln", en: "bundling" },
