@@ -6,6 +6,8 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Top edges for cookie cutters:** The edge panel has a new "Top edges" button that picks only the edges along the very top of a body - build an outline as a stroke, then chamfer its top edges for a cookie cutter. Through MCP, layerling_apply_edge_treatment takes `edgeIds: "top"`. Asked for by @hlmodtech in #154.
+- **Plate labels can be switched off:** The design's name on the plate and the printer's name and build volume in its corner can be hidden with "Plate labels" in the settings, for anyone who finds them distracting. Asked for by @jamesjoyce2208 in #192.
 - **Sketch strokes free their memory:** Working out a stroked sketch left its intermediate outlines in the geometry library's memory, and the preview works it out again on every edit, so a long session with a stroked sketch kept growing. They are now freed.
 - **Align overlay stays light on big meshes:** The Align handles measured the drawn parts point by point on every frame; with a large imported mesh that slowed the view. The measurement is now kept until a part moves or changes.
 - **The fill light starts exactly where it was:** With the light at its default direction, the fill light now stands precisely where it always stood, and turns along with the main light from there.

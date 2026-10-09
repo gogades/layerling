@@ -93,7 +93,7 @@ For chamfer/fillet, never guess edge ids.
 2. Use returned `selectableEdgeIds` or inspect returned edge geometry.
 3. Call `layerling_apply_edge_treatment({ editorNumber, id, kind, edgeIds, amount, chamferAngle })`.
 
-`edgeIds` can be an array of numeric ids or `"all"`. `kind` is `chamfer` or `fillet`. The app commits the result through normal history, so undo/redo works.
+`edgeIds` can be an array of numeric ids, `"all"`, or `"top"` for only the edges along the very top of the body, such as the rim of a cookie cutter made from a stroked sketch (`layerling_create_shape` with `kind: "sketch"` and `stroke`). `kind` is `chamfer` or `fillet`. The app commits the result through normal history, so undo/redo works.
 
 ## Hollowing
 

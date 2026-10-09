@@ -220,6 +220,7 @@ import {
 import { localizedError } from "@/lib/userErrors";
 import { sketchBodyStretch, stretchedSketchProfile } from "@/lib/sketchResize";
 import { normalizeSketchStroke, strokedSketchProfile } from "@/lib/sketchStroke";
+import { topCadModifierEdgeIds } from "@/lib/topEdges";
 import { placeSketchShape } from "@/lib/sketchPlacement";
 import { meshSlicePath, planeCutsMesh } from "@/lib/sketchSlice";
 import { BUG_REPORT_FILE, bugReportText, rememberBugReportEvent, type BugReportEvent } from "@/lib/bugReport";
@@ -9416,7 +9417,12 @@ export function LayerlingEditor({
     const { response, sourceParts } = await prepareCadModifierForMcp(shape, sharpAngle);
     const selectableIds = response.edges.filter((edge) => selectableCadModifierEdge(edge, sharpAngle)).map((edge) => edge.id);
     const requestedIds = mcpNumberArray(params.edgeIds);
-    const selectedEdgeIds = params.edgeIds === "all" || params.allEdges === true ? selectableIds : requestedIds.filter((edgeId) => selectableIds.includes(edgeId));
+    const selectedEdgeIds = params.edgeIds === "all" || params.allEdges === true
+      ? selectableIds
+      : params.edgeIds === "top"
+        // The rim along the very top, as the panel's "Top edges" picks it (#154).
+        ? topCadModifierEdgeIds(response.edges, selectableIds)
+        : requestedIds.filter((edgeId) => selectableIds.includes(edgeId));
     const missingIds = requestedIds.filter((edgeId) => !selectableIds.includes(edgeId));
     if (selectedEdgeIds.length === 0) {
       throw new Error("Select at least one valid highlighted edge ID");
@@ -13893,6 +13899,11 @@ export function LayerlingEditor({
           onTangentChainChange={(tangentChain) => setEdgeModifier((current) => current?.prepared ? { ...current, tangentChain } : current)}
           onPreserveEdgeSizeChange={(preserveEdgeSize) => setEdgeModifier((current) => current?.prepared ? { ...current, preserveEdgeSize } : current)}
           onSelectAll={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: modifierAvailableEdgeIds, preview: null, busy: modifierAvailableEdgeIds.length > 0, error: modifierAvailableEdgeIds.length ? null : current.error } : current)}
+          onSelectTop={() => setEdgeModifier((current) => {
+            if (!current?.prepared) return current;
+            const topIds = topCadModifierEdgeIds(current.edges, modifierAvailableEdgeIds);
+            return { ...current, selectedEdgeIds: topIds, preview: null, busy: topIds.length > 0, error: topIds.length ? null : t("edge.noTopEdges") };
+          })}
           onClear={() => setEdgeModifier((current) => current?.prepared ? { ...current, selectedEdgeIds: [], preview: null, busy: false, error: t("edge.selectAtLeastOne") } : current)}
           onRemoveFeature={removeEdgeTreatment}
           onApply={applyEdgeModifier}

@@ -203,6 +203,8 @@ export type WorkplaneWorkspaceSettings = {
   surfaceColor: string;
   /** Arrows for the X, Y and Z directions at the corner of the plate. */
   showAxes: boolean;
+  /** The design's name and the printer with its build volume, written on the plate (#192). */
+  showPlateLabels: boolean;
   /** Draw an edge line on every body, not only on selected and complex ones. */
   edgeLines: boolean;
   /** Colour of those edge lines. */

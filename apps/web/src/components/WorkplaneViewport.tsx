@@ -10231,8 +10231,8 @@ function rebuildWorkplane(
       ));
       const labelPalette = workplaneGridPalette(theme, lineColor, state.palette).major;
       // The design's name in the near left corner, so a screenshot of the scene
-      // says what it shows.
-      const label = createWorkplaneLabel(
+      // says what it shows - unless it was switched off as a distraction (#192).
+      const label = workspace.showPlateLabels === false ? null : createWorkplaneLabel(
         workspace.width,
         workspace.depth,
         labelPalette.color,
@@ -10245,7 +10245,7 @@ function rebuildWorkplane(
         group.add(label);
       }
       // Only on the real plate, and hidden together with the design name.
-      const printer = muted ? null : printerPresetById(workspace.printer);
+      const printer = muted || workspace.showPlateLabels === false ? null : printerPresetById(workspace.printer);
       if (printer) {
         const printerLabel = createWorkplaneLabel(
           workspace.width,

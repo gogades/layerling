@@ -606,7 +606,7 @@ export const tools = [
   },
   {
     name: "layerling_apply_edge_treatment",
-    description: "Apply chamfer or fillet to specific edge ids returned by layerling_list_edges.",
+    description: "Apply chamfer or fillet to specific edge ids returned by layerling_list_edges, to \"all\" sharp edges, or to the \"top\" edges (every edge along the body's highest level, such as the rim of a cookie cutter), as the editor's Top edges button picks them.",
     inputSchema: {
       ...editorTargetSchema,
       required: ["id", "kind", "edgeIds", "amount"],
@@ -617,7 +617,7 @@ export const tools = [
         edgeIds: {
           anyOf: [
             { type: "array", items: { type: "number" } },
-            { type: "string", enum: ["all"] },
+            { type: "string", enum: ["all", "top"] },
           ],
         },
         allEdges: { type: "boolean" },

@@ -12,7 +12,7 @@ summary: Den eigenen Drucker wählen, gewarnt werden, wenn etwas nicht passt, un
 Damit passiert dreierlei:
 
 - Die Arbeitsebene bekommt die Größe des Druckbetts.
-- In der Ecke der Arbeitsfläche stehen der Name des Druckers und sein Bauraum.
+- In der Ecke der Arbeitsfläche stehen der Name des Druckers und sein Bauraum. Wen die Beschriftung stört, schaltet sie unter {{ui:workspace.appearance}} mit {{ui:workspace.showPlateLabels}} ab; das gilt auch für den Namen des Entwurfs vorne links.
 - layerling **warnt**, wenn etwas nicht passt.
 
 Die Druckerprofile stammen aus OrcaSlicer, sie sind also dieselben, die auch dein Slicer kennt. Möchtest du ohne Drucker arbeiten, wählst du {{ui:workspace.printerNone}}. Die Größe der Arbeitsebene kannst du auch von Hand einstellen.

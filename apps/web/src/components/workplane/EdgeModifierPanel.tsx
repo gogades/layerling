@@ -177,6 +177,7 @@ export function EdgeModifierPanel({
   onTangentChainChange,
   onPreserveEdgeSizeChange,
   onSelectAll,
+  onSelectTop,
   onClear,
   onRemoveFeature,
   onApply,
@@ -210,6 +211,8 @@ export function EdgeModifierPanel({
   onTangentChainChange: (value: boolean) => void;
   onPreserveEdgeSizeChange: (value: boolean) => void;
   onSelectAll: () => void;
+  /** Picks only the edges along the very top, e.g. the rim of a cookie cutter (#154). */
+  onSelectTop?: () => void;
   onClear: () => void;
   onRemoveFeature: (id: string) => void;
   onApply: () => void;
@@ -252,6 +255,7 @@ export function EdgeModifierPanel({
 
       <div className="edge-modifier-quick-actions">
         <button type="button" disabled={!prepared} onClick={onSelectAll}>{t("edge.allSharpEdges")}</button>
+        {onSelectTop ? <button type="button" disabled={!prepared} title={t("edge.topEdgesHint")} onClick={onSelectTop}>{t("edge.topEdges")}</button> : null}
         <button type="button" disabled={!prepared} onClick={onClear}>{t("edge.clear")}</button>
       </div>
 

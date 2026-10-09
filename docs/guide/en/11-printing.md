@@ -12,7 +12,7 @@ Open the settings (the cogwheel in the ribbon, {{ui:editor.workspaceSettings}}) 
 Three things happen:
 
 - The workplane takes the size of the print bed.
-- In the corner of the workplane appear the printer's name and its build volume.
+- In the corner of the workplane appear the printer's name and its build volume. If the writing gets in the way, switch it off with {{ui:workspace.showPlateLabels}} under {{ui:workspace.appearance}}; that also goes for the design's name at the front left.
 - layerling **warns** when something does not fit.
 
 The printer profiles come from OrcaSlicer, so they are the same ones your slicer knows. If you would rather work without a printer, choose {{ui:workspace.printerNone}}. You can also set the size of the workplane by hand.
