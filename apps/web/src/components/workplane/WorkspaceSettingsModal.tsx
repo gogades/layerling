@@ -67,7 +67,7 @@ import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, 
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { BOOLEAN_TRIANGLE_LIMIT_PRESETS, BOOLEAN_TRIANGLE_LIMIT_STEP, DEFAULT_WORKPLANE_WORKSPACE, MAX_BOOLEAN_TRIANGLE_LIMIT, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_BOOLEAN_TRIANGLE_LIMIT, MIN_CUSTOM_SHAPE_DIMENSION, booleanTriangleLimitPreset, gridBlockForUnits, snapGridForUnits, type BooleanTriangleLimitPreset, CUSTOM_SNAP_GRID_DIVISORS, DEFAULT_SNAP_GRID, MAX_CUSTOM_SNAP_GRID, MAX_CUSTOM_SNAP_GRID_NAME, MAX_CUSTOM_SNAP_GRIDS, MIN_CUSTOM_SNAP_GRID, customSnapGridLabel, customSnapGridSize, parseCustomSnapGrid, snapGridOptions } from "@/lib/workplaneSettings";
 import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm } from "@/lib/workplaneGrid";
-import type { BentTubeProfile, CustomSnapGrid, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import type { BentTubeProfile, CustomSnapGrid, GearProfile, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { DEFAULT_LOFT } from "@/lib/loftGeometry";
 import { selectWholeValue } from "@/lib/numberField";
 
@@ -107,10 +107,14 @@ const BOOLEAN_LIMIT_PRESET_LABEL_KEYS: Record<BooleanTriangleLimitPreset, Messag
 };
 const HISTORY_CUSTOM_DEFAULT = 250;
 const TEXT_FONT_OPTIONS = ["Multilanguage", "Sans", "Serif", "Script", "Monospace", "Rounded", "Stencil"];
-const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: string }> = [
-  { value: "spur", label: "Spur gear" },
-  { value: "helical", label: "Helical gear" },
-  { value: "bevel", label: "Bevel gear" },
+const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: MessageKey }> = [
+  { value: "spur", label: "gear.spur" },
+  { value: "helical", label: "gear.helical" },
+  { value: "bevel", label: "gear.bevel" },
+];
+const GEAR_PROFILE_OPTIONS: Array<{ value: GearProfile; label: MessageKey }> = [
+  { value: "involute", label: "gear.profileInvolute" },
+  { value: "simple", label: "gear.profileSimple" },
 ];
 const THREAD_ROLE_OPTIONS: Array<{ value: ThreadRole; label: MessageKey }> = [
   { value: "rod", label: "thread.rod" },
@@ -141,11 +145,11 @@ const BENT_TUBE_PROFILE_OPTIONS: Array<{ value: BentTubeProfile; label: MessageK
   { value: "octagon", label: "bentTube.profileOctagon" },
 ];
 
-type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadBoltClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth" | "starPoints" | "starInnerSize" | "starOuterFillet" | "starInnerFillet" | "starQuality" | "heartTipFillet" | "heartQuality" | "crescentThickness" | "crescentTipFillet" | "crescentQuality" | "honeycombCellSize" | "honeycombWallThickness" | "honeycombFrameWidth" | "dovetailNeckWidth" | "dovetailClearance" | "hingeKnuckles" | "hingePinDiameter" | "hingeLeafThickness" | "hingeClearance" | "screwHoleShaft" | "screwHoleHeadDepth" | "screwHoleAngle" | "cornerFillet" | "topBottomFillet" | "roundedBoxQuality" | "bentTubeSize" | "bentTubeWall" | "bentTubeQuality" | "knurlCount" | "knurlDepth" | "knurlAngle" | "knurlChamfer"
+type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "gearPressureAngle" | "gearBacklash" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadBoltClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth" | "starPoints" | "starInnerSize" | "starOuterFillet" | "starInnerFillet" | "starQuality" | "heartTipFillet" | "heartQuality" | "crescentThickness" | "crescentTipFillet" | "crescentQuality" | "honeycombCellSize" | "honeycombWallThickness" | "honeycombFrameWidth" | "dovetailNeckWidth" | "dovetailClearance" | "hingeKnuckles" | "hingePinDiameter" | "hingeLeafThickness" | "hingeClearance" | "screwHoleShaft" | "screwHoleHeadDepth" | "screwHoleAngle" | "cornerFillet" | "topBottomFillet" | "roundedBoxQuality" | "bentTubeSize" | "bentTubeWall" | "bentTubeQuality" | "knurlCount" | "knurlDepth" | "knurlAngle" | "knurlChamfer"
   | "loftBottomWidth" | "loftBottomDepth" | "loftTopWidth" | "loftTopDepth" | "loftWall";
 type ShapeSpecialField =
   | { type: "number"; key: ShapeSpecialNumberKey; label: string; defaultValue: number; min: number; max: number; step?: number; unit?: string }
-  | { type: "select"; key: "font" | "gearType" | "threadRole" | "threadHead" | "threadHand" | "threadProfile" | "springHand" | "bentTubeProfile" | "bentTubeInnerProfile" | "knurlPattern" | "loftBottomOutline" | "loftTopOutline"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
+  | { type: "select"; key: "font" | "gearType" | "gearProfile" | "threadRole" | "threadHead" | "threadHand" | "threadProfile" | "springHand" | "bentTubeProfile" | "bentTubeInnerProfile" | "knurlPattern" | "loftBottomOutline" | "loftTopOutline"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
   | { type: "text"; key: "text"; label: string; defaultValue: string; maxLength: number };
 
 function clamp(value: number, min: number, max: number) {
@@ -254,13 +258,20 @@ function specialFieldsForShape(
     const teeth = customization.teeth ?? defaults.teeth ?? 12;
     const toothSize = customization.toothSize ?? defaults.toothSize ?? 2.5;
     const toothPitch = gearToothPitch(dimensions.width, dimensions.depth, teeth);
-    const centerHoleLimits = gearCenterHoleLimits(dimensions.width, dimensions.depth, toothSize);
+    const gearProfile = customization.gearProfile ?? defaults.gearProfile ?? "involute";
+    const centerHoleLimits = gearCenterHoleLimits(dimensions.width, dimensions.depth, toothSize, { teeth, gearProfile });
     const gearType = customization.gearType ?? defaults.gearType ?? "spur";
     const fields: ShapeSpecialField[] = [
-      { type: "select", key: "gearType", label: t("inspector.gearType"), defaultValue: defaults.gearType ?? "spur", options: GEAR_TYPE_OPTIONS },
+      { type: "select", key: "gearType", label: t("inspector.gearType"), defaultValue: defaults.gearType ?? "spur", options: GEAR_TYPE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })) },
+      { type: "select", key: "gearProfile", label: t("prop.gearProfile"), defaultValue: defaults.gearProfile ?? "involute", options: GEAR_PROFILE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })) },
       { type: "number", key: "teeth", label: t("prop.teeth"), defaultValue: defaults.teeth ?? 12, min: 6, max: 64, step: 1 },
-      { type: "number", key: "toothSize", label: t("prop.toothSize"), defaultValue: defaults.toothSize ?? 2.5, min: 0.2, max: Math.max(0.2, Math.min(dimensions.width, dimensions.depth) * 0.22), unit: "mm" },
-      { type: "number", key: "toothWidth", label: t("prop.toothWidth"), defaultValue: defaults.toothWidth ?? toothPitch * 0.54, min: toothPitch * 0.12, max: toothPitch * 0.82, unit: "mm" },
+      ...(gearProfile === "involute" ? [
+        { type: "number", key: "gearPressureAngle", label: t("prop.gearPressureAngle"), defaultValue: defaults.gearPressureAngle ?? 20, min: 14.5, max: 30, step: 0.5, unit: "°" },
+        { type: "number", key: "gearBacklash", label: t("prop.gearBacklash"), defaultValue: defaults.gearBacklash ?? 0.2, min: 0, max: 2, step: 0.05, unit: "mm" },
+      ] satisfies ShapeSpecialField[] : [
+        { type: "number", key: "toothSize", label: t("prop.toothSize"), defaultValue: defaults.toothSize ?? 2.5, min: 0.2, max: Math.max(0.2, Math.min(dimensions.width, dimensions.depth) * 0.22), unit: "mm" },
+        { type: "number", key: "toothWidth", label: t("prop.toothWidth"), defaultValue: defaults.toothWidth ?? toothPitch * 0.54, min: toothPitch * 0.12, max: toothPitch * 0.82, unit: "mm" },
+      ] satisfies ShapeSpecialField[]),
       { type: "number", key: "centerHoleSize", label: t("prop.centerHole"), defaultValue: defaults.centerHoleSize ?? 6, min: centerHoleLimits.min, max: centerHoleLimits.max, unit: "mm" },
     ];
     if (gearType === "helical") {

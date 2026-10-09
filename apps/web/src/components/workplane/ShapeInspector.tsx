@@ -22,6 +22,16 @@ import {
   normalizeGearToothWidth,
   normalizeGearType,
   gearToothPitch,
+  DEFAULT_GEAR_BACKLASH,
+  involuteGearDiameter,
+  involuteGearModule,
+  involuteGearPair,
+  MAX_GEAR_BACKLASH,
+  MAX_GEAR_PRESSURE_ANGLE,
+  MIN_GEAR_PRESSURE_ANGLE,
+  normalizeGearBacklash,
+  normalizeGearPressureAngle,
+  normalizeGearProfile,
 } from "@/lib/gearGeometry";
 import {
   MAX_THREAD_CLEARANCE,
@@ -286,6 +296,11 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+/** A measure in a sentence: at most two decimals, none when it is whole (24 mm, module 1.5). */
+function plainNumber(value: number) {
+  return String(Math.round(value * 100) / 100);
+}
+
 function formatPropertyNumber(value: number, accuracy: MeasurementAccuracy, step: number) {
   if (step >= 1) return String(Math.round(value));
   return formatMeasurementNumber(value, accuracy, step);
@@ -295,7 +310,7 @@ const RELATIVE_SIZE_PROPERTY_IDS = new Set(["width", "height", "length", "diamet
 const ROTATION_PROPERTY_IDS = new Set(["rotateX", "rotateY", "rotateZ"]);
 
 function propertyUsesLengthUnit(key: string) {
-  return ["positionX", "positionY", "positionZ", "pivotX", "pivotY", "pivotZ", "radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "boltClearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet", "bentTubeSize", "bentTubeWall", "bentTubeSegmentLength", "bentTubeBendRadius", "dovetailNeckWidth", "dovetailClearance", "hingePinDiameter", "hingeLeafThickness", "hingeClearance", "screwHoleShaft", "screwHoleHeadDepth", "knurlDepth", "knurlChamfer", "loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth", "loftBottomCorner", "loftTopCorner", "loftOffsetX", "loftOffsetZ", "loftWall"].includes(key);
+  return ["positionX", "positionY", "positionZ", "pivotX", "pivotY", "pivotZ", "radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "gearBacklash", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "boltClearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet", "bentTubeSize", "bentTubeWall", "bentTubeSegmentLength", "bentTubeBendRadius", "dovetailNeckWidth", "dovetailClearance", "hingePinDiameter", "hingeLeafThickness", "hingeClearance", "screwHoleShaft", "screwHoleHeadDepth", "knurlDepth", "knurlChamfer", "loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth", "loftBottomCorner", "loftTopCorner", "loftOffsetX", "loftOffsetZ", "loftWall"].includes(key);
 }
 
 /**
@@ -1367,23 +1382,71 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
   }
 
   if (shape.kind === "gear") {
+    const involute = normalizeGearProfile(shape.gearProfile) === "involute";
+    const teeth = shape.teeth ?? DEFAULT_GEAR_TEETH;
+    const module = involuteGearModule(width, depth, teeth);
+    // An involute gear stays round: its size is module x (teeth + 2) both ways (#201).
+    const setInvoluteSize = (nextModule: number, nextTeeth = teeth) => {
+      const diameter = involuteGearDiameter(nextModule, nextTeeth);
+      const profile = { ...shape, teeth: nextTeeth };
+      onUpdate({
+        teeth: nextTeeth,
+        width: diameter,
+        depth: diameter,
+        size: diameter,
+        centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, diameter, diameter, shape.toothSize, profile),
+      }, { resizeAxis: "width" });
+    };
     const setGearWidth = (value: number) => {
+      if (involute) return setInvoluteSize(involuteGearModule(value, value, teeth));
       const toothSize = normalizeGearToothSize(shape.toothSize, value, depth);
       const toothWidth = normalizeGearToothWidth(shape.toothWidth, value, depth, shape.teeth);
       const centerHoleSize = normalizeGearCenterHoleSize(shape.centerHoleSize, value, depth, toothSize);
       onUpdate({ width: value, size: resizedShapeSize(value, depth), toothSize, toothWidth, centerHoleSize }, { resizeAxis: "width" });
     };
     const setGearDepth = (value: number) => {
+      if (involute) return setInvoluteSize(involuteGearModule(value, value, teeth));
       const toothSize = normalizeGearToothSize(shape.toothSize, width, value);
       const toothWidth = normalizeGearToothWidth(shape.toothWidth, width, value, shape.teeth);
       const centerHoleSize = normalizeGearCenterHoleSize(shape.centerHoleSize, width, value, toothSize);
       onUpdate({ depth: value, size: resizedShapeSize(width, value), toothSize, toothWidth, centerHoleSize }, { resizeAxis: "depth" });
     };
-    const teeth = shape.teeth ?? DEFAULT_GEAR_TEETH;
     const toothPitch = gearToothPitch(width, depth, teeth);
     const toothSize = normalizeGearToothSize(shape.toothSize ?? DEFAULT_GEAR_TOOTH_SIZE, width, depth);
-    const centerHoleLimits = gearCenterHoleLimits(width, depth, toothSize);
+    const centerHoleLimits = gearCenterHoleLimits(width, depth, toothSize, shape);
+    const pitchDiameter = module * teeth;
     const properties: ShapePropertyConfig[] = [
+      {
+        type: "select",
+        id: "gearProfile",
+        label: t("prop.gearProfile"),
+        value: involute ? "involute" : "simple",
+        options: [
+          { value: "involute", label: t("gear.profileInvolute") },
+          { value: "simple", label: t("gear.profileSimple") },
+        ],
+        hint: involute
+          ? t("gear.involuteHint", { pitch: plainNumber(pitchDiameter), module: plainNumber(module) })
+          : t("gear.simpleHint"),
+        onChange: (value) => {
+          if (value === "involute") {
+            // Keeps the size as near as a whole tenth of a module allows.
+            const nextModule = Math.max(0.1, Math.round(involuteGearModule(width, depth, teeth) * 10) / 10);
+            const diameter = involuteGearDiameter(nextModule, teeth);
+            onUpdate({
+              gearProfile: "involute",
+              gearPressureAngle: normalizeGearPressureAngle(shape.gearPressureAngle),
+              gearBacklash: shape.gearBacklash ?? DEFAULT_GEAR_BACKLASH,
+              width: diameter,
+              depth: diameter,
+              size: diameter,
+              centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, diameter, diameter, shape.toothSize, { teeth, gearProfile: "involute" }),
+            });
+          } else {
+            onUpdate({ gearProfile: "simple", centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize) });
+          }
+        },
+      },
       {
         id: "teeth",
       label: t("prop.teeth"),
@@ -1393,12 +1456,46 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         step: 1,
         onChange: (value) => {
           const nextTeeth = Math.round(value);
+          if (involute) return setInvoluteSize(module, nextTeeth);
           onUpdate({
             teeth: nextTeeth,
             toothWidth: normalizeGearToothWidth(shape.toothWidth, width, depth, nextTeeth),
           });
         },
       },
+    ];
+    if (involute) {
+      properties.push(
+        {
+          id: "gearModule",
+          label: t("prop.gearModule"),
+          value: module,
+          min: 0.3,
+          max: 10,
+          step: 0.05,
+          onChange: (nextModule) => setInvoluteSize(nextModule),
+        },
+        {
+          id: "gearPressureAngle",
+          label: t("prop.gearPressureAngle"),
+          value: normalizeGearPressureAngle(shape.gearPressureAngle),
+          min: MIN_GEAR_PRESSURE_ANGLE,
+          max: MAX_GEAR_PRESSURE_ANGLE,
+          step: 0.5,
+          onChange: (gearPressureAngle) => onUpdate({ gearPressureAngle }),
+        },
+        {
+          id: "gearBacklash",
+          label: t("prop.gearBacklash"),
+          value: normalizeGearBacklash(shape.gearBacklash, module),
+          min: 0,
+          max: Math.min(MAX_GEAR_BACKLASH, module * 0.5),
+          step: 0.05,
+          onChange: (gearBacklash) => onUpdate({ gearBacklash }),
+        },
+      );
+    }
+    if (!involute) properties.push(
       {
         id: "toothSize",
       label: t("prop.toothSize"),
@@ -1420,7 +1517,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         step: 0.1,
         onChange: (toothWidth) => onUpdate({ toothWidth }),
       },
-    ];
+    );
     if (normalizeGearType(shape.gearType) === "helical") {
       properties.push({
         id: "helixAngle",
@@ -1445,7 +1542,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
       {
         id: "centerHole",
       label: t("prop.centerHole"),
-        value: normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize),
+        value: normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize, shape),
         min: centerHoleLimits.min,
         max: centerHoleLimits.max,
         step: 0.1,
@@ -1622,7 +1719,7 @@ export function ShapeInspector({
     ? properties.filter((property) => ["pitch", "threadsPerInch", "threadHand", "threadProfile", "clearance", "boltClearance", "chamfer", "quality"].includes(property.id))
     : [];
   const gearTeethProperties = shape.kind === "gear"
-    ? properties.filter((property) => ["teeth", "toothSize", "toothWidth"].includes(property.id))
+    ? properties.filter((property) => ["gearProfile", "teeth", "gearModule", "gearPressureAngle", "gearBacklash", "toothSize", "toothWidth"].includes(property.id))
     : [];
   const gearHelixProperties = shape.kind === "gear"
     ? properties.filter((property) => ["helixAngle", "quality"].includes(property.id))
@@ -2967,6 +3064,8 @@ export function SelectionInspector({
   const solids = solidKinds.filter((shape) => !shape.hole);
   const sharedColor = solids.length > 0 && solids.every((shape) => shape.color.toLowerCase() === solids[0].color.toLowerCase()) ? solids[0].color : null;
   const swatch = sharedColor ?? solids[0]?.color ?? SOLID_COLORS[0];
+  // Two involute gears: where they mesh (#201).
+  const gearPair = shapes.length === 2 ? involuteGearPair(shapes[0], shapes[1]) : null;
   const pick = (color: string) => {
     onSetColor(color);
     rememberColor(color);
@@ -3065,6 +3164,13 @@ export function SelectionInspector({
             </div>
           ) : null}
         </div>
+      ) : null}
+      {gearPair ? (
+        <p className="selection-gear-pair" role="status">
+          {gearPair.distance === null
+            ? t("inspector.gearPairMismatch", { a: plainNumber(gearPair.modules[0]), b: plainNumber(gearPair.modules[1]) })
+            : t("inspector.gearPair", { distance: plainNumber(gearPair.distance), current: plainNumber(gearPair.current) })}
+        </p>
       ) : null}
       <p className="selection-inspector-hint">{t("inspector.selectionHint")}</p>
     </aside>

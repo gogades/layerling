@@ -11,7 +11,7 @@ import type { ShapeCustomization, ShapeCustomizationMap, WorkplaneShape } from "
  */
 const SHAPE_DEFAULT_FIELDS = [
   "cornerFillet", "topBottomFillet", "roundedBoxQuality", "steps", "sides", "bevel", "segments", "topRadius", "baseRadius",
-  "topWidth", "topDepth", "teeth", "toothSize", "toothWidth", "centerHoleSize", "gearType", "helixAngle", "helixQuality",
+  "topWidth", "topDepth", "teeth", "toothSize", "toothWidth", "centerHoleSize", "gearType", "helixAngle", "helixQuality", "gearProfile", "gearPressureAngle", "gearBacklash",
   "threadRole", "threadHead", "threadHand", "threadProfile", "threadDiameter", "threadPitch", "threadClearance",
   "threadBoltClearance", "threadQuality", "threadHeadHeight", "threadChamfer", "threadHeadChamfer", "springTurns",
   "springWire", "springHand", "springQuality", "starPoints", "starInnerSize", "starOuterFillet", "starInnerFillet",

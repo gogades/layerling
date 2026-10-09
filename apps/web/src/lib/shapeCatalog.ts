@@ -9,7 +9,14 @@ import {
   DEFAULT_GEAR_TEETH,
   DEFAULT_GEAR_TOOTH_SIZE,
   DEFAULT_GEAR_TYPE,
+  DEFAULT_GEAR_BACKLASH,
+  DEFAULT_GEAR_MODULE,
+  DEFAULT_GEAR_PRESSURE_ANGLE,
+  involuteGearDiameter,
+  MAX_GEAR_BACKLASH,
   normalizeGearCenterHoleSize,
+  normalizeGearPressureAngle,
+  normalizeGearProfile,
   normalizeGearHelixAngle,
   normalizeGearHelixQuality,
   normalizeGearTeeth,
@@ -352,7 +359,8 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
   }
   const roundProfile = kind === "sphere" || kind === "torus" || kind === "ring" || kind === "halfSphere";
   const flatProfile = kind === "torus" || kind === "ring" || kind === "text" || kind === "gear";
-  const size = kind === "gear" ? 30 : roundProfile ? 22 : 20;
+  // A gear starts as 12 involute teeth of module 2 (#201).
+  const size = kind === "gear" ? involuteGearDiameter(DEFAULT_GEAR_MODULE, DEFAULT_GEAR_TEETH) : roundProfile ? 22 : 20;
   return {
     width: kind === "text" ? 86 : size,
     depth: kind === "text" ? 28 : size,
@@ -474,10 +482,13 @@ export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAss
       teeth,
       toothSize,
       toothWidth: normalizeGearToothWidth(undefined, dimensions.width, dimensions.depth, teeth),
-      centerHoleSize: normalizeGearCenterHoleSize(DEFAULT_GEAR_CENTER_HOLE_SIZE, dimensions.width, dimensions.depth, toothSize),
+      centerHoleSize: normalizeGearCenterHoleSize(DEFAULT_GEAR_CENTER_HOLE_SIZE, dimensions.width, dimensions.depth, toothSize, { teeth, gearProfile: "involute" }),
       gearType: DEFAULT_GEAR_TYPE,
       helixAngle: DEFAULT_GEAR_HELIX_ANGLE,
       helixQuality: DEFAULT_GEAR_HELIX_QUALITY,
+      gearProfile: "involute",
+      gearPressureAngle: DEFAULT_GEAR_PRESSURE_ANGLE,
+      gearBacklash: DEFAULT_GEAR_BACKLASH,
     };
   }
   return {};
@@ -525,6 +536,9 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
     gearType: shape.gearType,
     helixAngle: shape.helixAngle,
     helixQuality: shape.helixQuality,
+    gearProfile: shape.gearProfile,
+    gearPressureAngle: shape.gearPressureAngle,
+    gearBacklash: shape.gearBacklash,
     threadRole: shape.threadRole,
     threadHead: shape.threadHead,
     threadHand: shape.threadHand,
@@ -668,11 +682,16 @@ export function makeShapeFromAsset(
     wall: customization.loftWall,
   }) : null;
   const loftFootprint = loftMeasures ? loftFrameSize(loftMeasures) : null;
-  const width = loftFootprint?.width ?? bentTubeFootprint?.width ?? threadFootprint?.width ?? customization.width ?? defaults.width;
+  // New gears get involute teeth (#201); their size follows the module, so other teeth keep module 2.
+  const gearProfile = asset.kind === "gear" ? normalizeGearProfile(customization.gearProfile ?? "involute") : undefined;
+  const gearDiameter = gearProfile === "involute" && customization.width === undefined
+    ? involuteGearDiameter(DEFAULT_GEAR_MODULE, customization.teeth ?? DEFAULT_GEAR_TEETH)
+    : null;
+  const width = gearDiameter ?? loftFootprint?.width ?? bentTubeFootprint?.width ?? threadFootprint?.width ?? customization.width ?? defaults.width;
   // A cylinder is always circular - depth follows width here too, so it never
   // snaps between insert and first render (canonicalizeShape enforces this
   // again afterwards as the actual safety net).
-  const depth = asset.kind === "cylinder" ? width : loftFootprint?.depth ?? bentTubeFootprint?.depth ?? threadFootprint?.depth ?? customization.depth ?? defaults.depth;
+  const depth = asset.kind === "cylinder" ? width : gearDiameter ?? loftFootprint?.depth ?? bentTubeFootprint?.depth ?? threadFootprint?.depth ?? customization.depth ?? defaults.depth;
   const height = bentTubeFootprint?.height ?? customization.height ?? (threadDefaults ? threadNaturalHeight(threadDefaults) : defaults.height);
   const size = Math.max(width, depth);
   const gearTeeth = asset.kind === "gear" ? normalizeGearTeeth(customization.teeth ?? DEFAULT_GEAR_TEETH) : undefined;
@@ -718,10 +737,13 @@ export function makeShapeFromAsset(
     toothWidth: asset.kind === "gear" && customization.toothWidth !== undefined
       ? normalizeGearToothWidth(customization.toothWidth, width, depth, gearTeeth)
       : undefined,
-    centerHoleSize: asset.kind === "gear" ? normalizeGearCenterHoleSize(customization.centerHoleSize ?? DEFAULT_GEAR_CENTER_HOLE_SIZE, width, depth, gearToothSize) : undefined,
+    centerHoleSize: asset.kind === "gear" ? normalizeGearCenterHoleSize(customization.centerHoleSize ?? DEFAULT_GEAR_CENTER_HOLE_SIZE, width, depth, gearToothSize, { teeth: gearTeeth, gearProfile }) : undefined,
     gearType: asset.kind === "gear" ? normalizeGearType(customization.gearType ?? DEFAULT_GEAR_TYPE) : undefined,
     helixAngle: asset.kind === "gear" ? normalizeGearHelixAngle(customization.helixAngle ?? DEFAULT_GEAR_HELIX_ANGLE) : undefined,
     helixQuality: asset.kind === "gear" ? normalizeGearHelixQuality(customization.helixQuality ?? DEFAULT_GEAR_HELIX_QUALITY) : undefined,
+    gearProfile,
+    gearPressureAngle: gearProfile === "involute" ? normalizeGearPressureAngle(customization.gearPressureAngle) : undefined,
+    gearBacklash: gearProfile === "involute" ? Math.max(0, Math.min(MAX_GEAR_BACKLASH, customization.gearBacklash ?? DEFAULT_GEAR_BACKLASH)) : undefined,
     threadRole: asset.kind === "thread" ? normalizeThreadRole(customization.threadRole ?? DEFAULT_THREAD_ROLE) : undefined,
     threadHead: asset.kind === "thread" ? normalizeThreadHead(customization.threadHead ?? DEFAULT_THREAD_HEAD) : undefined,
     threadHand: asset.kind === "thread" ? normalizeThreadHand(customization.threadHand ?? DEFAULT_THREAD_HAND) : undefined,

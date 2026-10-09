@@ -1,6 +1,16 @@
 [
   {
     "title": {
+      "de": "Zahnräder, die ineinandergreifen",
+      "en": "Gears that mesh"
+    },
+    "body": {
+      "de": "Neue Zahnräder haben Evolventenzähne. Du stellst Zähne und Modul ein, dazu Eingriffswinkel und Spiel. Wählst du zwei Räder aus, steht der passende Achsabstand im Eigenschaftenfeld.",
+      "en": "New gears have involute teeth. You set the teeth and the module, plus pressure angle and backlash. Select two gears and the properties panel gives the centre distance they mesh at."
+    }
+  },
+  {
+    "title": {
       "de": "Kein Flimmern unter der Arbeitsebene",
       "en": "No flicker under the workplane"
     },

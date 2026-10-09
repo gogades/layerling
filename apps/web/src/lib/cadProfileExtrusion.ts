@@ -24,7 +24,7 @@ import { buildCurvedText, curvedTextFitScale, curvedTextLayout } from "@/lib/tex
 import { threadBuildPlan, WHITWORTH_PROFILE_CONSTANTS } from "@/lib/threadGeometry";
 import { springBuildPlan, springRingSectionShare } from "@/lib/springGeometry";
 import { knurlCorners, knurlSettings } from "@/lib/knurlGeometry";
-import { BEVEL_GEAR_TOP_SCALE, gearOutlineCorners, normalizeGearCenterHoleSize, normalizeGearHelixAngle, normalizeGearToothSize, normalizeGearType } from "@/lib/gearGeometry";
+import { BEVEL_GEAR_TOP_SCALE, gearHelixTwist, gearOutlineCorners, involuteFlankPoint, involuteGearMeasures, involuteOutlineStretch, involuteToothCentre, normalizeGearCenterHoleSize, normalizeGearToothSize, normalizeGearType, type GearOutlineOptions, type InvoluteGearMeasures } from "@/lib/gearGeometry";
 
 /*
  * The outlines below follow the display geometry of each shape
@@ -450,27 +450,100 @@ function originDistanceToSegment(a: Point, b: Point) {
 export function gearProfileLoops(
   width: number,
   depth: number,
-  options: Pick<WorkplaneShape, "teeth" | "toothSize" | "toothWidth" | "centerHoleSize">,
+  options: GearProfileOptions,
 ) {
-  const { outline, boreRadius } = gearOutline(width, depth, options);
-  const loops = [polygonLoop(outline)];
+  const { outline, loop, boreRadius } = gearOutline(width, depth, options);
+  const loops = [loop];
   if (boreRadius > 0) loops.push(boreLoop(outline, boreRadius));
   return loops;
 }
 
-/** The gear's outline stretched to width x depth (createGearGeometry), and its bore radius. */
-function gearOutline(width: number, depth: number, options: Pick<WorkplaneShape, "teeth" | "toothSize" | "toothWidth" | "centerHoleSize">) {
+type GearProfileOptions = GearOutlineOptions & Pick<WorkplaneShape, "centerHoleSize">;
+
+/** Cubic pieces along each involute flank; two keep the curve within a thousandth of a module. */
+const INVOLUTE_FLANK_PIECES = 2;
+/** The shortest handle a flank piece gets, as a share of its chord. */
+const INVOLUTE_BASE_HANDLE = 0.02;
+
+/**
+ * Involute teeth (#201) as the kernel builds them: each flank as cubic Bezier pieces that
+ * match the involute's position and direction at both ends, the tip and the root on their
+ * circles, and below the base circle a straight line down to the root. The display draws
+ * the same curve through its corners (gearOutlineCorners).
+ */
+export function involuteGearLoop(measures: InvoluteGearMeasures): CadModifierProfileLoop {
+  const { teeth, rootRadius, flankRadius, tipRadius, rollStart, rollEnd } = measures;
+  const radial = rootRadius < flankRadius - 1e-9;
+  const polar = (angle: number, radius: number) => ({ x: Math.cos(angle) * radius, z: Math.sin(angle) * radius });
+  const flankAngle = (centre: number, side: -1 | 1, roll: number) => centre + side * (measures.flankTurn - (roll - Math.atan(roll)));
+  const segments: CadModifierProfileSegment[] = [];
+  // Hermite pieces by the roll angle, which follow the involute closely. At the base circle
+  // its derivative is zero, and a curve that stands still there fails a fillet: that end
+  // gets a short tangent straight outwards, the way the flank leaves the base circle.
+  const flank = (centre: number, side: -1 | 1, from: number, to: number) => {
+    const handle = (point: ReturnType<typeof involuteFlankPoint>, span: number, chord: number) => {
+      const x = point.dx * span;
+      const z = point.dz * span;
+      const least = chord * INVOLUTE_BASE_HANDLE;
+      if (Math.hypot(x, z) >= least) return { x, z };
+      const radius = Math.hypot(point.x, point.z);
+      return { x: (point.x / radius) * least * Math.sign(span), z: (point.z / radius) * least * Math.sign(span) };
+    };
+    for (let piece = 0; piece < INVOLUTE_FLANK_PIECES; piece += 1) {
+      const a = from + ((to - from) * piece) / INVOLUTE_FLANK_PIECES;
+      const b = from + ((to - from) * (piece + 1)) / INVOLUTE_FLANK_PIECES;
+      const start = involuteFlankPoint(measures, centre, side, a);
+      const end = involuteFlankPoint(measures, centre, side, b);
+      const span = (b - a) / 3;
+      const chord = Math.hypot(end.x - start.x, end.z - start.z);
+      const out = handle(start, span, chord);
+      const into = handle(end, span, chord);
+      segments.push({
+        kind: "bezier",
+        x: end.x,
+        z: end.z,
+        controls: [
+          { x: start.x + out.x, z: start.z + out.z },
+          { x: end.x - into.x, z: end.z - into.z },
+        ],
+      });
+    }
+  };
+  const firstCentre = involuteToothCentre(teeth, 0);
+  const start = polar(flankAngle(firstCentre, -1, rollStart), rootRadius);
+  for (let tooth = 0; tooth < teeth; tooth += 1) {
+    const centre = involuteToothCentre(teeth, tooth);
+    if (radial) segments.push({ kind: "line", ...polar(flankAngle(centre, -1, rollStart), flankRadius) });
+    flank(centre, -1, rollStart, rollEnd);
+    segments.push(arcSegment({ cx: 0, cz: 0, rx: tipRadius, rz: tipRadius, start: flankAngle(centre, -1, rollEnd), end: flankAngle(centre, 1, rollEnd) }));
+    flank(centre, 1, rollEnd, rollStart);
+    if (radial) segments.push({ kind: "line", ...polar(flankAngle(centre, 1, rollStart), rootRadius) });
+    const nextCentre = centre + (Math.PI * 2) / teeth;
+    segments.push(arcSegment({ cx: 0, cz: 0, rx: rootRadius, rz: rootRadius, start: flankAngle(centre, 1, rollStart), end: flankAngle(nextCentre, -1, rollStart) }));
+  }
+  return { ...start, segments };
+}
+
+/** The gear's outline stretched to width x depth (createGearGeometry), its loop for the kernel and its bore radius. */
+function gearOutline(width: number, depth: number, options: GearProfileOptions) {
   const safeWidth = Math.max(0.01, width);
   const safeDepth = Math.max(0.01, depth);
   const toothSize = normalizeGearToothSize(options.toothSize, safeWidth, safeDepth);
-  const centerHoleSize = normalizeGearCenterHoleSize(options.centerHoleSize, safeWidth, safeDepth, toothSize);
+  const centerHoleSize = normalizeGearCenterHoleSize(options.centerHoleSize, safeWidth, safeDepth, toothSize, options);
   const raw: Point[] = gearOutlineCorners(safeWidth, safeDepth, options).map((corner) => ({ x: Math.cos(corner.angle) * corner.radiusX, z: Math.sin(corner.angle) * corner.radiusZ }));
+  const involute = involuteOutlineStretch(safeWidth, safeDepth, options);
+  if (involute) {
+    const outline = raw.map((point) => ({ x: point.x * involute.x, z: point.z * involute.z }));
+    const loop = mapLoop(involuteGearLoop(involuteGearMeasures(safeWidth, safeDepth, options)), involute.x, 0, involute.z, 0);
+    return { outline, loop, boreRadius: centerHoleSize / 2 };
+  }
   // The display stretches the ring about the origin until it spans width x depth.
   const xs = raw.map((point) => point.x);
   const zs = raw.map((point) => point.z);
   const scaleX = safeWidth / Math.max(Number.EPSILON, Math.max(...xs) - Math.min(...xs));
   const scaleZ = safeDepth / Math.max(Number.EPSILON, Math.max(...zs) - Math.min(...zs));
-  return { outline: raw.map((point) => ({ x: point.x * scaleX, z: point.z * scaleZ })), boreRadius: centerHoleSize / 2 };
+  const outline = raw.map((point) => ({ x: point.x * scaleX, z: point.z * scaleZ }));
+  return { outline, loop: polygonLoop(outline), boreRadius: centerHoleSize / 2 };
 }
 
 /** How near the outline comes to the axis. */
@@ -499,10 +572,10 @@ function boreLoop(outline: Point[], radius: number) {
  * builds them as planes.
  */
 function bevelGearProfile(shape: WorkplaneShape, width: number, depth: number): CadModifierProfilePart {
-  const { outline, boreRadius } = gearOutline(width, depth, shape);
+  const { outline, loop, boreRadius } = gearOutline(width, depth, shape);
   const top = outline.map((point) => ({ x: point.x * BEVEL_GEAR_TOP_SCALE, z: point.z * BEVEL_GEAR_TOP_SCALE }));
-  const loops = [polygonLoop(outline)];
-  const topLoops = [polygonLoop(top)];
+  const loops = [loop];
+  const topLoops = [mapLoop(loop, BEVEL_GEAR_TOP_SCALE, 0, BEVEL_GEAR_TOP_SCALE, 0)];
   if (boreRadius > 0) {
     // The bore keeps its size up the gear, so it has to clear the smaller top.
     loops.push(boreLoop(top, boreRadius));
@@ -1166,6 +1239,13 @@ function turningReach(radius: number, angle: number, twist: number) {
  * mesh moves each corner along its own ellipse, which is no turn of the ring:
  * that gear stays a mesh.
  */
+/**
+ * Every corner of a helical ring becomes a twisted face of its own, so an involute ring -
+ * about fifteen corners a tooth - is built exactly only up to this many; a bigger one stays
+ * the display mesh.
+ */
+const HELICAL_GEAR_CORNER_LIMIT = 480;
+
 export function cadModifierHelicalGearForShape(shape: WorkplaneShape): CadModifierHelicalGearPart | null {
   if (shape.kind !== "gear" || normalizeGearType(shape.gearType) !== "helical") return null;
   if (shape.importedMesh || shape.groupedShapes?.length || shape.cadBrep || shape.imagePlate || shapeHasShapeDeform(shape)) return null;
@@ -1173,8 +1253,11 @@ export function cadModifierHelicalGearForShape(shape: WorkplaneShape): CadModifi
   const depth = shapeDepth(shape);
   if (![width, depth, shape.height].every((value) => Number.isFinite(value) && value > 0)) return null;
   if (Math.abs(width - depth) > 1e-6) return null;
-  const twist = normalizeGearHelixAngle(shape.helixAngle) * (Math.PI / 180);
+  const twist = gearHelixTwist(width, depth, shape.height, shape);
   const corners = gearOutlineCorners(width, depth, shape).map((corner) => ({ angle: corner.angle, radius: corner.radiusX }));
+  // Involute teeth keep their tip circle on width x depth instead of what the turn spans (#201).
+  const involute = involuteOutlineStretch(width, depth, shape);
+  if (involute && corners.length > HELICAL_GEAR_CORNER_LIMIT) return null;
   let minX = Infinity;
   let maxX = -Infinity;
   let minZ = Infinity;
@@ -1187,9 +1270,9 @@ export function cadModifierHelicalGearForShape(shape: WorkplaneShape): CadModifi
     minZ = Math.min(minZ, z.min);
     maxZ = Math.max(maxZ, z.max);
   }
-  const stretch = { x: width / (maxX - minX), z: depth / (maxZ - minZ) };
+  const stretch = involute ?? { x: width / (maxX - minX), z: depth / (maxZ - minZ) };
   const toothSize = normalizeGearToothSize(shape.toothSize, width, depth);
-  const boreRadius = normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize) / 2;
+  const boreRadius = normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize, shape) / 2;
   if (boreRadius > 0) {
     // The bore has to clear the ring wherever it has turned to; stretched, the
     // ring comes no nearer than its narrower stretch allows.

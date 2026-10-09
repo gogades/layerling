@@ -14932,6 +14932,13 @@ html[data-theme="dark"] .history-view-slider .range-control input[type="range"]:
   line-height: 1.4;
 }
 
+.selection-gear-pair {
+  margin: 10px 14px 0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .selection-inspector-hint {
   margin: 10px 14px 12px;
   color: var(--muted-strong);

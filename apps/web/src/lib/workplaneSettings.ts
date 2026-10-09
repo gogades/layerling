@@ -437,6 +437,9 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
           : fallbackEntry?.gearType;
       entry.helixAngle = optionalShapeNumber(source.helixAngle, fallbackEntry?.helixAngle, -45, 45);
       entry.helixQuality = optionalShapeNumber(source.helixQuality, fallbackEntry?.helixQuality, 4, 32, true);
+      entry.gearProfile = source.gearProfile === "involute" || source.gearProfile === "simple" ? source.gearProfile : fallbackEntry?.gearProfile;
+      entry.gearPressureAngle = optionalShapeNumber(source.gearPressureAngle, fallbackEntry?.gearPressureAngle, 14.5, 30);
+      entry.gearBacklash = optionalShapeNumber(source.gearBacklash, fallbackEntry?.gearBacklash, 0, 2);
     }
     const compact = Object.fromEntries(Object.entries(entry).filter(([, entryValue]) => entryValue !== undefined)) as ShapeCustomization;
     if (Object.keys(compact).length > 0) normalized[kind] = compact;

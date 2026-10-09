@@ -1224,6 +1224,9 @@ function tapeShapeTopologyKey(shape: WorkplaneShape): string {
     springHand: shape.springHand,
     springQuality: shape.springQuality,
     helixQuality: shape.helixQuality,
+    gearProfile: shape.gearProfile,
+    gearPressureAngle: shape.gearPressureAngle,
+    gearBacklash: shape.gearBacklash,
     starPoints: shape.starPoints,
     starInnerSize: shape.starInnerSize,
     starOuterFillet: shape.starOuterFillet,
@@ -1448,6 +1451,9 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     springHand: shape.springHand,
     springQuality: shape.springQuality,
     helixQuality: shape.helixQuality,
+    gearProfile: shape.gearProfile,
+    gearPressureAngle: shape.gearPressureAngle,
+    gearBacklash: shape.gearBacklash,
     starPoints: shape.starPoints,
     starInnerSize: shape.starInnerSize,
     starOuterFillet: shape.starOuterFillet,
@@ -13030,6 +13036,9 @@ function createShapeObject(
         gearType: shape.gearType,
         helixAngle: shape.helixAngle,
         helixQuality: shape.helixQuality,
+        gearProfile: shape.gearProfile,
+        gearPressureAngle: shape.gearPressureAngle,
+        gearBacklash: shape.gearBacklash,
       })), material, shape);
       break;
     case "honeycomb":

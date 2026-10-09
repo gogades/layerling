@@ -1297,6 +1297,15 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
         throw new Error(`${label}.helixQuality is outside the supported range`);
       }
     }
+    if (definition.gearProfile !== undefined && !["involute", "simple"].includes(definition.gearProfile as string)) throw new Error(`${label}.gearProfile is invalid`);
+    if (definition.gearPressureAngle !== undefined) {
+      const pressureAngle = finiteNumber(definition.gearPressureAngle, `${label}.gearPressureAngle`);
+      if (pressureAngle < 14.5 || pressureAngle > 30) throw new Error(`${label}.gearPressureAngle is outside the supported range`);
+    }
+    if (definition.gearBacklash !== undefined) {
+      const backlash = finiteNumber(definition.gearBacklash, `${label}.gearBacklash`);
+      if (backlash < 0 || backlash > 2) throw new Error(`${label}.gearBacklash is outside the supported range`);
+    }
   }
   if (kind === "star") {
     if (definition.starPoints !== undefined) {

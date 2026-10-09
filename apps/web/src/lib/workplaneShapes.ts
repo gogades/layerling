@@ -432,7 +432,9 @@ export function canonicalizeShape(shape: WorkplaneShape): WorkplaneShape {
   // A cylinder's cross-section must always stay circular - width is
   // authoritative, depth follows. This is the single enforcement point: every
   // creation, edit and project load runs through canonicalizeShape.
-  if ((shape.kind === "cylinder" || shape.kind === "star" || shape.kind === "knurl") && next.width !== next.depth) {
+  // An involute gear too: its size is its module, the same both ways (#201).
+  const involuteGear = shape.kind === "gear" && shape.gearProfile === "involute";
+  if ((shape.kind === "cylinder" || shape.kind === "star" || shape.kind === "knurl" || involuteGear) && next.width !== next.depth) {
     next.depth = next.width;
     next.size = next.width;
   }
@@ -501,6 +503,9 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.gearType === b.gearType &&
     a.helixAngle === b.helixAngle &&
     a.helixQuality === b.helixQuality &&
+    a.gearProfile === b.gearProfile &&
+    a.gearPressureAngle === b.gearPressureAngle &&
+    a.gearBacklash === b.gearBacklash &&
     a.threadRole === b.threadRole &&
     a.threadHead === b.threadHead &&
     a.threadHand === b.threadHand &&

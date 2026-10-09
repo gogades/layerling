@@ -110,6 +110,12 @@ export type ShapeCustomization = {
   gearType?: GearType;
   helixAngle?: number;
   helixQuality?: number;
+  /** Involute teeth (#201) or the straight ones every gear had before; missing means straight. */
+  gearProfile?: GearProfile;
+  /** Involute teeth: pressure angle in degrees (20 by default). */
+  gearPressureAngle?: number;
+  /** Involute teeth: play of a meshing pair in mm, half taken off each gear. */
+  gearBacklash?: number;
   threadRole?: ThreadRole;
   threadHead?: ThreadHead;
   threadHand?: ThreadHand;
@@ -339,6 +345,7 @@ export type SketchProfile = {
 export type SketchOperation = "extrude" | "revolve";
 
 export type GearType = "spur" | "helical" | "bevel";
+export type GearProfile = "involute" | "simple";
 
 /** Was aus dem Gewinde wird: Stange, Schraube, Mutter oder das Loch dafuer. */
 export type ThreadRole = "rod" | "screw" | "nut" | "bore";
@@ -510,6 +517,12 @@ export type WorkplaneShape = {
   gearType?: GearType;
   helixAngle?: number;
   helixQuality?: number;
+  /** Involute teeth (#201) or the straight ones every gear had before; missing means straight. */
+  gearProfile?: GearProfile;
+  /** Involute teeth: pressure angle in degrees (20 by default). */
+  gearPressureAngle?: number;
+  /** Involute teeth: play of a meshing pair in mm, half taken off each gear. */
+  gearBacklash?: number;
   threadRole?: ThreadRole;
   threadHead?: ThreadHead;
   threadHand?: ThreadHand;

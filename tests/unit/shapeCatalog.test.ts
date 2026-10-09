@@ -113,10 +113,14 @@ describe("shape catalog", () => {
     expect(text).toMatchObject({ width: 86, depth: 28, height: 10, text: "TEXT", font: "Sans" });
     expect(sphere).toMatchObject({ size: 22, width: 22, depth: 22, height: 22 });
     expect(torus).toMatchObject({ size: 22, width: 22, depth: 22, height: 5 });
+    // Involute teeth of module 2 (#201): 2 x (12 + 2) across.
     expect(gear).toMatchObject({
-      size: 30,
-      width: 30,
-      depth: 30,
+      gearProfile: "involute",
+      gearPressureAngle: 20,
+      gearBacklash: 0.2,
+      size: 28,
+      width: 28,
+      depth: 28,
       height: 6,
       teeth: 12,
       toothSize: 2.5,
