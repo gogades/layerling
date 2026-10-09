@@ -21,6 +21,7 @@ import { WhatsNewCard } from "@/components/WhatsNewCard";
 import { UpdatePreview } from "@/components/UpdatePreview";
 import { useWhatsNew } from "@/lib/useWhatsNew";
 import { TabPresenceNotice } from "@/components/TabPresenceNotice";
+import { SafeModeErrorBoundary } from "@/components/SafeModeErrorBoundary";
 import { duplicateName, type DuplicateNamePatterns } from "@/lib/duplicateName";
 import { migrateLegacyProjectShapes, migrateLegacyStorageKeys, PROJECT_SHAPES_DB_NAME } from "@/lib/storageMigration";
 import { useLanguage } from "@/lib/useLanguage";
@@ -2055,40 +2056,47 @@ export default function Home() {
         </section>
       ) : null}
       {editorStarted && canRenderEditor ? (
-        <div className={view === "editor" ? "editor-stage active" : "editor-stage"} aria-hidden={view !== "editor"}>
-          <LayerlingEditor
-            initialAssets={activeProjectShapeEntry?.assets ?? []}
-            initialShapes={activeProjectShapeEntry?.shapes ?? []}
-            initialHistory={activeProjectShapeEntry?.history}
-            initialHistoryIndex={activeProjectShapeEntry?.historyIndex}
-            initialSnap={activeProject?.snapGrid ?? DEFAULT_SNAP_GRID}
-            initialWorkspace={activeProject?.workspace ?? DEFAULT_WORKPLANE_WORKSPACE}
-            initialPlacementElevation={activeProject?.placementElevation ?? 0}
-            initialPlacementWorkplane={activeProject?.placementWorkplane}
-            onHome={openDashboard}
-            onOpenLylProjectFile={openLylProjectFromFile}
-            onSaveSharedProject={saveActiveProjectToShared}
-            serverFileName={activeProject?.sharedProject?.fileName ?? null}
-            onProjectShapesChange={updateProjectShapes}
-            onProjectSnapshot={updateProjectSnapshot}
-            projectSaveFailure={projectSaveFailure}
-            onProjectWorkspaceChange={updateProjectWorkspace}
-            onProjectNameChange={(name) => {
-              if (activeProjectId) renameProject(activeProjectId, name);
-            }}
-            onCreateProjectFromState={createProjectFromHistoryState}
-            projectId={activeProjectId}
-            projectName={activeProject?.name}
-            projectCreatedAt={activeProject?.createdAt}
-            projectModifiedAt={activeProject?.updatedAt}
-            projectRevision={activeProjectShapeEntry?.revision ?? activeProject?.revision ?? 0}
-            editorOpen={view === "editor"}
-            sharedProjectsEnabled={sharedProjectsEnabled}
-            themePreference={themePreference}
-            resolvedTheme={resolvedTheme}
-            onThemePreferenceChange={setAppTheme}
-          />
-        </div>
+        <SafeModeErrorBoundary
+          activeProjectId={activeProjectId}
+          projectName={activeProject?.name}
+          onGoToDashboard={() => openDashboard()}
+          onNewEmptyProject={() => createAndOpenProject()}
+        >
+          <div className={view === "editor" ? "editor-stage active" : "editor-stage"} aria-hidden={view !== "editor"}>
+            <LayerlingEditor
+              initialAssets={activeProjectShapeEntry?.assets ?? []}
+              initialShapes={activeProjectShapeEntry?.shapes ?? []}
+              initialHistory={activeProjectShapeEntry?.history}
+              initialHistoryIndex={activeProjectShapeEntry?.historyIndex}
+              initialSnap={activeProject?.snapGrid ?? DEFAULT_SNAP_GRID}
+              initialWorkspace={activeProject?.workspace ?? DEFAULT_WORKPLANE_WORKSPACE}
+              initialPlacementElevation={activeProject?.placementElevation ?? 0}
+              initialPlacementWorkplane={activeProject?.placementWorkplane}
+              onHome={openDashboard}
+              onOpenLylProjectFile={openLylProjectFromFile}
+              onSaveSharedProject={saveActiveProjectToShared}
+              serverFileName={activeProject?.sharedProject?.fileName ?? null}
+              onProjectShapesChange={updateProjectShapes}
+              onProjectSnapshot={updateProjectSnapshot}
+              projectSaveFailure={projectSaveFailure}
+              onProjectWorkspaceChange={updateProjectWorkspace}
+              onProjectNameChange={(name) => {
+                if (activeProjectId) renameProject(activeProjectId, name);
+              }}
+              onCreateProjectFromState={createProjectFromHistoryState}
+              projectId={activeProjectId}
+              projectName={activeProject?.name}
+              projectCreatedAt={activeProject?.createdAt}
+              projectModifiedAt={activeProject?.updatedAt}
+              projectRevision={activeProjectShapeEntry?.revision ?? activeProject?.revision ?? 0}
+              editorOpen={view === "editor"}
+              sharedProjectsEnabled={sharedProjectsEnabled}
+              themePreference={themePreference}
+              resolvedTheme={resolvedTheme}
+              onThemePreferenceChange={setAppTheme}
+            />
+          </div>
+        </SafeModeErrorBoundary>
       ) : null}
       {view === "editor" && (editorLoading || !canRenderEditor) ? <EditorLoadingSkeleton /> : null}
       <TabPresenceNotice version={LYL_CREATED_WITH_VERSION} projectId={view === "editor" ? activeProjectId : null} />
