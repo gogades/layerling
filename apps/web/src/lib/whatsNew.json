@@ -1,5 +1,70 @@
 [
   {
+    "version": "1.51.0",
+    "items": [
+      {
+        "title": {
+          "de": "Skizzen als Kontur",
+          "en": "Sketches as a stroke"
+        },
+        "body": {
+          "de": "Der neue Knopf „Kontur“ in der Skizze baut die Linie selbst mit einer Breite: ein geschlossener Umriss wird ein Rahmen – innen, außen oder mittig –, eine offene Linie ein Streifen mit flachen, eckigen oder runden Enden.",
+          "en": "The new Stroke button in the sketch builds the line itself with a width: a closed outline becomes a frame – inside, outside or centred – and an open line a stripe with flat, square or round ends."
+        }
+      },
+      {
+        "title": {
+          "de": "Licht und Schatten einstellen",
+          "en": "Set light and shadows"
+        },
+        "body": {
+          "de": "In den Einstellungen gibt es jetzt weiche Schatten und eine Lichtrichtung und -höhe bis senkrecht von oben. Der Kontrast reicht weiter ins Kräftige.",
+          "en": "The settings now have soft shadows and a light direction and height, up to straight above. The contrast reaches further towards punchy."
+        }
+      },
+      {
+        "title": {
+          "de": "Arbeitsebene an Ecken und Kanten",
+          "en": "Workplane on corners and edges"
+        },
+        "body": {
+          "de": "Ein Klick nahe einer Ecke oder Kante setzt die Arbeitsebene genau dorthin, auf der freien Platte dorthin, wo du klickst. Das Raster läuft parallel zum Körper, und in der Skizze rasten Punkte an den Umrissen anderer Körper ein.",
+          "en": "A click near a corner or edge puts the workplane exactly there, and on the empty plate where you click. The grid runs parallel to the body, and in the sketch points snap to the outlines of other bodies."
+        }
+      },
+      {
+        "title": {
+          "de": "Skizzenformen strecken",
+          "en": "Stretch sketch shapes"
+        },
+        "body": {
+          "de": "Der Rahmen um eine gewählte Form hat jetzt Griffe an den Seiten; Umschalt an einer Ecke hält das Verhältnis. Breite und Höhe lassen sich eintippen, auch als Rechnung oder in Prozent.",
+          "en": "The frame round a selected shape now has handles on its sides; Shift on a corner keeps the proportions. Width and height can be typed, also as a sum or in percent."
+        }
+      },
+      {
+        "title": {
+          "de": "Drehpunkt ziehen",
+          "en": "Drag the pivot"
+        },
+        "body": {
+          "de": "Die Markierung des Drehpunkts lässt sich mit der Maus ziehen und rastet an Ecken und Kantenmitten ein.",
+          "en": "The pivot marker can be dragged with the mouse and snaps to corners and edge midpoints."
+        }
+      },
+      {
+        "title": {
+          "de": "Rechnen und mehr in der Skizze",
+          "en": "Sums and more in the sketch"
+        },
+        "body": {
+          "de": "Zahlenfelder rechnen jetzt mit +, −, * und Klammern. Eine Ecke zeigt auch die Winkel der Nachbarecken, und nach der Skizze bleibt die Ansicht, wie sie war.",
+          "en": "Number fields now calculate with +, −, * and brackets. A corner also shows the angles of its neighbours, and after a sketch the view stays as it was."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.50.0",
     "items": [
       {
