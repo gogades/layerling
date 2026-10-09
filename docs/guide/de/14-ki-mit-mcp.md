@@ -53,6 +53,7 @@ Die KI arbeitet mit denselben Funktionen wie du, sie läuft über denselben Weg 
 | `layerling_align_objects` | richtet Objekte aneinander aus |
 | `layerling_scale_objects` | skaliert Objekte um einen Prozentwert, zusammen oder jedes für sich |
 | `layerling_lay_flat` | legt ein Objekt mit einer Fläche auf die Platte |
+| `layerling_place_on_face` | setzt Objekte auf eine Fläche eines anderen, auch schräg, wie die Taste C |
 | `layerling_mate_faces` | legt eine Fläche eines Objekts an die Fläche eines anderen, gegeneinander oder bündig |
 | `layerling_open_group` | öffnet eine Gruppe, damit ihre Teile einzeln änderbar sind, auch eine Gruppe in einer geöffneten |
 | `layerling_close_group` | schließt sie wieder („Fertig“) oder bricht ab |

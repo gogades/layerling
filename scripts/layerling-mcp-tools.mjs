@@ -374,6 +374,21 @@ export const tools = [
     },
   },
   {
+    name: "layerling_place_on_face",
+    description: "Set objects down on a face of another object, as the editor's C key (Tinkercad's Cruise) does: their underside - the bottom of the first object as it stands - turns onto the face, sloped faces included, lined up with it the way a new shape dropped there would be (keeping its own turn about its up axis), and the middle of that underside lands on the point. Name the target object and its face as a side of its own box (snaps to the nearest real face; the point is then the middle of the target brought straight onto that face), or give point and normal yourself. Several objects move together and keep their spacing. One undo step.",
+    inputSchema: {
+      ...editorTargetSchema,
+      properties: {
+        ...editorTargetSchema.properties,
+        ids: { type: "array", items: { type: "string" }, description: "Object ids to set down. If omitted, uses the current selection." },
+        targetId: { type: "string", description: "The object whose face they go on." },
+        targetFace: { type: "string", enum: ["bottom", "top", "left", "right", "front", "back"], description: "Side of the target's own box, taken in its current turn (default top)." },
+        point: { type: "array", items: { type: "number" }, minItems: 3, maxItems: 3, description: "Where the underside's middle lands, [x, y, z] in world coordinates (y up). With normal, wins over targetId." },
+        normal: { type: "array", items: { type: "number" }, minItems: 3, maxItems: 3, description: "Outward normal [x, y, z] of the face at point, in world coordinates." },
+      },
+    },
+  },
+  {
     name: "layerling_mate_faces",
     description: "Move one object so a face of it meets a face of another object - the editor's Align faces tool. The moving object is turned the shortest way until the faces are parallel (not at all if they already are), then slid along the target face's normal only, so it keeps its place sideways. mode against puts the faces face to face (touching, back to back), flush lays them in one plane side by side. gap leaves that much room, measured out of the target face. Faces are named as sides of each object's own box and snap to the nearest real face. One undo step.",
     inputSchema: {

@@ -84,6 +84,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { combos: ["M"], label: "shortcuts.mirror" },
       { combos: ["L"], label: "shortcuts.align" },
       { combos: ["D"], label: "shortcuts.dropToWorkplane" },
+      { combos: ["C"], label: "shortcuts.carryOntoFace" },
       { combos: ["N"], label: "shortcuts.note" },
     ],
   },

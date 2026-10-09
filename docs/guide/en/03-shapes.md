@@ -11,7 +11,7 @@ Click {{ui:editor.addShape}} in the ribbon. The shape library opens.
 
 ![The shape library. Every little picture is rendered from the shape's real geometry.](shot:shape-menu)
 
-Pick a shape. It now hangs on the mouse pointer and lands where you click. [[Esc]] cancels placing. A tool that waits for a click, such as the tape measure, the framing square, a note, {{ui:camera.placeWorkplane}}, {{ui:editor.tool.layFlat}} or the edge tools, is switched off when you pick a shape, so the click places the shape. The other way round, switching one of those tools on puts the shape down again. If you would rather have the shape appear in the middle of the plate, you can switch off placing by click in the settings (area {{ui:workspace.appearance}}, switch {{ui:workspace.cruise}}).
+Pick a shape. It now hangs on the mouse pointer and lands where you click. Move it over a body and it lies down on the face under the pointer, sloped ones too, like Cruise in Tinkercad; over the empty plate it lands on the workplane. [[Esc]] cancels placing. A tool that waits for a click, such as the tape measure, the framing square, a note, {{ui:camera.placeWorkplane}}, {{ui:editor.tool.layFlat}} or the edge tools, is switched off when you pick a shape, so the click places the shape. The other way round, switching one of those tools on puts the shape down again. If you would rather have the shape appear in the middle of the plate, you can switch off placing by click in the settings (area {{ui:workspace.appearance}}, switch {{ui:workspace.cruise}}).
 
 What the library offers:
 

@@ -89,6 +89,7 @@ import { EdgeModifierPanel } from "./workplane/EdgeModifierPanel";
 import { ShellPanel } from "./workplane/ShellPanel";
 import { MateFacesPanel } from "./workplane/MateFacesPanel";
 import { mateMotion, type FacePick, type MateMode } from "@/lib/mateFaces";
+import { carriedOntoFace } from "@/lib/carryOntoFace";
 import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
 import { ScalePercentPanel, type ScalePercentSettings } from "./workplane/ScalePercentPanel";
@@ -6234,6 +6235,10 @@ export function LayerlingEditor({
   const [cruiseAsset, setCruiseAsset] = useState<ShapeAsset | null>(null);
   const cruiseAssetRef = useRef<ShapeAsset | null>(null);
   cruiseAssetRef.current = cruiseAsset;
+  // Parts picked up with C, until a click sets them down on a face or Esc puts them back (#195).
+  const [carryIds, setCarryIds] = useState<string[] | null>(null);
+  const carryIdsRef = useRef<string[] | null>(null);
+  carryIdsRef.current = carryIds;
   const [arrayTool, setArrayTool] = useState<ArraySettings | null>(null);
   const [scalePercentTool, setScalePercentTool] = useState<ScalePercentSettings | null>(null);
   const [scalePercentError, setScalePercentError] = useState<string | null>(null);
@@ -8402,17 +8407,32 @@ export function LayerlingEditor({
   }, []);
 
   const addShape = useCallback(
-    (asset: ShapeAsset, point?: PlacementPoint) => {
+    (asset: ShapeAsset, point?: PlacementPoint, onFace?: PlacementWorkplane) => {
       setCruiseAsset(null);
       const shape = makeShapeFromAsset(asset, undefined, workspaceSettingsRef.current.shapeCustomizations[asset.kind]);
+      // Dropped on a body's face, the shape lies on that face; otherwise on the current workplane.
+      const workplane = onFace ?? placementWorkplane;
       const nextShape = {
         ...shape,
-        ...placementPatchForNewShape(shape, placementWorkplane, point ?? placementWorkplane.origin),
+        ...placementPatchForNewShape(shape, workplane, point ?? workplane.origin),
       };
       commitShapes([...shapes, nextShape], nextShape.id, t("status.shapeAdded", { name: shapeAssetLabel(asset) }));
     },
     [commitShapes, placementWorkplane, shapes],
   );
+
+  /** Sets the parts picked up with C down on the face (or the workplane) that was clicked, as one step. */
+  const dropCarried = useCallback((target: { point: PlacementPoint; normal: PlacementPoint; workplane: PlacementWorkplane }) => {
+    const ids = carryIdsRef.current;
+    setCarryIds(null);
+    if (!ids?.length) return;
+    const patches = carriedOntoFace(shapes, ids, target, ids[0]);
+    const next = shapes.map((shape) => {
+      const patch = patches.get(shape.id);
+      return patch ? canonicalizeShape({ ...shape, ...patch }) : shape;
+    });
+    commitShapes(next, ids, t("status.carryPlaced", { count: ids.length }));
+  }, [commitShapes, shapes]);
 
   const scheduleRevolveShapeUpdate = useCallback((id: string, settings: SketchRevolveSettings) => {
     const previousTimer = sketchRevolveUpdateTimerRef.current.get(id);
@@ -11385,6 +11405,46 @@ export function LayerlingEditor({
         };
       }
 
+      if (command.action === "place_on_face") {
+        // The same code as the C key in the view (#195).
+        const requestedIds = mcpStringArray(params.ids ?? params.id);
+        const ids = new Set(requestedIds.length ? requestedIds : selectedIdsRef.current);
+        const all = currentShapes();
+        const movable = all.filter((shape) => ids.has(shape.id));
+        if (movable.length === 0) throw new Error("place_on_face needs ids or a selection");
+        if (movable.some((shape) => shape.locked)) throw new Error("Unlock the objects before moving them");
+        const vec3 = (value: unknown) => (Array.isArray(value) && value.length === 3 && value.every((entry) => typeof entry === "number" && Number.isFinite(entry))
+          ? new THREE.Vector3(value[0] as number, value[1] as number, value[2] as number)
+          : null);
+        let point = vec3(params.point);
+        let normal = vec3(params.normal);
+        if (!point || !normal || normal.lengthSq() < 1e-12) {
+          const target = all.find((shape) => shape.id === params.targetId);
+          if (!target) throw new Error("place_on_face needs targetId (with targetFace) or point and normal");
+          if (ids.has(target.id)) throw new Error("place_on_face cannot set objects down on themselves");
+          const side = typeof params.targetFace === "string" && params.targetFace in LAY_FLAT_SIDES ? params.targetFace as LayFlatSide : "top";
+          const [x, y, z] = LAY_FLAT_SIDES[side];
+          const faceNormal = nearestFaceNormal(target, new THREE.Vector3(x, y, z).applyQuaternion(quaternionForShape(target)));
+          if (!faceNormal) throw new Error("place_on_face found no face on that object");
+          normal = faceNormal.clone().normalize();
+          // The middle of the target, moved out along the normal onto the plane of that face.
+          const center = new THREE.Vector3(target.x, (target.elevation ?? 0) + target.height / 2, target.z);
+          const reach = Math.max(...meshForShape(target).vertices.map(([vx, vy, vz]) => new THREE.Vector3(vx, vy, vz).dot(normal as THREE.Vector3)));
+          point = center.clone().addScaledVector(normal, reach - center.dot(normal));
+        }
+        const patches = carriedOntoFace(all, [...ids], { point, normal }, movable[0].id);
+        const nextShapes = all.map((shape) => {
+          const patch = patches.get(shape.id);
+          return patch ? canonicalizeShape({ ...shape, ...patch }) : shape;
+        });
+        commitShapes(nextShapes, movable.map((shape) => shape.id), t("status.carryPlaced", { count: movable.length }));
+        return {
+          point: [point.x, point.y, point.z].map((value) => Number(value.toFixed(4))),
+          normal: [normal.x, normal.y, normal.z].map((value) => Number(value.toFixed(4))),
+          objects: nextShapes.filter((shape) => ids.has(shape.id)).map(mcpShapeSummary),
+        };
+      }
+
       if (command.action === "align_objects") {
         const axis = params.axis === "x" || params.axis === "y" || params.axis === "z" ? params.axis : null;
         const target = params.target === "min" || params.target === "center" || params.target === "max" ? params.target : null;
@@ -13108,6 +13168,12 @@ export function LayerlingEditor({
       if (event.key === "Escape") {
         // Erst das Werkzeug ablegen, dann die Auswahl - wer ein Werkzeug in der
         // Hand hat, meint mit Escape das Werkzeug.
+        if (carryIdsRef.current) {
+          event.preventDefault();
+          setCarryIds(null);
+          setNotice(t("status.carryCancelled"));
+          return;
+        }
         if (cruiseAssetRef.current) {
           event.preventDefault();
           setCruiseAsset(null);
@@ -13174,6 +13240,21 @@ export function LayerlingEditor({
       if (shortcut && key === "c") {
         event.preventDefault();
         copySelected();
+        return;
+      }
+
+      // C without Ctrl picks the selection up, as Tinkercad's Cruise: it follows the pointer over
+      // the faces of other bodies and a click sets it down there (#195).
+      if (!shortcut && !event.altKey && !event.shiftKey && key === "c" && hasSelection) {
+        event.preventDefault();
+        const ids = selectedIds.filter((id) => shapes.some((shape) => shape.id === id && !shape.locked));
+        if (!ids.length) {
+          setNotice(t("status.carryLocked"));
+          return;
+        }
+        setCruiseAsset(null);
+        setCarryIds(ids);
+        setNotice(t("status.carryPlace"));
         return;
       }
 
@@ -13699,6 +13780,8 @@ export function LayerlingEditor({
           initialWorkspace={workspaceSettings}
           workspaceSettingsKey={projectId ?? "local-workplane"}
           cruiseAsset={historyViewState ? null : cruiseAsset}
+          carryIds={historyViewState ? null : carryIds}
+          onCarryDrop={dropCarried}
           onCancelCruise={stopCruise}
           onAddShape={addShape}
           onDropMyShape={(id, point) => void insertMyShape(id, point).catch((error) => setNotice(error instanceof Error ? localizedError(error.message) : String(error)))}

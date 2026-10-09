@@ -99,6 +99,8 @@ async function callTool(name, args) {
       return bridgeCommand("scale_objects", args, 30000);
     case "layerling_lay_flat":
       return bridgeCommand("lay_flat", args, 30000);
+    case "layerling_place_on_face":
+      return bridgeCommand("place_on_face", args, 30000);
     case "layerling_mate_faces":
       return bridgeCommand("mate_faces", args, 30000);
     case "layerling_open_group":

@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Set down on faces, like Cruise in Tinkercad:** A new shape on the pointer now lies down on the face of the body under the pointer, sloped faces included, lined up with that face; over the empty plate it still lands on the workplane. And C picks up the selection: it follows the pointer over the faces of other bodies and a click sets it down there (Esc leaves it), its underside on the face, keeping its own turn about its up axis; several parts travel together. The MCP bridge gets the same as `layerling_place_on_face`. Suggested by @danyvanimpe-lab in #195.
+
 ## 1.54.0
 
 - **New shape: Loft** ("Übergang" in German): joins one outline at the bottom to another at the top - a circle, an ellipse, a rectangle with rounded corners or a polygon at each end, the top moved sideways if you like. With a wall thickness it is a tube open at both ends, for hose adapters or a square fan onto a round duct. An exact body, so edges can be chamfered and filleted and STEP keeps it. Asked for by @Richard6360 and @mobiusfix in #188.

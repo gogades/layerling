@@ -72,6 +72,8 @@ Zwei Teile sollen Fläche an Fläche liegen oder bündig abschließen? Wähle da
 
 Ähnlich einfach sind {{ui:editor.tool.dropToWorkplane}} ([[D]]), das die Auswahl auf die Arbeitsebene absetzt, und {{ui:editor.tool.centerOnWorkplane}}.
 
+Mit [[C]] nimmst du die Auswahl auf, wie mit Cruise in Tinkercad: Sie hängt am Mauszeiger und legt sich auf die Fläche eines anderen Körpers, über der du gerade bist, auch auf eine schräge. Ein Klick setzt sie dort ab, [[Esc]] lässt sie, wo sie war. Ihre Unterseite liegt dann auf der Fläche, und sie richtet sich nach deren Kanten aus wie eine neue Form; eine eigene Drehung um ihre Hochachse behält sie. Mehrere Teile wandern zusammen und behalten ihren Abstand. Über der leeren Platte stellt [[C]] ein gekipptes Teil wieder aufrecht auf die Arbeitsebene.
+
 ## Muster: Reihe und Kreis
 
 Für Lochraster, Lochkreise und Zahnkränze gibt es das {{ui:editor.tool.array}}. Wähle die Formen aus, die vervielfältigt werden sollen, und klicke im Menüband darauf.

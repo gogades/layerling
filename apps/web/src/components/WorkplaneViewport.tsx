@@ -46,6 +46,7 @@ import { createCrescentGeometry } from "@/lib/crescentGeometry";
 import { createSlotGeometry } from "@/lib/slotGeometry";
 import { createDovetailGeometry } from "@/lib/dovetailGeometry";
 import { createLoftGeometry } from "@/lib/loftGeometry";
+import { carriedOntoFace } from "@/lib/carryOntoFace";
 import { createHingeGeometry } from "@/lib/hingeGeometry";
 import { createKnurlGeometry } from "@/lib/knurlGeometry";
 import { visibleWorkArea } from "@/lib/visibleWorkArea";
@@ -304,7 +305,11 @@ type WorkplaneViewportProps = {
   initialSnap?: GridSize;
   initialWorkspace?: WorkplaneWorkspaceSettings;
   workspaceSettingsKey?: string | null;
-  onAddShape: (shape: ShapeAsset, point?: PlacementPoint) => void;
+  /** A new shape at `point`; `workplane` is the face it was dropped on, when not the current workplane (#195). */
+  onAddShape: (shape: ShapeAsset, point?: PlacementPoint, workplane?: PlacementWorkplane) => void;
+  /** Parts picked up with C, following the pointer over faces until a click sets them down (#195). */
+  carryIds?: string[] | null;
+  onCarryDrop?: (target: { point: PlacementPoint; normal: PlacementPoint; workplane: PlacementWorkplane }) => void;
   /** A custom shape dropped on the workplane, by its id. */
   onDropMyShape?: (id: string, point: PlacementPoint) => void;
   /** Shape following the cursor until a click drops it. Null places immediately. */
@@ -4300,6 +4305,8 @@ export function WorkplaneViewport({
   onAddShape,
   onDropMyShape,
   cruiseAsset = null,
+  carryIds = null,
+  onCarryDrop,
   onCancelCruise,
   onAlignAnchorChange,
   onAlignPreview,
@@ -4556,6 +4563,15 @@ export function WorkplaneViewport({
   const selectedIdsKeyRef = useRef(selectedIds.join("|"));
   const placementWorkplaneRef = useRef(placementWorkplane);
   const cruiseAssetRef = useRef<ShapeAsset | null>(cruiseAsset);
+  const carryIdsRef = useRef<string[] | null>(carryIds);
+  carryIdsRef.current = carryIds;
+  const onCarryDropRef = useRef(onCarryDrop);
+  onCarryDropRef.current = onCarryDrop;
+  // The parts as they stood when C picked them up: the preview turns and moves these.
+  const carryStartRef = useRef<WorkplaneShape[]>([]);
+  const pickPlacementSurfaceRef = useRef<((clientX: number, clientY: number, reverse: boolean, skip?: ReadonlySet<string>) => {
+    point: THREE.Vector3; normal: THREE.Vector3; workplane: PlacementWorkplane; shapeId: string;
+  } | null) | null>(null);
   const cruisePreviewRef = useRef<{ object: THREE.Group; shape: WorkplaneShape } | null>(null);
   const cruisePointerRef = useRef<{ x: number; y: number } | null>(null);
   cruiseAssetRef.current = cruiseAsset;
@@ -5795,22 +5811,69 @@ export function WorkplaneViewport({
     return placementWorkplanePoint(workplane, snapValue(local.x, step), snapValue(local.z, step));
   }, [toRawPlanePoint]);
 
+  /**
+   * Where a shape on the pointer lands, as in Tinkercad's Cruise (#195): over a body on the face
+   * under the pointer, lined up with it (a sloped one too); elsewhere on the current workplane.
+   */
+  const cruiseTarget = useCallback((clientX: number, clientY: number, skip?: ReadonlySet<string>) => {
+    // pickPlacementSurface is declared further down; it is reached through its ref.
+    const surface = pickPlacementSurfaceRef.current?.(clientX, clientY, false, skip) ?? null;
+    if (surface) return { point: surface.workplane.origin, workplane: surface.workplane, normal: surface.workplane.normal };
+    const point = toFreePlacementWorkplanePoint(clientX, clientY);
+    if (!point) return null;
+    const workplane = placementWorkplaneRef.current;
+    return { point, workplane, normal: workplane.normal };
+  }, [toFreePlacementWorkplanePoint]);
+
   const moveCruiseGhost = useCallback((clientX: number, clientY: number) => {
     const preview = cruisePreviewRef.current;
     const state = threeRef.current;
     if (!preview || !state) return;
     cruisePointerRef.current = { x: clientX, y: clientY };
-    const point = toFreePlacementWorkplanePoint(clientX, clientY);
-    if (!point) return;
+    const target = cruiseTarget(clientX, clientY);
+    if (!target) return;
     const next = {
       ...preview.shape,
-      ...placementPatchForNewShape(preview.shape, placementWorkplaneRef.current, point),
+      ...placementPatchForNewShape(preview.shape, target.workplane, target.point),
     };
     preview.shape = next;
     updateShapeObjectTransform(preview.object, next);
     preview.object.visible = true;
     state.needsRender = true;
-  }, [toFreePlacementWorkplanePoint]);
+  }, [cruiseTarget]);
+
+  // C: the picked-up parts follow the pointer over the faces, the parts themselves out of the way
+  // of the pick, until a click sets them down there or Esc puts them back (#195).
+  const moveCarry = useCallback((clientX: number, clientY: number) => {
+    const ids = carryIdsRef.current;
+    const state = threeRef.current;
+    if (!ids?.length || !state) return;
+    const target = cruiseTarget(clientX, clientY, new Set(ids));
+    if (!target) return;
+    const start = carryStartRef.current;
+    carriedOntoFace(start, ids, target, ids[0]).forEach((patch, id) => {
+      const shape = start.find((entry) => entry.id === id);
+      const object = findShapeObject(state, id);
+      if (shape && object) updateShapeObjectTransform(object, { ...shape, ...patch });
+    });
+    state.needsRender = true;
+  }, [cruiseTarget]);
+
+  useEffect(() => {
+    if (!carryIds?.length) return;
+    carryStartRef.current = shapesRef.current.filter((shape) => carryIds.includes(shape.id));
+    return () => {
+      // Back to what the parts are now: unchanged after Esc, set down after a click.
+      const state = threeRef.current;
+      if (!state) return;
+      carryIds.forEach((id) => {
+        const shape = shapesRef.current.find((entry) => entry.id === id);
+        const object = findShapeObject(state, id);
+        if (shape && object) updateShapeObjectTransform(object, shape);
+      });
+      state.needsRender = true;
+    };
+  }, [carryIds]);
 
   useEffect(() => {
     if (!cruiseAsset) {
@@ -7167,7 +7230,7 @@ export function WorkplaneViewport({
     return nearestId;
   }, []);
 
-  const pickPlacementSurface = useCallback((clientX: number, clientY: number, reverse: boolean) => {
+  const pickPlacementSurface = useCallback((clientX: number, clientY: number, reverse: boolean, skip?: ReadonlySet<string>) => {
     const state = threeRef.current;
     if (!state) return null;
     const rect = state.renderer.domElement.getBoundingClientRect();
@@ -7180,7 +7243,8 @@ export function WorkplaneViewport({
       .intersectObjects(state.shapeLayer.children, true)
       .find((entry) => {
         if (state.sectionPlane && state.sectionPlane.distanceToPoint(entry.point) < -0.001) return false;
-        return entry.object instanceof THREE.Mesh && entry.face && typeof entry.object.userData.shapeId === "string";
+        return entry.object instanceof THREE.Mesh && entry.face && typeof entry.object.userData.shapeId === "string"
+          && !skip?.has(entry.object.userData.shapeId as string);
       });
     if (!hit?.face) return null;
 
@@ -7254,6 +7318,7 @@ export function WorkplaneViewport({
       workplane: featurePoint ? workplane : snapPlacementWorkplaneOrigin(workplane, step),
     };
   }, []);
+  pickPlacementSurfaceRef.current = pickPlacementSurface;
 
   /**
    * Wohin eine Notiz gehoert, die hier gesetzt oder hingezogen wird: auf den
@@ -7726,10 +7791,17 @@ export function WorkplaneViewport({
         return;
       }
 
+      if (carryIdsRef.current?.length) {
+        event.preventDefault();
+        const target = cruiseTarget(event.clientX, event.clientY, new Set(carryIdsRef.current));
+        if (target) onCarryDropRef.current?.(target);
+        return;
+      }
+
       if (cruiseAssetRef.current) {
         event.preventDefault();
-        const point = toFreePlacementWorkplanePoint(event.clientX, event.clientY);
-        if (point) onAddShape(cruiseAssetRef.current, point);
+        const target = cruiseTarget(event.clientX, event.clientY);
+        if (target) onAddShape(cruiseAssetRef.current, target.point, target.workplane);
         return;
       }
 
@@ -8058,6 +8130,7 @@ export function WorkplaneViewport({
       // schweben oder zu ziehen - die Finger bewegen die Ansicht.
       if (cameraTouchRef.current) return;
       if (cruiseAssetRef.current) moveCruiseGhost(event.clientX, event.clientY);
+      if (carryIdsRef.current) moveCarry(event.clientX, event.clientY);
       if (splitActiveRef.current) {
         const state = threeRef.current;
         if (!state) return;
@@ -9459,7 +9532,7 @@ export function WorkplaneViewport({
         )}
       </div>
 
-      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${splitActive ? "split-mode" : ""} ${splitHandleState ? `split-handle-${splitHandleState}` : ""} ${splitSurfacePick ? "split-picking" : ""} ${splitSurfacePick && splitPickOverFace ? "split-pick-over-face" : ""} ${cruiseAsset ? "cruising" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${pivotPickMode || layFlatPickMode || mateFacePick ? "pivot-pick-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""} ${sectionMeasureMode && sectionSettings.enabled ? "section-measure-mode" : ""}`} aria-label={t("aria.workplane")}>
+      <section className={`workplane-wrap ${noteMode ? "note-mode" : ""} ${workplaneMode ? "placing-workplane" : ""} ${splitActive ? "split-mode" : ""} ${splitHandleState ? `split-handle-${splitHandleState}` : ""} ${splitSurfacePick ? "split-picking" : ""} ${splitSurfacePick && splitPickOverFace ? "split-pick-over-face" : ""} ${cruiseAsset || carryIds?.length ? "cruising" : ""} ${tapeMode ? "tape-mode" : ""} ${tapeDeleteMode ? "tape-delete-mode" : ""} ${tapeMoveMode ? "tape-move-mode" : ""} ${cornerRulerMode ? "corner-ruler-mode" : ""} ${pivotPickMode || layFlatPickMode || mateFacePick ? "pivot-pick-mode" : ""} ${modifierActive ? "modifier-edge-pick" : ""} ${sectionMeasureMode && sectionSettings.enabled ? "section-measure-mode" : ""}`} aria-label={t("aria.workplane")}>
         <div className="workplane-plane">
           <div
             className="three-workplane-host"
