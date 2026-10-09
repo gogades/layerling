@@ -764,6 +764,53 @@ export function WorkspaceSettingsModal({
                     />
                   </label>
                   <label className="workspace-range">
+                    <span>{t("workspace.shadowSoftness")}: {workspace.shadowSoftness} %</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={workspace.shadowSoftness}
+                      disabled={!workspace.showShadows || workspace.fastMode}
+                      onChange={(event) => patchWorkspace({ shadowSoftness: Number(event.currentTarget.value) })}
+                    />
+                    <small>
+                      <span>{t("workspace.shadowCrisp")}</span>
+                      <span>{t("workspace.shadowSoft")}</span>
+                    </small>
+                  </label>
+                  <label className="workspace-range">
+                    <span>{t("workspace.lightAzimuth")}: {workspace.lightAzimuth}°</span>
+                    <input
+                      type="range"
+                      min={-180}
+                      max={180}
+                      step={5}
+                      value={workspace.lightAzimuth}
+                      onChange={(event) => patchWorkspace({ lightAzimuth: Number(event.currentTarget.value) })}
+                    />
+                    <small>
+                      <span>{t("workspace.lightFromLeft")}</span>
+                      <span>{t("workspace.lightFromFront")}</span>
+                      <span>{t("workspace.lightFromRight")}</span>
+                    </small>
+                  </label>
+                  <label className="workspace-range">
+                    <span>{t("workspace.lightElevation")}: {workspace.lightElevation}°</span>
+                    <input
+                      type="range"
+                      min={10}
+                      max={90}
+                      step={5}
+                      value={workspace.lightElevation}
+                      onChange={(event) => patchWorkspace({ lightElevation: Number(event.currentTarget.value) })}
+                    />
+                    <small>
+                      <span>{t("workspace.lightLow")}</span>
+                      <span>{t("workspace.lightAbove")}</span>
+                    </small>
+                  </label>
+                  <label className="workspace-range">
                     <span>{t("workspace.shadeContrast")}: {workspace.shadeContrast}</span>
                     <input
                       type="range"
@@ -778,6 +825,21 @@ export function WorkspaceSettingsModal({
                       <span>{t("workspace.shadePunchy")}</span>
                     </small>
                   </label>
+                  <div className="property-defaults-actions">
+                    <button
+                      type="button"
+                      disabled={(["shadowStrength", "shadowSoftness", "shadeContrast", "lightAzimuth", "lightElevation"] as const).every((key) => workspace[key] === DEFAULT_WORKPLANE_WORKSPACE[key])}
+                      onClick={() => patchWorkspace({
+                        shadowStrength: DEFAULT_WORKPLANE_WORKSPACE.shadowStrength,
+                        shadowSoftness: DEFAULT_WORKPLANE_WORKSPACE.shadowSoftness,
+                        shadeContrast: DEFAULT_WORKPLANE_WORKSPACE.shadeContrast,
+                        lightAzimuth: DEFAULT_WORKPLANE_WORKSPACE.lightAzimuth,
+                        lightElevation: DEFAULT_WORKPLANE_WORKSPACE.lightElevation,
+                      })}
+                    >
+                      {t("workspace.lightReset")}
+                    </button>
+                  </div>
                   <label className="workspace-range">
                     <span>{t("workspace.overhangAngle", { angle: workspace.overhangAngle })}</span>
                     <input

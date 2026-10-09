@@ -219,6 +219,12 @@ export type WorkplaneWorkspaceSettings = {
   shadeContrast: number;
   /** How dark the cast shadows are, 0 to 100 (100 = as before). */
   shadowStrength: number;
+  /** How soft the shadow edges are, 0 (crisp, as before) to 100. */
+  shadowSoftness: number;
+  /** Where the main light comes from round the plate, -180 to 180 degrees; 0 is the front, 90 the right. */
+  lightAzimuth: number;
+  /** How high the main light stands, 10 to 90 degrees; 90 is straight above. */
+  lightElevation: number;
   /** The sketch view's background in the light theme. */
   sketchBackground: string;
   /** The sketch view's grid colour in the light theme. */

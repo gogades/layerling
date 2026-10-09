@@ -225,7 +225,37 @@ export function workplaneGridLines(span: number, layout: WorkplaneGridLayout) {
  */
 export function sceneLightLevels(contrast: number) {
   const c = Math.max(-100, Math.min(100, Number.isFinite(contrast) ? contrast : 0)) / 100;
-  return { ambient: 2.1 * (1 - 0.5 * c), key: 3.1 * (1 + 0.5 * c), fill: 1.2 };
+  if (c <= 0) return { ambient: 2.1 * (1 - 0.5 * c), key: 3.1 * (1 + 0.5 * c), fill: 1.2 };
+  // Towards "punchy" the range reaches further than it used to (#143): the even light and the
+  // fill light fade much more, so shaded sides and shadows get really dark at the top end.
+  // The first half of the slider is close to the old one.
+  const strong = c * c;
+  return { ambient: 2.1 * (1 - 0.5 * c - 0.3 * strong), key: 3.1 * (1 + 0.5 * c + 0.2 * strong), fill: 1.2 * (1 - 0.6 * strong) };
+}
+
+/** Where the main light stands by default: in front, to the right and above, as layerling always had it. */
+export const DEFAULT_LIGHT_AZIMUTH = 43;
+export const DEFAULT_LIGHT_ELEVATION = 52;
+
+/**
+ * The main light's position for a direction (#143): the azimuth turns it round the plate, 0° from
+ * the front and 90° from the right; the elevation lifts it, 90° straight above as in Tinkercad.
+ * Straight above is held a hair off the vertical, so the shadow camera keeps an up direction.
+ */
+export function keyLightPosition(azimuth: number, elevation: number, distance = 165) {
+  const az = ((Number.isFinite(azimuth) ? azimuth : DEFAULT_LIGHT_AZIMUTH) * Math.PI) / 180;
+  const el = (Math.max(10, Math.min(89.5, Number.isFinite(elevation) ? elevation : DEFAULT_LIGHT_ELEVATION)) * Math.PI) / 180;
+  return {
+    x: distance * Math.cos(el) * Math.sin(az),
+    y: distance * Math.sin(el),
+    z: distance * Math.cos(el) * Math.cos(az),
+  };
+}
+
+/** How far the shadow edge is blurred, in shadow-map texels: 0 % is the crisp edge of before. */
+export function shadowBlurRadius(softness: number) {
+  const s = Math.max(0, Math.min(100, Number.isFinite(softness) ? softness : 0)) / 100;
+  return 1 + s * 14;
 }
 
 /** The colours of the axis arrows, as in Bambu Studio and OrcaSlicer: X red, Y green, Z blue. */

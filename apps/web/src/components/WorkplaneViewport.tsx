@@ -102,7 +102,7 @@ import { positionsForTwist, twistBandCount } from "@/lib/heightSlices";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { canBeginShapeDrag, handleDimensionLimit, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, effectiveViewSettings, viewPixelRatio, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { withShapeDefaults } from "@/lib/shapeDefaults";
-import { AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, sceneLightLevels, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
+import { AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, keyLightPosition, sceneLightLevels, shadowBlurRadius, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { LayerlingMcpViewFace } from "@/lib/layerlingMcpProtocol";
@@ -10134,6 +10134,11 @@ function rebuildWorkplane(
   state.lights.key.intensity = lightLevels.key;
   state.lights.fill.intensity = lightLevels.fill;
   state.lights.key.shadow.intensity = workspace.shadowStrength / 100;
+  state.lights.key.shadow.radius = shadowBlurRadius(workspace.shadowSoftness);
+  const keyPosition = keyLightPosition(workspace.lightAzimuth, workspace.lightElevation);
+  state.lights.key.position.set(keyPosition.x, keyPosition.y, keyPosition.z);
+  // The fill light stays opposite the main light, so the side facing away is not left black.
+  state.lights.fill.position.set(-keyPosition.x * 1.2, 45, -keyPosition.z * 0.8);
   state.needsRender = true;
   state.controls.zoomSpeed = orbitControlsZoomSpeed(workspace.zoomSpeed);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sceneLightLevels } from "@/lib/workplaneGrid";
+import { DEFAULT_LIGHT_AZIMUTH, DEFAULT_LIGHT_ELEVATION, keyLightPosition, sceneLightLevels, shadowBlurRadius } from "@/lib/workplaneGrid";
 import { DEFAULT_WORKPLANE_WORKSPACE, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
 
 describe("shading contrast and shadow strength", () => {
@@ -35,5 +35,40 @@ describe("sketch colour settings", () => {
       sketchBackground: DEFAULT_WORKPLANE_WORKSPACE.sketchBackground,
       sketchGridColor: DEFAULT_WORKPLANE_WORKSPACE.sketchGridColor,
     });
+  });
+});
+
+describe("shadow softness and light direction (#143)", () => {
+  it("start where the light always stood, with crisp shadows", () => {
+    expect(DEFAULT_WORKPLANE_WORKSPACE).toMatchObject({ shadowSoftness: 0, lightAzimuth: DEFAULT_LIGHT_AZIMUTH, lightElevation: DEFAULT_LIGHT_ELEVATION });
+    const start = keyLightPosition(DEFAULT_LIGHT_AZIMUTH, DEFAULT_LIGHT_ELEVATION);
+    // The old fixed position was (70, 130, 75).
+    expect(Math.abs(start.x - 70)).toBeLessThan(1);
+    expect(Math.abs(start.y - 130)).toBeLessThan(1);
+    expect(Math.abs(start.z - 75)).toBeLessThan(1);
+    expect(shadowBlurRadius(0)).toBe(1);
+    expect(shadowBlurRadius(100)).toBeGreaterThan(shadowBlurRadius(50));
+  });
+
+  it("turns round the plate and lifts to straight above, held just off the vertical", () => {
+    const right = keyLightPosition(90, 45);
+    expect(right.x).toBeGreaterThan(100);
+    expect(Math.abs(right.z)).toBeLessThan(1e-9);
+    const above = keyLightPosition(0, 90);
+    expect(above.y).toBeCloseTo(165, 0);
+    expect(above.z).toBeGreaterThan(0);
+  });
+
+  it("reaches darker at the punchy end than before, and keeps the soft side", () => {
+    expect(sceneLightLevels(100).ambient).toBeLessThan(1);
+    expect(sceneLightLevels(100).fill).toBeLessThan(1.2);
+    const soft = sceneLightLevels(-100);
+    expect(soft.ambient).toBeCloseTo(3.15, 9);
+    expect(soft.key).toBeCloseTo(1.55, 9);
+    expect(soft.fill).toBe(1.2);
+  });
+
+  it("keeps chosen values within range", () => {
+    expect(normalizeWorkspaceSettings({ shadowSoftness: 150, lightAzimuth: -400, lightElevation: 5 })).toMatchObject({ shadowSoftness: 100, lightAzimuth: -180, lightElevation: 10 });
   });
 });

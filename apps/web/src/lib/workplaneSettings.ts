@@ -1,7 +1,7 @@
 import { DEFAULT_OVERHANG_ANGLE, normalizeOverhangAngle } from "@/lib/overhangLimits";
 import type { CustomSnapGrid, CustomSnapGridSize, GridSize, HistoryRetentionLimit, MeasurementAccuracy, ShapeCustomization, ShapeCustomizationMap, ShapeKind, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { normalizeScaleForUnits } from "@/lib/measurementUnits";
-import { DEFAULT_IMPERIAL_GRID_BLOCK_PRESET, DEFAULT_METRIC_GRID_BLOCK_PRESET, DEFAULT_EDGE_LINE_COLOR, DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, DEFAULT_WORKPLANE_BACKGROUND, DEFAULT_WORKPLANE_GRID_COLOR, DEFAULT_WORKPLANE_SURFACE_COLOR, inchGridPresetMm } from "@/lib/workplaneGrid";
+import { DEFAULT_IMPERIAL_GRID_BLOCK_PRESET, DEFAULT_METRIC_GRID_BLOCK_PRESET, DEFAULT_EDGE_LINE_COLOR, DEFAULT_LIGHT_AZIMUTH, DEFAULT_LIGHT_ELEVATION, DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, DEFAULT_WORKPLANE_BACKGROUND, DEFAULT_WORKPLANE_GRID_COLOR, DEFAULT_WORKPLANE_SURFACE_COLOR, inchGridPresetMm } from "@/lib/workplaneGrid";
 import { isThreadProfile } from "@/lib/threadProfiles";
 
 export const DEFAULT_SNAP_GRID: GridSize = "1.0 mm";
@@ -53,6 +53,9 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   fastMode: false,
   shadeContrast: 0,
   shadowStrength: 100,
+  shadowSoftness: 0,
+  lightAzimuth: DEFAULT_LIGHT_AZIMUTH,
+  lightElevation: DEFAULT_LIGHT_ELEVATION,
   sketchBackground: DEFAULT_SKETCH_BACKGROUND,
   sketchGridColor: DEFAULT_SKETCH_GRID_COLOR,
   overhangAngle: DEFAULT_OVERHANG_ANGLE,
@@ -525,6 +528,9 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     fastMode: booleanOrDefault(candidate.fastMode, fallback.fastMode),
     shadeContrast: Math.round(Math.max(-100, Math.min(100, numberOrDefault(candidate.shadeContrast, fallback.shadeContrast)))),
     shadowStrength: Math.round(Math.max(0, Math.min(100, numberOrDefault(candidate.shadowStrength, fallback.shadowStrength)))),
+    shadowSoftness: Math.round(Math.max(0, Math.min(100, numberOrDefault(candidate.shadowSoftness, fallback.shadowSoftness)))),
+    lightAzimuth: Math.round(Math.max(-180, Math.min(180, numberOrDefault(candidate.lightAzimuth, fallback.lightAzimuth)))),
+    lightElevation: Math.round(Math.max(10, Math.min(90, numberOrDefault(candidate.lightElevation, fallback.lightElevation)))),
     sketchBackground: colorOrDefault(candidate.sketchBackground, fallback.sketchBackground),
     sketchGridColor: colorOrDefault(candidate.sketchGridColor, fallback.sketchGridColor),
     overhangAngle: normalizeOverhangAngle(candidate.overhangAngle, fallback.overhangAngle),
