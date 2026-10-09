@@ -112,3 +112,15 @@ describe("exportMeshesTo3mf", () => {
     expect(() => exportMeshesTo3mf([{ name: "Empty", vertices: [], faces: [] }])).toThrow(/at least one body/);
   });
 });
+
+describe("exportMeshesTo3mf with a colour per face (#153)", () => {
+  it("gives every triangle the colour of its part", () => {
+    const mesh = cube("Multicolor group", "#00ff00");
+    const faceColors = mesh.faces.map((_, index) => (index < 6 ? "#ff0000" : "#0000ff"));
+    const { model } = readPackage(exportMeshesTo3mf([{ ...mesh, faceColors }]));
+    const colors = [...model.matchAll(/<m:color color="([^"]+)"/g)].map((match) => match[1]);
+    const used = [...model.matchAll(/<triangle [^>]*p1="(\d+)"/g)].map((match) => colors[Number(match[1])]);
+    expect(used.filter((color) => color === "#FF0000FF")).toHaveLength(6);
+    expect(used.filter((color) => color === "#0000FFFF")).toHaveLength(6);
+  });
+});

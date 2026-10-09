@@ -18,6 +18,8 @@ export type ThreeMfExportMesh = {
   name: string;
   /** "#rrggbb"; anything else falls back to the default body colour. */
   color?: string;
+  /** A colour per face, for a body whose parts keep their own colours (#153); wins over `color`. */
+  faceColors?: readonly string[];
   vertices: readonly MeshPoint[];
   faces: readonly (readonly [number, number, number])[];
 };
@@ -72,7 +74,7 @@ function coordinate(value: number) {
  * sees the geometry.
  */
 export function exportMeshesTo3mf(meshes: readonly ThreeMfExportMesh[], metadata: { title?: string } = {}): Uint8Array {
-  const colors = [...new Set(meshes.map((mesh) => displayColor(mesh.color)))];
+  const colors = [...new Set(meshes.flatMap((mesh) => [displayColor(mesh.color), ...(mesh.faceColors ?? []).map(displayColor)]))];
   const objects: string[] = [];
   const items: string[] = [];
   const colorGroupId = meshes.length + 2; // after the material group (1) and the objects (2...)
@@ -89,7 +91,11 @@ export function exportMeshesTo3mf(meshes: readonly ThreeMfExportMesh[], metadata
       .join("");
     const colorIndex = colors.indexOf(displayColor(mesh.color));
     const triangles = welded.faces
-      .map(([a, b, c]) => `<triangle v1="${a}" v2="${b}" v3="${c}" pid="${colorGroupId}" p1="${colorIndex}"/>`)
+      .map(([a, b, c], index) => {
+        const faceColor = mesh.faceColors?.[welded.kept[index]];
+        const triangleColor = faceColor ? colors.indexOf(displayColor(faceColor)) : colorIndex;
+        return `<triangle v1="${a}" v2="${b}" v3="${c}" pid="${colorGroupId}" p1="${triangleColor}"/>`;
+      })
       .join("");
     const name = escapeXml(mesh.name || `Body ${index + 1}`);
     objects.push(

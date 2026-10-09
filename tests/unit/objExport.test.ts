@@ -55,3 +55,13 @@ describe("OBJ export", () => {
     expect(obj).not.toMatch(/mtllib|usemtl/);
   });
 });
+
+describe("OBJ export with a colour per face (#153)", () => {
+  it("colours each point after a face that uses it", () => {
+    const mesh = duplicatedTetrahedron();
+    const obj = exportMeshesToObj([{ ...mesh, color: "#00ff00", faceColors: ["#ff0000", "#ff0000", "#0000ff", "#0000ff"] }]);
+    const colours = obj.split("\n").filter((line) => line.startsWith("v ")).map((line) => line.split(" ").slice(4).join(" "));
+    expect(colours).toContain("1 0 0");
+    expect(colours.every((colour) => colour === "1 0 0" || colour === "0 0 1")).toBe(true);
+  });
+});

@@ -4,6 +4,8 @@ export type ObjExportMesh = {
   name: string;
   /** "#rrggbb"; written as a vertex colour, anything else leaves the body without one. */
   color?: string;
+  /** A colour per face, for a body whose parts keep their own colours (#153); wins over `color`. */
+  faceColors?: readonly string[];
   vertices: readonly MeshPoint[];
   faces: readonly (readonly [number, number, number])[];
 };
@@ -54,11 +56,17 @@ export function weldMeshVertices(mesh: ObjExportMesh) {
     remappedIndices.push(weldedIndex);
   });
 
-  const faces = mesh.faces
-    .map(([a, b, c]) => [remappedIndices[a], remappedIndices[b], remappedIndices[c]] as [number, number, number])
-    .filter(([a, b, c]) => a !== b && b !== c && c !== a);
+  const faces: Array<[number, number, number]> = [];
+  // Which source face each kept face was, so per-face colours stay with their face.
+  const kept: number[] = [];
+  mesh.faces.forEach(([a, b, c], index) => {
+    const face: [number, number, number] = [remappedIndices[a], remappedIndices[b], remappedIndices[c]];
+    if (face[0] === face[1] || face[1] === face[2] || face[2] === face[0]) return;
+    faces.push(face);
+    kept.push(index);
+  });
 
-  return { vertices, faces };
+  return { vertices, faces, kept };
 }
 
 function objNumber(value: number) {
@@ -85,8 +93,17 @@ export function exportMeshesToObj(meshes: readonly ObjExportMesh[]) {
   meshes.forEach((mesh) => {
     const welded = weldMeshVertices(mesh);
     const color = objVertexColor(mesh.color);
+    // OBJ has colours per point only: with colours per face, a point takes the colour of the
+    // first face that uses it, so the border between two colours runs along those faces.
+    const pointColors: string[] = [];
+    if (mesh.faceColors?.length) {
+      welded.faces.forEach((face, index) => {
+        const faceColor = objVertexColor(mesh.faceColors?.[welded.kept[index]]) || color;
+        face.forEach((point) => { pointColors[point] ??= faceColor; });
+      });
+    }
     lines.push(`o ${mesh.name}`);
-    welded.vertices.forEach(([x, y, z]) => lines.push(`v ${objNumber(x)} ${objNumber(y)} ${objNumber(z)}${color}`));
+    welded.vertices.forEach(([x, y, z], index) => lines.push(`v ${objNumber(x)} ${objNumber(y)} ${objNumber(z)}${pointColors[index] ?? color}`));
     welded.faces.forEach(([a, b, c]) => lines.push(`f ${a + offset} ${b + offset} ${c + offset}`));
     offset += welded.vertices.length;
   });

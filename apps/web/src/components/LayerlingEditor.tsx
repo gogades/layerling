@@ -94,7 +94,8 @@ import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
 import { ScalePercentPanel, type ScalePercentSettings } from "./workplane/ScalePercentPanel";
 import { scaleShapesByPercent } from "@/lib/scaleByPercent";
-import { canToggleGroupColors } from "@/lib/groupColors";
+import { canToggleGroupColors, groupShowsPartColors } from "@/lib/groupColors";
+import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from "three-mesh-bvh";
 import { meshForTwist, twistBandCount } from "@/lib/heightSlices";
 import { SHELL_SIDES, shellMaxThickness, shellOpeningsFor, shellOpenSides } from "@/lib/shellLimits";
 import { circleStepDegrees, clampArrayCount, moveAlongRadius, rotateAroundVertical, rowOffset, singleAxisSpacing, type ArraySettings } from "@/lib/shapeArray";
@@ -120,6 +121,7 @@ import {
   mirrorSign,
   normalizeDegrees,
   preservesEdgeTreatmentSize,
+  resizedImportedCoordinates,
   resizedImportedMeshPositions,
   resizedShapeSize,
   serializeShapesForSync,
@@ -5320,6 +5322,94 @@ function visibleExportShapes(source: readonly WorkplaneShape[]) {
   const visible = expandBundles(shown);
   const hiddenNote = hidden === 0 ? "" : hidden === 1 ? t("status.exportHiddenSkippedOne") : t("status.exportHiddenSkippedMany", { count: hidden });
   return { visible, hiddenNote };
+}
+
+type PartColorSolid = { probe: THREE.Mesh; box: THREE.Box3; color: string };
+
+/**
+ * The parts of a group that shows each part in its own colour (Multicolor), as solids in the
+ * world, ready to ask "which part is this point in" (#153). A group cut into one mesh keeps its
+ * parts in the frame of that mesh, standing on its lowest point; a group of separate parts in
+ * the frame its children have before the group's own size and place are applied.
+ */
+function multicolorExportSolids(shape: WorkplaneShape): PartColorSolid[] | null {
+  if (shape.hole || !shape.groupedShapes?.length || !groupShowsPartColors(shape)) return null;
+  const parts = shape.groupedShapes.filter((part) => !part.hole && !part.hidden);
+  if (parts.length === 0 || new Set(parts.map((part) => part.color)).size < 2) return null;
+  const imported = shape.importedMesh;
+  let lowest = Number.POSITIVE_INFINITY;
+  if (imported) for (let index = 1; index < imported.positions.length; index += 3) lowest = Math.min(lowest, imported.positions[index]);
+  const scale = imported ? null : groupedContentScale(shape, localGroupBounds(shape.groupedShapes));
+  const solids: PartColorSolid[] = [];
+  parts.forEach((part) => {
+    const local = meshForShape(part);
+    if (local.faces.length === 0) return;
+    let vertices: Vec3[];
+    if (imported) {
+      const flat = local.vertices.flatMap(([x, y, z]) => [x, y - (Number.isFinite(lowest) ? lowest : 0), z]);
+      const resized = resizedImportedCoordinates(shape, flat);
+      vertices = [];
+      for (let index = 0; index + 2 < resized.length; index += 3) vertices.push([resized[index], resized[index + 1], resized[index + 2]]);
+    } else {
+      vertices = scaleGroupedVertices(local.vertices, scale!) as Vec3[];
+    }
+    const world = transformMesh({ name: local.name, vertices, faces: local.faces }, shape);
+    const positions = new Float32Array(world.faces.length * 9);
+    world.faces.forEach((face, faceIndex) => face.forEach((point, corner) => {
+      const vertex = world.vertices[point];
+      positions.set([vertex[0], vertex[1], vertex[2]], faceIndex * 9 + corner * 3);
+    }));
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.computeBoundingBox();
+    computeBoundsTree.call(geometry, { targetLeafSize: 12 });
+    const probe = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+    probe.raycast = acceleratedRaycast;
+    solids.push({ probe, box: geometry.boundingBox ?? new THREE.Box3(), color: part.color });
+  });
+  return solids.length ? solids : null;
+}
+
+const PART_COLOR_PROBE = new THREE.Vector3(0.5773, 0.5774, 0.5775).normalize();
+
+/**
+ * A colour for every face of an exported body: the colour of the part the face belongs to,
+ * found a hair inside the face. A face in no part (a body merged in with it) keeps `fallback`.
+ */
+function exportFaceColors(mesh: MeshData, solids: PartColorSolid[], fallback: string): string[] {
+  const raycaster = new THREE.Raycaster();
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const normal = new THREE.Vector3();
+  const edge = new THREE.Vector3();
+  const point = new THREE.Vector3();
+  const near = 0.5;
+  return mesh.faces.map(([ia, ib, ic]) => {
+    a.fromArray(mesh.vertices[ia]);
+    b.fromArray(mesh.vertices[ib]);
+    c.fromArray(mesh.vertices[ic]);
+    normal.subVectors(b, a).cross(edge.subVectors(c, a));
+    const area = normal.length();
+    if (area < 1e-12) return fallback;
+    normal.divideScalar(area);
+    point.addVectors(a, b).add(c).multiplyScalar(1 / 3).addScaledVector(normal, -0.02);
+    for (const solid of solids) {
+      if (!solid.box.containsPoint(point)) continue;
+      raycaster.set(point, PART_COLOR_PROBE);
+      if (raycaster.intersectObject(solid.probe, false).length % 2 === 1) return solid.color;
+    }
+    let best: PartColorSolid | null = null;
+    let bestDistance = near;
+    for (const solid of solids) {
+      const distance = solid.box.distanceToPoint(point);
+      if (distance <= bestDistance) {
+        best = solid;
+        bestDistance = distance;
+      }
+    }
+    return best?.color ?? fallback;
+  });
 }
 
 async function colorSeparatedExportMeshes(shapes: WorkplaneShape[], meshes: MeshData[]) {
@@ -13070,6 +13160,19 @@ export function LayerlingEditor({
     }
     const label = format === "stl" ? "STL" : format === "3mf" ? "3MF" : "OBJ";
     const meshes = exportable.map(meshForShape);
+    // A group showing its parts in their own colours keeps them in 3MF and OBJ (#153).
+    const partFaceColors = (mesh: MeshData, sourceIndex: number) => {
+      const source = exportable[sourceIndex];
+      const solids = source ? multicolorExportSolids(source) : null;
+      if (!source || !solids) return undefined;
+      const colors = exportFaceColors(mesh, solids, source.color);
+      solids.forEach(({ probe }) => {
+        disposeBoundsTree.call(probe.geometry);
+        probe.geometry.dispose();
+        (probe.material as THREE.Material).dispose();
+      });
+      return colors;
+    };
     void (format === "stl" ? unionOverlappingExportMeshes(exportable, meshes) : colorSeparatedExportMeshes(exportable, meshes))
       .then(async ({ meshes: fertig, quellen, verschmolzen, gescheitert }) => {
         if (format === "stl") {
@@ -13077,12 +13180,12 @@ export function LayerlingEditor({
         } else if (format === "3mf") {
           const bodies = fertig.map((mesh, index) => {
             const source = exportable[quellen[index]];
-            return { ...mesh, name: source?.name || mesh.name, color: source?.color };
+            return { ...mesh, name: source?.name || mesh.name, color: source?.color, faceColors: partFaceColors(mesh, quellen[index]) };
           });
           const bytes = exportMeshesTo3mf(bodies, { title: exportName.trim() || projectName });
           await downloadBlobFile(projectExportFileName(exportName, "3mf"), new Blob([bytes as BlobPart], { type: THREE_MF_MEDIA_TYPE }));
         } else {
-          const bodies = fertig.map((mesh, index) => ({ ...mesh, color: exportable[quellen[index]]?.color }));
+          const bodies = fertig.map((mesh, index) => ({ ...mesh, color: exportable[quellen[index]]?.color, faceColors: partFaceColors(mesh, quellen[index]) }));
           await downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(bodies), "text/plain");
         }
         // The file is written either way; the notice below only adds a caveat.
