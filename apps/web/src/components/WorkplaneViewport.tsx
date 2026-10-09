@@ -11755,6 +11755,20 @@ function syncTransformOverlay(
   updateTransformOverlayIfChanged(overlayRef, setOverlay, next);
 }
 
+/** The box round the surfaces drawn for these shapes, in the world; null when none is drawn. */
+function drawnShapesBounds(state: ThreeState, ids: string[]): THREE.Box3 | null {
+  const bounds = new THREE.Box3();
+  ids.forEach((id) => {
+    const object = findShapeObject(state, id);
+    if (!object) return;
+    object.updateWorldMatrix(true, true);
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.userData.shapeSurface && child.visible) bounds.expandByObject(child, true);
+    });
+  });
+  return bounds.isEmpty() ? null : bounds;
+}
+
 function syncAlignOverlay(
   state: ThreeState,
   shapes: WorkplaneShape[],
@@ -11806,12 +11820,16 @@ function syncAlignOverlay(
       y: ((1 - projected.y) / 2) * rect.height,
     };
   };
-  const worldMinY = Math.min(...corners.map((corner) => corner.y));
-  const worldMaxY = Math.max(...corners.map((corner) => corner.y));
-  const worldMinX = Math.min(...corners.map((corner) => corner.x));
-  const worldMaxX = Math.max(...corners.map((corner) => corner.x));
-  const worldMinZ = Math.min(...corners.map((corner) => corner.z));
-  const worldMaxZ = Math.max(...corners.map((corner) => corner.z));
+  // The handles stand where the parts will line up: at the box round what is drawn, as the
+  // alignment measures it. The corners of a turned part's own box stick out past a cylinder or
+  // a star, so handles placed there promised an edge the parts then did not move to (#187).
+  const drawn = drawnShapesBounds(state, anchorFrame && alignAnchorId ? [alignAnchorId] : selectedIds);
+  const worldMinY = drawn ? drawn.min.y : Math.min(...corners.map((corner) => corner.y));
+  const worldMaxY = drawn ? drawn.max.y : Math.max(...corners.map((corner) => corner.y));
+  const worldMinX = drawn ? drawn.min.x : Math.min(...corners.map((corner) => corner.x));
+  const worldMaxX = drawn ? drawn.max.x : Math.max(...corners.map((corner) => corner.x));
+  const worldMinZ = drawn ? drawn.min.z : Math.min(...corners.map((corner) => corner.z));
+  const worldMaxZ = drawn ? drawn.max.z : Math.max(...corners.map((corner) => corner.z));
   const worldCenterX = (worldMinX + worldMaxX) / 2;
   const worldCenterY = (worldMinY + worldMaxY) / 2;
   const worldCenterZ = (worldMinZ + worldMaxZ) / 2;
