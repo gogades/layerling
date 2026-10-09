@@ -1,12 +1,1 @@
-[
-  {
-    "title": {
-      "de": "Aussparungen auch ohne Gruppe",
-      "en": "Holes without grouping"
-    },
-    "body": {
-      "de": "Eine Aussparung, die nicht gruppiert ist, wird beim Export jetzt von den Körpern abgezogen, die sie berührt, wie die Ansicht es zeigt. Vorher fiel sie weg.",
-      "en": "A hole that is not grouped is now taken out of the bodies it reaches when you export, as the view shows it. Before, it was left out."
-    }
-  }
-]
+[]
