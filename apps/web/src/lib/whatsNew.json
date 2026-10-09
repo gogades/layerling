@@ -1,5 +1,40 @@
 [
   {
+    "version": "1.53.0",
+    "items": [
+      {
+        "title": {
+          "de": "Obere Kanten für Ausstechformen",
+          "en": "Top edges for cookie cutters"
+        },
+        "body": {
+          "de": "Der neue Knopf „Obere Kanten“ in der Kantentafel wählt nur den oberen Rand. Umriss als Kontur bauen, oben fasen – fertig ist die Ausstechform.",
+          "en": "The new Top edges button in the edge panel picks only the top rim. Build an outline as a stroke, chamfer the top - and the cookie cutter is done."
+        }
+      },
+      {
+        "title": {
+          "de": "Beschriftung der Platte abschaltbar",
+          "en": "Plate labels can be switched off"
+        },
+        "body": {
+          "de": "Name des Entwurfs und Druckerangaben auf der Platte lassen sich in den Einstellungen unter Darstellung ausblenden.",
+          "en": "The design's name and the printer details on the plate can be hidden under Appearance in the settings."
+        }
+      },
+      {
+        "title": {
+          "de": "Aufgeräumt und abgesichert",
+          "en": "Tidied up and made safer"
+        },
+        "body": {
+          "de": "Esc schließt „Flächen aneinanderlegen“ und „Um Prozent skalieren“ wieder zuverlässig, jedes Fenster hat sein Fragezeichen zur Anleitung, und Sicherheitsupdates sind eingespielt.",
+          "en": "Esc closes Align faces and Scale by percent reliably again, every window has its question mark into the guide, and security updates are in."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.52.0",
     "items": [
       {
