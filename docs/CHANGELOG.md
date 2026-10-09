@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.56.0
 
 - **No moiré under a workplane on the plate:** A workplane put on the empty plate lies in the plate's own plane, and the two grids, slightly offset, made a flickering moiré. While a workplane lies flat on the plate, the plate now shows only its outline; a tilted or raised workplane keeps the plate's grid. Reported by @prmod3d in #178.
 - **Corners and edges of the view cube:** A click on a corner of the view cube now looks at the model diagonally from that corner, and a click near an edge looks from that edge, between two sides; the spot lights up under the pointer. Dragging the cube and the keys 1-6 work as before. The MCP bridge's `layerling_capture_image` takes the same views as faces joined with "-", like `front-right-top`. Suggested by @hlmodtech in #202.
