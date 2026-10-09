@@ -13228,7 +13228,9 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
     const selectedOutline = Boolean(group.userData.showEdges);
     const selectedRoundedBox = selectedOutline && shape.kind === "box" && Boolean(shape.radius && shape.radius > 0);
     const edgeColor = selectedOutline ? "#00aeea" : shape.hole ? "#697989" : allEdgeLines ? edgeLineStyle.color : complexEdges ? "#141b21" : darkenHex(shape.color, 0.34);
-    const edgeOpacity = selectedRoundedBox ? 0 : selectedOutline ? 0.98 : shape.hole ? 0.44 : allEdgeLines ? 0.9 : complexEdges ? 0.38 : shape.kind === "text" ? 0.86 : 0.2;
+    // Edge lines on every body are a help to tell dark parts apart, not a drawing: half strength
+    // keeps them readable without the hard black frame they had.
+    const edgeOpacity = selectedRoundedBox ? 0 : selectedOutline ? 0.98 : shape.hole ? 0.44 : allEdgeLines ? 0.5 : complexEdges ? 0.38 : shape.kind === "text" ? 0.86 : 0.2;
     if (selectedOutline && shape.importedMesh && shape.cadDisplayEdgesVersion === 2 && Boolean(shape.cadDisplayEdges?.length)) {
       addCadDisplayEdges(group, shape, edgeColor, edgeOpacity);
     } else {
@@ -13241,7 +13243,10 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
       // A twisted side folds a little at every band (#184): only its real edges get a line, as on a thread.
       const twisted = Math.abs(shape.extrudeTwist ?? 0) > 1e-6;
       const selectedThreshold = shape.importedMesh ? NORMAL_IMPORTED_SELECTION_EDGE_ANGLE : shape.kind === "thread" || twisted || (shape.transparent && !shape.hole) ? 25 : 1;
-      const edges = new THREE.LineSegments(getEdgesGeometry(shape, prepared, selectedOutline ? selectedThreshold : allEdgeLines || twisted ? 25 : complexEdges ? 14 : 25), sharedLineMaterial(edgeColor, edgeOpacity));
+      const edgesGeometry = !selectedOutline && allEdgeLines
+        ? calmEdgesGeometry(shape, prepared)
+        : getEdgesGeometry(shape, prepared, selectedOutline ? selectedThreshold : twisted ? 25 : complexEdges ? 14 : 25);
+      const edges = new THREE.LineSegments(edgesGeometry, sharedLineMaterial(edgeColor, edgeOpacity));
       edges.userData.complexEdge = complexEdges;
       edges.userData.shapeDecoration = true;
       edges.userData.shapeEdge = true;
@@ -13457,6 +13462,23 @@ function getEdgesGeometry(shape: WorkplaneShape, geometry: THREE.BufferGeometry,
   const edges = new THREE.EdgesGeometry(geometry, threshold);
   edges.userData.cached = true;
   cache.set(threshold, edges);
+  return edges;
+}
+
+/** Above this many line pieces a body's edges stop outlining it and start covering it. */
+const ALL_EDGE_LINES_SEGMENT_LIMIT = 1500;
+
+/**
+ * The edge lines drawn on every body: creases from 25°, but a body with a texture of small faces -
+ * a thread, a knurl, a spring - would turn into a black mass of lines. For those the crease
+ * angle steps up until only its real outline is left, such as the rims of the ends.
+ */
+function calmEdgesGeometry(shape: WorkplaneShape, geometry: THREE.BufferGeometry) {
+  let edges = getEdgesGeometry(shape, geometry, 25);
+  for (const threshold of [45, 70]) {
+    if (edges.getAttribute("position").count / 2 <= ALL_EDGE_LINES_SEGMENT_LIMIT) break;
+    edges = getEdgesGeometry(shape, geometry, threshold);
+  }
   return edges;
 }
 
