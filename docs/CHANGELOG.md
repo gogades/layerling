@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.55.1
 
 - **Smooth curves no longer loop at every point:** The handles of a smooth curve - drawn with Smooth curve or given by the Smooth button on a point - pointed the wrong way, so the curve made a loop at each point. They were laid out the way the path happened to be walked, which mostly started at the last point drawn, while a curve is drawn the way its segments are stored. Reported by @luk-saw in #199.
 - **SVG import keeps holes again:** A hole inside an outline - a round cut-out drawn in Inkscape, for one - came in filled, as a body of its own. Inkscape closes an outline of arcs a fraction of a micrometre short of its start, and that sliver made the import believe the hole crossed the outline. Reported by @AkiraNorthstar in #197.
