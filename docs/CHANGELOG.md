@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **The view stays where it was after a sketch:** Leaving the sketch view put the 3D view back to its start position and zoom, so it had to be turned back by hand. It now looks where it looked before the sketch, in the same projection. Reported by @prmod3d in #150.
 - **Calculate in number fields:** Besides "45/3", which happened to work, every number field now takes `+`, `-`, `*` (or `x`) and brackets, e.g. "15*3", "120-2*4" or "(40+2)/2"; a decimal comma works inside a calculation too. Asked about by @prmod3d in #180.
 
 ## 1.50.0

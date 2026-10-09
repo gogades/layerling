@@ -4478,6 +4478,8 @@ export function WorkplaneViewport({
   const cruisePointerRef = useRef<{ x: number; y: number } | null>(null);
   cruiseAssetRef.current = cruiseAsset;
   const projectNameRef = useRef(projectName);
+  const projectIdRef = useRef(projectId);
+  projectIdRef.current = projectId;
   const workplaneModeRef = useRef(workplaneMode);
   const splitActiveRef = useRef(splitActive);
   const splitPlaneRef = useRef(splitPlane);
@@ -5475,6 +5477,8 @@ export function WorkplaneViewport({
     window.addEventListener("resize", state.resize);
 
     return () => {
+      // The view is taken down while a sketch is open; it comes back looking where it looked (#150).
+      rememberedCameraViews.set(projectIdRef.current ?? "", cameraViewOf(state));
       window.cancelAnimationFrame(state.animationId);
       window.removeEventListener("resize", state.resize);
       state.disposeInteractionListeners();
@@ -5563,6 +5567,19 @@ export function WorkplaneViewport({
     }
     setOrthographicView(state.camera instanceof THREE.OrthographicCamera);
   }, [workspaceSettingsKey]);
+
+  // Back from the sketch view: the camera looks where it looked before (#150).
+  useEffect(() => {
+    const state = threeRef.current;
+    const key = projectIdRef.current ?? "";
+    const view = rememberedCameraViews.get(key);
+    if (!state || !view) return;
+    rememberedCameraViews.delete(key);
+    if ((state.camera instanceof THREE.OrthographicCamera) !== view.orthographic) toggleCameraProjection(state);
+    applyCameraView(state, view);
+    syncViewCube(state, viewCubeRef.current);
+    setOrthographicView(state.camera instanceof THREE.OrthographicCamera);
+  }, []);
 
   useEffect(() => {
     const state = threeRef.current;
@@ -9850,6 +9867,39 @@ function updateOrthographicFrustum(camera: THREE.OrthographicCamera, aspect: num
   camera.top = halfHeight;
   camera.bottom = -halfHeight;
   camera.updateProjectionMatrix();
+}
+
+type CameraView = {
+  orthographic: boolean;
+  position: [number, number, number];
+  target: [number, number, number];
+  up: [number, number, number];
+  zoom: number;
+};
+
+/** Where the camera looked, per design, while the view was taken down for a sketch (#150). */
+const rememberedCameraViews = new Map<string, CameraView>();
+
+function cameraViewOf(state: ThreeState): CameraView {
+  return {
+    orthographic: state.camera instanceof THREE.OrthographicCamera,
+    position: state.camera.position.toArray() as [number, number, number],
+    target: state.controls.target.toArray() as [number, number, number],
+    up: state.camera.up.toArray() as [number, number, number],
+    zoom: state.camera.zoom,
+  };
+}
+
+function applyCameraView(state: ThreeState, view: CameraView) {
+  state.camera.up.fromArray(view.up);
+  state.camera.position.fromArray(view.position);
+  state.controls.target.fromArray(view.target);
+  state.camera.zoom = view.zoom;
+  state.camera.lookAt(state.controls.target);
+  state.camera.updateProjectionMatrix();
+  fitCameraDepthRange(state.camera, state.controls.target);
+  state.controls.update();
+  state.needsRender = true;
 }
 
 function toggleCameraProjection(state: ThreeState) {
