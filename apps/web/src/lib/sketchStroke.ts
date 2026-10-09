@@ -66,8 +66,14 @@ function sampledPath(path: OrderedCadSketchPath): Vec[] {
 
 const toPolygon = (points: Vec[]) => points.map((point) => [point.x, point.z] as [number, number]);
 
-function circleAt(runtime: ManifoldToplevel, center: Vec, radius: number) {
-  return runtime.CrossSection.circle(radius, 48).translate([center.x, center.z]);
+/**
+ * Every CrossSection lives in Manifold's WebAssembly memory until it is deleted; the preview
+ * builds the stroke again on every edit, so each one is kept here and freed at the end.
+ */
+type Keep = <T extends CrossSection>(section: T) => T;
+
+function circleAt(runtime: ManifoldToplevel, keep: Keep, center: Vec, radius: number) {
+  return keep(keep(runtime.CrossSection.circle(radius, 48)).translate([center.x, center.z]));
 }
 
 /** Positive area (counter-clockwise in x/z) for a triangle or quad, so Manifold keeps it. */
@@ -80,7 +86,7 @@ function ccw(points: Vec[]) {
 }
 
 /** An open line of `width`, centred on it: one bar per piece, the corners and ends filled as chosen. */
-function strokeOpenPath(runtime: ManifoldToplevel, points: Vec[], stroke: SketchStroke): CrossSection | null {
+function strokeOpenPath(runtime: ManifoldToplevel, keep: Keep, points: Vec[], stroke: SketchStroke): CrossSection | null {
   if (points.length < 2) return null;
   const half = stroke.width / 2;
   const pieces: CrossSection[] = [];
@@ -101,17 +107,17 @@ function strokeOpenPath(runtime: ManifoldToplevel, points: Vec[], stroke: Sketch
     const b = ends[index + 1];
     const d = direction(a, b);
     const n = { x: -d.z * half, z: d.x * half };
-    pieces.push(new runtime.CrossSection([toPolygon(ccw([
+    pieces.push(keep(new runtime.CrossSection([toPolygon(ccw([
       { x: a.x + n.x, z: a.z + n.z },
       { x: b.x + n.x, z: b.z + n.z },
       { x: b.x - n.x, z: b.z - n.z },
       { x: a.x - n.x, z: a.z - n.z },
-    ]))]));
+    ]))])));
   }
   for (let index = 1; index + 1 < points.length; index += 1) {
     const corner = points[index];
     if (stroke.join === "round") {
-      pieces.push(circleAt(runtime, corner, half));
+      pieces.push(circleAt(runtime, keep, corner, half));
       continue;
     }
     const before = direction(points[index - 1], corner);
@@ -133,26 +139,26 @@ function strokeOpenPath(runtime: ManifoldToplevel, points: Vec[], stroke: Sketch
         wedge.splice(2, 0, tip);
       }
     }
-    pieces.push(new runtime.CrossSection([toPolygon(ccw(wedge))]));
+    pieces.push(keep(new runtime.CrossSection([toPolygon(ccw(wedge))])));
   }
   if (stroke.cap === "round") {
-    pieces.push(circleAt(runtime, points[0], half), circleAt(runtime, points[points.length - 1], half));
+    pieces.push(circleAt(runtime, keep, points[0], half), circleAt(runtime, keep, points[points.length - 1], half));
   }
-  return runtime.CrossSection.union(pieces);
+  return keep(runtime.CrossSection.union(pieces));
 }
 
 /** The closed outlines as a frame of `width`: inside, outside or centred on the drawn line. */
-function strokeClosedPaths(runtime: ManifoldToplevel, loops: Vec[][], stroke: SketchStroke): CrossSection | null {
+function strokeClosedPaths(runtime: ManifoldToplevel, keep: Keep, loops: Vec[][], stroke: SketchStroke): CrossSection | null {
   if (!loops.length) return null;
-  const region = new runtime.CrossSection(loops.map(toPolygon), "EvenOdd");
+  const region = keep(new runtime.CrossSection(loops.map(toPolygon), "EvenOdd"));
   const joinType = stroke.join === "round" ? "Round" : stroke.join === "bevel" ? "Square" : "Miter";
-  const grow = (delta: number) => (delta === 0 ? region : region.offset(delta, joinType, MITER_LIMIT, 48));
+  const grow = (delta: number) => (delta === 0 ? region : keep(region.offset(delta, joinType, MITER_LIMIT, 48)));
   const [outerDelta, innerDelta] = stroke.align === "inside"
     ? [0, -stroke.width]
     : stroke.align === "outside"
       ? [stroke.width, 0]
       : [stroke.width / 2, -stroke.width / 2];
-  return grow(outerDelta).subtract(grow(innerDelta));
+  return keep(grow(outerDelta).subtract(grow(innerDelta)));
 }
 
 /**
@@ -165,12 +171,22 @@ export function strokedSketchProfile(runtime: ManifoldToplevel, profile: SketchP
   const paths = orderedCadSketchPaths(profile);
   const closed = paths.filter((path) => path.closed).map(sampledPath).filter((loop) => loop.length >= 3);
   const open = paths.filter((path) => !path.closed).map(sampledPath).filter((line) => line.length >= 2);
-  const parts = [strokeClosedPaths(runtime, closed, stroke), ...open.map((line) => strokeOpenPath(runtime, line, stroke))]
-    .filter((part): part is CrossSection => Boolean(part));
-  if (!parts.length) return null;
-  const result = runtime.CrossSection.union(parts).simplify(1e-6);
-  const polygons = result.toPolygons();
-  if (!polygons.length || result.area() <= 1e-9) return null;
+  const made: CrossSection[] = [];
+  const keep: Keep = (section) => {
+    made.push(section);
+    return section;
+  };
+  let polygons: ReturnType<CrossSection["toPolygons"]>;
+  try {
+    const parts = [strokeClosedPaths(runtime, keep, closed, stroke), ...open.map((line) => strokeOpenPath(runtime, keep, line, stroke))]
+      .filter((part): part is CrossSection => Boolean(part));
+    if (!parts.length) return null;
+    const result = keep(keep(runtime.CrossSection.union(parts)).simplify(1e-6));
+    polygons = result.toPolygons();
+    if (!polygons.length || result.area() <= 1e-9) return null;
+  } finally {
+    new Set(made).forEach((section) => section.delete());
+  }
   const points: SketchProfile["points"] = [];
   const segments: SketchProfile["segments"] = [];
   polygons.forEach((polygon, loopIndex) => {

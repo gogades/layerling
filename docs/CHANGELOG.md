@@ -4,6 +4,13 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Sketch strokes free their memory:** Working out a stroked sketch left its intermediate outlines in the geometry library's memory, and the preview works it out again on every edit, so a long session with a stroked sketch kept growing. They are now freed.
+- **Align overlay stays light on big meshes:** The Align handles measured the drawn parts point by point on every frame; with a large imported mesh that slowed the view. The measurement is now kept until a part moves or changes.
+- **The fill light starts exactly where it was:** With the light at its default direction, the fill light now stands precisely where it always stood, and turns along with the main light from there.
+- **Docs caught up:** The README, the quick guide and the welcome text now mention the sketch stroke, the light and shadow settings, the draggable pivot, Multicolor in the export and the workplane on corners and edges; the quick guide no longer says that only a closed outline makes a body.
+
 ## 1.52.0
 
 - **Align handles where the parts will go:** The handles and guide lines of the Align tool stood at the box round each part's own, turned box, while the parts moved to the box round what is actually drawn. For a turned star, cone or tipped part those differ, so the parts seemed to jump to a different edge than the one shown. The handles now stand where the parts line up. Prompted by @voltage3d's stream in #187.

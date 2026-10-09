@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LIGHT_AZIMUTH, DEFAULT_LIGHT_ELEVATION, keyLightPosition, sceneLightLevels, shadowBlurRadius } from "@/lib/workplaneGrid";
+import { DEFAULT_LIGHT_AZIMUTH, DEFAULT_LIGHT_ELEVATION, fillLightPosition, keyLightPosition, sceneLightLevels, shadowBlurRadius } from "@/lib/workplaneGrid";
 import { DEFAULT_WORKPLANE_WORKSPACE, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
 
 describe("shading contrast and shadow strength", () => {
@@ -70,5 +70,14 @@ describe("shadow softness and light direction (#143)", () => {
 
   it("keeps chosen values within range", () => {
     expect(normalizeWorkspaceSettings({ shadowSoftness: 150, lightAzimuth: -400, lightElevation: 5 })).toMatchObject({ shadowSoftness: 100, lightAzimuth: -180, lightElevation: 10 });
+  });
+});
+
+describe("fill light", () => {
+  it("stands where it always stood with the light at its default, and turns along with it", () => {
+    expect(fillLightPosition(DEFAULT_LIGHT_AZIMUTH)).toEqual({ x: -95, y: 45, z: -60 });
+    const turned = fillLightPosition(DEFAULT_LIGHT_AZIMUTH + 180);
+    expect(turned.x).toBeCloseTo(95, 6);
+    expect(turned.z).toBeCloseTo(60, 6);
   });
 });

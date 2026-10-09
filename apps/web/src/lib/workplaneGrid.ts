@@ -252,6 +252,17 @@ export function keyLightPosition(azimuth: number, elevation: number, distance = 
   };
 }
 
+/**
+ * The fill light, opposite the main light: its old fixed place turned round the plate by as much
+ * as the main light was turned from its default, so the default looks exactly as it always did.
+ */
+export function fillLightPosition(azimuth: number) {
+  const turn = (((Number.isFinite(azimuth) ? azimuth : DEFAULT_LIGHT_AZIMUTH) - DEFAULT_LIGHT_AZIMUTH) * Math.PI) / 180;
+  const x = -95;
+  const z = -60;
+  return { x: x * Math.cos(turn) + z * Math.sin(turn), y: 45, z: z * Math.cos(turn) - x * Math.sin(turn) };
+}
+
 /** How far the shadow edge is blurred, in shadow-map texels: 0 % is the crisp edge of before. */
 export function shadowBlurRadius(softness: number) {
   const s = Math.max(0, Math.min(100, Number.isFinite(softness) ? softness : 0)) / 100;

@@ -102,7 +102,7 @@ import { positionsForTwist, twistBandCount } from "@/lib/heightSlices";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { canBeginShapeDrag, handleDimensionLimit, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, effectiveViewSettings, viewPixelRatio, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { withShapeDefaults } from "@/lib/shapeDefaults";
-import { AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, keyLightPosition, sceneLightLevels, shadowBlurRadius, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
+import { AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, fillLightPosition, keyLightPosition, sceneLightLevels, shadowBlurRadius, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { LayerlingMcpViewFace } from "@/lib/layerlingMcpProtocol";
@@ -10198,7 +10198,8 @@ function rebuildWorkplane(
   const keyPosition = keyLightPosition(workspace.lightAzimuth, workspace.lightElevation);
   state.lights.key.position.set(keyPosition.x, keyPosition.y, keyPosition.z);
   // The fill light stays opposite the main light, so the side facing away is not left black.
-  state.lights.fill.position.set(-keyPosition.x * 1.2, 45, -keyPosition.z * 0.8);
+  const fillPosition = fillLightPosition(workspace.lightAzimuth);
+  state.lights.fill.position.set(fillPosition.x, fillPosition.y, fillPosition.z);
   state.needsRender = true;
   state.controls.zoomSpeed = orbitControlsZoomSpeed(workspace.zoomSpeed);
 
@@ -11755,6 +11756,19 @@ function syncTransformOverlay(
   updateTransformOverlayIfChanged(overlayRef, setOverlay, next);
 }
 
+// The exact box of a drawn surface, kept until it moves or changes: the align overlay asks for
+// it on every frame, and walking every point of a large mesh each time would stall the view.
+const drawnSurfaceBoundsCache = new WeakMap<THREE.Mesh, { key: string; box: THREE.Box3 }>();
+
+function drawnSurfaceBounds(mesh: THREE.Mesh) {
+  const key = `${mesh.geometry.uuid}:${mesh.matrixWorld.elements.join(",")}`;
+  const cached = drawnSurfaceBoundsCache.get(mesh);
+  if (cached?.key === key) return cached.box;
+  const box = new THREE.Box3().expandByObject(mesh, true);
+  drawnSurfaceBoundsCache.set(mesh, { key, box });
+  return box;
+}
+
 /** The box round the surfaces drawn for these shapes, in the world; null when none is drawn. */
 function drawnShapesBounds(state: ThreeState, ids: string[]): THREE.Box3 | null {
   const bounds = new THREE.Box3();
@@ -11763,7 +11777,7 @@ function drawnShapesBounds(state: ThreeState, ids: string[]): THREE.Box3 | null 
     if (!object) return;
     object.updateWorldMatrix(true, true);
     object.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.userData.shapeSurface && child.visible) bounds.expandByObject(child, true);
+      if (child instanceof THREE.Mesh && child.userData.shapeSurface && child.visible) bounds.union(drawnSurfaceBounds(child));
     });
   });
   return bounds.isEmpty() ? null : bounds;
