@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **The plate labels switch moved to Workplane:** "Plate labels" sat under Appearance in the settings; it now sits under Workplane, right below the printer whose name it shows.
+
 ## 1.53.0
 
 - **Top edges for cookie cutters:** The edge panel has a new "Top edges" button that picks only the edges along the very top of a body - build an outline as a stroke, then chamfer its top edges for a cookie cutter. Through MCP, layerling_apply_edge_treatment takes `edgeIds: "top"`. Asked for by @hlmodtech in #154.

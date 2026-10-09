@@ -18,8 +18,8 @@
           "en": "Plate labels can be switched off"
         },
         "body": {
-          "de": "Name des Entwurfs und Druckerangaben auf der Platte lassen sich in den Einstellungen unter Darstellung ausblenden.",
-          "en": "The design's name and the printer details on the plate can be hidden under Appearance in the settings."
+          "de": "Name des Entwurfs und Druckerangaben auf der Platte lassen sich in den Einstellungen unter Arbeitsebene ausblenden.",
+          "en": "The design's name and the printer details on the plate can be hidden under Workplane in the settings."
         }
       },
       {

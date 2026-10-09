@@ -670,12 +670,6 @@ export function WorkspaceSettingsModal({
                     onChange={(showAxes) => patchWorkspace({ showAxes })}
                   />
                   <WorkspaceToggle
-                    label={t("workspace.showPlateLabels")}
-                    description={t("workspace.showPlateLabelsHint")}
-                    checked={workspace.showPlateLabels}
-                    onChange={(showPlateLabels) => patchWorkspace({ showPlateLabels })}
-                  />
-                  <WorkspaceToggle
                     label={t("workspace.edgeLines")}
                     description={workspace.fastMode ? t("workspace.offInFastMode") : t("workspace.edgeLinesHint")}
                     checked={workspace.edgeLines && !workspace.fastMode}
@@ -1009,6 +1003,12 @@ export function WorkspaceSettingsModal({
                       ? t("workspace.printerInfo", { width: chosenPrinter.width, depth: chosenPrinter.depth, height: chosenPrinter.height })
                       : t("workspace.printerHint")}
                   </p>
+                  <WorkspaceToggle
+                    label={t("workspace.showPlateLabels")}
+                    description={t("workspace.showPlateLabelsHint")}
+                    checked={workspace.showPlateLabels}
+                    onChange={(showPlateLabels) => patchWorkspace({ showPlateLabels })}
+                  />
                   <WorkspaceSelect
                     label={t("workspace.size")}
                     value={workspace.sizePreset}
