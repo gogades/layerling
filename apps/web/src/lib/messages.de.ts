@@ -657,6 +657,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "status.chooseSecondPoint": "Wähle den zweiten Messpunkt",
   "status.sketchStrokeSet": "Die Skizze wird als Kontur gebaut",
   "status.sketchStrokeOff": "Die Skizze wird wieder als Fläche gebaut",
+  "pivot.dragHint": "Ziehen, um den Drehpunkt zu verschieben - er rastet an Ecken und Kantenmitten ein",
   "status.closeProfile": "Schließe mindestens einen Umriss, bevor du die Skizze beendest",
   "status.sketchChainCleared": "Aktueller Linienzug verworfen",
   "status.edgeCancelled": "Kantenbearbeitung abgebrochen",

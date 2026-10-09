@@ -64,6 +64,7 @@ export function TransformOverlay({
   pinnedRotationWheelView,
   onBeginCameraDrag,
   onCameraWheel,
+  onBeginPivotDrag,
   onBeginTransform,
   onMoveTransform,
   onFinishTransform,
@@ -342,9 +343,11 @@ export function TransformOverlay({
       ))}
       {box.pivotMarker ? (
         <span
-          className="rotation-pivot-marker"
+          className={`rotation-pivot-marker ${onBeginPivotDrag ? "draggable" : ""}`}
           aria-hidden="true"
+          title={onBeginPivotDrag ? t("pivot.dragHint") : undefined}
           style={{ "--overlay-x": `${box.pivotMarker.x}px`, "--overlay-y": `${box.pivotMarker.y}px` } as CSSProperties}
+          onPointerDown={onBeginPivotDrag}
         />
       ) : null}
       {!hideDimensionMarks && !rotationReadout && angleBadge && box.handles.length > 0 ? (

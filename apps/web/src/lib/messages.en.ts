@@ -658,6 +658,7 @@ export const MESSAGES_EN = {
   "status.chooseSecondPoint": "Choose the second measurement point",
   "status.sketchStrokeSet": "The sketch is built as a stroke",
   "status.sketchStrokeOff": "The sketch is built as an area again",
+  "pivot.dragHint": "Drag to move the pivot - it snaps to corners and edge midpoints",
   "status.closeProfile": "Close at least one profile before finishing the sketch",
   "status.sketchChainCleared": "Current sketch chain cleared",
   "status.edgeCancelled": "Edge modifier cancelled",

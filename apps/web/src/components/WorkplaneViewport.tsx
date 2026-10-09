@@ -3242,7 +3242,7 @@ function placementFeatureSnap(
   normal: THREE.Vector3,
   pointerX: number,
   pointerY: number,
-): { kind: "vertex"; point: THREE.Vector3 } | { kind: "edge"; point: THREE.Vector3; start: THREE.Vector3; direction: THREE.Vector3 } | null {
+): { kind: "vertex"; point: THREE.Vector3 } | { kind: "edge"; point: THREE.Vector3; start: THREE.Vector3; end: THREE.Vector3; direction: THREE.Vector3 } | null {
   const geometry = surface.geometry;
   // A big imported mesh would stall the pointer while its edges are worked out.
   if ((geometry.index?.count ?? geometry.getAttribute("position").count) > 600_000) return null;
@@ -3257,7 +3257,7 @@ function placementFeatureSnap(
   const size = new THREE.Box3().setFromObject(surface).getSize(new THREE.Vector3()).length();
   const planeTolerance = Math.max(0.01, size * 1e-4);
   let vertex: { point: THREE.Vector3; distance: number } | null = null;
-  let edge: { point: THREE.Vector3; start: THREE.Vector3; direction: THREE.Vector3; distance: number } | null = null;
+  let edge: { point: THREE.Vector3; start: THREE.Vector3; end: THREE.Vector3; direction: THREE.Vector3; distance: number } | null = null;
   const a = new THREE.Vector3();
   const b = new THREE.Vector3();
   for (let index = 0; index + 5 < positions.length; index += 6) {
@@ -3277,13 +3277,13 @@ function placementFeatureSnap(
     const amount = clamp(((pointerX - aScreen.x) * dx + (pointerY - aScreen.y) * dy) / lengthSq, 0, 1);
     const distance = Math.hypot(pointerX - (aScreen.x + dx * amount), pointerY - (aScreen.y + dy * amount));
     if (distance <= PLACEMENT_EDGE_SNAP_PX && (!edge || distance < edge.distance)) {
-      edge = { point: a.clone().lerp(b, amount), start: a.clone(), direction: b.clone().sub(a).normalize(), distance };
+      edge = { point: a.clone().lerp(b, amount), start: a.clone(), end: b.clone(), direction: b.clone().sub(a).normalize(), distance };
     }
   }
   const foundVertex = vertex as { point: THREE.Vector3; distance: number } | null;
   if (foundVertex) return { kind: "vertex", point: foundVertex.point };
-  const foundEdge = edge as { point: THREE.Vector3; start: THREE.Vector3; direction: THREE.Vector3; distance: number } | null;
-  return foundEdge ? { kind: "edge", point: foundEdge.point, start: foundEdge.start, direction: foundEdge.direction } : null;
+  const foundEdge = edge as { point: THREE.Vector3; start: THREE.Vector3; end: THREE.Vector3; direction: THREE.Vector3; distance: number } | null;
+  return foundEdge ? { kind: "edge", point: foundEdge.point, start: foundEdge.start, end: foundEdge.end, direction: foundEdge.direction } : null;
 }
 
 function shapeBoxCornersWorld(shape: WorkplaneShape): THREE.Vector3[] {
@@ -6317,6 +6317,65 @@ export function WorkplaneViewport({
     },
     [clearMoveDimensions, onInteractionActiveChange, rememberResizeAnchor, toRawPlanePoint],
   );
+
+  // The pivot marker can be dragged to a new place (#140); it is set where it is let go.
+  const beginPivotDrag = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    const state = threeRef.current;
+    const start = state?.rotationPivot?.clone();
+    if (!state || !start) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const marker = event.currentTarget;
+    const view = marker.ownerDocument.defaultView ?? window;
+    try {
+      marker.setPointerCapture(event.pointerId);
+    } catch {
+      // A pointer that is already gone cannot be captured; the drag still follows it.
+    }
+    marker.classList.add("dragging");
+    let latest: THREE.Vector3 | null = null;
+    const show = (point: THREE.Vector3) => {
+      state.rotationPivot = point;
+      syncTransformOverlay(
+        state,
+        shapesRef.current,
+        renderSelectionIds(),
+        transformOverlayRef,
+        setTransformOverlay,
+        workspaceRef.current.accuracy,
+        false,
+        false,
+        placementWorkplaneRef.current,
+        resolvedThemeRef.current,
+        workspaceRef.current.dimensionsAlwaysVisible,
+      );
+      state.needsRender = true;
+    };
+    const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== event.pointerId) return;
+      const point = resolvePivotDragPoint(state, moveEvent.clientX, moveEvent.clientY, latest ?? start);
+      if (!point) return;
+      latest = point;
+      show(point);
+    };
+    const finish = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== event.pointerId) return;
+      view.removeEventListener("pointermove", move);
+      view.removeEventListener("pointerup", finish);
+      view.removeEventListener("pointercancel", finish);
+      marker.classList.remove("dragging");
+      const moved = latest as THREE.Vector3 | null;
+      if (upEvent.type === "pointerup" && moved && moved.distanceTo(start) > 1e-6) {
+        onPivotPick?.({ x: moved.x, y: moved.y, z: moved.z });
+      } else {
+        show(start);
+      }
+    };
+    view.addEventListener("pointermove", move);
+    view.addEventListener("pointerup", finish);
+    view.addEventListener("pointercancel", finish);
+  }, [onPivotPick, renderSelectionIds]);
 
   const beginCameraDragFromOverlay = useCallback((event: ReactPointerEvent<Element>) => {
     if (event.button !== 1 && event.button !== 2) {
@@ -9422,6 +9481,7 @@ export function WorkplaneViewport({
               pinnedRotationWheelView={pinnedRotationWheelView}
               onBeginCameraDrag={beginCameraDragFromOverlay}
               onCameraWheel={forwardCameraWheelFromOverlay}
+              onBeginPivotDrag={onPivotPick ? beginPivotDrag : undefined}
               onBeginTransform={beginTransform}
               onMoveTransform={updateTransform}
               onFinishTransform={finishTransform}
@@ -11984,6 +12044,44 @@ function pickRotationPivot(state: ThreeState, clientX: number, clientY: number):
     positions[offset * 3 + 2] = corner.z;
   }
   return planarFaceCentroid(positions, hit.faceIndex) ?? { x: hit.point.x, y: hit.point.y, z: hit.point.z };
+}
+
+/**
+ * Where a dragged pivot marker lands (#140): on the body under the pointer - a corner or the
+ * middle of an edge when the pointer is near one, a point along the edge, or else the point of
+ * the surface. Beside every body it slides in the plane through `depth` facing the camera.
+ */
+function resolvePivotDragPoint(state: ThreeState, clientX: number, clientY: number, depth: THREE.Vector3): THREE.Vector3 | null {
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  state.raycaster.setFromCamera(state.pointer, state.camera);
+  state.raycaster.layers.set(RENDER_LAYER_SHAPES);
+  const hit = state.raycaster
+    .intersectObjects(state.shapeLayer.children, true)
+    .find((entry) => {
+      if (state.sectionPlane && state.sectionPlane.distanceToPoint(entry.point) < -0.001) return false;
+      return entry.object instanceof THREE.Mesh && entry.face && typeof entry.object.userData.shapeId === "string";
+    });
+  if (hit?.face) {
+    const mesh = hit.object as THREE.Mesh<THREE.BufferGeometry>;
+    mesh.updateWorldMatrix(true, false);
+    const normal = hit.face.normal.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld)).normalize();
+    const pointerX = clientX - rect.left;
+    const pointerY = clientY - rect.top;
+    const feature = placementFeatureSnap(state, mesh, hit.point, normal, pointerX, pointerY);
+    if (feature?.kind === "vertex") return feature.point;
+    if (feature?.kind === "edge") {
+      const middle = feature.start.clone().lerp(feature.end, 0.5);
+      const screen = projectToScreen(middle, state);
+      return Math.hypot(screen.x - pointerX, screen.y - pointerY) <= PLACEMENT_VERTEX_SNAP_PX ? middle : feature.point;
+    }
+    return hit.point.clone();
+  }
+  const facing = new THREE.Vector3();
+  state.camera.getWorldDirection(facing);
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(facing, depth);
+  return state.raycaster.ray.intersectPlane(plane, new THREE.Vector3());
 }
 
 export type LayFlatPick = { shapeId: string; normal: { x: number; y: number; z: number }; point: { x: number; y: number; z: number } };

@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Drag the pivot with the mouse:** The pivot marker can now be dragged. It slides over the surface of the bodies and snaps to corners, edge midpoints and edges, and where it is let go it is set as usual - kept with a single body, saved and undoable. Asked for by @prmod3d and @rjacobs1969 in #140.
 - **Calmer edge lines:** With "Edge lines on all bodies" switched on, every crease from 25° got a near-black line, so a thread or a knurled grip turned into a dark mass and every body had a hard frame. The lines are now drawn at half strength, and a body with a texture of many small faces only keeps its real outline, such as the rims of its ends.
 - **Axis letters stay behind bodies:** The X, Y and Z of the axis arrows showed through any body standing in front of them.
 - **Stroke for sketches:** A sketch could only become a filled area. The new Stroke button in the sketch's Finish section builds the line itself with a width: a closed outline becomes a frame - its wall centred on the line, inside or outside it, so a 0.2 mm stroke outside a dovetail hole gives the print its tolerance - and an open line becomes a stripe with flat, square or round ends. Corners can be sharp, round or bevelled, the sketch shows the result while drawing, and it keeps the drawn line so line and stroke stay editable. Through MCP, layerling_create_shape takes a stroke for a sketch. Asked for by @jrs94yj and @luk-saw in #154.

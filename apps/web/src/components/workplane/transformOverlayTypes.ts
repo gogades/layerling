@@ -278,6 +278,8 @@ export type TransformOverlayProps = {
   pinnedRotationWheelView: PinnedRotationWheelView | null;
   onBeginCameraDrag: (event: ReactPointerEvent<Element>) => void;
   onCameraWheel: (event: ReactWheelEvent<Element>) => void;
+  /** Drags the pivot marker to a new place (#140). */
+  onBeginPivotDrag?: (event: ReactPointerEvent<HTMLElement>) => void;
   onBeginTransform: (kind: TransformHandleKind, handleKey: string, event: ReactPointerEvent<Element>) => void;
   onMoveTransform: (clientX: number, clientY: number, shiftKey?: boolean, altKey?: boolean) => boolean;
   onFinishTransform: (event: ReactPointerEvent<Element>) => void;

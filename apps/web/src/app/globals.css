@@ -8529,6 +8529,17 @@ html[data-theme="dark"] .rotation-angle-badge {
     linear-gradient(#dc3f36, #dc3f36) center / 100% 2px no-repeat;
 }
 
+/* The pivot marker can be dragged to a new place (#140). */
+.rotation-pivot-marker.draggable {
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.rotation-pivot-marker.draggable.dragging {
+  cursor: grabbing;
+}
+
 .workplane-wrap.pivot-pick-mode .three-workplane-host {
   cursor: crosshair;
 }
