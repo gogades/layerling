@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **No translation offer on an English page:** Chrome offered to translate layerling on every load and Next.js reported a hydration error, even with everything in English. The page holds a hidden copy of the welcome guide in English and German for search engines; Chrome took the German half for a page to translate and marked <html> while doing so. That hidden text is now kept out of translation, and a mark on <html> no longer causes an error. Reported by @gogades in #191.
 - **Drag the pivot with the mouse:** The pivot marker can now be dragged. It slides over the surface of the bodies and snaps to corners, edge midpoints and edges, and where it is let go it is set as usual - kept with a single body, saved and undoable. Asked for by @prmod3d and @rjacobs1969 in #140.
 - **Calmer edge lines:** With "Edge lines on all bodies" switched on, every crease from 25° got a near-black line, so a thread or a knurled grip turned into a dark mass and every body had a hard frame. The lines are now drawn at half strength, and a body with a texture of many small faces only keeps its real outline, such as the rims of its ends.
 - **Axis letters stay behind bodies:** The X, Y and Z of the axis arrows showed through any body standing in front of them.

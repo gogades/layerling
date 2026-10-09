@@ -82,7 +82,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" style={{ colorScheme: "light" }}>
+    // Translate tools add classes such as translated-ltr to <html>; that must not end in a hydration error (#191).
+    <html lang="en" style={{ colorScheme: "light" }} suppressHydrationWarning>
       <head>
         {/* Before any of React's scripts: a page rearranged by Translate must not crash it (#186). */}
         <script dangerouslySetInnerHTML={{ __html: DOM_MUTATION_GUARD_SCRIPT }} />

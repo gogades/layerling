@@ -3194,7 +3194,10 @@ function ProjectPreview({ accent, thumbnailUrl }: { accent: DashboardProject["ac
  */
 function StaticIntro() {
   return (
-    <main className="visually-hidden">
+    // Hidden text for search engines and link previews, in both languages. Chrome read the German
+    // half as a page to translate and offered it on every load, even in English (#191): it is
+    // never shown, so it is kept out of translation.
+    <main className="visually-hidden notranslate" translate="no">
       <h1>layerling - Free 3D CAD for 3D printing in your browser</h1>
       {(["en", "de"] as const).map((language) => (
         <section key={language} lang={language}>
