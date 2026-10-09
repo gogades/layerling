@@ -48,7 +48,7 @@ Verjüngen und Verdrehen gibt es bei fast allen Formen. Nur Zahnrad, Gewinde, Fe
 
 Ein verjüngter oder geneigter Quader, Zylinder, eine Ellipse, ein Vieleck, Rohr oder Ring behält seine exakte Form, ebenso Kapsel, Stern, Herz, Halbmond, Wabe, Schwalbenschwanz und ein abgerundeter Quader ohne gerundete Ober- und Unterkante: Fasen und Rundungen gehen daran wie an der unveränderten Form, und der STEP-Export schreibt sie. Das gilt auch für eine verdrehte Form: Ihr Querschnitt dreht sich exakt mit, und die Seiten winden sich gleichmäßig von unten nach oben.
 
-Tippen ist genauer als Ziehen. Alle Zahlenfelder nehmen Millimeter, aber auch Prozent: Wer bei einer Breite von 40 mm „50 %“ eintippt, bekommt 20 mm.
+Tippen ist genauer als Ziehen. Alle Zahlenfelder nehmen Millimeter, aber auch Prozent: Wer bei einer Breite von 40 mm „50 %“ eintippt, bekommt 20 mm. Sie rechnen auch: „15*3“, „120-2*4“ oder „(40+2)/2“ ergeben 45, 112 und 21; statt * geht auch x.
 
 ## Wie rund ist rund? Die Seitenzahl
 
