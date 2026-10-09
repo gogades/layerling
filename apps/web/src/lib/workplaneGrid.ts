@@ -230,8 +230,8 @@ export const AXIS_ARROW_COLORS = { x: "#e5484d", y: "#3fae5a", z: "#3b82f6" } as
 /**
  * Where the axis arrows stand and how long they are: at the far left corner of the plate, where
  * they stay out of the way, long enough to read at a glance and never longer than a fifth of the
- * smaller side. The arrows point along the numbers' directions: X to the right, Y towards the
- * front (the way the Y field counts) and Z up.
+ * smaller side. The arrows point along the numbers' directions, right-handed (#182): X to the
+ * right, Y towards the back (the way the Y field counts) and Z up.
  */
 export function axisArrowLayout(width: number, depth: number) {
   const smaller = Math.max(1, Math.min(width, depth));

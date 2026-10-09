@@ -100,8 +100,9 @@ export function createOriginDimensionOverlay({
     const start = dimensionLineStart(origin, zEndpoint);
     lines.push({
       axis: "z",
-      value: distanceZ,
-      label: formatMoveDimension(distanceZ, accuracy),
+      // Read as Y, which counts towards the back (#182); inside, z runs towards the viewer.
+      value: -distanceZ || 0,
+      label: formatMoveDimension(-distanceZ || 0, accuracy),
       x1: start.x,
       y1: start.y,
       x2: zEndpoint.x,

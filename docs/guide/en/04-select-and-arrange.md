@@ -26,7 +26,7 @@ The list sits docked just right of the view cube. Drag it by its title bar to pu
 
 ## Typing a position
 
-The card {{ui:inspector.position}} in the properties panel shows where the selected body stands, and you can type it: {{ui:prop.positionX}} and {{ui:prop.positionY}} are the middle of its box on the plate, with the same signs as the distances shown on the workplane, and {{ui:prop.positionZ}} is the height of its underside. The values go in the unit you set, and the sliders reach as far as dragging does.
+The card {{ui:inspector.position}} in the properties panel shows where the selected body stands, and you can type it: {{ui:prop.positionX}} and {{ui:prop.positionY}} are the middle of its box on the plate, with the same signs as the distances shown on the workplane, and {{ui:prop.positionZ}} is the height of its underside. X counts to the right, Y towards the back and Z up, by the right-hand rule as in Tinkercad and CAD programs; the axis arrows on the plate show the directions. The values go in the unit you set, and the sliders reach as far as dragging does.
 
 ## Parking parts beside the plate
 

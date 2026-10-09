@@ -356,7 +356,7 @@ export const MESSAGES_EN = {
   "workspace.backgroundColor": "Background (light theme)",
   "workspace.surfaceColor": "Workplane surface (light theme)",
   "workspace.showAxes": "Axis arrows",
-  "workspace.showAxesHint": "Shows arrows for X (red, to the right), Y (green, to the front) and Z (blue, up) at the back left corner of the plate - the way the numbers count.",
+  "workspace.showAxesHint": "Shows arrows for X (red, to the right), Y (green, to the back) and Z (blue, up) at the back left corner of the plate - the way the numbers count.",
   "workspace.edgeLines": "Edge lines on all bodies",
   "workspace.edgeLinesHint": "Draws an outline on every body, so dark colours do not run into each other. Very large imported meshes are left out.",
   "workspace.edgeColor": "Edge line color",

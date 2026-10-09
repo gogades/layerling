@@ -158,8 +158,9 @@ export function createMoveDimensionOverlay({
     const start = dimensionLineStart(origin, zEndpoint);
     lines.push({
       axis: "z",
-      value: deltaZ,
-      label: formatMoveDimension(deltaZ, accuracy),
+      // Shown as Y, counting towards the back (#182); inside it is z, towards the viewer.
+      value: -deltaZ || 0,
+      label: formatMoveDimension(-deltaZ || 0, accuracy),
       x1: start.x,
       y1: start.y,
       x2: zEndpoint.x,

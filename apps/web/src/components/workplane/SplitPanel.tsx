@@ -48,9 +48,11 @@ export function SplitPanel({
   onCancel: () => void;
 }) {
   useLanguage();
-  const displayPosition = millimetersToDisplay(position, workspace);
-  const displayMin = millimetersToDisplay(min, workspace);
-  const displayMax = millimetersToDisplay(max, workspace);
+  // A cut across Y counts towards the back like the position fields (#182); inside it runs along z.
+  const sign = axis === "z" ? -1 : 1;
+  const displayPosition = millimetersToDisplay(sign * position, workspace) || 0;
+  const displayMin = millimetersToDisplay(sign > 0 ? min : -max, workspace);
+  const displayMax = millimetersToDisplay(sign > 0 ? max : -min, workspace);
   const displayStep = displayStepFromMillimeters(0.1, workspace);
   const unit = lengthDisplayUnit(workspace).label;
   const formattedPosition = formatMeasurementNumber(displayPosition, workspace.accuracy, displayStep);
@@ -58,7 +60,7 @@ export function SplitPanel({
   const [positionEditing, setPositionEditing] = useState(false);
   const [positionDraft, setPositionDraft] = useState(formattedPosition);
   const applyDisplayPosition = (value: number) => {
-    if (Number.isFinite(value)) onPositionChange(displayToMillimeters(value, workspace));
+    if (Number.isFinite(value)) onPositionChange(sign * displayToMillimeters(value, workspace));
   };
   useEffect(() => {
     if (!positionEditing) setPositionDraft(formattedPosition);
@@ -167,9 +169,10 @@ export function SplitPanel({
         <SplitRotationControl
           key={rotationAxis}
           axisLabel={splitAxisLabel(rotationAxis)}
-          rotation={rotation[index]}
+          // A tilt about Y turns the right-handed way (#182): minus the inside turn about z.
+          rotation={rotationAxis === "z" ? -rotation[index] || 0 : rotation[index]}
           busy={busy}
-          onChange={(value) => onRotationChange(index as 0 | 1, value)}
+          onChange={(value) => onRotationChange(index as 0 | 1, rotationAxis === "z" ? -value || 0 : value)}
         />
       ))}
 

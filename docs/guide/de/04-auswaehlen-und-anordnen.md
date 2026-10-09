@@ -26,7 +26,7 @@ Die Liste ist rechts neben dem Ansichtswürfel angedockt. An ihrer Titelleiste z
 
 ## Position eintippen
 
-Die Karte {{ui:inspector.position}} im Eigenschaftenfenster zeigt, wo der ausgewählte Körper steht, und du kannst es eintippen: {{ui:prop.positionX}} und {{ui:prop.positionY}} sind die Mitte seines Rahmens auf der Platte, mit denselben Vorzeichen wie die Abstände auf der Arbeitsfläche, {{ui:prop.positionZ}} ist die Höhe seiner Unterkante. Die Werte gelten in der eingestellten Einheit, und die Regler reichen so weit wie das Ziehen.
+Die Karte {{ui:inspector.position}} im Eigenschaftenfenster zeigt, wo der ausgewählte Körper steht, und du kannst es eintippen: {{ui:prop.positionX}} und {{ui:prop.positionY}} sind die Mitte seines Rahmens auf der Platte, mit denselben Vorzeichen wie die Abstände auf der Arbeitsfläche, {{ui:prop.positionZ}} ist die Höhe seiner Unterkante. X zählt nach rechts, Y nach hinten und Z nach oben, nach der Rechte-Hand-Regel wie in Tinkercad und CAD-Programmen; die Achsenpfeile an der Platte zeigen die Richtungen. Die Werte gelten in der eingestellten Einheit, und die Regler reichen so weit wie das Ziehen.
 
 ## Teile neben der Platte parken
 

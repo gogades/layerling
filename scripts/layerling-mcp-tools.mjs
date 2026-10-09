@@ -691,7 +691,7 @@ export const tools = [
             type: "object",
             properties: {
               x: { type: "number", description: "Position along the plate's X, in mm." },
-              z: { type: "number", description: "Position along the plate's depth, in mm (the editor's Y)." },
+              z: { type: "number", description: "Position along the plate's depth, in mm, positive towards the front. The editor's Y counts the other way (towards the back), so Y = -z." },
               elevation: { type: "number", description: "Height in mm, default 0." },
             },
             required: ["x", "z"],

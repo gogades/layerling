@@ -355,7 +355,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "workspace.backgroundColor": "Hintergrund (helles Thema)",
   "workspace.surfaceColor": "Arbeitsebene (helles Thema)",
   "workspace.showAxes": "Achsenpfeile",
-  "workspace.showAxesHint": "Zeigt am hinteren linken Eck der Platte Pfeile für X (rot, nach rechts), Y (grün, nach vorn) und Z (blau, nach oben) - so wie die Zahlen zählen.",
+  "workspace.showAxesHint": "Zeigt am hinteren linken Eck der Platte Pfeile für X (rot, nach rechts), Y (grün, nach hinten) und Z (blau, nach oben) - so wie die Zahlen zählen.",
   "workspace.edgeLines": "Kantenlinien an allen Körpern",
   "workspace.edgeLinesHint": "Zeichnet an jedem Körper eine Umrisslinie, damit dunkle Farben nicht ineinander verschwimmen. Sehr große importierte Netze bleiben ausgenommen.",
   "workspace.edgeColor": "Farbe der Kantenlinien",

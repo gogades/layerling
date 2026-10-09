@@ -55,7 +55,8 @@ describe("origin dimension lines", () => {
 
       expect(overlay?.lines.map((line) => [line.axis, line.label])).toEqual([
         ["x", "15.00"],
-        ["z", "-8.00"],
+        // Inside z -8 lies behind the origin: as Y, which counts towards the back, that is +8 (#182).
+        ["z", "8.00"],
       ]);
     });
 

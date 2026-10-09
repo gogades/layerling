@@ -19,7 +19,8 @@ describe("move dimension lines", () => {
 
     expect(overlay?.lines.map((line) => [line.axis, line.label])).toEqual([
       ["x", "-14.00"],
-      ["z", "-17.00"],
+      // The move towards the viewer (inside z -17 is away from it) reads as Y +17: Y counts towards the back (#182).
+      ["z", "17.00"],
     ]);
     expect(overlay?.lines[0]).toMatchObject({ x1: 452, y1: 280, x2: 384, y2: 280 });
     expect(overlay?.lines[1]).toMatchObject({ x1: 440, y1: 292, x2: 440, y2: 212 });

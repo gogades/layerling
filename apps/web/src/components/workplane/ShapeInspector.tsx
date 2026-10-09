@@ -1,5 +1,6 @@
 "use client";
 
+import { displayY, displayYTurn, insideZ, insideZTurn } from "@/lib/displayAxes";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { guideChapterForShape, guideSectionForShape } from "@/lib/guideLinks";
 import { ChevronDown, ChevronUp, Cylinder, Eye, EyeOff, Lock, Pencil, RotateCcw, Split, Unlock } from "lucide-react";
@@ -1648,7 +1649,8 @@ export function ShapeInspector({
   const reachY = workspace.depth * 1.5;
   const positionProperties: ShapePropertyConfig[] = [
     { id: "positionX", label: t("prop.positionX"), value: shape.x, min: -reachX, max: reachX, step: 0.5, onChange: (x) => onUpdate({ x }) },
-    { id: "positionY", label: t("prop.positionY"), value: shape.z, min: -reachY, max: reachY, step: 0.5, onChange: (z) => onUpdate({ z }) },
+    // Y counts towards the back, right-handed (#182); inside, z runs towards the viewer.
+    { id: "positionY", label: t("prop.positionY"), value: displayY(shape.z), min: -reachY, max: reachY, step: 0.5, onChange: (y) => onUpdate({ z: insideZ(y) }) },
     { id: "positionZ", label: t("prop.positionZ"), value: shape.elevation ?? 0, min: -180, max: 220, step: 0.5, onChange: (elevation) => onUpdate({ elevation }) },
   ];
   // The body's turn about X, Y and Z, as it is drawn. A new angle turns it
@@ -1671,7 +1673,7 @@ export function ShapeInspector({
   const rotationProperties: ShapePropertyConfig[] = [
     { id: "rotateX", label: t("prop.rotateX"), value: signedDegrees(shape.rotationX ?? 0), min: -180, max: 180, step: 1, onChange: (rotationX) => turnTo({ rotationX }) },
     // Named like the position: Y runs across the plate (depth), Z is up.
-    { id: "rotateY", label: t("prop.rotateY"), value: signedDegrees(shape.rotationZ ?? 0), min: -180, max: 180, step: 1, onChange: (rotationZ) => turnTo({ rotationZ }) },
+    { id: "rotateY", label: t("prop.rotateY"), value: signedDegrees(displayYTurn(shape.rotationZ ?? 0)), min: -180, max: 180, step: 1, onChange: (yTurn) => turnTo({ rotationZ: insideZTurn(yTurn) }) },
     { id: "rotateZ", label: t("prop.rotateZ"), value: signedDegrees(shape.rotation ?? 0), min: -180, max: 180, step: 1, onChange: (rotation) => turnTo({ rotation }) },
   ];
   // The pivot this body carries, in the same coordinates as its position.
@@ -1682,7 +1684,7 @@ export function ShapeInspector({
   const pivotProperties: ShapePropertyConfig[] = pivot
     ? [
       { id: "pivotX", label: t("prop.pivotX"), value: pivot.x, min: -reachX, max: reachX, step: 0.5, onChange: (x) => movePivot({ x }) },
-      { id: "pivotY", label: t("prop.pivotY"), value: pivot.z, min: -reachY, max: reachY, step: 0.5, onChange: (z) => movePivot({ z }) },
+      { id: "pivotY", label: t("prop.pivotY"), value: displayY(pivot.z), min: -reachY, max: reachY, step: 0.5, onChange: (y) => movePivot({ z: insideZ(y) }) },
       { id: "pivotZ", label: t("prop.pivotZ"), value: pivot.y, min: -180, max: 220, step: 0.5, onChange: (y) => movePivot({ y }) },
     ]
     : [];

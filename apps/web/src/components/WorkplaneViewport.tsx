@@ -97,6 +97,7 @@ import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { makeShapeFromAsset, parseDroppedShapeAsset } from "@/lib/shapeCatalog";
 import { scaledHorizontalShapePatch } from "@/lib/scaleByPercent";
+import { displayY, displayYTurn, insideZ } from "@/lib/displayAxes";
 import { positionsForTwist, twistBandCount } from "@/lib/heightSlices";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { canBeginShapeDrag, handleDimensionLimit, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, effectiveViewSettings, viewPixelRatio, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
@@ -2171,7 +2172,7 @@ function NoteOverlay({
                   {t("point.title")}
                 </strong>
                 <PointCoordinateField label={t("prop.positionX")} value={note.x} workspace={workspace} onCommit={(x) => onPointChange(note.id, { x })} />
-                <PointCoordinateField label={t("prop.positionY")} value={note.z} workspace={workspace} onCommit={(z) => onPointChange(note.id, { z })} />
+                <PointCoordinateField label={t("prop.positionY")} value={displayY(note.z)} workspace={workspace} onCommit={(y) => onPointChange(note.id, { z: insideZ(y) })} />
                 <PointCoordinateField label={t("prop.positionZ")} value={note.y} workspace={workspace} onCommit={(y) => onPointChange(note.id, { y })} />
                 <div className="note-card-actions">
                   <span className="note-hint">{t("point.hint")}</span>
@@ -4291,7 +4292,8 @@ export function WorkplaneViewport({
     if (!workspace.showRotationAngles || selectedIds.length !== 1) return null;
     const shape = shapes.find((candidate) => candidate.id === selectedIds[0]);
     if (!shape) return null;
-    const angles = [shape.rotationX ?? 0, shape.rotationZ ?? 0, shape.rotation ?? 0].map((angle) => Number(signedDegrees(angle).toFixed(1)));
+    // Right-handed like the position (#182): the turn about Y is minus the inside turn about z.
+    const angles = [shape.rotationX ?? 0, displayYTurn(shape.rotationZ ?? 0), shape.rotation ?? 0].map((angle) => Number(signedDegrees(angle).toFixed(1)));
     if (angles.every((angle) => angle === 0)) return null;
     return ["X", "Y", "Z"].map((axis, index) => `${axis} ${angles[index]}°`).join(" · ");
   }, [selectedIds, shapes, workspace.showRotationAngles]);
@@ -4657,7 +4659,9 @@ export function WorkplaneViewport({
   const commitMoveDimension = useCallback(
     (axis: MoveDimensionAxis, rawValue: string) => {
       const session = moveDimensionSessionRef.current;
-      const value = parseMeasureMm(rawValue);
+      // A typed Y move counts towards the back (#182); inside it moves along minus z.
+      const typed = parseMeasureMm(rawValue);
+      const value = axis === "z" ? insideZ(typed) : typed;
       if (!session || !Number.isFinite(value)) {
         return;
       }
@@ -9134,7 +9138,9 @@ export function WorkplaneViewport({
                       {(() => {
                         const bounds = getSectionBounds(shapes, sectionSettings.axis, workspace.width, workspace.depth);
                         const fine = sectionFineWindow(bounds);
-                        const shown = Math.round(millimetersToDisplay(sectionSettings.offset, workspace) * 1000) / 1000;
+                        // The Y cut counts towards the back like the position fields (#182); inside it is z.
+                        const sign = sectionSettings.axis === "z" ? -1 : 1;
+                        const shown = Math.round(millimetersToDisplay(sign * sectionSettings.offset, workspace) * 1000) / 1000 || 0;
                         const finishFine = () => {
                           sectionFineDraggingRef.current = false;
                           setSectionFineAnchor(sectionSettingsRef.current.offset);
@@ -9151,7 +9157,7 @@ export function WorkplaneViewport({
                                   value={shown}
                                   onChange={(e) => {
                                     const val = parseFloat(e.target.value);
-                                    if (!Number.isNaN(val)) handleSectionOffsetChange(displayToMillimeters(val, workspace));
+                                    if (!Number.isNaN(val)) handleSectionOffsetChange(sign * displayToMillimeters(val, workspace));
                                   }}
                                   aria-label={t("camera.sectionOffset")}
                                 />
@@ -9163,11 +9169,11 @@ export function WorkplaneViewport({
                               <input
                                 type="range"
                                 className="section-slider"
-                                min={bounds.min}
-                                max={bounds.max}
+                                min={sign > 0 ? bounds.min : -bounds.max}
+                                max={sign > 0 ? bounds.max : -bounds.min}
                                 step={bounds.step}
-                                value={sectionSettings.offset}
-                                onChange={(e) => handleSectionOffsetChange(parseFloat(e.target.value))}
+                                value={sign * sectionSettings.offset}
+                                onChange={(e) => handleSectionOffsetChange(sign * parseFloat(e.target.value))}
                                 aria-label={`${t("camera.sectionOffset")} (${t("camera.sectionCoarse")})`}
                               />
                             </label>
@@ -9181,7 +9187,7 @@ export function WorkplaneViewport({
                                 min={-fine.span}
                                 max={fine.span}
                                 step={fine.step}
-                                value={Math.max(-fine.span, Math.min(fine.span, sectionSettings.offset - sectionFineAnchor))}
+                                value={Math.max(-fine.span, Math.min(fine.span, sign * (sectionSettings.offset - sectionFineAnchor)))}
                                 onPointerDown={() => { sectionFineDraggingRef.current = true; }}
                                 onPointerUp={finishFine}
                                 onBlur={finishFine}
@@ -9189,7 +9195,7 @@ export function WorkplaneViewport({
                                 onKeyUp={finishFine}
                                 onChange={(e) => {
                                   sectionFineDraggingRef.current = true;
-                                  handleSectionOffsetChange(sectionFineAnchor + parseFloat(e.target.value));
+                                  handleSectionOffsetChange(sectionFineAnchor + sign * parseFloat(e.target.value));
                                 }}
                                 aria-label={`${t("camera.sectionOffset")} (${t("camera.sectionFine")})`}
                               />
@@ -10214,7 +10220,8 @@ function createAxisArrows(width: number, depth: number) {
   const headRadius = shaftRadius * 3;
   const axes = [
     { letter: "X", color: AXIS_ARROW_COLORS.x, direction: new THREE.Vector3(1, 0, 0) },
-    { letter: "Y", color: AXIS_ARROW_COLORS.y, direction: new THREE.Vector3(0, 0, 1) },
+    // Y counts towards the back, right-handed (#182): inside, that is minus z.
+    { letter: "Y", color: AXIS_ARROW_COLORS.y, direction: new THREE.Vector3(0, 0, -1) },
     { letter: "Z", color: AXIS_ARROW_COLORS.z, direction: new THREE.Vector3(0, 1, 0) },
   ];
   axes.forEach(({ letter, color, direction }) => {
