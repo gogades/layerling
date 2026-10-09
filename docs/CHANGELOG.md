@@ -6,6 +6,8 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Smooth curves no longer loop at every point:** The handles of a smooth curve - drawn with Smooth curve or given by the Smooth button on a point - pointed the wrong way, so the curve made a loop at each point. They were laid out the way the path happened to be walked, which mostly started at the last point drawn, while a curve is drawn the way its segments are stored. Reported by @luk-saw in #199.
+- **SVG import keeps holes again:** A hole inside an outline - a round cut-out drawn in Inkscape, for one - came in filled, as a body of its own. Inkscape closes an outline of arcs a fraction of a micrometre short of its start, and that sliver made the import believe the hole crossed the outline. Reported by @AkiraNorthstar in #197.
 - **The Bézier curve shows what you draw:** While a point is dragged out with the Bézier tool, the stretch to it now bends live, exactly as it will once let go. Before, a straight line ran to the pointer - not even to the point being placed - so the bend only showed after letting go and felt the wrong way round. The guide now also says which way to drag. Asked by @hlmodtech in #196.
 
 ## 1.55.0

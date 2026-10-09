@@ -67,6 +67,17 @@ export function orderedSketchPaths(profile: SketchProfile): OrderedSketchPath[] 
 }
 
 /**
+ * Whether the walk passes point `index` in the direction its segments are stored: the step
+ * leaving it starts there, or (at the end of an open path) the step arriving ends there.
+ */
+function pathRunsWithSegments(steps: readonly OrderedSketchStep[], index: number, closed: boolean) {
+  const leaving = closed ? steps[index % steps.length] : steps[index];
+  if (leaving) return leaving.segment.startId === leaving.from.id;
+  const arriving = steps[index - 1];
+  return arriving ? arriving.segment.endId === arriving.to.id : true;
+}
+
+/**
  * Lays the handles of every point that sits on a smooth curve through its neighbours. Points
  * that only touch lines and Bezier curves keep what they have: a circle, an arc or a line
  * drawn earlier must not change when another smooth curve is added elsewhere.
@@ -90,8 +101,15 @@ export function withSmoothSketchHandles(profile: SketchProfile, onlyPointIds?: R
       if (!point) return;
       const previous = path.closed ? path.points[(index - 1 + path.points.length) % path.points.length] : path.points[Math.max(0, index - 1)];
       const following = path.closed ? path.points[(index + 1) % path.points.length] : path.points[Math.min(path.points.length - 1, index + 1)];
-      const tangentX = (following.x - previous.x) / 6;
-      const tangentZ = (following.z - previous.z) / 6;
+      // The tangent runs the way the path is walked. A handle, though, belongs to a segment as it
+      // is stored: the out handle to the one that starts at the point, the in handle to the one
+      // that ends there (curveControls). The walk often starts at the last point drawn, so its
+      // direction is turned around and the handles must be too - otherwise every point of a
+      // smooth curve made a loop (#199).
+      const walkedForward = pathRunsWithSegments(path.steps, index, path.closed);
+      const sign = walkedForward ? 1 : -1;
+      const tangentX = (sign * (following.x - previous.x)) / 6;
+      const tangentZ = (sign * (following.z - previous.z)) / 6;
       point.handleIn = { x: point.x - tangentX, z: point.z - tangentZ };
       point.handleOut = { x: point.x + tangentX, z: point.z + tangentZ };
       point.mode = "smooth";
