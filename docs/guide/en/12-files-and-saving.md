@@ -37,7 +37,7 @@ At the top is the file name, below it you choose the format. With something sele
 
 Holes cannot be exported on their own. Group them with a body first, otherwise layerling points it out.
 
-STEP only carries exact CAD bodies. What cannot be written exactly, such as a twisted body or a mesh imported as STL, is left out. The message after the export names those bodies and says why. For the printer, use STL or 3MF, which carry everything.
+STEP only carries exact CAD bodies. What cannot be written exactly, such as a mesh imported as STL, is left out. The message after the export names those bodies and says why. For the printer, use STL or 3MF, which carry everything.
 
 ### How much filament does it take?
 

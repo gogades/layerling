@@ -18,6 +18,8 @@ import { createCrescentGeometry } from "@/lib/crescentGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createDovetailGeometry } from "@/lib/dovetailGeometry";
 import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
+import { meshForTwist } from "@/lib/heightSlices";
+import { shellSolid } from "@/lib/cadShell";
 import { meshYawDegrees, mirrorSign, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasTaper, shapeTaperDimensions, shapeTaperScaleAt } from "@/lib/workplaneShapes";
 
 /*
@@ -60,8 +62,17 @@ function worldMesh(source: WorkplaneShape) {
   prepared.computeBoundingBox();
   const lift = prepared.boundingBox?.min.y ?? 0;
   const position = prepared.getAttribute("position");
-  const raw: Vec3[] = [];
+  let raw: Vec3[] = [];
   for (let i = 0; i < position.count; i += 1) raw.push([position.getX(i), position.getY(i) - lift, position.getZ(i)]);
+  let rawFaces: Array<[number, number, number]> = [];
+  for (let i = 0; i + 2 < raw.length; i += 3) rawFaces.push([i, i + 1, i + 2]);
+  // A twist turns the mesh cut into bands with short edges, as transformMesh does.
+  if (Math.abs(source.extrudeTwist ?? 0) > 1e-6) {
+    const ys = raw.map((v) => v[1]);
+    const cut = meshForTwist(raw, rawFaces, Math.min(...ys), Math.max(...ys), source.extrudeTwist ?? 0);
+    raw = cut.vertices;
+    rawFaces = cut.faces;
+  }
   const tapered = shapeHasTaper(source);
   const deformed = shapeHasExtrudeDeform(source);
   const minY = Math.min(...raw.map((v) => v[1]));
@@ -88,9 +99,7 @@ function worldMesh(source: WorkplaneShape) {
     const v = new THREE.Vector3(lx * mirrorSign(source.mirrorX), (y - centerY) * mirrorSign(source.mirrorY), lz * mirrorSign(source.mirrorZ)).applyMatrix4(matrix);
     return [v.x + source.x, v.y + (source.elevation ?? 0) + centerY, v.z + source.z] as Vec3;
   });
-  const faces: Vec3[] = [];
-  for (let i = 0; i + 2 < vertices.length; i += 3) faces.push([i, i + 1, i + 2]);
-  return { vertices, faces };
+  return { vertices, faces: rawFaces };
 }
 
 /** Volume of a section of area `area` scaled linearly from (a0, c0) to (a1, c1) over `height`; a lean shears and keeps it. */
@@ -232,9 +241,42 @@ describe("tapered and leaning shapes: exact lofts", () => {
     expect(cad.isValid(chamfered)).toBe(true);
   });
 
-  it("leaves a twisted shape, and a tapered sphere, on the display mesh", () => {
-    expect(cadModifierProfileForShape(shape("box", { extrudeTwist: 30 }))).toBeNull();
-    expect(cadModifierProfileForShape(shape("box", { extrudeTwist: 30, taperTopWidth: 10 }))).toBeNull();
+  // #184: a twist is a smooth loft through sections 7.5 degrees apart; against the display mesh,
+  // now cut into bands and short edges, place and volume agree closely.
+  const twistCases: Array<[string, WorkplaneShape]> = [
+    ["a twisted square", shape("box", { width: 20, depth: 20, height: 30, extrudeTwist: 90 })],
+    ["a twisted flat bar", shape("box", { width: 30, depth: 10, height: 40, extrudeTwist: 180 })],
+    ["a twisted, tapered, leaning box", shape("box", { width: 24, depth: 16, height: 30, extrudeTwist: 120, taperTopWidth: 12, taperTopDepth: 10, extrudeTopOffsetX: 5 })],
+    ["a twisted star", shape("star", { width: 30, depth: 30, height: 30, extrudeTwist: 90 })],
+    ["a twisted hexagon", shape("polygon", { width: 20, depth: 20, height: 25, sides: 6, extrudeTwist: 60 })],
+    ["a twisted tube", shape("tube", { width: 30, depth: 30, height: 20, bevel: 3, sides: 8, extrudeTwist: 45 })],
+  ];
+
+  it.each(twistCases)("builds %s where the display mesh stands, turned and mirrored too", (_name, source) => {
+    for (const placed of [source, { ...source, x: 12.5, z: -7, elevation: 4, rotation: 33, rotationX: 90, mirrorX: true }]) {
+      const { solid, expected } = body(placed);
+      expect(cadProfileSolidMismatch(cad, solid, expected)).toBeNull();
+      trueBounds(solid).forEach((value, index) => expect(Math.abs(value - expected.bounds[index])).toBeLessThan(0.2));
+      expect(Math.abs(cad.getVolume(solid) / expected.volume - 1)).toBeLessThan(0.01);
+    }
+  });
+
+  it("takes a fillet on every edge of a twisted box, a chamfer on its rims and a shell", () => {
+    const { solid } = body(shape("box", { width: 20, depth: 14, height: 30, extrudeTwist: 90 }));
+    const edges = cad.getSubShapes(solid, "edge");
+    const filleted = cad.fillet(solid, edges, 1);
+    expect(cad.isValid(filleted)).toBe(true);
+    expect(cad.getVolume(filleted)).toBeLessThan(cad.getVolume(solid));
+    const top = cad.getSubShapes(solid, "face").reduce((best, face) => (cad.getBoundingBox(face).ymin > cad.getBoundingBox(best).ymin ? face : best));
+    const rims = cad.getSubShapes(top, "edge");
+    const chamfered = cad.chamfer(solid, rims, 1);
+    expect(cad.isValid(chamfered)).toBe(true);
+    const shelled = shellSolid(cad, solid, 1.5, "top");
+    expect(cad.isValid(shelled)).toBe(true);
+    expect(cad.getVolume(shelled)).toBeLessThan(cad.getVolume(solid) * 0.6);
+  });
+
+  it("leaves a tapered sphere on the display mesh", () => {
     expect(cadModifierProfileForShape(shape("sphere", { height: 20, taperTopWidth: 10 }))).toBeNull();
     expect(cadModifierProfileForShape(shape("box", { radius: 2, taperTopWidth: 10 }))).toBeNull();
   });

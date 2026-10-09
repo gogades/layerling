@@ -97,6 +97,8 @@ import { createPyramidGeometry } from "@/lib/pyramidGeometry";
 import { projectThumbnailDimensions } from "@/lib/projectThumbnail";
 import { makeShapeFromAsset, parseDroppedShapeAsset } from "@/lib/shapeCatalog";
 import { scaledHorizontalShapePatch } from "@/lib/scaleByPercent";
+import { positionsForTwist, twistBandCount } from "@/lib/heightSlices";
+import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { canBeginShapeDrag, handleDimensionLimit, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, effectiveViewSettings, viewPixelRatio, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { withShapeDefaults } from "@/lib/shapeDefaults";
 import { AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, sceneLightLevels, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
@@ -1353,17 +1355,20 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     });
   }
 
+  // These are unit bodies stretched by the mesh; a twist or lean is worked out in millimetres
+  // (taperGeometryForShape), so then the size is part of the geometry too.
+  const size = deform ? [shapeWidth(shape), shapeDepth(shape), shape.height] : undefined;
   if (shape.kind === "box" && !(shape.radius && shape.radius > 0)) {
-    return JSON.stringify({ kind: "box", taper, deform });
+    return JSON.stringify({ kind: "box", taper, deform, size });
   }
   if (shape.kind === "cylinder" || shape.kind === "ellipse") {
-    return JSON.stringify({ kind: shape.kind, sides: polygonSidesForShape(shape), segments: shape.segments, taper, deform });
+    return JSON.stringify({ kind: shape.kind, sides: polygonSidesForShape(shape), segments: shape.segments, taper, deform, size });
   }
   if (shape.kind === "polygon") {
-    return JSON.stringify({ kind: "polygon", sides: shape.sides, segments: shape.segments, taper, deform });
+    return JSON.stringify({ kind: "polygon", sides: shape.sides, segments: shape.segments, taper, deform, size });
   }
   if (shape.kind === "sphere") {
-    return JSON.stringify({ kind: "sphere", steps: shape.steps, taper, deform });
+    return JSON.stringify({ kind: "sphere", steps: shape.steps, taper, deform, size });
   }
 
   return JSON.stringify({
@@ -10675,6 +10680,9 @@ function syncShapeObjectDimensions(object: THREE.Group, shape: WorkplaneShape) {
   object.position.y = (shape.elevation ?? 0) + shape.height / 2;
   object.updateMatrix();
   surface.scale.copy(scale);
+  // A twisted unit body already holds its stretch (taperGeometryForShape, addMesh).
+  const stretchedBy = surface.geometry.userData.stretchedBy as [number, number, number] | undefined;
+  if (stretchedBy) surface.scale.divide(new THREE.Vector3(...stretchedBy));
   // Ein Vieleck mit ungerader Seitenzahl liegt nicht mittig in seinem Rahmen.
   surface.position.set(offsetX, -shape.height / 2, offsetZ);
   surface.updateMatrix();
@@ -12871,18 +12879,44 @@ function createImagePlateMaterials(shape: WorkplaneShape, sideMaterial: THREE.Me
 
 function taperGeometryForShape(geometry: THREE.BufferGeometry, shape: WorkplaneShape) {
   if (!shapeHasShapeDeform(shape)) return geometry;
-  const tapered = geometry.userData.cached ? geometry.clone() : geometry;
+  let tapered = geometry.userData.cached ? geometry.clone() : geometry;
   if (tapered !== geometry) {
     tapered.userData = {};
   }
   tapered.computeBoundingBox();
   const box = tapered.boundingBox;
+  if (!box || !tapered.getAttribute("position")) return tapered;
+  // A twist needs vertices partway up to turn; a box or prism has none between its ends (#184).
+  const bands = twistBandCount(shape.extrudeTwist ?? 0);
+  // (An image plate keeps its material groups for the picture; it is left as it was.)
+  if (bands > 1 && !shape.imagePlate) {
+    const flat = tapered.index ? tapered.toNonIndexed() : tapered;
+    const sliced = new THREE.BufferGeometry();
+    // Lengths across are judged in millimetres, also for a unit body stretched afterwards.
+    const drawnX = Math.max(1e-6, box.max.x - box.min.x);
+    const drawnZ = Math.max(1e-6, box.max.z - box.min.z);
+    const drawnY = Math.max(1e-6, box.max.y - box.min.y);
+    const mm: [number, number, number] = [shapeWidth(shape) / drawnX, shape.height / drawnY, shapeDepth(shape) / drawnZ];
+    sliced.setAttribute("position", new THREE.BufferAttribute(positionsForTwist(flat.getAttribute("position").array, box.min.y, box.max.y, shape.extrudeTwist ?? 0, mm), 3));
+    if (flat !== tapered) flat.dispose();
+    if (!tapered.userData.cached) tapered.dispose();
+    tapered = sliced;
+  }
   const position = tapered.getAttribute("position");
-  if (!box || !position) return tapered;
   const height = Math.max(1e-6, box.max.y - box.min.y);
   const centerX = (box.min.x + box.max.x) / 2;
   const centerZ = (box.min.z + box.max.z) / 2;
   const deformed = shapeHasExtrudeDeform(shape);
+  // A box, cylinder, polygon or sphere is drawn as a unit body (1 or 2 across) and stretched to
+  // size afterwards; a turn and a lean belong to the stretched body, so they are worked out in
+  // millimetres. A body drawn at its own size stretches by about 1 and is left alone.
+  const stretch = (size: number, drawn: number) => {
+    const factor = Math.max(1e-6, size) / Math.max(1e-6, drawn);
+    return Math.abs(factor - 1) < 0.05 ? 1 : factor;
+  };
+  const scaleX = stretch(shapeWidth(shape), box.max.x - box.min.x);
+  const scaleZ = stretch(shapeDepth(shape), box.max.z - box.min.z);
+  const unit = scaleX !== 1 || scaleZ !== 1;
   for (let index = 0; index < position.count; index += 1) {
     const y = position.getY(index);
     const normalizedHeight = (y - box.min.y) / height;
@@ -12894,15 +12928,26 @@ function taperGeometryForShape(geometry: THREE.BufferGeometry, shape: WorkplaneS
       const deform = shapeExtrudeDeformAt(shape, normalizedHeight);
       const cos = Math.cos(deform.twistRadians);
       const sin = Math.sin(deform.twistRadians);
-      const relativeX = localX - centerX;
-      const relativeZ = localZ - centerZ;
-      localX = centerX + relativeX * cos - relativeZ * sin + deform.offsetX;
-      localZ = centerZ + relativeX * sin + relativeZ * cos + deform.offsetZ;
+      const relativeX = (localX - centerX) * scaleX;
+      const relativeZ = (localZ - centerZ) * scaleZ;
+      localX = centerX + (relativeX * cos - relativeZ * sin + deform.offsetX) / scaleX;
+      localZ = centerZ + (relativeX * sin + relativeZ * cos + deform.offsetZ) / scaleZ;
     }
     position.setXYZ(index, localX, y, localZ);
   }
   position.needsUpdate = true;
-  tapered.computeVertexNormals();
+  if (bands > 1 && !shape.imagePlate) {
+    // Smooth across the small folds between the bands, sharp at the body's own edges - judged in
+    // millimetres: a unit body stretched afterwards would show its folds steeper or flatter.
+    // The body stays in millimetres from here on, so its edge lines are judged there too;
+    // addMesh takes the stretch it already holds out of the mesh's own.
+    const scaleY = unit ? stretch(shape.height, box.max.y - box.min.y) : 1;
+    if (unit) tapered.scale(scaleX, scaleY, scaleZ);
+    tapered = toCreasedNormals(tapered, Math.PI / 6);
+    if (unit) tapered.userData.stretchedBy = [scaleX, scaleY, scaleZ];
+  } else {
+    tapered.computeVertexNormals();
+  }
   tapered.computeBoundingBox();
   tapered.computeBoundingSphere();
   return tapered;
@@ -12992,6 +13037,9 @@ function addMesh(
   }
   if (scale) {
     mesh.scale.copy(scale);
+    // A twisted unit body comes back already stretched to millimetres (taperGeometryForShape).
+    const stretchedBy = prepared.userData.stretchedBy as [number, number, number] | undefined;
+    if (stretchedBy) mesh.scale.divide(new THREE.Vector3(...stretchedBy));
   }
   group.add(mesh);
   addShapeEdgeDecorations(group, mesh, prepared, shape);
@@ -13020,8 +13068,10 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
       // Durch einen durchsichtigen Koerper scheinen auch die hinteren Kanten -
       // bei einem runden Koerper wird jede Facette zu einem Strich. Er zeigt
       // deshalb nur seine echten Kanten, etwa Deckel- und Bodenrand.
-      const selectedThreshold = shape.importedMesh ? NORMAL_IMPORTED_SELECTION_EDGE_ANGLE : shape.kind === "thread" || (shape.transparent && !shape.hole) ? 25 : 1;
-      const edges = new THREE.LineSegments(getEdgesGeometry(shape, prepared, selectedOutline ? selectedThreshold : allEdgeLines ? 25 : complexEdges ? 14 : 25), sharedLineMaterial(edgeColor, edgeOpacity));
+      // A twisted side folds a little at every band (#184): only its real edges get a line, as on a thread.
+      const twisted = Math.abs(shape.extrudeTwist ?? 0) > 1e-6;
+      const selectedThreshold = shape.importedMesh ? NORMAL_IMPORTED_SELECTION_EDGE_ANGLE : shape.kind === "thread" || twisted || (shape.transparent && !shape.hole) ? 25 : 1;
+      const edges = new THREE.LineSegments(getEdgesGeometry(shape, prepared, selectedOutline ? selectedThreshold : allEdgeLines || twisted ? 25 : complexEdges ? 14 : 25), sharedLineMaterial(edgeColor, edgeOpacity));
       edges.userData.complexEdge = complexEdges;
       edges.userData.shapeDecoration = true;
       edges.userData.shapeEdge = true;

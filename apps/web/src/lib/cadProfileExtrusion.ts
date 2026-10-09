@@ -948,14 +948,14 @@ export function asDesignedRound(shape: WorkplaneShape): WorkplaneShape {
 const LOFTABLE_KINDS = new Set<WorkplaneShape["kind"]>(["box", "cylinder", "ellipse", "polygon", "tube", "ring", "slot", "star", "heart", "crescent", "honeycomb", "dovetail", "roundedBox"]);
 
 /**
- * The tapered or leaning shape as a ruled loft between its bottom and top
+ * The tapered, leaning or twisted shape as a loft between its bottom and top
  * section, or null. A twist turns the section as it rises, so the sides
- * become twisted surfaces that no straight line between the ends follows -
- * that stays on the display mesh.
+ * become twisted surfaces that no straight line between the ends follows:
+ * those are lofted smoothly through sections a few degrees apart
+ * (profileExtrusionSolid).
  */
 function deformedLoftProfile(shape: WorkplaneShape, width: number, depth: number): CadModifierProfilePart | null {
   if (!LOFTABLE_KINDS.has(shape.kind)) return null;
-  if (Math.abs(shape.extrudeTwist ?? 0) > 1e-6) return null;
   let loops: CadModifierProfileLoop[];
   if (shape.kind === "box") {
     // A box with a rounded radius (only older files carry one) is drawn round; its loft would not be.
@@ -985,6 +985,13 @@ function deformedLoftProfile(shape: WorkplaneShape, width: number, depth: number
     height: shape.height,
     transform: profileTransformForShape(shape),
   };
+  // A twist turns each section around the middle of the outline as it rises, as the display does.
+  const twist = shape.extrudeTwist ?? 0;
+  if (Math.abs(twist) > 1e-6) {
+    part.twist = twist;
+    part.twistCenter = { x: centerX, z: centerZ };
+    part.twistLean = { x: offsetX, z: offsetZ };
+  }
   validateCadProfile(part);
   return part;
 }

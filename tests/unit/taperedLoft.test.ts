@@ -45,9 +45,14 @@ describe("tapered and leaning prisms as lofts", () => {
     expect(part.topLoops![1].segments[0]).toMatchObject({ rx: 12 * (18 / 30), rz: 12 * (18 / 30) });
   });
 
-  it("leaves a twist, a deformed round body and a deformed text on the display mesh", () => {
-    expect(cadModifierProfileForShape(shape("box", { extrudeTwist: 15 }))).toBeNull();
-    expect(cadModifierProfileForShape(shape("cylinder", { extrudeTwist: 15, taperTopWidth: 10 }))).toBeNull();
+  it("lofts a twist with its centre and lean (#184)", () => {
+    const part = cadModifierProfileForShape(shape("box", { extrudeTwist: 15, extrudeTopOffsetX: 4 })) as CadModifierProfilePart;
+    expect(part).toMatchObject({ kind: "loft", twist: 15, twistLean: { x: 4, z: 0 } });
+    expect(part.twistCenter?.x).toBeCloseTo(0, 9);
+    expect(cadModifierProfileForShape(shape("cylinder", { extrudeTwist: 15, taperTopWidth: 10 }))?.kind).toBe("loft");
+  });
+
+  it("leaves a deformed round body and a deformed text on the display mesh", () => {
     expect(cadModifierProfileForShape(shape("sphere", { taperTopWidth: 10 }))).toBeNull();
     expect(cadModifierProfileForShape(shape("cone", { extrudeTopOffsetX: 3 }))).toBeNull();
     expect(cadModifierProfileForShape(shape("text", { text: "A", taperTopWidth: 10 }))).toBeNull();

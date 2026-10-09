@@ -37,7 +37,7 @@ Oben steht der Dateiname, darunter wählst du das Format. Ist etwas markiert, wi
 
 Aussparungen lassen sich nicht einzeln exportieren. Gruppiere sie zuerst mit einem Körper, sonst weist dich layerling darauf hin.
 
-STEP enthält nur exakte CAD-Körper. Was sich nicht exakt abbilden lässt, etwa ein verdrehter Körper oder ein als STL importiertes Netz, bleibt draußen. Die Meldung nach dem Export nennt diese Körper beim Namen und sagt, warum. Für den Drucker nimmst du dann STL oder 3MF, die tragen alles.
+STEP enthält nur exakte CAD-Körper. Was sich nicht exakt abbilden lässt, etwa ein als STL importiertes Netz, bleibt draußen. Die Meldung nach dem Export nennt diese Körper beim Namen und sagt, warum. Für den Drucker nimmst du dann STL oder 3MF, die tragen alles.
 
 ### Wie viel Filament braucht das?
 

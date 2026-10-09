@@ -377,8 +377,8 @@ describe("which shapes get an exact profile", () => {
       expect(profile?.transform?.[11]).toBeCloseTo(-3, 9);
     });
     expect(cadModifierProfileForShape(shape("star"))?.transform).toBeUndefined();
-    // Since #111 a star twists like the display mesh does, which no loft follows.
-    expect(cadModifierProfileForShape(shape("star", { extrudeTwist: 45 }))).toBeNull();
+    // Since #184 a twisted star is a loft too, turning as it rises.
+    expect(cadModifierProfileForShape(shape("star", { extrudeTwist: 45 }))).toMatchObject({ kind: "loft", twist: 45 });
     expect(cadModifierProfileForShape(shape("star", { taperTopWidth: 10 }))?.kind).toBe("loft");
   });
 
@@ -422,8 +422,8 @@ describe("which shapes get an exact profile", () => {
     // A helical gear turns its outline as it rises: its own part (cadModifierHelicalGearForShape), no profile.
     expect(cadModifierProfileForShape(shape("gear", { gearType: "helical" }))).toBeNull();
     expect(cadModifierProfileForShape(shape("text"))).toBeNull();
-    // A twist stays on the mesh; a taper or lean is a loft (tests/unit/taperedLoft.test.ts).
-    expect(cadModifierProfileForShape(shape("polygon", { extrudeTwist: 45 }))).toBeNull();
+    // A twist, a taper and a lean are all lofts (tests/unit/taperedLoft.test.ts).
+    expect(cadModifierProfileForShape(shape("polygon", { extrudeTwist: 45 }))?.kind).toBe("loft");
     expect(cadModifierProfileForShape(shape("polygon", { extrudeTopOffsetX: 5 }))?.kind).toBe("loft");
     expect(cadModifierProfileForShape(shape("polygon", { taperTopWidth: 20, taperTopDepth: 20 }))?.kind).toBe("loft");
     expect(cadModifierProfileForShape(shape("star", { cadBrep: "brep" }))).toBeNull();

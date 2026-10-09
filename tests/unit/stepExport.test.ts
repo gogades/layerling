@@ -126,7 +126,7 @@ describe("stepSourceForShape", () => {
 
   it("laesst tragen, was STEP nicht abbilden kann", () => {
     // Eine Verdrillung hat noch keine exakte Form.
-    expect(stepSourceForShape(shape({ kind: "box", extrudeTwist: 45 }))).toBe("unsupported");
+    expect(stepSourceForShape(shape({ kind: "box", extrudeTwist: 45 }))).toBe("profile");
     expect(stepSourceForShape(shape({ kind: "text" }))).toBe("unsupported");
     // Ein eingelesenes Netz ohne Quelle: kein B-Rep, nur Dreiecke.
     const netz = shape({

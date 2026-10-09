@@ -120,6 +120,15 @@ export type CadModifierProfilePart = {
   path?: CadModifierSweepPiece[];
   /** Loft only: the section at the top, loop for loop and piece for piece the partner of `loops`. */
   topLoops?: CadModifierProfileLoop[];
+  /**
+   * Loft only: the section turns this many degrees from bottom to top, evenly, around
+   * `twistCenter` (which moves with the lean). The sides are then no longer ruled: the body is a
+   * smooth loft through sections a few degrees apart (#184).
+   */
+  twist?: number;
+  twistCenter?: { x: number; z: number };
+  /** Loft only, with a twist: how far the lean moves the top; the turning centre moves along with it. */
+  twistLean?: { x: number; z: number };
   /** Extrusion only: round every edge of the two flat ends by this radius (a rounded box). */
   capFillet?: number;
   /**

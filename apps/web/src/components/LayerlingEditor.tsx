@@ -94,6 +94,7 @@ import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
 import { ArrayPanel } from "./workplane/ArrayPanel";
 import { ScalePercentPanel, type ScalePercentSettings } from "./workplane/ScalePercentPanel";
 import { scaleShapesByPercent } from "@/lib/scaleByPercent";
+import { meshForTwist, twistBandCount } from "@/lib/heightSlices";
 import { SHELL_SIDES, shellMaxThickness, shellOpeningsFor, shellOpenSides } from "@/lib/shellLimits";
 import { circleStepDegrees, clampArrayCount, moveAlongRadius, rotateAroundVertical, rowOffset, singleAxisSpacing, type ArraySettings } from "@/lib/shapeArray";
 import { bedOverhangs, printerPresetById, type BedOverhang } from "@/lib/printBed";
@@ -2150,6 +2151,12 @@ function transformMesh(mesh: MeshData, shape: WorkplaneShape): MeshData {
     deformCenterZ = (minZ + maxZ) / 2;
   }
   const taperHeight = Math.max(1e-6, maxLocalY - minLocalY);
+  // A twist needs vertices partway up to turn: cut the mesh into bands first, as the viewport does (#184).
+  const bands = deformed ? twistBandCount(shape.extrudeTwist ?? 0) : 1;
+  if (bands > 1 && mesh.vertices.length) {
+    const sliced = meshForTwist(mesh.vertices as Vec3[], mesh.faces as Array<[number, number, number]>, minLocalY, maxLocalY, shape.extrudeTwist ?? 0);
+    mesh = { ...mesh, vertices: sliced.vertices, faces: sliced.faces };
+  }
   const matrix = new THREE.Matrix4().makeRotationFromEuler(
     new THREE.Euler(
       THREE.MathUtils.degToRad(shape.rotationX ?? 0),

@@ -46,7 +46,7 @@ Verjüngen und Verdrehen gibt es bei fast allen Formen. Nur Zahnrad, Gewinde, Fe
 
 ![Ein Kegel, bei dem Radius oben und Höhe geändert wurden: Ein kleiner Pfeil neben jedem Wert holt ihn zurück, und die beiden Knöpfe unten speichern oder setzen die Vorgaben der Form zurück.](shot:property-reset)
 
-Ein verjüngter oder geneigter Quader, Zylinder, eine Ellipse, ein Vieleck, Rohr oder Ring behält seine exakte Form, ebenso Kapsel, Stern, Herz, Halbmond, Wabe, Schwalbenschwanz und ein abgerundeter Quader ohne gerundete Ober- und Unterkante: Fasen und Rundungen gehen daran wie an der unveränderten Form, und der STEP-Export schreibt sie. Eine verdrehte Form ist für beides noch ein Dreiecksnetz.
+Ein verjüngter oder geneigter Quader, Zylinder, eine Ellipse, ein Vieleck, Rohr oder Ring behält seine exakte Form, ebenso Kapsel, Stern, Herz, Halbmond, Wabe, Schwalbenschwanz und ein abgerundeter Quader ohne gerundete Ober- und Unterkante: Fasen und Rundungen gehen daran wie an der unveränderten Form, und der STEP-Export schreibt sie. Das gilt auch für eine verdrehte Form: Ihr Querschnitt dreht sich exakt mit, und die Seiten winden sich gleichmäßig von unten nach oben.
 
 Tippen ist genauer als Ziehen. Alle Zahlenfelder nehmen Millimeter, aber auch Prozent: Wer bei einer Breite von 40 mm „50 %“ eintippt, bekommt 20 mm.
 

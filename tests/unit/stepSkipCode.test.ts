@@ -14,8 +14,8 @@ describe("why a body was left out of the STEP file (#184)", () => {
     expect(skipCodeFor(shape({ kind: "cylinder", width: 10, depth: 20 }), "elliptical base is not an exact OCCT primitive")).toBe("oval");
   });
 
-  it("leaves a twisted box out (that is what #184 ran into), a plain one in", () => {
-    expect(stepSourceForShape(shape({ extrudeTwist: 45 }))).toBe("unsupported");
+  it("takes a twisted box in as its loft since #184, a plain one as a box", () => {
+    expect(stepSourceForShape(shape({ extrudeTwist: 45 }))).toBe("profile");
     expect(stepSourceForShape(shape({}))).toBe("primitive");
   });
 });
