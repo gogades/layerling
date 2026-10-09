@@ -3,7 +3,7 @@
 import { cadHasSolidBody } from "@/lib/cadSolidBody";
 import { OcctKernel, type ShapeHandle } from "occt-wasm";
 import { orientedFaceNormal, shellSolid } from "@/lib/cadShell";
-import type { CadModifierComponentMesh, CadModifierDeflection, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierProfilePart, CadModifierQuality, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
+import type { CadModifierComponentMesh, CadModifierDeflection, CadModifierDisplayEdge, CadModifierEdge, CadModifierMeshPart, CadModifierPrimitivePart, CadModifierProfilePart, CadModifierWorkerRequest, CadModifierWorkerResponse } from "@/lib/cadModifierTypes";
 import { cadProfileSolidMismatch, profileExtrusionSolid } from "@/lib/cadProfileSolid";
 import { importedStepBody } from "@/lib/cadImportedStep";
 import { threadPartSolid } from "@/lib/threadSolid";

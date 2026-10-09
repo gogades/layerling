@@ -16,8 +16,6 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
-import { textFont } from "@/lib/textFonts";
 import { FramingSquareIcon } from "@/components/FramingSquareIcon";
 import { GridEyeIcon } from "@/components/GridEyeIcon";
 import { AlignOverlay, MirrorOverlay, type AlignOverlayState, type MirrorOverlayState } from "@/components/workplane/ActionOverlays";
@@ -88,6 +86,7 @@ import {
   type PlacementPoint,
   type PlacementWorkplane,
 } from "@/lib/placementWorkplane";
+import { capturePointer } from "@/lib/pointerCapture";
 import { printerPresetById } from "@/lib/printBed";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { groundFootprintForFrame, liftGeometryForFrame, type SelectionFrame } from "@/lib/liftGeometry";
@@ -100,7 +99,7 @@ import { scaledHorizontalShapePatch } from "@/lib/scaleByPercent";
 import { displayY, displayYTurn, insideZ } from "@/lib/displayAxes";
 import { positionsForTwist, twistBandCount } from "@/lib/heightSlices";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { canBeginShapeDrag, handleDimensionLimit, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, effectiveViewSettings, viewPixelRatio, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, shapeDimensionLimit, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
+import { canBeginShapeDrag, handleDimensionLimit, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, effectiveViewSettings, viewPixelRatio, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { withShapeDefaults } from "@/lib/shapeDefaults";
 import { AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, fillLightPosition, keyLightPosition, sceneLightLevels, shadowBlurRadius, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
@@ -792,10 +791,6 @@ type DragItem = {
   helperBox: THREE.Box3 | null;
   hadPreviewSimplified: boolean;
 };
-
-function isVerticalMeasureHandleKind(kind: TransformHandleKind) {
-  return kind === "height" || kind === "lift";
-}
 
 function previewShapesForDrag(shapes: WorkplaneShape[], drag: DragState | null) {
   if (!drag) {
@@ -2152,7 +2147,7 @@ function NoteOverlay({
                   className="point-card-handle"
                   title={t("panel.moveHint")}
                   onPointerDown={(event) => {
-                    event.currentTarget.setPointerCapture(event.pointerId);
+                    capturePointer(event.currentTarget, event.pointerId);
                     pointCardDrag.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, origin: pointCardOffset };
                   }}
                   onPointerMove={(event) => {
@@ -6231,7 +6226,7 @@ export function WorkplaneViewport({
       rememberResizeAnchor(shape.id, kind, resizeHandleKey);
       event.preventDefault();
       event.stopPropagation();
-      event.currentTarget.setPointerCapture(event.pointerId);
+      capturePointer(event.currentTarget, event.pointerId);
       setEditingRotation(null);
       setEditingCorner(null);
       setPinnedMeasureKey(measureKeyForHandle(kind, handleKey, transformOverlayRef.current));
@@ -6328,11 +6323,7 @@ export function WorkplaneViewport({
     event.stopPropagation();
     const marker = event.currentTarget;
     const view = marker.ownerDocument.defaultView ?? window;
-    try {
-      marker.setPointerCapture(event.pointerId);
-    } catch {
-      // A pointer that is already gone cannot be captured; the drag still follows it.
-    }
+    capturePointer(marker, event.pointerId);
     marker.classList.add("dragging");
     let latest: THREE.Vector3 | null = null;
     const show = (point: THREE.Vector3) => {
@@ -6736,7 +6727,6 @@ export function WorkplaneViewport({
         : sizeFrame?.height ?? shape.height;
     const value = resolveMeasureMm(text, currentExtent);
     if (!(Number.isFinite(value) && value > 0)) return null;
-    const id = shape.id;
     const isCornerRulerMidpoint = cornerRulerModelRef.current[0]?.mode === "midpoint";
     const customLimit = workspaceRef.current.shapeCustomizations[shape.kind]?.maxDimension;
     const nextValue = Math.min(customLimit ?? Number.POSITIVE_INFINITY, Math.max(MIN_SHAPE_SIZE, value));
@@ -6960,7 +6950,7 @@ export function WorkplaneViewport({
       depth: shapeDepth(shape),
     });
     if (!match) return;
-    (event.target as HTMLButtonElement).setPointerCapture(event.pointerId);
+    capturePointer(event.target as HTMLButtonElement, event.pointerId);
     // Der Ziehpunkt haengt ueber der Arbeitsflaeche - die Ruecknahme muss auf
     // dieselbe Hoehe zielen, sonst verschiebt die Kamera-Schraege den
     // zurueckgerechneten Punkt naeher an sich heran (Parallaxenfehler).
@@ -7282,7 +7272,7 @@ export function WorkplaneViewport({
   const handleNotePinPointerDown = useCallback((event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => {
     event.stopPropagation();
     noteDragRef.current = { noteId, pointerId: event.pointerId, moved: false };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    capturePointer(event.currentTarget, event.pointerId);
   }, []);
 
   const handleNotePinPointerMove = useCallback((event: ReactPointerEvent<HTMLButtonElement>, noteId: string) => {
@@ -7465,7 +7455,7 @@ export function WorkplaneViewport({
     event.preventDefault();
     event.stopPropagation();
     cornerRulerDragRef.current = { id, pointerId: event.pointerId, moved: false };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    capturePointer(event.currentTarget, event.pointerId);
   }, []);
 
   const handleCornerRulerHandlePointerMove = useCallback((event: ReactPointerEvent<SVGCircleElement>, id: string) => {
@@ -7600,7 +7590,7 @@ export function WorkplaneViewport({
         const startParameter = splitAxisParameter(state, event.clientX, event.clientY, axisOrigin, axisNormal);
         if (startParameter === null) return;
         event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
+        capturePointer(event.currentTarget, event.pointerId);
         splitDragRef.current = { pointerId: event.pointerId, axisOrigin, axisNormal, startParameter, startPosition: plane.position };
         setSplitHandleState("drag");
         state.controls.enabled = false;
@@ -7724,7 +7714,6 @@ export function WorkplaneViewport({
         if (!shape || !frame || shape.locked || (!point && handle.kind !== "height" && handle.kind !== "lift" && handle.kind !== "rotate")) {
           return;
         }
-        const yBounds = selectionWorldYBounds(frame);
         const handlesLowerSide = handle.handleKey === "bottom-height" || handle.handleKey === "lower-shape";
         const lift = liftGeometryForFrame(frame, activeWorkplane);
         const liftOffset = handle.kind === "lift" ? Math.max(2, lift.height * LIFT_HANDLE_HEIGHT_OFFSET_FRACTION) * (handlesLowerSide ? -1 : 1) : 0;
@@ -7764,7 +7753,7 @@ export function WorkplaneViewport({
         }
         rememberResizeAnchor(handle.id, handle.kind, resizeHandleKey);
         event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
+        capturePointer(event.currentTarget, event.pointerId);
         setEditingRotation(null);
         setEditingCorner(null);
         setPinnedMeasureKey(measureKeyForHandle(handle.kind, handle.handleKey, transformOverlayRef.current));
@@ -7854,7 +7843,7 @@ export function WorkplaneViewport({
         const startX = event.clientX - rect.left;
         const startY = event.clientY - rect.top;
         event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
+        capturePointer(event.currentTarget, event.pointerId);
         marqueeRef.current = {
           pointerId: event.pointerId,
           startX,
@@ -7903,7 +7892,7 @@ export function WorkplaneViewport({
       if (shape.locked) {
         return;
       }
-      event.currentTarget.setPointerCapture(event.pointerId);
+      capturePointer(event.currentTarget, event.pointerId);
       const dragIds = alreadySelected && selectedIdsSnapshot.length > 1 ? selectedIdsSnapshot : [id];
       const items = dragIds
         .map<DragItem | null>((dragId) => {
@@ -8589,7 +8578,7 @@ export function WorkplaneViewport({
     if (move.started) {
       // Capture only once the press becomes a drag, so a plain click still
       // lands on the face button underneath.
-      event.currentTarget.setPointerCapture(event.pointerId);
+      capturePointer(event.currentTarget, event.pointerId);
       setViewCubeDragging(true);
     }
     const state = threeRef.current;
@@ -8903,7 +8892,7 @@ export function WorkplaneViewport({
       if (tapeMoveModeRef.current) {
         event.preventDefault();
         event.stopPropagation();
-        event.currentTarget.setPointerCapture(event.pointerId);
+        capturePointer(event.currentTarget, event.pointerId);
         tapePointDragRef.current = { pointId, pointerId: event.pointerId };
         return;
       }
@@ -11476,7 +11465,6 @@ function syncTransformOverlay(
   const zFootAxis = frame.zAxis.clone().normalize();
   const showLowerHandles = state.camera.position.clone().sub(frame.center).dot(yFootAxis) < 0;
   const footprintY = workplaneFootprintY(frame, activeWorkplane);
-  const workplaneY = workplaneYForFrame(frame, activeWorkplane);
   const oppositeY = Math.abs(footprintY - frame.min.y) <= Math.abs(footprintY - frame.max.y)
     ? frame.max.y
     : frame.min.y;
@@ -12439,116 +12427,6 @@ function createSelectedGroundFootprint(shape: WorkplaneShape, workplane: Placeme
   group.add(outline);
 
   return group;
-}
-
-function createTransformHandles(box: THREE.Box3, id: string) {
-  const group = new THREE.Group();
-  group.name = "LayerlingTransformHandles";
-  group.userData.shapeId = id;
-
-  const handleMaterial = new THREE.MeshBasicMaterial({ color: "#e8eef1" });
-  const darkMaterial = new THREE.MeshBasicMaterial({ color: "#273849" });
-  const rotateMaterial = new THREE.LineBasicMaterial({ color: "#00aeea", transparent: true, opacity: 0.96 });
-  const dashMaterial = new THREE.LineDashedMaterial({ color: "#2c3339", dashSize: 2.2, gapSize: 2.4, transparent: true, opacity: 0.72 });
-  const handleGeometry = new THREE.BoxGeometry(2.6, 2.6, 2.6);
-  const dotGeometry = new THREE.BoxGeometry(1.7, 1.7, 1.7);
-  const coneGeometry = new THREE.ConeGeometry(1.7, 3.4, 18);
-
-  const center = box.getCenter(new THREE.Vector3());
-  const topY = box.max.y + 1.4;
-  const x0 = box.min.x;
-  const x1 = box.max.x;
-  const z0 = box.min.z;
-  const z1 = box.max.z;
-  const xm = center.x;
-  const zm = center.z;
-
-  const cornerPoints = [
-    { key: "far-left", kind: "scale" as const, point: new THREE.Vector3(x0, box.min.y + 1.3, z0) },
-    { key: "far-right", kind: "scale" as const, point: new THREE.Vector3(x1, box.min.y + 1.3, z0) },
-    { key: "near-left", kind: "scale" as const, point: new THREE.Vector3(x0, box.min.y + 1.3, z1) },
-    { key: "near-right", kind: "scale" as const, point: new THREE.Vector3(x1, box.min.y + 1.3, z1) },
-    { key: "far-left", kind: "scale" as const, point: new THREE.Vector3(x0, topY, z0) },
-    { key: "far-right", kind: "scale" as const, point: new THREE.Vector3(x1, topY, z0) },
-    { key: "near-left", kind: "scale" as const, point: new THREE.Vector3(x0, topY, z1) },
-    { key: "near-right", kind: "scale" as const, point: new THREE.Vector3(x1, topY, z1) },
-    { key: "top-height", kind: "height" as const, point: new THREE.Vector3(xm, box.max.y + 7, zm) },
-  ];
-
-  cornerPoints.forEach(({ key, kind, point }) => {
-    const handle = new THREE.Mesh(handleGeometry, handleMaterial);
-    handle.position.copy(point);
-    handle.userData.shapeId = id;
-    handle.userData.transformHandle = kind;
-    handle.userData.transformHandleKey = key;
-    handle.userData.transformPlaneY = point.y;
-    group.add(handle);
-    const outline = new THREE.LineSegments(new THREE.EdgesGeometry(handleGeometry), new THREE.LineBasicMaterial({ color: "#2d3439", transparent: true, opacity: 0.86 }));
-    outline.position.copy(point);
-    outline.userData.shapeId = id;
-    outline.userData.transformHandle = handle.userData.transformHandle;
-    outline.userData.transformHandleKey = key;
-    outline.userData.transformPlaneY = point.y;
-    group.add(outline);
-  });
-
-  [
-    { key: "far-mid", point: new THREE.Vector3(xm, topY, z0) },
-    { key: "near-mid", point: new THREE.Vector3(xm, topY, z1) },
-    { key: "left-mid", point: new THREE.Vector3(x0, topY, zm) },
-    { key: "right-mid", point: new THREE.Vector3(x1, topY, zm) },
-    { key: "far-mid", point: new THREE.Vector3(xm, box.min.y + 1.3, z0) },
-    { key: "near-mid", point: new THREE.Vector3(xm, box.min.y + 1.3, z1) },
-    { key: "left-mid", point: new THREE.Vector3(x0, box.min.y + 1.3, zm) },
-    { key: "right-mid", point: new THREE.Vector3(x1, box.min.y + 1.3, zm) },
-  ].forEach(({ key, point }) => {
-    const dot = new THREE.Mesh(dotGeometry, darkMaterial);
-    dot.position.copy(point);
-    dot.userData.shapeId = id;
-    dot.userData.transformHandle = "scale";
-    dot.userData.transformHandleKey = key;
-    dot.userData.transformPlaneY = point.y;
-    group.add(dot);
-  });
-
-  [
-    [new THREE.Vector3(xm, box.max.y + 7, zm), new THREE.Vector3(xm, box.min.y + 1.3, zm)],
-  ].forEach(([from, to]) => {
-    const geometry = new THREE.BufferGeometry().setFromPoints([from, to]);
-    const line = new THREE.Line(geometry, dashMaterial);
-    line.computeLineDistances();
-    group.add(line);
-  });
-
-  [
-    { key: "rotate-left", center: new THREE.Vector3(x0 - 5, topY + 5, z0 - 5), start: 0.15, end: 1.45, arrow: new THREE.Vector3(x0 - 2.8, topY + 5, z0 - 8.2), rotation: Math.PI * 0.35 },
-    { key: "rotate-right", center: new THREE.Vector3(x1 + 5, topY + 5, z0 - 5), start: 1.7, end: 2.95, arrow: new THREE.Vector3(x1 + 8.2, topY + 5, z0 - 2.8), rotation: Math.PI * 0.85 },
-    { key: "rotate-bottom", center: new THREE.Vector3(x1 + 5, topY + 5, z1 + 5), start: 3.3, end: 4.55, arrow: new THREE.Vector3(x1 + 2.8, topY + 5, z1 + 8.2), rotation: Math.PI * 1.35 },
-  ].forEach((arc) => {
-    const line = createRotateArc(arc.center, 5.5, arc.start, arc.end, rotateMaterial);
-    line.userData.shapeId = id;
-    line.userData.transformHandle = "rotate";
-    line.userData.transformHandleKey = arc.key;
-    group.add(line);
-    const arrow = new THREE.Mesh(coneGeometry, darkMaterial);
-    arrow.position.copy(arc.arrow);
-    arrow.rotation.set(Math.PI / 2, 0, arc.rotation);
-    arrow.userData.shapeId = id;
-    arrow.userData.transformHandle = "rotate";
-    arrow.userData.transformHandleKey = arc.key;
-    group.add(arrow);
-  });
-
-  return group;
-}
-
-function createRotateArc(center: THREE.Vector3, radius: number, start: number, end: number, material: THREE.LineBasicMaterial) {
-  const points: THREE.Vector3[] = [];
-  for (let i = 0; i <= 18; i += 1) {
-    const angle = start + ((end - start) * i) / 18;
-    points.push(new THREE.Vector3(center.x + Math.cos(angle) * radius, center.y, center.z + Math.sin(angle) * radius));
-  }
-  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), material);
 }
 
 function sharedShapeGeometry(key: string, create: () => THREE.BufferGeometry) {

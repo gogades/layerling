@@ -2,7 +2,7 @@
 
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { useMemo, useState, useRef, useEffect, type KeyboardEvent, type MouseEvent, type ReactElement } from "react";
-import { ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff, FolderOpen, Layers, ListTree, Lock, Pencil, Search, Unlock, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff, FolderOpen, ListTree, Lock, Pencil, Search, Unlock, X } from "lucide-react";
 import { useLanguage } from "@/lib/useLanguage";
 import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel";
 import { t, type MessageKey } from "@/lib/i18n";

@@ -8,9 +8,7 @@ import type { ManifoldToplevel } from "manifold-3d";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ADDITION, Brush, Evaluator, HOLLOW_INTERSECTION, HOLLOW_SUBTRACTION, INTERSECTION, SUBTRACTION, type CSGOperation } from "three-bvh-csg";
 import * as THREE from "three";
-import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { textFont } from "@/lib/textFonts";
 import type { AppThemePreference, ResolvedAppTheme } from "@/lib/appTheme";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { getLanguage, t, type MessageKey } from "@/lib/i18n";
@@ -142,7 +140,7 @@ import {
   shellNeedingRebuild,
 } from "@/lib/workplaneShapes";
 import { workplaneCenteringOffset } from "@/lib/workplaneCentering";
-import { bakeCadMetadataForShapeTransform, cadBrepTransformForShape, cadModifierPrimitiveForAnalyticBox, cadModifierPrimitiveForAnalyticShape, cadModifierPrimitiveForBakedShape, importedStepPartForShape } from "@/lib/cadBakeMetadata";
+import { bakeCadMetadataForShapeTransform, cadBrepTransformForShape, cadModifierPrimitiveForAnalyticShape, cadModifierPrimitiveForBakedShape, importedStepPartForShape } from "@/lib/cadBakeMetadata";
 import { hasOneToOneCadComponentMapping } from "@/lib/cadModifierGroups";
 import { cadModifierHelicalGearForShape, cadModifierProfileForShape, cadModifierSpringForShape, cadModifierThreadForShape, cadProfileExpectation, cadProfileSegmentCount, closedMeshVolume, textGlyphProfiles, withinExactProfileLimit } from "@/lib/cadProfileExtrusion";
 import { DEFAULT_OVERHANG_ANGLE, normalizeOverhangAngle, overhangArea } from "@/lib/overhang";
@@ -184,7 +182,6 @@ import { renderMyShapeThumbnail } from "@/lib/myShapeThumbnail";
 import { packBackup, unpackBackup } from "@/lib/projectBackup";
 import { MyShapesSection, type CustomShapeEntry, type CustomShapeLocation } from "@/components/workplane/MyShapesSection";
 import { deleteServerCustomShape, listServerCustomShapes, readServerCustomShape, renameServerCustomShape, saveServerCustomShape, type ServerCustomShape } from "@/lib/customShapesServer";
-import { findSketchOutlineIntersection } from "@/lib/sketchProfileValidation";
 import { addLineIntersectionPoints, splitSketchSegment } from "@/lib/sketchPointRefinement";
 import { copySketchSelection, freeSketchPasteOffset, pasteSketchClipboard, type SketchClipboard } from "@/lib/sketchClipboard";
 import { sketchSelectionCount, toggleSketchSelection } from "@/lib/sketchSelection";
@@ -223,7 +220,7 @@ import {
 import { localizedError } from "@/lib/userErrors";
 import { sketchBodyStretch, stretchedSketchProfile } from "@/lib/sketchResize";
 import { normalizeSketchStroke, strokedSketchProfile } from "@/lib/sketchStroke";
-import { placeSketchExtrusion, placeSketchShape } from "@/lib/sketchPlacement";
+import { placeSketchShape } from "@/lib/sketchPlacement";
 import { meshSlicePath, planeCutsMesh } from "@/lib/sketchSlice";
 import { BUG_REPORT_FILE, bugReportText, rememberBugReportEvent, type BugReportEvent } from "@/lib/bugReport";
 import { formatLengthMm, lengthDisplayUnit } from "@/lib/measurementUnits";
@@ -388,7 +385,6 @@ type BooleanAutomationResult = {
 };
 const SHARED_CLIPBOARD_STORAGE_KEY = "layerling.clipboard";
 const SYSTEM_CLIPBOARD_PREFIX = "LAYERLING/1\n";
-const STATIC_EXPORT_BUILD = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
 
 declare global {
   interface Window {
@@ -452,215 +448,6 @@ let manifoldRuntimePromise: Promise<ManifoldToplevel> | null = null;
 
 function emptySketchProfile(): SketchProfile {
   return { points: [], segments: [], images: [] };
-}
-
-function pointInSketchPolygon(point: THREE.Vector2, polygon: THREE.Vector2[]) {
-  let inside = false;
-  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
-    const currentPoint = polygon[index];
-    const previousPoint = polygon[previous];
-    const crosses = currentPoint.y > point.y !== previousPoint.y > point.y;
-    if (crosses && point.x < ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y)) / (previousPoint.y - currentPoint.y) + currentPoint.x) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-async function shapeFromResolvedSketchProfile(
-  profile: SketchProfile,
-  polygons: Array<Array<[number, number]>>,
-  height: number,
-  centerX: number,
-  centerZ: number,
-  existing?: WorkplaneShape | null,
-) {
-  const runtime = await getManifoldRuntime();
-  const disposable: unknown[] = [];
-  try {
-    const section = new runtime.CrossSection(polygons, "EvenOdd");
-    disposable.push(section);
-    const coordinateScale = polygons.reduce(
-      (largest, polygon) => polygon.reduce((polygonLargest, point) => Math.max(polygonLargest, Math.abs(point[0]), Math.abs(point[1])), largest),
-      1,
-    );
-    const simplified = section.simplify(Math.max(1e-7, coordinateScale * 1e-8));
-    disposable.push(simplified);
-    if (simplified.toPolygons().length === 0) throw new Error("The sketch has no filled area after resolving its crossings");
-
-    const solid = simplified.extrude(height);
-    disposable.push(solid);
-    if (solid.status() !== "NoError" || solid.numTri() < 1) {
-      throw new Error("The crossing sketch could not be converted into a valid solid");
-    }
-
-    const manifoldPositions = manifoldMeshToPositions(solid.getMesh());
-    const positions = new Array<number>(manifoldPositions.length);
-    let minX = Number.POSITIVE_INFINITY;
-    let maxX = Number.NEGATIVE_INFINITY;
-    let minZ = Number.POSITIVE_INFINITY;
-    let maxZ = Number.NEGATIVE_INFINITY;
-    for (let index = 0; index + 2 < manifoldPositions.length; index += 3) {
-      const x = manifoldPositions[index];
-      const y = manifoldPositions[index + 2];
-      const z = -manifoldPositions[index + 1];
-      positions[index] = x;
-      positions[index + 1] = y;
-      positions[index + 2] = z;
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minZ = Math.min(minZ, z);
-      maxZ = Math.max(maxZ, z);
-    }
-    const localCenterX = (minX + maxX) / 2;
-    const localCenterZ = (minZ + maxZ) / 2;
-    for (let index = 0; index + 2 < positions.length; index += 3) {
-      positions[index] -= localCenterX;
-      positions[index + 2] -= localCenterZ;
-    }
-    const meshWidth = Math.max(0.01, maxX - minX);
-    const meshDepth = Math.max(0.01, maxZ - minZ);
-    return canonicalizeShape({
-      id: existing?.id ?? createLocalId("sketch-extrusion"),
-      name: existing?.name ?? "Sketch extrusion",
-      kind: "mesh",
-      color: existing?.color ?? "#d41721",
-      hole: existing?.hole,
-      x: centerX + localCenterX,
-      z: centerZ + localCenterZ,
-      elevation: 0,
-      size: Math.max(meshWidth, meshDepth),
-      width: meshWidth,
-      depth: meshDepth,
-      height,
-      rotation: 0,
-      importedMesh: {
-        positions,
-        baseWidth: meshWidth,
-        baseDepth: meshDepth,
-        baseHeight: height,
-        triangleCount: Math.floor(positions.length / 9),
-        sourceFormat: "json",
-      },
-      sketchProfile: cloneSketchProfile(profile),
-      sketchOperation: "extrude",
-    } satisfies WorkplaneShape);
-  } finally {
-    [...new Set(disposable)].reverse().forEach(disposeManifold);
-  }
-}
-
-async function shapeFromSketchProfile(profile: SketchProfile, height: number, existing?: WorkplaneShape | null) {
-  const closedPaths = orderedSketchPaths(profile).filter((path) => path.closed);
-  if (closedPaths.length === 0) return null;
-  const profilePoints = closedPaths.flatMap((path) => path.points);
-  const minX = Math.min(...profilePoints.map((point) => point.x));
-  const maxX = Math.max(...profilePoints.map((point) => point.x));
-  const minZ = Math.min(...profilePoints.map((point) => point.z));
-  const maxZ = Math.max(...profilePoints.map((point) => point.z));
-  const centerX = (minX + maxX) / 2;
-  const centerZ = (minZ + maxZ) / 2;
-  const width = Math.max(0.01, maxX - minX);
-  const depth = Math.max(0.01, maxZ - minZ);
-  const safeHeight = Math.max(0.01, height);
-  const outlineRecords = closedPaths.map((path) => {
-    const outline = new THREE.Shape();
-    const first = path.points[0];
-    outline.moveTo(first.x - centerX, -(first.z - centerZ));
-    path.steps.forEach(({ segment, from, to }) => {
-      const forward = segment.startId === from.id;
-      const control1 = forward ? from.handleOut : from.handleIn;
-      const control2 = forward ? to.handleIn : to.handleOut;
-      if (segment.kind !== "line" && control1 && control2) {
-        outline.bezierCurveTo(
-          control1.x - centerX,
-          -(control1.z - centerZ),
-          control2.x - centerX,
-          -(control2.z - centerZ),
-          to.x - centerX,
-          -(to.z - centerZ),
-        );
-      } else {
-        outline.lineTo(to.x - centerX, -(to.z - centerZ));
-      }
-    });
-    outline.closePath();
-    const polygon = outline.extractPoints(16).shape;
-    return { outline, polygon, area: Math.abs(THREE.ShapeUtils.area(polygon)) };
-  });
-  const hasCurves = profile.segments.some((segment) => segment.kind === "bezier" || segment.kind === "smooth");
-  const longestHandle = profile.points.reduce((longest, point) => Math.max(
-    longest,
-    point.handleIn ? Math.hypot(point.handleIn.x - point.x, point.handleIn.z - point.z) : 0,
-    point.handleOut ? Math.hypot(point.handleOut.x - point.x, point.handleOut.z - point.z) : 0,
-  ), 0);
-  const curveScale = Math.max(width, depth, longestHandle * 2);
-  const curveSegments = hasCurves ? Math.min(256, Math.max(32, Math.ceil(curveScale * 1.25))) : 1;
-  const sampledPolygons = outlineRecords.map((record) => record.outline.extractPoints(curveSegments).shape);
-  if (findSketchOutlineIntersection(sampledPolygons)) {
-    return shapeFromResolvedSketchProfile(
-      profile,
-      sampledPolygons.map((polygon) => polygon.map((point) => [point.x, point.y] as [number, number])),
-      safeHeight,
-      centerX,
-      centerZ,
-      existing,
-    );
-  }
-  const sortedOutlines = [...outlineRecords].sort((a, b) => b.area - a.area);
-  const outlines: THREE.Shape[] = [];
-  sortedOutlines.forEach((record) => {
-    const sample = record.polygon[0];
-    const parent = sample
-      ? sortedOutlines
-          .filter((candidate) => candidate !== record && candidate.area > record.area && pointInSketchPolygon(sample, candidate.polygon))
-          .sort((a, b) => a.area - b.area)[0]
-      : undefined;
-    if (parent) parent.outline.holes.push(record.outline);
-    else outlines.push(record.outline);
-  });
-  const geometry = new THREE.ExtrudeGeometry(outlines, { depth: safeHeight, bevelEnabled: false, steps: 1, curveSegments });
-  geometry.rotateX(-Math.PI / 2);
-  geometry.computeVertexNormals();
-  geometry.computeBoundingBox();
-  const geometryBox = geometry.boundingBox;
-  const meshWidth = Math.max(0.01, geometryBox ? geometryBox.max.x - geometryBox.min.x : width);
-  const meshDepth = Math.max(0.01, geometryBox ? geometryBox.max.z - geometryBox.min.z : depth);
-  const meshCenterX = centerX + (geometryBox ? (geometryBox.min.x + geometryBox.max.x) / 2 : 0);
-  const meshCenterZ = centerZ + (geometryBox ? (geometryBox.min.z + geometryBox.max.z) / 2 : 0);
-  const meshGeometry = geometry.index ? geometry.toNonIndexed() : geometry;
-  const position = meshGeometry.getAttribute("position");
-  const normal = meshGeometry.getAttribute("normal");
-  const positions = Array.from(position.array as ArrayLike<number>);
-  const normals = normal ? Array.from(normal.array as ArrayLike<number>) : undefined;
-  if (meshGeometry !== geometry) meshGeometry.dispose();
-  geometry.dispose();
-  return canonicalizeShape({
-    id: existing?.id ?? createLocalId("sketch-extrusion"),
-    name: existing?.name ?? "Sketch extrusion",
-    kind: "mesh",
-    color: existing?.color ?? "#d41721",
-    hole: existing?.hole,
-    x: meshCenterX,
-    z: meshCenterZ,
-    elevation: 0,
-    size: Math.max(meshWidth, meshDepth),
-    width: meshWidth,
-    depth: meshDepth,
-    height: safeHeight,
-    rotation: 0,
-    importedMesh: {
-      positions,
-      normals,
-      baseWidth: meshWidth,
-      baseDepth: meshDepth,
-      baseHeight: safeHeight,
-      triangleCount: Math.floor(positions.length / 9),
-      sourceFormat: "json",
-    },
-    sketchProfile: cloneSketchProfile(profile),
-    sketchOperation: "extrude",
-  } satisfies WorkplaneShape);
 }
 
 let sketchCadWorker: Worker | null = null;
@@ -1479,51 +1266,6 @@ function booleanAutomationScene(caseId: string): { label: string; shapes: Workpl
     },
   };
   return cases[caseId] ?? booleanAutomationDynamicScene(caseId);
-}
-
-function makeHouseScene(): WorkplaneShape[] {
-  return [
-    sceneShape({ name: "Grass base", kind: "box", color: "#4f9b58", x: 0, z: 0, width: 118, depth: 92, height: 1 }),
-    sceneShape({ name: "House body", kind: "box", color: "#e7c49a", x: 0, z: 2, width: 52, depth: 42, height: 34, elevation: 1 }),
-    sceneShape({ name: "Gable roof", kind: "roof", color: "#a83c32", x: 0, z: 2, width: 66, depth: 54, height: 23, elevation: 35 }),
-    sceneShape({ name: "Chimney", kind: "box", color: "#7f3328", x: 17, z: -9, width: 8, depth: 8, height: 18, elevation: 45 }),
-    sceneShape({ name: "Front door", kind: "box", color: "#6d4427", x: 0, z: -20.4, width: 12, depth: 1.4, height: 19, elevation: 1.5 }),
-    sceneShape({ name: "Door knob", kind: "sphere", color: "#e0b23f", x: 4.2, z: -21.6, width: 2.2, depth: 2.2, height: 2.2, elevation: 11 }),
-    sceneShape({ name: "Left front window", kind: "box", color: "#6fc8e8", x: -16, z: -20.7, width: 10, depth: 1.2, height: 8, elevation: 18 }),
-    sceneShape({ name: "Right front window", kind: "box", color: "#6fc8e8", x: 16, z: -20.7, width: 10, depth: 1.2, height: 8, elevation: 18 }),
-    sceneShape({ name: "Left side window", kind: "box", color: "#6fc8e8", x: -26.2, z: 8, width: 10, depth: 1.2, height: 8, elevation: 18, rotation: 90 }),
-    sceneShape({ name: "Right side window", kind: "box", color: "#6fc8e8", x: 26.2, z: 8, width: 10, depth: 1.2, height: 8, elevation: 18, rotation: 90 }),
-    sceneShape({ name: "Porch step", kind: "box", color: "#9d9b91", x: 0, z: -28, width: 24, depth: 10, height: 2, elevation: 1 }),
-    sceneShape({ name: "Walkway", kind: "box", color: "#b8b4a8", x: 0, z: -50, width: 12, depth: 36, height: 0.8, elevation: 0.2 }),
-    sceneShape({ name: "Tree trunk", kind: "cylinder", color: "#7b4a2b", x: -42, z: 22, width: 7, depth: 7, height: 18, elevation: 1, sides: 18 }),
-    sceneShape({ name: "Tree crown", kind: "sphere", color: "#2f8e45", x: -42, z: 22, width: 24, depth: 24, height: 22, elevation: 18 }),
-    sceneShape({ name: "Mailbox post", kind: "box", color: "#5a4b3d", x: 32, z: -42, width: 3, depth: 3, height: 12, elevation: 1 }),
-    sceneShape({ name: "Mailbox", kind: "roundRoof", color: "#2e6ca8", x: 32, z: -42, width: 13, depth: 8, height: 7, elevation: 13, rotation: 90 }),
-  ];
-}
-
-function makeBlockPerfScene(count = 500): WorkplaneShape[] {
-  const safeCount = Math.max(1, Math.min(5000, Math.floor(count)));
-  const columns = Math.ceil(Math.sqrt(safeCount));
-  const spacing = 7;
-  const offset = ((columns - 1) * spacing) / 2;
-  const colors = ["#d41721", "#d97813", "#f2cf10", "#33983d", "#0098c7", "#294c93"];
-
-  return Array.from({ length: safeCount }, (_, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    return sceneShape({
-      id: `perf-block-${index + 1}`,
-      name: `Perf block ${index + 1}`,
-      kind: "box",
-      color: colors[index % colors.length],
-      x: column * spacing - offset,
-      z: row * spacing - offset,
-      width: 5,
-      depth: 5,
-      height: 5,
-    });
-  });
 }
 
 function sanitizeName(name: string) {
@@ -3031,32 +2773,6 @@ function imagePlateDimensions(pixelWidth: number, pixelHeight: number) {
   };
 }
 
-async function importedShapeFromImage(file: File): Promise<WorkplaneShape> {
-  const imagePlate = await prepareImportedImage(file);
-  const dimensions = imagePlateDimensions(imagePlate.pixelWidth, imagePlate.pixelHeight);
-  return {
-    id: createLocalId("uploaded-image"),
-    name: file.name.replace(/\.[^.]+$/, "") || "Imported Image",
-    kind: "box",
-    color: "#f4f7f9",
-    x: 10,
-    z: -10,
-    size: Math.max(dimensions.width, dimensions.depth),
-    width: dimensions.width,
-    depth: dimensions.depth,
-    height: dimensions.height,
-    elevation: 0,
-    rotation: 0,
-    rotationX: 0,
-    rotationZ: 0,
-    radius: 0,
-    steps: 1,
-    imagePlate,
-    locked: false,
-    hidden: false,
-  };
-}
-
 async function toSvg(shapes: WorkplaneShape[], title: string) {
   const runtime = await getManifoldRuntime();
   const layers: SvgProjectionLayer[] = [];
@@ -3321,13 +3037,6 @@ function boundsForCuboids(bounds: Cuboid[]): Cuboid {
     minZ: Math.min(...bounds.map((box) => box.minZ)),
     maxZ: Math.max(...bounds.map((box) => box.maxZ)),
   };
-}
-
-function dropPatchForShape(shape: WorkplaneShape, targetY: number): Partial<WorkplaneShape> {
-  const bounds = meshAabb(shape);
-  const delta = targetY - bounds.minY;
-  const nextElevation = (shape.elevation ?? 0) + delta;
-  return { elevation: Math.abs(nextElevation) < 0.0005 ? 0 : Number(nextElevation.toFixed(4)) };
 }
 
 function meshAabb(shape: WorkplaneShape): Cuboid {
@@ -4027,17 +3736,6 @@ function introducesOpenCutBoundary(resultPositions: number[], sourceMesh: MeshDa
   return resultCutBoundaries > sourceCutBoundaries + Math.max(4, Math.floor(sourceCutBoundaries * 0.25));
 }
 
-function cuboidFromBox3(box: THREE.Box3): Cuboid {
-  return {
-    minX: box.min.x,
-    maxX: box.max.x,
-    minY: box.min.y,
-    maxY: box.max.y,
-    minZ: box.min.z,
-    maxZ: box.max.z,
-  };
-}
-
 function paddedCutterShape(shape: WorkplaneShape): WorkplaneShape {
   const width = shapeWidth(shape) + CUTTER_PADDING * 2;
   const depth = shapeDepth(shape) + CUTTER_PADDING * 2;
@@ -4193,27 +3891,6 @@ function triangleAabb([a, b, c]: Vec3[]): Cuboid {
   };
 }
 
-function polygonAabb(points: Vec3[]): Cuboid {
-  return points.reduce<Cuboid>(
-    (bounds, [x, y, z]) => ({
-      minX: Math.min(bounds.minX, x),
-      maxX: Math.max(bounds.maxX, x),
-      minY: Math.min(bounds.minY, y),
-      maxY: Math.max(bounds.maxY, y),
-      minZ: Math.min(bounds.minZ, z),
-      maxZ: Math.max(bounds.maxZ, z),
-    }),
-    {
-      minX: Number.POSITIVE_INFINITY,
-      maxX: Number.NEGATIVE_INFINITY,
-      minY: Number.POSITIVE_INFINITY,
-      maxY: Number.NEGATIVE_INFINITY,
-      minZ: Number.POSITIVE_INFINITY,
-      maxZ: Number.NEGATIVE_INFINITY,
-    },
-  );
-}
-
 function cuboidsTouch(a: Cuboid, b: Cuboid, tolerance = 0.0001) {
   return (
     Math.min(a.maxX, b.maxX) + tolerance >= Math.max(a.minX, b.minX) &&
@@ -4260,293 +3937,6 @@ function isAxisAlignedBoxCutter(shape: WorkplaneShape) {
   // treat it as one dropped the deformation when grouping (Eichhornkobel,
   // forum, 27.09.2026).
   return shape.kind === "box" && straightX && straightY && straightZ && !shapeHasShapeDeform(shape);
-}
-
-type ClipPlane = { axis: 0 | 1 | 2; value: number; keepGreater: boolean };
-
-function clipDistance(point: Vec3, plane: ClipPlane) {
-  return plane.keepGreater ? point[plane.axis] - plane.value : plane.value - point[plane.axis];
-}
-
-function interpolateVec3(a: Vec3, b: Vec3, t: number): Vec3 {
-  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-}
-
-function clipPolygonByPlane(polygon: Vec3[], plane: ClipPlane, keepInside: boolean) {
-  if (polygon.length < 3) {
-    return [];
-  }
-
-  const clipped: Vec3[] = [];
-  const isKept = (distance: number) => (keepInside ? distance >= -0.0001 : distance <= 0.0001);
-
-  for (let i = 0; i < polygon.length; i += 1) {
-    const current = polygon[i];
-    const next = polygon[(i + 1) % polygon.length];
-    const currentDistance = clipDistance(current, plane);
-    const nextDistance = clipDistance(next, plane);
-    const currentKept = isKept(currentDistance);
-    const nextKept = isKept(nextDistance);
-
-    if (currentKept) {
-      clipped.push(current);
-    }
-
-    if (currentKept !== nextKept) {
-      const denom = currentDistance - nextDistance;
-      const t = Math.abs(denom) > 0.000001 ? currentDistance / denom : 0;
-      clipped.push(interpolateVec3(current, next, t));
-    }
-  }
-
-  return clipped;
-}
-
-function subtractCuboidFromPolygon(polygon: Vec3[], cuboid: Cuboid) {
-  const planes: ClipPlane[] = [
-    { axis: 0, value: cuboid.minX, keepGreater: true },
-    { axis: 0, value: cuboid.maxX, keepGreater: false },
-    { axis: 1, value: cuboid.minY, keepGreater: true },
-    { axis: 1, value: cuboid.maxY, keepGreater: false },
-    { axis: 2, value: cuboid.minZ, keepGreater: true },
-    { axis: 2, value: cuboid.maxZ, keepGreater: false },
-  ];
-  let pending = [polygon];
-  const outsidePieces: Vec3[][] = [];
-
-  for (const plane of planes) {
-    const nextPending: Vec3[][] = [];
-    pending.forEach((piece) => {
-      const outside = clipPolygonByPlane(piece, plane, false);
-      if (outside.length >= 3) {
-        outsidePieces.push(outside);
-      }
-
-      const inside = clipPolygonByPlane(piece, plane, true);
-      if (inside.length >= 3) {
-        nextPending.push(inside);
-      }
-    });
-    pending = nextPending;
-    if (pending.length === 0) {
-      break;
-    }
-  }
-
-  return outsidePieces;
-}
-
-function triangulatePolygonToPositions(polygon: Vec3[], positions: number[]) {
-  if (polygon.length < 3) {
-    return;
-  }
-
-  const first = polygon[0];
-  for (let i = 1; i < polygon.length - 1; i += 1) {
-    const b = polygon[i];
-    const c = polygon[i + 1];
-    positions.push(first[0], first[1], first[2], b[0], b[1], b[2], c[0], c[1], c[2]);
-  }
-}
-
-function addQuadToPositions(positions: number[], a: Vec3, b: Vec3, c: Vec3, d: Vec3) {
-  positions.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
-  positions.push(a[0], a[1], a[2], c[0], c[1], c[2], d[0], d[1], d[2]);
-}
-
-type HoleWallSide = "minX" | "maxX" | "minZ" | "maxZ";
-type HoleWallSegment = { a: Vec3; b: Vec3; minCross: number; maxCross: number; avgY: number; key: string };
-
-function localCutWallBaseY(segments: HoleWallSegment[], minY: number, maxY: number) {
-  const ys = segments
-    .flatMap((segment) => [segment.a[1], segment.b[1], segment.avgY])
-    .filter((value) => value >= minY - 0.001 && value <= maxY + 0.001)
-    .sort((a, b) => a - b);
-  if (ys.length < 2) {
-    return minY;
-  }
-
-  let largestGap = 0;
-  let gapIndex = -1;
-  const minimumGap = Math.max(0.25, (maxY - minY) * 0.08);
-  for (let i = 1; i < ys.length; i += 1) {
-    const gap = ys[i] - ys[i - 1];
-    if (gap > largestGap) {
-      largestGap = gap;
-      gapIndex = i;
-    }
-  }
-
-  if (gapIndex > 0 && largestGap > minimumGap) {
-    return ys[gapIndex - 1];
-  }
-
-  return ys[Math.max(0, Math.floor(ys.length * 0.12))];
-}
-
-function clipSegmentToRect(a: Vec3, b: Vec3, crossAxis: 0 | 1 | 2, crossMin: number, crossMax: number, minY: number, maxY: number): [Vec3, Vec3] | null {
-  let t0 = 0;
-  let t1 = 1;
-  const clipRange = (start: number, end: number, min: number, max: number) => {
-    const delta = end - start;
-    if (Math.abs(delta) < 0.000001) {
-      return start >= min - 0.0001 && start <= max + 0.0001;
-    }
-    const ta = (min - start) / delta;
-    const tb = (max - start) / delta;
-    t0 = Math.max(t0, Math.min(ta, tb));
-    t1 = Math.min(t1, Math.max(ta, tb));
-    return t0 <= t1 + 0.0001;
-  };
-
-  if (!clipRange(a[crossAxis], b[crossAxis], crossMin, crossMax) || !clipRange(a[1], b[1], minY, maxY)) {
-    return null;
-  }
-
-  const start = interpolateVec3(a, b, Math.max(0, Math.min(1, t0)));
-  const end = interpolateVec3(a, b, Math.max(0, Math.min(1, t1)));
-  return Math.hypot(start[0] - end[0], start[1] - end[1], start[2] - end[2]) > 0.01 ? [start, end] : null;
-}
-
-function trianglePlaneSegment(triangle: Vec3[], axis: 0 | 1 | 2, plane: number): [Vec3, Vec3] | null {
-  const points: Vec3[] = [];
-  const addPoint = (point: Vec3) => {
-    if (!points.some((existing) => Math.hypot(existing[0] - point[0], existing[1] - point[1], existing[2] - point[2]) < 0.0001)) {
-      points.push(point);
-    }
-  };
-
-  for (let i = 0; i < 3; i += 1) {
-    const a = triangle[i];
-    const b = triangle[(i + 1) % 3];
-    const da = a[axis] - plane;
-    const db = b[axis] - plane;
-
-    if (Math.abs(da) <= 0.0001) {
-      addPoint(a);
-    }
-    if (Math.abs(db) <= 0.0001) {
-      addPoint(b);
-    }
-    if (da * db < -0.00000001) {
-      addPoint(interpolateVec3(a, b, da / (da - db)));
-    }
-  }
-
-  if (points.length < 2) {
-    return null;
-  }
-
-  let best: [Vec3, Vec3] = [points[0], points[1]];
-  let bestDistance = 0;
-  for (let i = 0; i < points.length; i += 1) {
-    for (let j = i + 1; j < points.length; j += 1) {
-      const distance = Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1], points[i][2] - points[j][2]);
-      if (distance > bestDistance) {
-        bestDistance = distance;
-        best = [points[i], points[j]];
-      }
-    }
-  }
-
-  return bestDistance > 0.01 ? best : null;
-}
-
-function addLocalHoleWallSegments(positions: number[], sourceMesh: MeshData, hole: Cuboid, solidBounds: Cuboid, side: HoleWallSide) {
-  const axis = side === "minX" || side === "maxX" ? 0 : 2;
-  const crossAxis = axis === 0 ? 2 : 0;
-  const plane =
-    side === "minX"
-      ? Math.max(hole.minX, solidBounds.minX)
-      : side === "maxX"
-        ? Math.min(hole.maxX, solidBounds.maxX)
-        : side === "minZ"
-          ? Math.max(hole.minZ, solidBounds.minZ)
-          : Math.min(hole.maxZ, solidBounds.maxZ);
-  const crossMin = axis === 0 ? Math.max(hole.minZ, solidBounds.minZ) : Math.max(hole.minX, solidBounds.minX);
-  const crossMax = axis === 0 ? Math.min(hole.maxZ, solidBounds.maxZ) : Math.min(hole.maxX, solidBounds.maxX);
-  const minY = Math.max(hole.minY, solidBounds.minY);
-  const maxY = Math.min(hole.maxY, solidBounds.maxY);
-  const crossLength = crossMax - crossMin;
-  if (crossLength <= 0.01 || maxY - minY <= 0.01) {
-    return;
-  }
-
-  const sideTolerance = Math.max(0.0001, Math.min(hole.maxX - hole.minX, hole.maxZ - hole.minZ) * 0.0001);
-  const seen = new Set<string>();
-  const segmentKey = (a: Vec3, b: Vec3) => {
-    const toKey = (point: Vec3) => `${Math.round(point[0] * 1000)},${Math.round(point[1] * 1000)},${Math.round(point[2] * 1000)}`;
-    const ak = toKey(a);
-    const bk = toKey(b);
-    return ak < bk ? `${ak}|${bk}` : `${bk}|${ak}`;
-  };
-  const segments: HoleWallSegment[] = [];
-
-  sourceMesh.faces.forEach(([ai, bi, ci]) => {
-    const triangle = [sourceMesh.vertices[ai], sourceMesh.vertices[bi], sourceMesh.vertices[ci]];
-    const bounds = polygonAabb(triangle);
-    const minSide = axis === 0 ? bounds.minX : bounds.minZ;
-    const maxSide = axis === 0 ? bounds.maxX : bounds.maxZ;
-    const minCross = crossAxis === 0 ? bounds.minX : bounds.minZ;
-    const maxCross = crossAxis === 0 ? bounds.maxX : bounds.maxZ;
-    if (maxSide < plane - sideTolerance || minSide > plane + sideTolerance || maxCross < crossMin || minCross > crossMax || bounds.maxY < hole.minY || bounds.minY > hole.maxY) {
-      return;
-    }
-
-    const rawSegment = trianglePlaneSegment(triangle, axis, plane);
-    if (!rawSegment) {
-      return;
-    }
-    const clipped = clipSegmentToRect(rawSegment[0], rawSegment[1], crossAxis, crossMin, crossMax, minY, maxY);
-    if (!clipped) {
-      return;
-    }
-    const [a, b] = clipped;
-    if (Math.max(a[1], b[1]) <= minY + 0.01) {
-      return;
-    }
-    const key = segmentKey(a, b);
-    if (seen.has(key)) {
-      return;
-    }
-    seen.add(key);
-    segments.push({
-      a,
-      b,
-      minCross: Math.min(a[crossAxis], b[crossAxis]),
-      maxCross: Math.max(a[crossAxis], b[crossAxis]),
-      avgY: (a[1] + b[1]) / 2,
-      key,
-    });
-  });
-
-  const yTolerance = Math.max(0.03, (maxY - minY) * 0.01);
-  const baseY = Math.max(minY, Math.min(maxY, localCutWallBaseY(segments, minY, maxY)));
-  const minimumCrossSpan = Math.max(0.04, crossLength * 0.002);
-
-  segments.forEach((segment) => {
-    if (segment.maxCross - segment.minCross < minimumCrossSpan || Math.max(segment.a[1], segment.b[1]) - baseY <= yTolerance) {
-      return;
-    }
-    const baseA: Vec3 = [segment.a[0], baseY, segment.a[2]];
-    const baseB: Vec3 = [segment.b[0], baseY, segment.b[2]];
-    addQuadToPositions(positions, segment.a, segment.b, baseB, baseA);
-  });
-}
-
-function addBoxHoleInteriorFaces(positions: number[], hole: Cuboid, sourceMesh: MeshData, solidBounds: Cuboid) {
-  const x0 = Math.max(hole.minX, solidBounds.minX);
-  const x1 = Math.min(hole.maxX, solidBounds.maxX);
-  const z0 = Math.max(hole.minZ, solidBounds.minZ);
-  const z1 = Math.min(hole.maxZ, solidBounds.maxZ);
-  if (x1 - x0 <= 0.01 || z1 - z0 <= 0.01) {
-    return;
-  }
-
-  addLocalHoleWallSegments(positions, sourceMesh, hole, solidBounds, "minX");
-  addLocalHoleWallSegments(positions, sourceMesh, hole, solidBounds, "maxX");
-  addLocalHoleWallSegments(positions, sourceMesh, hole, solidBounds, "minZ");
-  addLocalHoleWallSegments(positions, sourceMesh, hole, solidBounds, "maxZ");
 }
 
 function cuboidsToMesh(name: string, cuboids: Cuboid[], centerX: number, centerZ: number, baseY = 0): MeshData {
@@ -4906,7 +4296,7 @@ function primitiveTransformMatrix(shape: WorkplaneShape, scale: THREE.Vector3, a
   return matrix;
 }
 
-function transformedPrimitiveManifold(runtime: ManifoldToplevel, primitive: ManifoldSolid, matrix: THREE.Matrix4, created: ManifoldSolid[]) {
+function transformedPrimitiveManifold(primitive: ManifoldSolid, matrix: THREE.Matrix4, created: ManifoldSolid[]) {
   trackManifold(created, primitive);
   return trackManifold(created, primitive.transform(manifoldTransformFromMatrix(matrix)));
 }
@@ -4925,13 +4315,12 @@ function primitiveManifoldForShape(runtime: ManifoldToplevel, shape: WorkplaneSh
   }
 
   if (shape.kind === "box") {
-    return transformedPrimitiveManifold(runtime, runtime.Manifold.cube(1, true), primitiveTransformMatrix(shape, new THREE.Vector3(width, height, depth)), created);
+    return transformedPrimitiveManifold(runtime.Manifold.cube(1, true), primitiveTransformMatrix(shape, new THREE.Vector3(width, height, depth)), created);
   }
 
   if (shape.kind === "sphere") {
     const { widthSegments } = sphereTessellation(shape.steps);
     return transformedPrimitiveManifold(
-      runtime,
       runtime.Manifold.sphere(1, widthSegments),
       primitiveTransformMatrix(shape, new THREE.Vector3(width / 2, height / 2, depth / 2)),
       created,
@@ -4947,7 +4336,6 @@ function primitiveManifoldForShape(runtime: ManifoldToplevel, shape: WorkplaneSh
           : 0
         : 1;
     return transformedPrimitiveManifold(
-      runtime,
       runtime.Manifold.cylinder(1, 1, topRadiusScale, sides, true),
       primitiveTransformMatrix(shape, new THREE.Vector3(width / 2, depth / 2, height), new THREE.Euler(-Math.PI / 2, 0, 0, "XYZ")),
       created,
@@ -5923,187 +5311,6 @@ function boxedBooleanMeshShape(selection: WorkplaneShape[], groupChildren?: Work
   };
 }
 
-function aabbBooleanMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
-  const solids = selection.filter((shape) => !shape.hole && !shape.locked);
-  const holes = selection.filter((shape) => shape.hole);
-  if (solids.length === 0 || holes.length === 0) {
-    return null;
-  }
-
-  const solidBounds = solids.map(meshAabb);
-  const cutterBounds = holes.map((hole) => meshAabb(paddedCutterShape(hole)));
-  const cuboids = solidBounds.flatMap((solid) => cutterBounds.reduce<Cuboid[]>((parts, cutter) => parts.flatMap((part) => subtractCuboid(part, cutter)), [solid]));
-  if (cuboids.length === 0) {
-    return null;
-  }
-
-  const groupBounds = boundsForCuboids(cuboids);
-  const centerX = (groupBounds.minX + groupBounds.maxX) / 2;
-  const centerZ = (groupBounds.minZ + groupBounds.maxZ) / 2;
-  const width = Math.max(MIN_SHAPE_DIMENSION, groupBounds.maxX - groupBounds.minX);
-  const minY = groupBounds.minY;
-  const height = Math.max(MIN_SHAPE_DIMENSION, groupBounds.maxY - groupBounds.minY);
-  const depth = Math.max(MIN_SHAPE_DIMENSION, groupBounds.maxZ - groupBounds.minZ);
-  const mesh = cuboidsToMesh("Group", cuboids, centerX, centerZ, minY);
-  const positions = mesh.faces.flatMap(([ai, bi, ci]) => [mesh.vertices[ai], mesh.vertices[bi], mesh.vertices[ci]]).flat();
-  const firstSolid = solids[0];
-
-  return {
-    id: createLocalId("grouped-boolean"),
-    name: "Group",
-    kind: "mesh",
-    color: firstSolid.color,
-    x: centerX,
-    z: centerZ,
-    elevation: minY,
-    size: Math.max(width, depth),
-    width,
-    depth,
-    height,
-    rotation: 0,
-    importedMesh: {
-      positions,
-      baseWidth: width,
-      baseDepth: depth,
-      baseHeight: height,
-      triangleCount: Math.floor(positions.length / 9),
-      sourceFormat: "json",
-    },
-    groupedBaseWidth: width,
-    groupedBaseDepth: depth,
-    groupedBaseHeight: height,
-    groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
-    locked: false,
-    hidden: false,
-  };
-}
-
-function hollowClipMeshShape(selection: WorkplaneShape[]): WorkplaneShape | null {
-  const solids = selection.filter((shape) => !shape.hole && !shape.locked);
-  const holes = selection
-    .filter((shape) => shape.hole)
-    .map(paddedCutterShape)
-    .map((shape) => ({ shape, bounds: meshAabb(shape) }));
-  if (solids.length === 0 || holes.length === 0) {
-    return null;
-  }
-
-  const sourceMesh = mergedSolidMeshData(solids);
-  const sourceBounds = boundsForCuboids(solids.map(meshAabb));
-  const canPlaneClip = holes.every((hole) => isAxisAlignedBoxCutter(hole.shape));
-  const positions: number[] = [];
-  let removedTriangles = 0;
-
-  if (canPlaneClip) {
-    sourceMesh.faces.forEach(([ai, bi, ci]) => {
-      let fragments: Vec3[][] = [[sourceMesh.vertices[ai], sourceMesh.vertices[bi], sourceMesh.vertices[ci]]];
-      holes.forEach((hole) => {
-        const nextFragments: Vec3[][] = [];
-        fragments.forEach((fragment) => {
-          if (!cuboidsTouch(polygonAabb(fragment), hole.bounds)) {
-            nextFragments.push(fragment);
-            return;
-          }
-
-          const clipped = subtractCuboidFromPolygon(fragment, hole.bounds);
-          if (
-            clipped.length !== 1 ||
-            clipped[0].length !== fragment.length ||
-            clipped[0].some((point, index) => point.some((value, axis) => Math.abs(value - fragment[index][axis]) > 0.0001))
-          ) {
-            removedTriangles += 1;
-          }
-          clipped.forEach((piece) => nextFragments.push(piece));
-        });
-        fragments = nextFragments;
-      });
-
-      fragments.forEach((fragment) => triangulatePolygonToPositions(fragment, positions));
-    });
-
-    holes.forEach((hole) => addBoxHoleInteriorFaces(positions, hole.bounds, sourceMesh, sourceBounds));
-  } else {
-    sourceMesh.faces.forEach(([ai, bi, ci]) => {
-      const triangle = [sourceMesh.vertices[ai], sourceMesh.vertices[bi], sourceMesh.vertices[ci]];
-
-      if (holes.some((hole) => triangleTouchesHoleShape(triangle, hole.shape, hole.bounds))) {
-        removedTriangles += 1;
-        return;
-      }
-
-      triangle.forEach(([x, y, z]) => {
-        positions.push(x, y, z);
-      });
-    });
-  }
-
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let minZ = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  let maxZ = Number.NEGATIVE_INFINITY;
-
-  for (let i = 0; i < positions.length; i += 3) {
-    const x = positions[i];
-    const y = positions[i + 1];
-    const z = positions[i + 2];
-    minX = Math.min(minX, x);
-    minY = Math.min(minY, y);
-    minZ = Math.min(minZ, z);
-    maxX = Math.max(maxX, x);
-    maxY = Math.max(maxY, y);
-    maxZ = Math.max(maxZ, z);
-  }
-
-  if (removedTriangles === 0 || positions.length < 9 || ![minX, minY, minZ, maxX, maxY, maxZ].every(Number.isFinite)) {
-    return null;
-  }
-
-  const centerX = (minX + maxX) / 2;
-  const centerZ = (minZ + maxZ) / 2;
-  const rawWidth = Math.max(MIN_SHAPE_DIMENSION, maxX - minX);
-  const rawHeight = Math.max(MIN_SHAPE_DIMENSION, maxY - minY);
-  const rawDepth = Math.max(MIN_SHAPE_DIMENSION, maxZ - minZ);
-  const width = cleanModelDimension(rawWidth);
-  const height = cleanModelDimension(rawHeight);
-  const depth = cleanModelDimension(rawDepth);
-  const normalizedPositions: number[] = [];
-  for (let i = 0; i < positions.length; i += 3) {
-    normalizedPositions.push(positions[i] - centerX, positions[i + 1] - minY, positions[i + 2] - centerZ);
-  }
-
-  const firstSolid = solids[0];
-  return {
-    id: createLocalId("grouped-import-clip"),
-    name: "Group",
-    kind: "mesh",
-    color: firstSolid.color,
-    x: centerX,
-    z: centerZ,
-    elevation: minY,
-    size: Math.max(width, depth),
-    width,
-    depth,
-    height,
-    rotation: 0,
-    importedMesh: {
-      positions: normalizedPositions,
-      baseWidth: rawWidth,
-      baseDepth: rawDepth,
-      baseHeight: rawHeight,
-      triangleCount: Math.floor(normalizedPositions.length / 9),
-      sourceFormat: "json",
-    },
-    groupedBaseWidth: width,
-    groupedBaseDepth: depth,
-    groupedBaseHeight: height,
-    groupedShapes: selection.map((shape) => cloneAsGroupChild(shape, centerX, centerZ, minY)),
-    locked: false,
-    hidden: false,
-  };
-}
-
 function cutFullyConsumesSolids(selection: WorkplaneShape[]) {
   const solids = selection.filter((shape) => !shape.hole && !shape.locked);
   const holes = selection.filter((shape) => shape.hole).map(paddedCutterShape);
@@ -6935,7 +6142,6 @@ export function LayerlingEditor({
   const overhangWarning = bedPrinter && overhangs.length > 0 ? bedOverhangMessage(overhangs, `${bedPrinter.vendor} ${bedPrinter.model}`) : null;
   const [snapGrid, setSnapGrid] = useState<GridSize>(() => normalizeSnapGrid(initialSnap));
   const [workplaneMode, setWorkplaneMode] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [topPanel, setTopPanel] = useState<TopPanel>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -6993,7 +6199,6 @@ export function LayerlingEditor({
   const [arrayTool, setArrayTool] = useState<ArraySettings | null>(null);
   const [scalePercentTool, setScalePercentTool] = useState<ScalePercentSettings | null>(null);
   const [scalePercentError, setScalePercentError] = useState<string | null>(null);
-  const [activeMode, setActiveMode] = useState("3D Design");
   const editorLanguage = useLanguage();
   // Leer heisst Ruhe: Dann steht kein Fenster auf der Arbeitsflaeche. Ein
   // „Bereit" braucht niemand zu lesen - dass nichts los ist, sieht man.
@@ -9102,7 +8307,8 @@ export function LayerlingEditor({
       window.clearTimeout(projectSyncTimerRef.current);
       projectSyncTimerRef.current = null;
     }
-    if (!projectChanged && incomingSerialized === projectShapesFingerprint(shapes)) {
+    // The current shapes, not the ones this effect last saw: it leaves `shapes` out on purpose.
+    if (!projectChanged && incomingSerialized === projectShapesFingerprint(shapesRef.current)) {
       return;
     }
     const incomingNotes = notesForHistoryIndex(initialHistory, initialHistoryIndex);
@@ -9561,7 +8767,6 @@ export function LayerlingEditor({
     setLayFlatPickMode(false);
     setArrayTool(null);
     setTopPanel(null);
-    setMenuOpen(false);
     setHistoryViewIndex(historyIndexRef.current);
     setNotice(t("status.historyViewOpened"), true);
   }, []);
@@ -13296,7 +12501,7 @@ export function LayerlingEditor({
         setNotice(await onSaveSharedProject({ exportName: exportName.trim() || projectName, bytes, thumbnailDataUrl }));
       } else {
         const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-        const result = await downloadBlobFile(projectExportFileName(exportName, "lyl"), new Blob([buffer], { type: LYL_MEDIA_TYPE }));
+        await downloadBlobFile(projectExportFileName(exportName, "lyl"), new Blob([buffer], { type: LYL_MEDIA_TYPE }));
         setNotice(t("status.savedProject"));
       }
       setTopPanel(null);
@@ -13574,59 +12779,6 @@ export function LayerlingEditor({
     void saveToServerRef.current();
     void flushProjectSnapshot({ evenIfUnchanged: true }).finally(leave);
   }, [flushProjectSnapshot, onHome, saveProjectShapesNow]);
-
-  const clearDesign = useCallback(() => {
-    commitShapes([], [], t("status.newDesign"));
-    setClipboard([]);
-    setMenuOpen(false);
-    setTopPanel(null);
-  }, [commitShapes]);
-
-  const createHouseScene = useCallback(
-    (replace = true) => {
-      const house = makeHouseScene();
-      const next = replace ? house : [...shapes, ...house];
-      commitShapes(next, house.map((shape) => shape.id), t("status.houseScene"));
-      setMenuOpen(false);
-      setTopPanel(null);
-      return house;
-    },
-    [commitShapes, shapes],
-  );
-
-  const createPerfScene = useCallback(
-    (count = 500) => {
-      const scene = makeBlockPerfScene(count);
-      commitShapes(scene, [], t("status.performanceScene", { count: scene.length }));
-      setMenuOpen(false);
-      setTopPanel(null);
-      return scene;
-    },
-    [commitShapes],
-  );
-
-  const saveDesign = useCallback(() => {
-    setNotice(shapes.length === 1
-      ? t("status.savedOne")
-      : t("status.savedMany", { count: shapes.length }));
-    setMenuOpen(false);
-  }, [shapes.length]);
-
-  const makeCopy = useCallback(() => {
-    if (shapes.length === 0) {
-      setNotice(t("status.nothingToCopy"));
-      setMenuOpen(false);
-      return;
-    }
-    const copies = shapes.map((shape) => ({
-      ...shape,
-      id: createLocalId(`${shape.id}-copy`),
-      x: Math.min(110, shape.x + 12),
-      z: Math.min(110, shape.z + 12),
-    }));
-    commitShapes([...shapes, ...copies], copies.map((shape) => shape.id), t("status.designCopied"));
-    setMenuOpen(false);
-  }, [commitShapes, shapes]);
 
   // A saved design's bodies into the open one - for parts kept as building
   // blocks. Fresh ids so nothing clashes, embedded source files come along,
@@ -14166,6 +13318,11 @@ export function LayerlingEditor({
     toolbarMode,
     undo,
     ungroupSelected,
+    // Esc closes these tools, and Ctrl+A picks from the current shapes: a handler from before
+    // they opened, or before a shape was added, closed nothing and missed new shapes.
+    mateTool,
+    scalePercentTool,
+    shapes,
   ]);
 
   /*
@@ -14239,7 +13396,6 @@ export function LayerlingEditor({
           }
           setWorkplaneMode(false);
           setTopPanel(null);
-          setMenuOpen(false);
         }}
         outlinerOpen={outlinerOpen}
         onToggleOutliner={toggleOutliner}
@@ -14342,7 +13498,6 @@ export function LayerlingEditor({
         onToggleOverhangs={toggleOverhangsVisible}
         onTopPanel={(panel) => {
           setTopPanel((current) => (current === panel ? null : panel));
-          setMenuOpen(false);
         }}
         objects={shapes.map((shape) => ({ id: shape.id, name: displayShapeName(shape), kind: shape.kind, hidden: Boolean(shape.hidden) }))}
         onSelectObject={(id) => selectShape(id)}
@@ -14376,7 +13531,6 @@ export function LayerlingEditor({
         )}
         onAddShape={(shape) => {
           setTopPanel(null);
-          setMenuOpen(false);
           if (workspaceSettings.clickToPlaceShapes) {
             startCruise(shape);
             return;
@@ -14769,7 +13923,6 @@ export function LayerlingEditor({
           onPickFile={() => fileInputRef.current?.click()}
           onPickProjectFile={() => projectFileInputRef.current?.click()}
           onPickInsertProjectFile={() => insertProjectFileInputRef.current?.click()}
-          onNotice={setNotice}
           workspaceHistoryLimit={workspaceSettings.historyLimit}
         />
       ) : null}
@@ -16106,7 +15259,6 @@ function TopActionPanel({
   onPickFile,
   onPickProjectFile,
   onPickInsertProjectFile,
-  onNotice,
   workspaceHistoryLimit,
 }: {
   panel: Exclude<TopPanel, null>;
@@ -16134,7 +15286,6 @@ function TopActionPanel({
   onPickFile: () => void;
   onPickProjectFile: () => void;
   onPickInsertProjectFile: () => void;
-  onNotice: (message: string) => void;
   workspaceHistoryLimit: LylHistoryLimit;
 }) {
   const [exportFormat, setExportFormat] = useState<ExportFormat>("stl");

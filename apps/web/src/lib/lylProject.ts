@@ -1723,7 +1723,7 @@ async function restoreShapeFromNode(
   });
 }
 
-async function restoreV1(document: LylProjectDocumentV1, assetById: Map<string, LylAssetRecordV1>, stateById: Map<string, LylStateV1>, files: ArchiveFiles, options: ImportLylOptions) {
+async function restoreV1(document: LylProjectDocumentV1, assetById: Map<string, LylAssetRecordV1>, files: ArchiveFiles, options: ImportLylOptions) {
   const runtimeAssetByArchiveId = new Map<string, ProjectAsset>();
   for (const record of document.assets.filter((asset) => asset.kind === "source")) {
     const bytes = new Uint8Array(files[record.path]);
@@ -1902,5 +1902,5 @@ export async function importLylProject(input: ArrayBuffer | Uint8Array, options:
   }
 
   const { files, validated } = await readPackagedLyl(bytes);
-  return restoreV1(validated.document, validated.assetById, validated.stateById, files, options);
+  return restoreV1(validated.document, validated.assetById, files, options);
 }

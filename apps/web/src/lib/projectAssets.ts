@@ -144,12 +144,6 @@ export async function projectAssetFromBytes(
   };
 }
 
-export async function projectAssetFromFile(file: File, sourceFormat = sourceFormatForFileName(file.name)) {
-  if (!sourceFormat) throw new Error("Unsupported project asset type");
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  return projectAssetFromBytes(file.name, sourceFormat, bytes, file.type);
-}
-
 export function normalizeProjectAsset(value: ProjectAsset): ProjectAsset {
   const candidate = value.bytes as Uint8Array | ArrayBuffer | number[];
   const bytes = candidate instanceof Uint8Array
@@ -178,15 +172,4 @@ export function attachProjectAsset(shape: WorkplaneShape, assetId: string): Work
       assetId,
     },
   };
-}
-
-export function projectAssetIdsInShapes(shapes: WorkplaneShape[]) {
-  const ids = new Set<string>();
-  const visit = (shape: WorkplaneShape) => {
-    if (shape.importedMesh?.assetId) ids.add(shape.importedMesh.assetId);
-    shape.groupedShapes?.forEach(visit);
-    shape.edgeTreatmentHistory?.forEach((entry) => visit(entry.before));
-  };
-  shapes.forEach(visit);
-  return ids;
 }

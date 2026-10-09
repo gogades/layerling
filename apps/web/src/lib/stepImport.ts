@@ -2,12 +2,6 @@ import type { WorkplaneShape } from "@/types/layerling";
 import { importedShapeFromTriangleSoup } from "@/lib/stlImport";
 import { loadBrepWithOcct } from "@/lib/brepKernel";
 
-const STEP_EXTENSIONS = new Set(["step", "stp"]);
-
-export function isStepFile(fileName: string): boolean {
-  return STEP_EXTENSIONS.has(fileName.split(".").pop()?.toLowerCase() ?? "");
-}
-
 export async function importedShapeFromStep(fileName: string, buffer: ArrayBuffer): Promise<WorkplaneShape> {
   const brep = await loadBrepWithOcct();
 

@@ -1042,8 +1042,6 @@ export function threadBuildPlan(options: ThreadGeometryOptions) {
   };
 }
 
-export type ThreadBuildPlan = ReturnType<typeof threadBuildPlan>;
-
 export function createThreadGeometry(options: ThreadGeometryOptions) {
   const plan = threadBuildPlan(options);
   const { settings, height, spec, profile, major, minor, handSign, headHeight, shaftBottom, chamfer, chamferBottom, inward } = plan;

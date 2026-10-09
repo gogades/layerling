@@ -1306,7 +1306,7 @@ export default function Home() {
       setDashboardNotice(message);
       return { ok: false, message };
     }
-  }, [projects.length]);
+  }, [projects]);
 
   const openSharedProject = useCallback(async (sharedProject: SharedProject) => {
     setDashboardNotice(t("notice.openingShared", { name: sharedProject.name }));
@@ -1790,7 +1790,7 @@ export default function Home() {
         setDashboardNotice(error instanceof Error ? localizedError(error.message) : t("notice.importProjectFailed"));
       }
     },
-    [openLylProjectFromFile, projects.length],
+    [openLylProjectFromFile, projects.length, restoreBackup],
   );
 
   const openLatestProject = () => {

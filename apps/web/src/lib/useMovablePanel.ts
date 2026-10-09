@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 import { clampPanelPosition, isNearDock, PANEL_GRAB_HEIGHT, parsePanelPosition, type PanelPosition } from "@/lib/panelPosition";
+import { capturePointer } from "@/lib/pointerCapture";
 
 /** Controls inside the title bar keep their own clicks; only the bar itself moves the panel. */
 const NOT_A_HANDLE = "button, a, input, select, textarea";
@@ -128,7 +129,7 @@ export function useMovablePanel<T extends HTMLElement = HTMLDivElement>(storageK
     if (event.button !== 0 || !measured) return;
     if (event.target instanceof Element && event.target.closest(NOT_A_HANDLE)) return;
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    capturePointer(event.currentTarget, event.pointerId);
     const { left, top } = measured.current;
     if (!placementRef.current) dockRef.current = { left, top };
     dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left, top };

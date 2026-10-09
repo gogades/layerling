@@ -24,6 +24,7 @@ import { selectWholeValue } from "@/lib/numberField";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { clampNudge, constrainToAxis, sketchSegmentDragPointIds, sketchSelectionMovePointIds, type SketchSelectableEntity, type SketchSelection } from "@/lib/sketchSelection";
 import { closedPathAt, cubicPoint, curveControls, isInsideEdges, orderedPaths, pathEdges, type DisplayPath, type PlaneEdge } from "@/lib/sketchPaths";
+import { capturePointer } from "@/lib/pointerCapture";
 
 export type { SketchPrimitive } from "@/lib/sketchPrimitives";
 export type SketchTool = "line" | "bezier" | "smooth" | SketchPrimitive | "select" | "refine" | "erase" | "measure";
@@ -908,7 +909,7 @@ export function SketchWorkspace({
   const beginPan = (event: ReactPointerEvent<SVGElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    svgRef.current?.setPointerCapture(event.pointerId);
+    capturePointer(svgRef.current, event.pointerId);
     setPointerAction({ kind: "pan", pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY });
   };
 
@@ -926,11 +927,11 @@ export function SketchWorkspace({
     if (!point) return;
     event.preventDefault();
     if (tool === "bezier") {
-      event.currentTarget.setPointerCapture(event.pointerId);
+      capturePointer(event.currentTarget, event.pointerId);
       const startPoint = event.shiftKey && activePoint ? constrainToAxis(activePoint, point) : point;
       setPointerAction({ kind: "bezier", pointerId: event.pointerId, origin: startPoint, current: startPoint });
     } else if (tool === "select") {
-      event.currentTarget.setPointerCapture(event.pointerId);
+      capturePointer(event.currentTarget, event.pointerId);
       setPointerAction({ kind: "marquee", pointerId: event.pointerId, origin: point, current: point, clientX: event.clientX, clientY: event.clientY });
     } else if (tool === "line" || tool === "smooth" || tool === "measure") {
       const clickPoint = event.shiftKey && activePoint && ["line", "smooth"].includes(tool)
@@ -1171,7 +1172,7 @@ export function SketchWorkspace({
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
-    svgRef.current?.setPointerCapture(event.pointerId);
+    capturePointer(svgRef.current, event.pointerId);
     setPointerAction(action);
   };
 

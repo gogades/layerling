@@ -71,9 +71,6 @@ import {
   DEFAULT_STAR_QUALITY,
   MIN_STAR_QUALITY,
   MAX_STAR_QUALITY,
-  normalizeStarFillet,
-  normalizeStarInnerSize,
-  normalizeStarPoints,
   normalizeStarQuality,
   starMaxFilletRadii,
 } from "@/lib/starGeometry";

@@ -102,12 +102,6 @@ export function buildHeartContourPoints(
   const alphaTangent = Math.acos(clamp(R / dist, -1, 1));
   const phiTangent = phiBase + alphaTangent;
 
-  // Tangentenpunkt rechts:
-  const tRight: Point2D = {
-    x: xc + R * Math.cos(phiTangent),
-    y: yc + R * Math.sin(phiTangent),
-  };
-
   // Cleft (oberer Schnittpunkt der beiden Lappen bei x = 0):
   const yCleft = yc + Math.sqrt(Math.max(0, R * R - xc * xc));
   const phiCleftRight = Math.atan2(yCleft - yc, 0 - xc);

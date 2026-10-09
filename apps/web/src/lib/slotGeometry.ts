@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { roundSideCount } from "@/lib/roundSideCount";
-import type { WorkplaneShape } from "@/types/layerling";
 
 export const DEFAULT_SLOT_WIDTH = 40;
 export const DEFAULT_SLOT_DEPTH = 20;

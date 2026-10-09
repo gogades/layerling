@@ -43,10 +43,6 @@ export function scaleOptionsForUnits(units: string) {
   return scaleEntriesForUnits(units).map((option) => option.label);
 }
 
-export function defaultScaleForUnits(units: string) {
-  return scaleEntriesForUnits(units)[0].label;
-}
-
 export function normalizeScaleForUnits(units: string, scale: string) {
   const options = scaleEntriesForUnits(units);
   const normalizedScale = units !== "Imperial" && units !== "Bricks" && scale === "1:100 (meters)" ? "1:1000 (meters)" : scale;
