@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.55.0
 
 - **Double click opens groups, and shaky clicks no longer move parts:** A double click on a group or a bundle now opens it for editing, as a double click on a sketch body opens its sketch; two switches in the settings turn either off. And a part only starts to move once the pointer has travelled a few pixels, so a slightly shaky click or double click no longer nudges it off the grid. Suggested by @luk-saw and @prmod3d in #150.
 - **Set down on faces, like Cruise in Tinkercad:** A new shape on the pointer now lies down on the face of the body under the pointer, sloped faces included, lined up with that face; over the empty plate it still lands on the workplane. And C picks up the selection: it follows the pointer over the faces of other bodies and a click sets it down there (Esc leaves it), its underside on the face, keeping its own turn about its up axis; several parts travel together. The MCP bridge gets the same as `layerling_place_on_face`. Suggested by @danyvanimpe-lab in #195.

@@ -1,5 +1,30 @@
 [
   {
+    "version": "1.55.0",
+    "items": [
+      {
+        "title": {
+          "de": "Auf Flächen absetzen",
+          "en": "Set down on faces"
+        },
+        "body": {
+          "de": "Wie Cruise in Tinkercad: Eine neue Form legt sich auf die Fläche unter dem Zeiger, auch auf eine schräge. Mit C nimmst du die Auswahl auf und setzt sie so auf eine andere Fläche.",
+          "en": "Like Cruise in Tinkercad: a new shape lies down on the face under the pointer, sloped ones too. C picks up the selection and sets it down on another face the same way."
+        }
+      },
+      {
+        "title": {
+          "de": "Doppelklick öffnet Gruppen",
+          "en": "Double click opens groups"
+        },
+        "body": {
+          "de": "Ein Doppelklick auf eine Gruppe oder ein Bündel öffnet sie zum Bearbeiten, und ein verwackelter Klick verschiebt kein Teil mehr. Den Doppelklick kannst du in den Einstellungen abschalten.",
+          "en": "A double click on a group or bundle opens it for editing, and a shaky click no longer moves a part. The double click can be switched off in the settings."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.54.0",
     "items": [
       {
