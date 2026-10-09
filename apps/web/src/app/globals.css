@@ -14756,3 +14756,20 @@ html[data-theme="dark"] .history-view-slider .range-control input[type="range"]:
   font-size: 12px;
   line-height: 1.45;
 }
+
+/* A tool panel never runs off the bottom of the window (forum post 617808: the pattern panel in
+   circle mode on a 1080p screen at 125 %): it scrolls inside, and its buttons stay in view. */
+.edge-modifier-panel {
+  max-height: calc(100dvh - var(--editor-toolbar-height) - 28px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.edge-modifier-panel > .edge-modifier-footer {
+  position: sticky;
+  bottom: -14px;
+  z-index: 1;
+  margin-bottom: -14px;
+  padding-bottom: 14px;
+  background: inherit;
+}

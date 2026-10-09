@@ -6996,6 +6996,10 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-slider .r
   color: var(--muted-strong);
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .edge-modifier-panel > .edge-modifier-footer {
+  background: inherit;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section-tools,
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section .action-buttons {
   background: var(--toolbar-tile);
