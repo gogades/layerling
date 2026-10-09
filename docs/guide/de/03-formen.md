@@ -89,6 +89,8 @@ Neben den Einstellungen gibt es Griffe an der Form selbst:
 
 Ohne Maus geht es mit der Tastatur: Die Pfeiltasten schieben die Auswahl um einen Rasterschritt, mit [[Umschalt]] um fünf. Sie richten sich nach der Ansicht: [[→]] schiebt dahin, wo auf dem Bildschirm rechts ist, [[↑]] vom Betrachter weg, auch wenn du die Platte gedreht hast. Schiebst du eine Form aus dem Bild, rückt die Ansicht mit. [[Strg]]+[[↑]] und [[Strg]]+[[↓]] heben und senken sie. [[R]] dreht um 45°, [[Umschalt]]+[[R]] um 22,5°. [[D]] setzt die Auswahl auf die Arbeitsebene ab.
 
+Die Griffe ziehen eine Form so groß wie deine Platte, mindestens 220 mm breit und tief. Größer geht es per Zahl in den Eigenschaften; eine so vergrößerte Form schrumpft beim nächsten Anfassen nicht zurück. Eine eigene Obergrenze je Form setzt du in den Einstellungen unter {{ui:workspace.shapeDefaults}} mit {{ui:workspace.customLimit}}.
+
 Der Rasterschritt steht unten rechts im Editor und lässt sich jederzeit ändern.
 
 ## Kopieren und duplizieren

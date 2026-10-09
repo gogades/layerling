@@ -432,6 +432,29 @@ export function shapeDimensionLimit(workspace: WorkplaneWorkspaceSettings, kind:
   return workspace.shapeCustomizations[kind]?.maxDimension ?? appDefault;
 }
 
+/**
+ * How far a handle may pull a body (#181). The fixed ceilings (220 mm across, 180 mm high) date
+ * from the fixed 200 mm plate; a larger plate or printer lets the handles go as far as it reaches,
+ * and a body already larger - typed in - never shrinks the moment it is grabbed. A custom size
+ * limit for the shape still wins over the plate.
+ */
+export function handleDimensionLimit(
+  workspace: Pick<WorkplaneWorkspaceSettings, "width" | "depth" | "shapeCustomizations">,
+  kind: ShapeKind,
+  appDefault: number,
+  axis: "across" | "height",
+  currentSize: number,
+  printerHeight?: number | null,
+) {
+  const custom = workspace.shapeCustomizations[kind]?.maxDimension;
+  const current = Number.isFinite(currentSize) ? currentSize : 0;
+  if (custom !== undefined) return Math.max(custom, current);
+  const plate = axis === "across"
+    ? Math.max(workspace.width, workspace.depth)
+    : printerHeight ?? Math.max(workspace.width, workspace.depth);
+  return Math.max(appDefault, plate, current);
+}
+
 export function normalizeSnapGrid(value: unknown, fallback: GridSize = DEFAULT_SNAP_GRID): GridSize {
   if (parseCustomSnapGrid(value)) return value as GridSize;
   return fixedSnapGrids.includes(value as GridSize) ? (value as GridSize) : fallback;

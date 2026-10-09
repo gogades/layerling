@@ -88,6 +88,8 @@ Besides the settings there are handles on the shape itself:
 
 Without the mouse, use the keyboard: the arrow keys move the selection by one snap step, with [[Shift]] by five. They follow the view: [[→]] moves to where the screen's right is, [[↑]] away from you, even after turning the plate. Push a shape out of the picture and the view moves along. [[Ctrl]]+[[↑]] and [[Ctrl]]+[[↓]] raise and lower it. [[R]] rotates by 45°, [[Shift]]+[[R]] by 22.5°. [[D]] drops the selection onto the workplane.
 
+The handles pull a shape as large as your plate, at least 220 mm wide and deep. Typing a number in the properties goes beyond that, and a shape made that large does not shrink back when you grab it again. A ceiling of your own per shape is set in the settings under {{ui:workspace.shapeDefaults}} with {{ui:workspace.customLimit}}.
+
 The snap step is at the bottom right of the editor and can be changed at any time.
 
 ## Copying and duplicating
