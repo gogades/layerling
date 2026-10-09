@@ -6,7 +6,8 @@ export const LAYERLING_MCP_HEARTBEAT_MS = 5_000;
 export const LAYERLING_MCP_LONG_POLL_TIMEOUT_MS = 25_000;
 export const LAYERLING_MCP_POLL_RETRY_MS = 1_000;
 
-export type LayerlingMcpViewFace = "current" | "home" | "top" | "bottom" | "front" | "back" | "right" | "left";
+/** A face, or an edge or corner as faces joined with "-" ("front-right", "front-right-top"), as the view cube offers them. */
+export type LayerlingMcpViewFace = "current" | "home" | "top" | "bottom" | "front" | "back" | "right" | "left" | `${string}-${string}`;
 
 export type LayerlingMcpShapeSummary = {
   id: string;

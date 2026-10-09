@@ -93,6 +93,67 @@ export function viewFaceForKey(key: string, code: string, shiftKey: boolean): Vi
   return digit ? VIEW_FACE_SHORTCUTS[digit] : undefined;
 }
 
+/**
+ * Each face as the cube draws it: its outward normal, and the world directions of the
+ * face's own right and down, which carry its corner and edge zones (#202). The cube's CSS
+ * runs Y downwards, which is why the button styled .cube-top shows the bottom.
+ */
+const VIEW_CUBE_FACE_FRAMES: Readonly<Record<ViewCubeFace, { normal: [number, number, number]; right: [number, number, number]; down: [number, number, number] }>> = {
+  front: { normal: [0, 0, 1], right: [1, 0, 0], down: [0, -1, 0] },
+  back: { normal: [0, 0, -1], right: [-1, 0, 0], down: [0, -1, 0] },
+  right: { normal: [1, 0, 0], right: [0, 0, -1], down: [0, -1, 0] },
+  left: { normal: [-1, 0, 0], right: [0, 0, 1], down: [0, -1, 0] },
+  top: { normal: [0, 1, 0], right: [1, 0, 0], down: [0, 0, 1] },
+  bottom: { normal: [0, -1, 0], right: [1, 0, 0], down: [0, 0, -1] },
+};
+
+/** -1, 0 or 1 across a face: left/top edge, middle, right/bottom edge. */
+export type ViewCubeZoneStep = -1 | 0 | 1;
+
+/** The eight zones round a face's middle, which stays the face itself. */
+export const VIEW_CUBE_ZONES: ReadonlyArray<readonly [ViewCubeZoneStep, ViewCubeZoneStep]> = [
+  [-1, -1], [0, -1], [1, -1],
+  [-1, 0], [1, 0],
+  [-1, 1], [0, 1], [1, 1],
+];
+/** Where the three bands across a face start and how wide they are, in percent: a quarter at each side. */
+export const VIEW_CUBE_ZONE_START = [0, 24, 76] as const;
+export const VIEW_CUBE_ZONE_SIZE = [24, 52, 24] as const;
+
+/**
+ * The unit direction from the orbit target to the camera for a click on one zone of a
+ * face: the middle is the face itself, a band along a side the edge it shares with the
+ * next face, a corner the corner of three faces - so an edge or a corner gives the same
+ * view from whichever face it is clicked.
+ */
+export function viewCubeZoneDirection(face: ViewCubeFace, column: ViewCubeZoneStep, row: ViewCubeZoneStep): THREE.Vector3 {
+  const frame = VIEW_CUBE_FACE_FRAMES[face];
+  return new THREE.Vector3(...frame.normal)
+    .add(new THREE.Vector3(...frame.right).multiplyScalar(column))
+    .add(new THREE.Vector3(...frame.down).multiplyScalar(row))
+    .normalize();
+}
+
+const VIEW_FACES: readonly ViewCubeFace[] = ["top", "bottom", "front", "back", "right", "left"];
+
+/**
+ * A view named by one to three faces joined with "-": "front" a face, "front-right" the
+ * edge between two, "front-right-top" the corner of three - what a click on the view cube
+ * gives. Null for an unknown name, a face twice or two opposite faces.
+ */
+export function viewDirectionFromName(name: string): THREE.Vector3 | null {
+  const parts = name.trim().toLowerCase().split("-");
+  if (parts.length < 1 || parts.length > 3 || new Set(parts).size !== parts.length) return null;
+  const sum = new THREE.Vector3();
+  for (const part of parts) {
+    if (!VIEW_FACES.includes(part as ViewCubeFace)) return null;
+    sum.add(viewFaceDirection(part as ViewCubeFace));
+  }
+  // Opposite faces cancel out, leaving fewer axes than names.
+  const axes = [sum.x, sum.y, sum.z].filter((value) => Math.abs(value) > 1e-9).length;
+  return axes === parts.length ? sum.normalize() : null;
+}
+
 /** The unit direction from the orbit target to the camera when looking at the given side. */
 export function viewFaceDirection(face: ViewCubeFace): THREE.Vector3 {
   switch (face) {

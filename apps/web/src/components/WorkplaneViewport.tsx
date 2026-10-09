@@ -34,6 +34,11 @@ import {
   moveViewCubeDrag,
   orbitOffsetByDrag,
   viewCubeAngles,
+  VIEW_CUBE_ZONE_SIZE,
+  VIEW_CUBE_ZONE_START,
+  VIEW_CUBE_ZONES,
+  viewCubeZoneDirection,
+  viewDirectionFromName,
   viewFaceDirection,
   viewFaceForKey,
   type ViewCubeDrag,
@@ -5408,7 +5413,9 @@ export function WorkplaneViewport({
       if (face === "home") {
         resetCamera(state);
       } else if (face !== "current") {
-        setCameraToViewFace(state, face);
+        const direction = viewDirectionFromName(face);
+        if (!direction) throw new Error(`Unknown view "${face}": use a face, or two or three neighbouring faces joined with "-", like "front-right-top"`);
+        setCameraToViewDirection(state, direction);
       }
       syncViewCube(state, viewCubeRef.current);
       fitCameraDepthRange(state.camera, state.controls.target);
@@ -8680,6 +8687,28 @@ export function WorkplaneViewport({
     syncViewCube(state, viewCubeRef.current);
   }, []);
 
+  // The bands along a face's sides and its corners look from that edge or corner (#202).
+  const viewCubeZones = (face: ViewCubeFace) => VIEW_CUBE_ZONES.map(([column, row]) => (
+    <span
+      key={`${column}:${row}`}
+      className={`cube-zone ${column !== 0 && row !== 0 ? "cube-zone-corner" : "cube-zone-edge"}`}
+      style={{
+        left: `${VIEW_CUBE_ZONE_START[column + 1]}%`,
+        top: `${VIEW_CUBE_ZONE_START[row + 1]}%`,
+        width: `${VIEW_CUBE_ZONE_SIZE[column + 1]}%`,
+        height: `${VIEW_CUBE_ZONE_SIZE[row + 1]}%`,
+      }}
+      aria-hidden="true"
+      onClick={(event) => {
+        event.stopPropagation();
+        const state = threeRef.current;
+        if (!state) return;
+        setCameraToViewDirection(state, viewCubeZoneDirection(face, column, row));
+        syncViewCube(state, viewCubeRef.current);
+      }}
+    />
+  ));
+
   const handleViewCubePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.stopPropagation();
     if (event.button !== 0 || viewCubeDragRef.current) {
@@ -9190,12 +9219,12 @@ export function WorkplaneViewport({
         onClickCapture={handleViewCubeClickCapture}
       >
         <div className="view-cube-inner" ref={viewCubeRef}>
-          <button type="button" className="cube-face cube-top" aria-label={t("view.bottom")} aria-keyshortcuts="6" title={t("camera.shortcut", { label: t("view.bottom"), keys: "6" })} onClick={() => setViewCubeFace("bottom")}>{t("view.bottomShort")}</button>
-          <button type="button" className="cube-face cube-bottom" aria-label={t("view.top")} aria-keyshortcuts="5" title={t("camera.shortcut", { label: t("view.top"), keys: "5" })} onClick={() => setViewCubeFace("top")}>{t("view.topShort")}</button>
-          <button type="button" className="cube-face cube-front" aria-label={t("view.front")} aria-keyshortcuts="1" title={t("camera.shortcut", { label: t("view.front"), keys: "1" })} onClick={() => setViewCubeFace("front")}>{t("view.frontShort")}</button>
-          <button type="button" className="cube-face cube-back" aria-label={t("view.back")} aria-keyshortcuts="2" title={t("camera.shortcut", { label: t("view.back"), keys: "2" })} onClick={() => setViewCubeFace("back")}>{t("view.backShort")}</button>
-          <button type="button" className="cube-face cube-right" aria-label={t("view.right")} aria-keyshortcuts="4" title={t("camera.shortcut", { label: t("view.right"), keys: "4" })} onClick={() => setViewCubeFace("right")}>{t("view.rightShort")}</button>
-          <button type="button" className="cube-face cube-left" aria-label={t("view.left")} aria-keyshortcuts="3" title={t("camera.shortcut", { label: t("view.left"), keys: "3" })} onClick={() => setViewCubeFace("left")}>{t("view.leftShort")}</button>
+          <button type="button" className="cube-face cube-top" aria-label={t("view.bottom")} aria-keyshortcuts="6" title={t("camera.shortcut", { label: t("view.bottom"), keys: "6" })} onClick={() => setViewCubeFace("bottom")}>{t("view.bottomShort")}{viewCubeZones("bottom")}</button>
+          <button type="button" className="cube-face cube-bottom" aria-label={t("view.top")} aria-keyshortcuts="5" title={t("camera.shortcut", { label: t("view.top"), keys: "5" })} onClick={() => setViewCubeFace("top")}>{t("view.topShort")}{viewCubeZones("top")}</button>
+          <button type="button" className="cube-face cube-front" aria-label={t("view.front")} aria-keyshortcuts="1" title={t("camera.shortcut", { label: t("view.front"), keys: "1" })} onClick={() => setViewCubeFace("front")}>{t("view.frontShort")}{viewCubeZones("front")}</button>
+          <button type="button" className="cube-face cube-back" aria-label={t("view.back")} aria-keyshortcuts="2" title={t("camera.shortcut", { label: t("view.back"), keys: "2" })} onClick={() => setViewCubeFace("back")}>{t("view.backShort")}{viewCubeZones("back")}</button>
+          <button type="button" className="cube-face cube-right" aria-label={t("view.right")} aria-keyshortcuts="4" title={t("camera.shortcut", { label: t("view.right"), keys: "4" })} onClick={() => setViewCubeFace("right")}>{t("view.rightShort")}{viewCubeZones("right")}</button>
+          <button type="button" className="cube-face cube-left" aria-label={t("view.left")} aria-keyshortcuts="3" title={t("camera.shortcut", { label: t("view.left"), keys: "3" })} onClick={() => setViewCubeFace("left")}>{t("view.leftShort")}{viewCubeZones("left")}</button>
         </div>
       </div>
 
@@ -10217,9 +10246,13 @@ function toggleCameraProjection(state: ThreeState) {
 }
 
 function setCameraToViewFace(state: ThreeState, face: ViewCubeFace) {
+  setCameraToViewDirection(state, viewFaceDirection(face));
+}
+
+/** Looks at the orbit target from a unit direction, keeping the distance: a face, an edge or a corner of the view cube. */
+function setCameraToViewDirection(state: ThreeState, direction: THREE.Vector3) {
   const offset = state.camera.position.clone().sub(state.controls.target);
   const distance = clamp(offset.length(), CAMERA_MIN_DISTANCE, CAMERA_MAX_DISTANCE);
-  const direction = viewFaceDirection(face);
 
   state.camera.up.set(0, 1, 0);
   state.camera.position.copy(state.controls.target).add(direction.multiplyScalar(distance));

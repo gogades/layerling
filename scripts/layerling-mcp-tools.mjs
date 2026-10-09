@@ -824,12 +824,12 @@ export const tools = [
   },
   {
     name: "layerling_capture_image",
-    description: "Capture a PNG image of the editor viewport from current/home/top/bottom/front/back/right/left view. By default it is the screen as the user sees it, handles and selection frame included. clean: true gives the picture the editor's export saves as \"PNG\": only the bodies, at twice the resolution, without handles, selection frames or guides; plate and transparent then choose whether the build plate shows and whether the background is left out.",
+    description: "Capture a PNG image of the editor viewport from current/home/top/bottom/front/back/right/left view, or from an edge or corner of the view cube by joining neighbouring faces with \"-\" (\"front-right\", \"top-front\", \"front-right-top\"). By default it is the screen as the user sees it, handles and selection frame included. clean: true gives the picture the editor's export saves as \"PNG\": only the bodies, at twice the resolution, without handles, selection frames or guides; plate and transparent then choose whether the build plate shows and whether the background is left out.",
     inputSchema: {
       ...editorTargetSchema,
       properties: {
         ...editorTargetSchema.properties,
-        face: { type: "string", enum: ["current", "home", "top", "bottom", "front", "back", "right", "left"] },
+        face: { type: "string", pattern: "^(current|home|(top|bottom|front|back|right|left)(-(top|bottom|front|back|right|left)){0,2})$", description: "current, home, a face, or two or three neighbouring faces joined with \"-\" for an edge or a corner view, like \"front-right-top\"." },
         clean: { type: "boolean", description: "Only the bodies, as the PNG export saves them. Implied by plate or transparent." },
         plate: { type: "boolean", description: "With clean: show the build plate and grid (default true)." },
         transparent: { type: "boolean", description: "With clean: leave the background out (default false)." },

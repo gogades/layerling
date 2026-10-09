@@ -102,7 +102,7 @@ It is not a full CAD package: there is no parametric timeline and no assemblies.
 ### Viewing
 
 - **Perspective or straight-on** – switch between the normal view and a flat, orthographic one with the cube button beside the zoom controls, or by pressing **O**. Your viewing direction and framing are kept.
-- **Turn the view at the cube** – dragging the view cube turns the view like the right mouse button, with one finger on a tablet; a click still jumps to that side. Keys **1**–**6** jump too, and **Shift+1**–**6** also zoom to the selection.
+- **Turn the view at the cube** – dragging the view cube turns the view like the right mouse button, with one finger on a tablet; a click still jumps to that side, and a click on a corner or an edge looks from there. Keys **1**–**6** jump too, and **Shift+1**–**6** also zoom to the selection.
 - **Look from below** – the eye over a grid in the camera bar hides the plate, so the underside of a design can be seen without it in the way.
 - **Panels where you want them** – the object list, the settings, the section view, the tape measure and the tool panels for edges, hollowing and patterns move by their title bar and open there again; a double-click docks them.
 - **Right-click menu** – a short right click on a body brings up the most used commands: duplicate, hole or solid, group, chamfer, fillet and hollow for one body, hide, lock, drop to the workplane, delete. Dragging with the right button still turns the view.

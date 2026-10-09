@@ -19,7 +19,7 @@ Auf einem Tablet oder Handy zoomen zwei Finger (spreizen und zusammenziehen) und
 
 ### Der Ansichtswürfel
 
-Der Würfel links oben zeigt, wohin du gerade schaust. Ein Klick auf eine seiner Seiten springt in die gerade Ansicht von oben, unten, vorn, hinten, links oder rechts. Das geht auch mit den Zifferntasten [[1]] bis [[6]]. Hältst du dabei [[Umschalt]] gedrückt, zoomt die Ansicht zugleich auf die Auswahl, wie mit [[Umschalt]]+[[F]].
+Der Würfel links oben zeigt, wohin du gerade schaust. Ein Klick auf eine seiner Seiten springt in die gerade Ansicht von oben, unten, vorn, hinten, links oder rechts. Ein Klick auf eine Ecke des Würfels schaut schräg von dieser Ecke auf das Modell, ein Klick nahe einer Kante von dieser Kante, also zwischen zwei Seiten hindurch; die Stelle färbt sich, sobald der Zeiger darüber steht. Die geraden Ansichten gehen auch mit den Zifferntasten [[1]] bis [[6]]. Hältst du dabei [[Umschalt]] gedrückt, zoomt die Ansicht zugleich auf die Auswahl, wie mit [[Umschalt]]+[[F]].
 
 Ziehst du am Würfel, drehst du die Ansicht, genau wie beim Ziehen mit der rechten Maustaste. Ist nichts ausgewählt, drehen auch die Pfeiltasten die Ansicht: 15° pro Druck, 90° mit [[Umschalt]]. Sie drehen das Modell in ihre Richtung – [[→]] dreht seine Vorderseite nach rechts, [[↑]] kippt seine Vorderseite nach oben. Ist etwas ausgewählt, klicke zuerst ins Leere; sonst verschieben die Pfeile die Auswahl. Auf einem Touchscreen geht das mit einem Finger, auch ohne {{ui:camera.touchRotate}} einzuschalten.
 

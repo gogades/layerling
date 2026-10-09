@@ -135,7 +135,7 @@ export const MESSAGES_EN = {
   "welcome.morePlaceBody": "a new shape follows the pointer and lands where you click - can be switched off in the settings.",
   "welcome.moreSnapTitle": "Snap to other shapes",
   "welcome.moreWindowsTitle": "A clear view",
-  "welcome.moreWindowsBody": "the object list, the settings and the tool panels can be dragged anywhere on the workplane, dragging the view cube turns the view, and the plate can be hidden for a look from below. A right click on a body brings up the most used commands, and the view can be saved as a picture.",
+  "welcome.moreWindowsBody": "the object list, the settings and the tool panels can be dragged anywhere on the workplane, dragging the view cube turns the view, a click on its corners and edges shows the model at an angle, and the plate can be hidden for a look from below. A right click on a body brings up the most used commands, and the view can be saved as a picture.",
   "welcome.moreSnapBody": "while moving, edges and centres lock onto neighbouring shapes and a guide line shows where - Alt during the drag pauses it. Shift keeps the move on one axis, and Alt held from the start drags a copy, as in Tinkercad. New shapes lie down on the face under the pointer, sloped ones too, and C sets the selection down on another face the same way, like Cruise in Tinkercad.",
   "welcome.moreGridTitle": "Snap grids of your own",
   "welcome.moreGridBody": "add a measure such as the 2.54 mm pin pitch of chips and perfboard in the settings; the snap menu offers it whole, halved and quartered.",

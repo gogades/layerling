@@ -134,7 +134,7 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "welcome.morePlaceBody": "eine neue Form hängt am Mauszeiger und landet, wo du klickst - abschaltbar in den Einstellungen.",
   "welcome.moreSnapTitle": "Fangen an anderen Formen",
   "welcome.moreWindowsTitle": "Freie Sicht",
-  "welcome.moreWindowsBody": "Objektliste, Einstellungen und Werkzeugfenster lassen sich frei über die Arbeitsfläche ziehen, Ziehen am Ansichtswürfel dreht die Ansicht, und für einen Blick von unten lässt sich die Platte ausblenden. Ein Rechtsklick auf einen Körper bringt die häufigsten Befehle, und die Ansicht lässt sich als Bild speichern.",
+  "welcome.moreWindowsBody": "Objektliste, Einstellungen und Werkzeugfenster lassen sich frei über die Arbeitsfläche ziehen, Ziehen am Ansichtswürfel dreht die Ansicht, ein Klick auf seine Ecken und Kanten zeigt das Modell schräg, und für einen Blick von unten lässt sich die Platte ausblenden. Ein Rechtsklick auf einen Körper bringt die häufigsten Befehle, und die Ansicht lässt sich als Bild speichern.",
   "welcome.moreSnapBody": "beim Verschieben rasten Kanten und Mitten an benachbarten Formen ein, eine Hilfslinie zeigt woran - Alt während des Ziehens setzt es kurz aus. Umschalt hält die Bewegung auf einer Achse, und mit Alt zu Beginn ziehst du wie in Tinkercad eine Kopie. Neue Formen legen sich auf die Fläche unter dem Zeiger, auch auf schräge, und C setzt die Auswahl so auf eine andere Fläche, wie Cruise in Tinkercad.",
   "welcome.moreGridTitle": "Eigene Rasterschritte",
   "welcome.moreGridBody": "ein Maß wie das Rastermaß von 2,54 mm bei Chips und Lochrasterplatinen in den Einstellungen anlegen; das Rastermenü bietet es ganz, halbiert und geviertelt an.",

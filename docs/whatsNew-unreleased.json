@@ -8,5 +8,15 @@
       "de": "Liegt die Arbeitsebene flach auf der Platte, zeigt die Grundplatte nur noch ihren Rand. Die zwei Gitter übereinander ergaben vorher ein flimmerndes Muster.",
       "en": "While the workplane lies flat on the plate, the plate shows only its outline. The two grids on top of each other used to make a flickering pattern."
     }
+  },
+  {
+    "title": {
+      "de": "Ecken am Ansichtswürfel",
+      "en": "Corners on the view cube"
+    },
+    "body": {
+      "de": "Ein Klick auf eine Ecke des Ansichtswürfels zeigt das Modell schräg von dieser Ecke, ein Klick nahe einer Kante von dieser Kante.",
+      "en": "A click on a corner of the view cube shows the model diagonally from that corner, a click near an edge from that edge."
+    }
   }
 ]

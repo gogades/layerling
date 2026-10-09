@@ -6797,6 +6797,16 @@ html[data-theme="dark"] .shell-openings-summary {
   transform: rotateY(-90deg) translateZ(29px);
 }
 
+/* The bands along a face's sides and its corners look from that edge or corner (#202). */
+.cube-zone {
+  position: absolute;
+  cursor: pointer;
+}
+
+.cube-zone:hover {
+  background: rgba(185, 118, 46, 0.26);
+}
+
 .camera-controls {
   position: absolute;
   /* Der Ansichtswuerfel endet bei 104 Pixeln; darunter reichen 16 Pixel Luft.
@@ -13099,6 +13109,10 @@ html[data-theme="dark"] .cube-face:focus-visible {
   color: #faf7f2;
   border-color: #d48636;
   box-shadow: inset 0 0 0 1px rgba(218, 141, 57, 0.2), 0 0 0 2px rgba(199, 122, 40, 0.16);
+}
+
+html[data-theme="dark"] .cube-zone:hover {
+  background: rgba(212, 134, 54, 0.34);
 }
 
 html[data-theme="dark"] .grid-settings {

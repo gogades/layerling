@@ -9,6 +9,10 @@ import {
   moveViewCubeDrag,
   orbitOffsetByDrag,
   viewCubeAngles,
+  VIEW_CUBE_ZONES,
+  viewCubeZoneDirection,
+  viewDirectionFromName,
+  type ViewCubeFace,
 } from "@/lib/viewCubeDrag";
 
 const DEGREES_PER_PX = THREE.MathUtils.radToDeg(VIEW_CUBE_DRAG_RADIANS_PER_PX);
@@ -124,6 +128,48 @@ describe("view cube angles", () => {
   });
 });
 
+describe("view cube corners and edges (#202)", () => {
+  const roundedKey = (vector: THREE.Vector3) => [vector.x, vector.y, vector.z].map((value) => Math.round(value * 1e6) / 1e6).join(",");
+
+  it("looks from the corner the zone sits in", () => {
+    const s = 1 / Math.sqrt(3);
+    // The top left of the front face is the front, left, top corner.
+    expect(viewCubeZoneDirection("front", -1, -1).toArray().map((value) => Math.round(value * 1e6) / 1e6))
+      .toEqual([-s, s, s].map((value) => Math.round(value * 1e6) / 1e6));
+    // On the top face, the band nearest the viewer is the front edge.
+    expect(roundedKey(viewCubeZoneDirection("top", 0, 1))).toBe(roundedKey(new THREE.Vector3(0, 1, 1).normalize()));
+    // Seen from the right, its right edge is the back.
+    expect(roundedKey(viewCubeZoneDirection("right", 1, 0))).toBe(roundedKey(new THREE.Vector3(1, 0, -1).normalize()));
+  });
+
+  it("gives every edge and corner the same view from each face that touches it", () => {
+    const faces: ViewCubeFace[] = ["top", "bottom", "front", "back", "right", "left"];
+    const corners = new Map<string, number>();
+    const edges = new Map<string, number>();
+    for (const face of faces) {
+      for (const [column, row] of VIEW_CUBE_ZONES) {
+        const key = roundedKey(viewCubeZoneDirection(face, column, row));
+        const map = column !== 0 && row !== 0 ? corners : edges;
+        map.set(key, (map.get(key) ?? 0) + 1);
+      }
+    }
+    // 8 corners shared by 3 faces each, 12 edges shared by 2.
+    expect(corners.size).toBe(8);
+    expect([...corners.values()].every((count) => count === 3)).toBe(true);
+    expect(edges.size).toBe(12);
+    expect([...edges.values()].every((count) => count === 2)).toBe(true);
+  });
+
+  it("reads the same views by name for the MCP bridge", () => {
+    expect(roundedKey(viewDirectionFromName("front-right-top")!)).toBe(roundedKey(viewCubeZoneDirection("front", 1, -1)));
+    expect(roundedKey(viewDirectionFromName("Top-Front")!)).toBe(roundedKey(new THREE.Vector3(0, 1, 1).normalize()));
+    expect(roundedKey(viewDirectionFromName("left")!)).toBe(roundedKey(new THREE.Vector3(-1, 0, 0)));
+    for (const bad of ["front-back", "top-top", "front-right-top-left", "diagonal", ""]) {
+      expect(viewDirectionFromName(bad)).toBeNull();
+    }
+  });
+});
+
 // The faces are buttons inside the draggable cube. A drag must not also click
 // the face it ends on, and a plain click must still reach the face.
 describe("view cube wiring in the viewport", () => {
@@ -136,6 +182,7 @@ describe("view cube wiring in the viewport", () => {
   it("keeps a click on every face jumping to its view", () => {
     for (const face of ["top", "bottom", "front", "back", "right", "left"]) {
       expect(cube).toContain(`onClick={() => setViewCubeFace("${face}")}`);
+      expect(cube).toContain(`{viewCubeZones("${face}")}`);
     }
   });
 
