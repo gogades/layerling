@@ -55,6 +55,14 @@ The edge tool and the STEP export take a spring as its exact body: a round wire 
 
 A {{ui:shape.bentTube}} consists of up to twelve sections: a straight piece followed by a bend. For each you set the {{ui:prop.bentTubeSegmentLength}}, the {{ui:prop.bentTubeBendAngle}}, the {{ui:prop.bentTubeBendRadius}} and the {{ui:prop.bentTubeRoll}}. The section you are editing is lit up in orange on the tube, so you can follow the order. A roll angle of 0° bends within the plane of the workplane, at 90° the tube bends upward. The profile can be round, square, hexagonal or octagonal, the inside likewise, or fully solid. If the tube runs into itself, layerling warns you.
 
+## Loft
+
+The {{ui:shape.loft}} joins one outline at the bottom to another at the top, like a loft in Fusion: a hose adapter from one diameter to another, a square fan onto a round duct, a stand that turns round towards the top. For each end you pick {{ui:prop.loftBottomOutline}} and {{ui:prop.loftTopOutline}}: {{ui:loft.round}}, {{ui:loft.rectangle}} with {{ui:prop.loftBottomCorner}}, or {{ui:loft.polygon}} with its number of corners, plus the width and length of each end and the height. {{ui:prop.loftOffsetX}} and {{ui:prop.loftOffsetZ}} move the top end sideways for a slanted transition; the bottom end stays where it is.
+
+{{ui:prop.loftWall}} turns the solid body into a tube open at the top and the bottom. The opening is smaller by the wall at both ends, measured across; where the wall slants it is a little thinner. Drag the frame bigger and both ends grow along, while the corner radius and the wall keep their size.
+
+The loft is an exact body: its edges can be chamfered and filleted, and STEP export keeps it. Add a flange with screw holes as usual and group them.
+
 ## Honeycomb
 
 The {{ui:shape.honeycomb}} is a plate with hexagonal holes: light, stiff and nice to look at. The {{ui:prop.honeycombCellSize}}, the {{ui:prop.honeycombWallThickness}} and the {{ui:prop.honeycombFrameWidth}} set the look.

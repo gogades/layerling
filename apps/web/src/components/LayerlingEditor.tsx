@@ -20,6 +20,7 @@ import { createHeartGeometry } from "@/lib/heartGeometry";
 import { createCrescentGeometry } from "@/lib/crescentGeometry";
 import { createSlotGeometry } from "@/lib/slotGeometry";
 import { createDovetailGeometry } from "@/lib/dovetailGeometry";
+import { createLoftGeometry, loftMeasures, loftShapePatch, type LoftMeasures } from "@/lib/loftGeometry";
 import { createHingeGeometry } from "@/lib/hingeGeometry";
 import { createKnurlGeometry } from "@/lib/knurlGeometry";
 import { hingeWorldParts } from "@/lib/hingeParts";
@@ -2237,6 +2238,9 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         hingeClearance: shape.hingeClearance,
         sides: shape.sides,
       });
+      break;
+    case "loft":
+      geometry = createLoftGeometry({ ...shape, width, depth, height });
       break;
     case "dovetail":
       geometry = createDovetailGeometry({
@@ -5729,6 +5733,8 @@ function mcpShapeSettings(shape: WorkplaneShape): Record<string, string | number
     settings.sides = roundSideCount(undefined, shapeWidth(shape), shapeDepth(shape));
     settings.sidesFollowSize = true;
   }
+  // Ein Uebergang meldet seine Enden so, wie der Koerper sie zeigt, nicht wie sie gespeichert sind (#188).
+  if (shape.kind === "loft") Object.assign(settings, mcpLoftSettings(shape));
   // Durchmesser und Steigung sagen einer KI nicht, dass hier ein G1/2 steht;
   // der Name aus dem Groessenmenue sagt es, und er laesst sich zuruecksenden.
   const threadSize = mcpThreadSizeName(shape);
@@ -5829,6 +5835,37 @@ function mcpBentTubeSegments(value: unknown): unknown[] | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** The transition's values as the body shows them, under the names a command sets them by. */
+function mcpLoftSettings(shape: WorkplaneShape): Record<string, string | number> {
+  const m = loftMeasures(shape);
+  return {
+    loftBottomOutline: m.bottomOutline, loftTopOutline: m.topOutline,
+    loftBottomWidth: m.bottomWidth, loftBottomDepth: m.bottomDepth, loftTopWidth: m.topWidth, loftTopDepth: m.topDepth,
+    loftBottomCorner: m.bottomCorner, loftTopCorner: m.topCorner, loftBottomSides: m.bottomSides, loftTopSides: m.topSides,
+    loftOffsetX: m.offsetX, loftOffsetZ: m.offsetZ, loftWall: m.wall,
+  };
+}
+
+/** A command's transition values as a change of measures - the same way the settings panel takes them. */
+function mcpLoftChange(params: Record<string, unknown>): Partial<LoftMeasures> {
+  const change: Partial<LoftMeasures> = {};
+  const outline = (value: unknown) => (value === "round" || value === "rectangle" || value === "polygon" ? value : undefined);
+  const bottomOutline = outline(params.loftBottomOutline);
+  const topOutline = outline(params.loftTopOutline);
+  if (bottomOutline) change.bottomOutline = bottomOutline;
+  if (topOutline) change.topOutline = topOutline;
+  const numbers: Array<[string, keyof LoftMeasures]> = [
+    ["loftBottomWidth", "bottomWidth"], ["loftBottomDepth", "bottomDepth"], ["loftTopWidth", "topWidth"], ["loftTopDepth", "topDepth"],
+    ["loftBottomCorner", "bottomCorner"], ["loftTopCorner", "topCorner"], ["loftBottomSides", "bottomSides"], ["loftTopSides", "topSides"],
+    ["loftOffsetX", "offsetX"], ["loftOffsetZ", "offsetZ"], ["loftWall", "wall"],
+  ];
+  numbers.forEach(([param, key]) => {
+    const value = mcpOptionalNumber(params[param]);
+    if (value !== undefined) Object.assign(change, { [key]: value });
+  });
+  return change;
 }
 
 const MCP_BENT_TUBE_KEYS = ["bentTubeProfile", "bentTubeInnerProfile", "bentTubeSize", "bentTubeWall", "bentTubeQuality", "bentTubeSegments"] as const;
@@ -11188,6 +11225,11 @@ export function LayerlingEditor({
         // umbaut - erst Breite und Tiefe anwenden, dann die Kanten darauf.
         Object.assign(patch, mcpTaperPatch({ ...target, ...patch }, params, shapeDimensionLimit(workspaceSettingsRef.current, target.kind, DEFAULT_TAPER_DIMENSION_MAX)));
         Object.assign(patch, mcpExtrudeDeformPatch({ ...target, ...patch }, params));
+        if (target.kind === "loft") {
+          // The stored ends were set above as they came; the frame and the place follow from them here.
+          const change = mcpLoftChange(params);
+          if (Object.keys(change).length) Object.assign(patch, loftShapePatch(target, change));
+        }
         if (target.kind === "bentTube" && MCP_BENT_TUBE_KEYS.some((key) => params[key] !== undefined)) {
           const withSettings = { ...target, ...patch };
           const requested = {

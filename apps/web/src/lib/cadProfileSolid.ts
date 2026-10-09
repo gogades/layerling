@@ -112,10 +112,10 @@ export function validateCadProfile(profile: CadModifierProfilePart) {
   if (profile.kind === "sweep") validateSweepPath(profile.path);
   if (profile.kind === "loft") {
     // The top has to be the bottom's partner piece for piece: the loft joins them in that order.
+    // A piece may face one of another kind - a side of a square a quarter of a circle (#188).
     const top = profile.topLoops ?? [];
     const sameShape = top.length === profile.loops.length && top.every((loop, index) => (
       loop.segments.length === profile.loops[index].segments.length
-      && loop.segments.every((segment, piece) => segment.kind === profile.loops[index].segments[piece].kind)
     ));
     if (!sameShape) throw new Error("The loft's top does not match its bottom");
     validateLoops({ ...profile, kind: "extrusion", loops: top });

@@ -54,6 +54,7 @@ export const GUIDE_SECTIONS = {
   gears: { chapter: "threads", de: "zahnraeder", en: "gears" },
   springs: { chapter: "threads", de: "federn", en: "springs" },
   bentTubes: { chapter: "threads", de: "gebogene-rohre", en: "bent-tubes" },
+  loft: { chapter: "threads", de: "uebergang", en: "loft" },
   honeycomb: { chapter: "threads", de: "wabengitter", en: "honeycomb" },
   hinge: { chapter: "threads", de: "scharnier", en: "hinge" },
   knurl: { chapter: "threads", de: "raendelung", en: "knurling" },
@@ -129,6 +130,8 @@ export function guideSectionForShape(shape: GuideShape): GuideSection | undefine
       return "springs";
     case "bentTube":
       return "bentTubes";
+    case "loft":
+      return "loft";
     case "honeycomb":
       return "honeycomb";
     case "hinge":
@@ -162,6 +165,7 @@ export function guideChapterForShape(shape: GuideShape): GuideChapter {
     case "spring":
     case "gear":
     case "bentTube":
+    case "loft":
     case "honeycomb":
     case "hinge":
     case "knurl":

@@ -73,6 +73,7 @@ export const SHAPE_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
   hinge: ["scharnier", "gelenk"],
   spring: ["coil", "feder", "spirale"],
   tube: ["pipe", "hollow cylinder", "rohr", "huelse", "hülse"],
+  loft: ["loft", "transition", "adapter", "reducer", "funnel", "duct", "uebergang", "übergang", "trichter", "reduzierstueck", "reduzierstück", "eckig auf rund", "square to round"],
   torus: ["ring", "donut", "o-ring", "oring"],
   wedge: ["ramp", "keil", "rampe", "schraege", "schräge", "triangle", "right triangle", "dreieck", "rechtwinklig"],
   polygon: ["triangle", "roof", "hexagon", "dreieck", "dach", "sechskant", "vieleck", "mehrkant"],

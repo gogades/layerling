@@ -200,7 +200,7 @@ export function snapGridForUnits(units: string, snap: GridSize): GridSize {
 }
 const customizableShapeKinds: ShapeKind[] = [
   "box", "roundedBox", "cylinder", "slot", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-  "halfSphere", "torus", "tube", "bentTube", "star", "heart", "crescent", "gear", "honeycomb", "hinge", "knurl", "dovetail", "counterbore", "countersink", "teardrop", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
+  "halfSphere", "torus", "tube", "bentTube", "star", "heart", "crescent", "gear", "honeycomb", "hinge", "knurl", "dovetail", "counterbore", "countersink", "teardrop", "loft", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
 ];
 
 function numberOrDefault(value: unknown, fallback: number) {
@@ -325,6 +325,24 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
       entry.knurlDepth = optionalShapeNumber(source.knurlDepth, fallbackEntry?.knurlDepth, 0.1, MAX_CUSTOM_SHAPE_DIMENSION);
       entry.knurlAngle = optionalShapeNumber(source.knurlAngle, fallbackEntry?.knurlAngle, 10, 60);
       entry.knurlChamfer = optionalShapeNumber(source.knurlChamfer, fallbackEntry?.knurlChamfer, 0, MAX_CUSTOM_SHAPE_DIMENSION);
+    }
+    if (kind === "loft") {
+      const outline = (value: unknown, fallback: "round" | "rectangle" | "polygon" | undefined) =>
+        value === "round" || value === "rectangle" || value === "polygon" ? value : fallback;
+      entry.loftBottomOutline = outline(source.loftBottomOutline, fallbackEntry?.loftBottomOutline);
+      entry.loftTopOutline = outline(source.loftTopOutline, fallbackEntry?.loftTopOutline);
+      for (const key of ["loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth"] as const) {
+        entry[key] = optionalShapeNumber(source[key], fallbackEntry?.[key], 1, MAX_CUSTOM_SHAPE_DIMENSION);
+      }
+      for (const key of ["loftBottomCorner", "loftTopCorner", "loftWall"] as const) {
+        entry[key] = optionalShapeNumber(source[key], fallbackEntry?.[key], 0, MAX_CUSTOM_SHAPE_DIMENSION / 2);
+      }
+      for (const key of ["loftBottomSides", "loftTopSides"] as const) {
+        entry[key] = optionalShapeNumber(source[key], fallbackEntry?.[key], 3, 24, true);
+      }
+      for (const key of ["loftOffsetX", "loftOffsetZ"] as const) {
+        entry[key] = optionalShapeNumber(source[key], fallbackEntry?.[key], -MAX_CUSTOM_SHAPE_DIMENSION, MAX_CUSTOM_SHAPE_DIMENSION);
+      }
     }
     if (kind === "dovetail") {
       entry.dovetailNeckWidth = optionalShapeNumber(source.dovetailNeckWidth, fallbackEntry?.dovetailNeckWidth, 0.1, MAX_CUSTOM_SHAPE_DIMENSION);

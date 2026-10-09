@@ -14,6 +14,7 @@ import { createDovetailGeometry } from "@/lib/dovetailGeometry";
 import { createHingeGeometry } from "@/lib/hingeGeometry";
 import { createKnurlGeometry } from "@/lib/knurlGeometry";
 import { createTeardropGeometry, teardropHeightForTipAngle } from "@/lib/teardropGeometry";
+import { createLoftGeometry } from "@/lib/loftGeometry";
 import { createScrewHoleGeometry } from "@/lib/screwHoleGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
@@ -404,6 +405,28 @@ describe("palette icons", () => {
       azimuth: 35,
       elevation: 18,
       build: () => createTeardropGeometry({ width: 16, depth: 30, height: teardropHeightForTipAngle(16, 90) }),
+    });
+    render({
+      // Von eckig auf rund, mit Wand: von oben schraeg, damit die Oeffnung zeigt, was der Uebergang ist (#188).
+      name: "apps/web/public/assets/editor/shape-icons-gray/loft.png",
+      height: 28,
+      lay: false,
+      azimuth: 30,
+      elevation: 34,
+      build: () => createLoftGeometry({
+        size: 36,
+        width: 36,
+        depth: 36,
+        height: 28,
+        loftBottomOutline: "rectangle",
+        loftTopOutline: "round",
+        loftBottomWidth: 36,
+        loftBottomDepth: 36,
+        loftTopWidth: 22,
+        loftTopDepth: 22,
+        loftBottomCorner: 3,
+        loftWall: 2.5,
+      }),
     });
     render({
       name: "apps/web/public/assets/editor/shape-icons-gray/honeycomb.png",

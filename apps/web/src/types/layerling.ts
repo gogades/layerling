@@ -27,6 +27,7 @@ export type ShapeKind =
   | "counterbore"
   | "countersink"
   | "teardrop"
+  | "loft"
   | "thread"
   | "spring"
   | "ring"
@@ -161,6 +162,25 @@ export type ShapeCustomization = {
   dovetailNeckWidth?: number;
   /** Dovetail: gap in mm added on every side when the dovetail is a cut-out (its socket). */
   dovetailClearance?: number;
+  /** Transition (loft, #188): the outline at the bottom and at the top. */
+  loftBottomOutline?: "round" | "rectangle" | "polygon";
+  loftTopOutline?: "round" | "rectangle" | "polygon";
+  /** Transition: the size of each end in mm, as set; the frame stretches them when it is dragged. */
+  loftBottomWidth?: number;
+  loftBottomDepth?: number;
+  loftTopWidth?: number;
+  loftTopDepth?: number;
+  /** Transition: corner rounding of a rectangular end, in mm. */
+  loftBottomCorner?: number;
+  loftTopCorner?: number;
+  /** Transition: number of sides of a polygonal end. */
+  loftBottomSides?: number;
+  loftTopSides?: number;
+  /** Transition: how far the top's middle sits from the bottom's, in mm. */
+  loftOffsetX?: number;
+  loftOffsetZ?: number;
+  /** Transition: wall thickness in mm; 0 is a solid body, more a tube open at both ends. */
+  loftWall?: number;
   /** Counterbore/countersink: diameter of the shaft below the head in mm. */
   screwHoleShaft?: number;
   /** Counterbore: depth of the head pocket in mm. */
@@ -539,6 +559,25 @@ export type WorkplaneShape = {
   dovetailNeckWidth?: number;
   /** Dovetail: gap in mm added on every side when the dovetail is a cut-out (its socket). */
   dovetailClearance?: number;
+  /** Transition (loft, #188): the outline at the bottom and at the top. */
+  loftBottomOutline?: "round" | "rectangle" | "polygon";
+  loftTopOutline?: "round" | "rectangle" | "polygon";
+  /** Transition: the size of each end in mm, as set; the frame stretches them when it is dragged. */
+  loftBottomWidth?: number;
+  loftBottomDepth?: number;
+  loftTopWidth?: number;
+  loftTopDepth?: number;
+  /** Transition: corner rounding of a rectangular end, in mm. */
+  loftBottomCorner?: number;
+  loftTopCorner?: number;
+  /** Transition: number of sides of a polygonal end. */
+  loftBottomSides?: number;
+  loftTopSides?: number;
+  /** Transition: how far the top's middle sits from the bottom's, in mm. */
+  loftOffsetX?: number;
+  loftOffsetZ?: number;
+  /** Transition: wall thickness in mm; 0 is a solid body, more a tube open at both ends. */
+  loftWall?: number;
   /** Counterbore/countersink: diameter of the shaft below the head in mm. */
   screwHoleShaft?: number;
   /** Counterbore: depth of the head pocket in mm. */

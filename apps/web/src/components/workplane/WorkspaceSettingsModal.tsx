@@ -68,6 +68,7 @@ import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults
 import { BOOLEAN_TRIANGLE_LIMIT_PRESETS, BOOLEAN_TRIANGLE_LIMIT_STEP, DEFAULT_WORKPLANE_WORKSPACE, MAX_BOOLEAN_TRIANGLE_LIMIT, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_BOOLEAN_TRIANGLE_LIMIT, MIN_CUSTOM_SHAPE_DIMENSION, booleanTriangleLimitPreset, gridBlockForUnits, snapGridForUnits, type BooleanTriangleLimitPreset, CUSTOM_SNAP_GRID_DIVISORS, DEFAULT_SNAP_GRID, MAX_CUSTOM_SNAP_GRID, MAX_CUSTOM_SNAP_GRID_NAME, MAX_CUSTOM_SNAP_GRIDS, MIN_CUSTOM_SNAP_GRID, customSnapGridLabel, customSnapGridSize, parseCustomSnapGrid, snapGridOptions } from "@/lib/workplaneSettings";
 import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm } from "@/lib/workplaneGrid";
 import type { BentTubeProfile, CustomSnapGrid, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
+import { DEFAULT_LOFT } from "@/lib/loftGeometry";
 import { selectWholeValue } from "@/lib/numberField";
 
 type WorkspaceSettings = WorkplaneWorkspaceSettings;
@@ -140,10 +141,11 @@ const BENT_TUBE_PROFILE_OPTIONS: Array<{ value: BentTubeProfile; label: MessageK
   { value: "octagon", label: "bentTube.profileOctagon" },
 ];
 
-type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadBoltClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth" | "starPoints" | "starInnerSize" | "starOuterFillet" | "starInnerFillet" | "starQuality" | "heartTipFillet" | "heartQuality" | "crescentThickness" | "crescentTipFillet" | "crescentQuality" | "honeycombCellSize" | "honeycombWallThickness" | "honeycombFrameWidth" | "dovetailNeckWidth" | "dovetailClearance" | "hingeKnuckles" | "hingePinDiameter" | "hingeLeafThickness" | "hingeClearance" | "screwHoleShaft" | "screwHoleHeadDepth" | "screwHoleAngle" | "cornerFillet" | "topBottomFillet" | "roundedBoxQuality" | "bentTubeSize" | "bentTubeWall" | "bentTubeQuality" | "knurlCount" | "knurlDepth" | "knurlAngle" | "knurlChamfer";
+type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadBoltClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth" | "starPoints" | "starInnerSize" | "starOuterFillet" | "starInnerFillet" | "starQuality" | "heartTipFillet" | "heartQuality" | "crescentThickness" | "crescentTipFillet" | "crescentQuality" | "honeycombCellSize" | "honeycombWallThickness" | "honeycombFrameWidth" | "dovetailNeckWidth" | "dovetailClearance" | "hingeKnuckles" | "hingePinDiameter" | "hingeLeafThickness" | "hingeClearance" | "screwHoleShaft" | "screwHoleHeadDepth" | "screwHoleAngle" | "cornerFillet" | "topBottomFillet" | "roundedBoxQuality" | "bentTubeSize" | "bentTubeWall" | "bentTubeQuality" | "knurlCount" | "knurlDepth" | "knurlAngle" | "knurlChamfer"
+  | "loftBottomWidth" | "loftBottomDepth" | "loftTopWidth" | "loftTopDepth" | "loftWall";
 type ShapeSpecialField =
   | { type: "number"; key: ShapeSpecialNumberKey; label: string; defaultValue: number; min: number; max: number; step?: number; unit?: string }
-  | { type: "select"; key: "font" | "gearType" | "threadRole" | "threadHead" | "threadHand" | "threadProfile" | "springHand" | "bentTubeProfile" | "bentTubeInnerProfile" | "knurlPattern"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
+  | { type: "select"; key: "font" | "gearType" | "threadRole" | "threadHead" | "threadHand" | "threadProfile" | "springHand" | "bentTubeProfile" | "bentTubeInnerProfile" | "knurlPattern" | "loftBottomOutline" | "loftTopOutline"; label: string; defaultValue: string; options: Array<{ value: string; label: string }> }
   | { type: "text"; key: "text"; label: string; defaultValue: string; maxLength: number };
 
 function clamp(value: number, min: number, max: number) {
@@ -333,6 +335,18 @@ function specialFieldsForShape(
       { type: "number", key: "honeycombFrameWidth", label: t("prop.honeycombFrameWidth"), defaultValue: defaults.honeycombFrameWidth ?? 3, min: 0, max: 15, step: 0.5, unit: "mm" },
     ];
   }
+  if (kind === "loft") {
+    const outlines = [{ value: "round", label: t("loft.round") }, { value: "rectangle", label: t("loft.rectangle") }, { value: "polygon", label: t("loft.polygon") }];
+    return [
+      { type: "select", key: "loftBottomOutline", label: t("prop.loftBottomOutline"), defaultValue: defaults.loftBottomOutline ?? DEFAULT_LOFT.bottomOutline, options: outlines },
+      { type: "number", key: "loftBottomWidth", label: t("prop.loftBottomWidth"), defaultValue: defaults.loftBottomWidth ?? DEFAULT_LOFT.bottomWidth, min: 1, max: 300, unit: "mm" },
+      { type: "number", key: "loftBottomDepth", label: t("prop.loftBottomDepth"), defaultValue: defaults.loftBottomDepth ?? DEFAULT_LOFT.bottomDepth, min: 1, max: 300, unit: "mm" },
+      { type: "select", key: "loftTopOutline", label: t("prop.loftTopOutline"), defaultValue: defaults.loftTopOutline ?? DEFAULT_LOFT.topOutline, options: outlines },
+      { type: "number", key: "loftTopWidth", label: t("prop.loftTopWidth"), defaultValue: defaults.loftTopWidth ?? DEFAULT_LOFT.topWidth, min: 1, max: 300, unit: "mm" },
+      { type: "number", key: "loftTopDepth", label: t("prop.loftTopDepth"), defaultValue: defaults.loftTopDepth ?? DEFAULT_LOFT.topDepth, min: 1, max: 300, unit: "mm" },
+      { type: "number", key: "loftWall", label: t("prop.loftWall"), defaultValue: defaults.loftWall ?? DEFAULT_LOFT.wall, min: 0, max: 50, step: 0.1, unit: "mm" },
+    ];
+  }
   if (kind === "bentTube") {
     const profileOptions = BENT_TUBE_PROFILE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) }));
     return [
@@ -432,8 +446,11 @@ export function WorkspaceSettingsModal({
   // laesst sich sinnvoll vorgeben. Ein Zylinder ist immer kreisrund, daher
   // nur ein Durchmesser- (= Breiten-)Feld statt Breite und Tiefe getrennt.
   // Ein gebogenes Rohr bekommt seinen Rahmen ganz aus Profil und Segmenten.
+  // Ein Uebergang bekommt Breite und Tiefe aus seinen beiden Enden, nur die Hoehe ist frei.
   const selectedShapeDimensionKeys: Array<"width" | "depth" | "height"> = selectedShapeKind === "bentTube"
     ? []
+    : selectedShapeKind === "loft"
+    ? ["height"]
     : selectedShapeKind === "thread"
     ? ["height"]
     : selectedShapeKind === "cylinder"

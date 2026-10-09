@@ -45,6 +45,7 @@ import { createHeartGeometry } from "@/lib/heartGeometry";
 import { createCrescentGeometry } from "@/lib/crescentGeometry";
 import { createSlotGeometry } from "@/lib/slotGeometry";
 import { createDovetailGeometry } from "@/lib/dovetailGeometry";
+import { createLoftGeometry } from "@/lib/loftGeometry";
 import { createHingeGeometry } from "@/lib/hingeGeometry";
 import { createKnurlGeometry } from "@/lib/knurlGeometry";
 import { visibleWorkArea } from "@/lib/visibleWorkArea";
@@ -1231,6 +1232,19 @@ function tapeShapeTopologyKey(shape: WorkplaneShape): string {
     knurlChamfer: shape.knurlChamfer,
     dovetailNeckWidth: shape.dovetailNeckWidth,
     dovetailClearance: shape.dovetailClearance,
+    loftBottomOutline: shape.loftBottomOutline,
+    loftTopOutline: shape.loftTopOutline,
+    loftBottomWidth: shape.loftBottomWidth,
+    loftBottomDepth: shape.loftBottomDepth,
+    loftTopWidth: shape.loftTopWidth,
+    loftTopDepth: shape.loftTopDepth,
+    loftBottomCorner: shape.loftBottomCorner,
+    loftTopCorner: shape.loftTopCorner,
+    loftBottomSides: shape.loftBottomSides,
+    loftTopSides: shape.loftTopSides,
+    loftOffsetX: shape.loftOffsetX,
+    loftOffsetZ: shape.loftOffsetZ,
+    loftWall: shape.loftWall,
     screwHoleShaft: shape.screwHoleShaft,
     screwHoleHeadDepth: shape.screwHoleHeadDepth,
     screwHoleAngle: shape.screwHoleAngle,
@@ -1442,6 +1456,19 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     knurlChamfer: shape.knurlChamfer,
     dovetailNeckWidth: shape.dovetailNeckWidth,
     dovetailClearance: shape.dovetailClearance,
+    loftBottomOutline: shape.loftBottomOutline,
+    loftTopOutline: shape.loftTopOutline,
+    loftBottomWidth: shape.loftBottomWidth,
+    loftBottomDepth: shape.loftBottomDepth,
+    loftTopWidth: shape.loftTopWidth,
+    loftTopDepth: shape.loftTopDepth,
+    loftBottomCorner: shape.loftBottomCorner,
+    loftTopCorner: shape.loftTopCorner,
+    loftBottomSides: shape.loftBottomSides,
+    loftTopSides: shape.loftTopSides,
+    loftOffsetX: shape.loftOffsetX,
+    loftOffsetZ: shape.loftOffsetZ,
+    loftWall: shape.loftWall,
     screwHoleShaft: shape.screwHoleShaft,
     screwHoleHeadDepth: shape.screwHoleHeadDepth,
     screwHoleAngle: shape.screwHoleAngle,
@@ -12766,6 +12793,9 @@ function createShapeObject(
         sides: shape.sides,
       })), material, shape);
       break;
+    case "loft":
+      addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createLoftGeometry({ ...shape, width, depth, height })), material, shape);
+      break;
     case "dovetail":
       addMesh(group, sharedShapeGeometry(geometryCacheKey, () => createDovetailGeometry({
         width,
@@ -13232,7 +13262,7 @@ function addShapeEdgeDecorations(group: THREE.Group, mesh: THREE.Mesh, prepared:
   const complexEdges =
     shape.kind === "mesh" ||
     Boolean(shape.importedMesh) ||
-    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "star", "gear", "wedge", "polygon", "heart", "crescent", "slot", "dovetail", "hinge", "knurl", "teardrop", "counterbore", "countersink", "honeycomb"].includes(shape.kind);
+    ["cone", "pyramid", "roof", "roundRoof", "halfSphere", "torus", "tube", "ring", "star", "gear", "wedge", "polygon", "heart", "crescent", "slot", "dovetail", "hinge", "knurl", "teardrop", "counterbore", "countersink", "honeycomb", "loft"].includes(shape.kind);
   const importedTriangleCount = shape.importedMesh?.triangleCount ?? 0;
   const skipHeavyImportedEdges = Boolean(shape.importedMesh) && importedTriangleCount > IMPORTED_SELECTED_EDGE_TRIANGLE_LIMIT;
   // The setting draws a line on every body, in the colour chosen.

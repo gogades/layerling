@@ -16,7 +16,7 @@ Pick a shape. It now hangs on the mouse pointer and lands where you click. [[Esc
 What the library offers:
 
 - **Basic shapes:** {{ui:shape.box}}, {{ui:shape.roundedBox}}, {{ui:shape.cylinder}}, {{ui:shape.slot}}, {{ui:shape.ellipse}}, {{ui:shape.polygon}} (three to twenty-four sides), {{ui:shape.sphere}}, {{ui:shape.cone}}, {{ui:shape.pyramid}} (with three to twenty-four sides, so three-sided too), {{ui:shape.wedge}}, {{ui:shape.roundRoof}}, {{ui:shape.halfSphere}} and {{ui:shape.torus}}.
-- **Tubes:** {{ui:shape.tube}} and {{ui:shape.bentTube}}, made of up to twelve straight pieces with bends in between.
+- **Tubes:** {{ui:shape.tube}} and {{ui:shape.bentTube}}, made of up to twelve straight pieces with bends in between, and the {{ui:shape.loft}} from one outline to another, say from square to round.
 - **Decorative shapes:** {{ui:shape.star}}, {{ui:shape.heart}} and {{ui:shape.crescent}}.
 - **Lettering:** {{ui:shape.text}}, also along a circular arc. More in [Text](chapter:text).
 - **Mechanics:** {{ui:shape.thread}} (threaded rod, screw, nut and tapped hole), {{ui:shape.spring}}, {{ui:shape.gear}} and the {{ui:shape.knurl}} for grips. More in [Threads and mechanics](chapter:threads-and-mechanics).

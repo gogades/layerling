@@ -19,7 +19,7 @@ export const editorTargetSchema = {
  */
 export const creatableShapeKinds = [
   "box", "roundedBox", "cube", "cylinder", "slot", "ellipse", "polygon", "sphere", "cone", "pyramid", "wedge",
-  "roundRoof", "halfSphere", "torus", "tube", "bentTube", "star", "heart", "crescent", "text", "thread", "spring", "gear",
+  "roundRoof", "halfSphere", "torus", "loft", "tube", "bentTube", "star", "heart", "crescent", "text", "thread", "spring", "gear",
   "honeycomb", "hinge", "knurl", "dovetail", "counterbore", "countersink", "teardrop", "ruler", "sketch",
 ];
 
@@ -123,6 +123,19 @@ export const shapeSettingSchema = {
   screwHoleShaft: { type: "number", description: "Counterbore and countersink only: diameter of the shaft below the head in mm. The shape's width is the head diameter, its height the whole length; the head end is on top." },
   screwHoleHeadDepth: { type: "number", description: "Counterbore only: depth of the cylindrical head pocket in mm." },
   screwHoleAngle: { type: "number", description: "Countersink only: opening angle of the cone in degrees (30 to 150, default 90 for a countersunk screw)." },
+  loftBottomOutline: { type: "string", enum: ["round", "rectangle", "polygon"], description: "Loft (transition) only: the outline at the bottom - round (a circle, or an ellipse when width and length differ), rectangle (corners rounded by loftBottomCorner) or polygon (loftBottomSides corners). A loft joins its bottom outline to its top outline with a straight-ruled wall: a hose adapter, a square fan onto a round duct, a stand. Its frame is what both ends need together; width and depth stretch both ends alike." },
+  loftTopOutline: { type: "string", enum: ["round", "rectangle", "polygon"], description: "Loft only: the outline at the top, as loftBottomOutline." },
+  loftBottomWidth: { type: "number", description: "Loft only: width (x) of the bottom outline in mm." },
+  loftBottomDepth: { type: "number", description: "Loft only: length (z) of the bottom outline in mm." },
+  loftTopWidth: { type: "number", description: "Loft only: width (x) of the top outline in mm." },
+  loftTopDepth: { type: "number", description: "Loft only: length (z) of the top outline in mm." },
+  loftBottomCorner: { type: "number", description: "Loft only: corner radius of a rectangular bottom in mm (0 for sharp corners)." },
+  loftTopCorner: { type: "number", description: "Loft only: corner radius of a rectangular top in mm." },
+  loftBottomSides: { type: "number", description: "Loft only: number of corners of a polygonal bottom, 3 to 24." },
+  loftTopSides: { type: "number", description: "Loft only: number of corners of a polygonal top, 3 to 24." },
+  loftOffsetX: { type: "number", description: "Loft only: how far the top's middle sits from the bottom's along the width (x), in mm; the bottom stays in place when it changes." },
+  loftOffsetZ: { type: "number", description: "Loft only: how far the top's middle sits from the bottom's along the length (z), in mm." },
+  loftWall: { type: "number", description: "Loft only: wall thickness in mm. 0 (default) is a solid body; more makes a tube open at both ends, the opening inset by the wall at the bottom and at the top." },
   dovetailClearance: { type: "number", description: "Dovetail only: gap in mm (0 to 2, default 0.2) added on every side while the dovetail is a hole - a copy of the tail set to hole cuts a socket the tail fits into." },
   cornerFillet: { type: "number", description: "Rounded box only: fillet radius of vertical corners in mm." },
   topBottomFillet: { type: "number", description: "Rounded box only: fillet radius of top and bottom edges in mm." },

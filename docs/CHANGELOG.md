@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **New shape: Loft** ("Übergang" in German): joins one outline at the bottom to another at the top - a circle, an ellipse, a rectangle with rounded corners or a polygon at each end, the top moved sideways if you like. With a wall thickness it is a tube open at both ends, for hose adapters or a square fan onto a round duct. An exact body, so edges can be chamfered and filleted and STEP keeps it. Asked for by @Richard6360 and @mobiusfix in #188.
 - **Lines by length and angle:** While drawing a line in a sketch, type a number and two fields open: the length, then "<" or Tab and the angle, as in AutoCAD ("50<30"). Enter sets the point and the next line can be typed at once; an empty angle follows the pointer. The angle now shows next to the length at the pointer, and Shift snaps a new line in 15° steps instead of only horizontally or vertically. Suggested by @AnanasAPod in #194.
 - **Click through a narrow slot:** A body seen through a slot or hole narrower than about 3 mm could not be selected - every click picked the body around it. Its edge lines counted as hit within 1.15 mm of the pointer, so the rim always won, however far you zoomed in. Only surfaces pick a body now. Reported by @mobiusfix in #193.
 - **The plate labels switch moved to Workplane:** "Plate labels" sat under Appearance in the settings; it now sits under Workplane, right below the printer whose name it shows.

@@ -55,6 +55,14 @@ Das Kantenwerkzeug und der STEP-Export nehmen eine Feder als exakten Körper: ei
 
 Ein {{ui:shape.bentTube}} besteht aus bis zu zwölf Abschnitten: ein gerades Stück, gefolgt von einer Biegung. Für jedes stellst du die {{ui:prop.bentTubeSegmentLength}}, den {{ui:prop.bentTubeBendAngle}}, den {{ui:prop.bentTubeBendRadius}} und den {{ui:prop.bentTubeRoll}} ein. Der Abschnitt, den du gerade bearbeitest, leuchtet auf dem Rohr orange auf, so behältst du die Reihenfolge im Blick. Ein Rollwinkel von 0° biegt in der Ebene der Arbeitsfläche, bei 90° biegt das Rohr nach oben. Das Profil kann rund, quadratisch, sechs- oder achteckig sein, innen ebenso, oder ganz massiv. Läuft das Rohr in sich selbst, warnt dich layerling.
 
+## Übergang
+
+Der {{ui:shape.loft}} verbindet einen Umriss unten mit einem anderen oben, wie ein Loft in Fusion: ein Schlauchadapter von einem Durchmesser auf einen anderen, ein eckiger Lüfter auf ein rundes Rohr, ein Sockel, der nach oben rund wird. Für beide Enden wählst du {{ui:prop.loftBottomOutline}} und {{ui:prop.loftTopOutline}}: {{ui:loft.round}}, {{ui:loft.rectangle}} mit {{ui:prop.loftBottomCorner}} oder {{ui:loft.polygon}} mit seiner Eckenzahl, dazu Breite und Länge jedes Endes und die Höhe. Mit {{ui:prop.loftOffsetX}} und {{ui:prop.loftOffsetZ}} sitzt das obere Ende seitlich versetzt, für einen schrägen Übergang; das untere Ende bleibt dabei stehen.
+
+{{ui:prop.loftWall}} macht aus dem vollen Körper ein Rohr, das oben und unten offen ist. Die Öffnung ist an beiden Enden um die Wandstärke kleiner, waagerecht gemessen; wo die Wand schräg steht, ist sie also etwas dünner. Ziehst du den Rahmen größer, wachsen beide Enden mit, Eckenradius und Wand bleiben gleich.
+
+Der Übergang ist ein exakter Körper: Seine Kanten lassen sich fasen und verrunden, und der STEP-Export behält ihn. Einen Flansch mit Schraubenlöchern setzt du wie gewohnt dazu und gruppierst.
+
 ## Wabengitter
 
 Das {{ui:shape.honeycomb}} ist eine Platte mit sechseckigen Aussparungen: leicht, stabil und schön anzusehen. Die {{ui:prop.honeycombCellSize}}, die {{ui:prop.honeycombWallThickness}} und die {{ui:prop.honeycombFrameWidth}} legen das Aussehen fest.

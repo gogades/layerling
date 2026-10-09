@@ -16,7 +16,7 @@ Wähle eine Form aus. Sie hängt jetzt am Mauszeiger und landet dort, wo du klic
 Was die Bibliothek bietet:
 
 - **Grundformen:** {{ui:shape.box}}, {{ui:shape.roundedBox}}, {{ui:shape.cylinder}}, {{ui:shape.slot}}, {{ui:shape.ellipse}}, {{ui:shape.polygon}} (drei bis vierundzwanzig Seiten), {{ui:shape.sphere}}, {{ui:shape.cone}}, {{ui:shape.pyramid}} (mit drei bis vierundzwanzig Seiten, also auch dreiseitig), {{ui:shape.wedge}}, {{ui:shape.roundRoof}}, {{ui:shape.halfSphere}} und {{ui:shape.torus}}.
-- **Rohre:** {{ui:shape.tube}} und {{ui:shape.bentTube}} aus bis zu zwölf geraden Stücken mit Biegungen dazwischen.
+- **Rohre:** {{ui:shape.tube}} und {{ui:shape.bentTube}} aus bis zu zwölf geraden Stücken mit Biegungen dazwischen, dazu der {{ui:shape.loft}} von einem Umriss zu einem anderen, etwa von eckig auf rund.
 - **Zierformen:** {{ui:shape.star}}, {{ui:shape.heart}} und {{ui:shape.crescent}}.
 - **Beschriftung:** {{ui:shape.text}}, auch auf einem Kreisbogen. Mehr im Kapitel [Text](chapter:text).
 - **Mechanik:** {{ui:shape.thread}} (Gewindestange, Schraube, Mutter und Gewindeloch), {{ui:shape.spring}}, {{ui:shape.gear}} und die {{ui:shape.knurl}} für Griffe. Mehr im Kapitel [Gewinde und Mechanik](chapter:gewinde-und-mechanik).

@@ -15,6 +15,7 @@ import { normalizeHeartTipFillet } from "@/lib/heartGeometry";
 import { buildCrescentContourPoints, normalizeCrescentQuality, normalizeCrescentThickness, normalizeCrescentTipFillet } from "@/lib/crescentGeometry";
 import { buildHoneycombHoles, normalizeHoneycombCellSize, normalizeHoneycombFrameWidth, normalizeHoneycombWallThickness } from "@/lib/honeycombGeometry";
 import { dovetailOutlineForShape } from "@/lib/dovetailGeometry";
+import { loftProfileLoops } from "@/lib/loftGeometry";
 import { teardropExactSection } from "@/lib/teardropGeometry";
 import { screwHoleProfile } from "@/lib/screwHoleGeometry";
 import { DEFAULT_ROUNDED_BOX_CORNER_FILLET, DEFAULT_ROUNDED_BOX_TOP_BOTTOM_FILLET, normalizeCornerFillet, normalizeTopBottomFillet } from "@/lib/roundedBoxGeometry";
@@ -37,7 +38,7 @@ type Point = { x: number; z: number };
 type Arc = { cx: number; cz: number; rx: number; rz: number; start: number; end: number };
 type Corner = { start: Point; end: Point; arc?: Arc };
 
-export const CAD_PROFILE_SHAPE_KINDS = new Set<WorkplaneShape["kind"]>(["polygon", "star", "heart", "crescent", "slot", "honeycomb", "gear", "knurl", "dovetail", "teardrop", "counterbore", "countersink", "ellipse", "cylinder", "tube", "ring", "halfSphere", "sphere", "cone", "roundRoof", "roundedBox", "text", "bentTube"]);
+export const CAD_PROFILE_SHAPE_KINDS = new Set<WorkplaneShape["kind"]>(["polygon", "star", "heart", "crescent", "slot", "honeycomb", "gear", "knurl", "dovetail", "teardrop", "counterbore", "countersink", "ellipse", "cylinder", "tube", "ring", "halfSphere", "sphere", "cone", "roundRoof", "roundedBox", "text", "bentTube", "loft"]);
 
 function shortestAngleDelta(from: number, to: number) {
   let delta = to - from;
@@ -513,6 +514,17 @@ function bevelGearProfile(shape: WorkplaneShape, width: number, depth: number): 
 }
 
 /** Straight text is laid out at this size and then scaled into its frame (createTextGeometry). */
+/**
+ * The transition (#188): its bottom and top outline, cut into partner pieces, joined by a
+ * ruled loft; with a wall the opening is a second pair of loops, lofted and taken away.
+ */
+function loftShapeProfile(shape: WorkplaneShape): CadModifierProfilePart {
+  const { loops, topLoops } = loftProfileLoops(shape);
+  const part: CadModifierProfilePart = { kind: "loft", loops, topLoops, height: shape.height, transform: profileTransformForShape(shape) };
+  validateCadProfile(part);
+  return part;
+}
+
 const TEXT_GLYPH_SIZE = 20;
 
 type GlyphPath = { curves: Array<THREE.Curve<THREE.Vector2>> };
@@ -1012,6 +1024,7 @@ export function cadModifierProfileForShape(shape: WorkplaneShape, options: { des
   if (!CAD_PROFILE_SHAPE_KINDS.has(shape.kind)) return null;
   try {
     if (shape.kind === "gear" && normalizeGearType(shape.gearType) === "bevel") return bevelGearProfile(shape, width, depth);
+    if (shape.kind === "loft") return loftShapeProfile(shape);
     const profile = cadProfileForShapeKind(shape, options.designedRound);
     if (!profile) return null;
     const part: CadModifierProfilePart = {

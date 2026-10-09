@@ -107,6 +107,7 @@ import {
   DEFAULT_TEARDROP_WIDTH,
   teardropHeightForTipAngle,
 } from "@/lib/teardropGeometry";
+import { DEFAULT_LOFT, loftFieldsFromMeasures, loftFrameSize, normalizeLoftMeasures } from "@/lib/loftGeometry";
 import {
   DEFAULT_DOVETAIL_CLEARANCE,
   DEFAULT_DOVETAIL_DEPTH,
@@ -202,6 +203,7 @@ const SHAPE_LABEL_KEYS: Record<string, MessageKey> = {
   knurl: "shape.knurl",
   dovetail: "shape.dovetail",
   teardrop: "shape.teardrop",
+  loft: "shape.loft",
   counterbore: "shape.counterbore",
   countersink: "shape.countersink",
   thread: "shape.thread",
@@ -226,6 +228,7 @@ export const toolbarShapeAssets: ToolbarShapeAsset[] = [
   { id: "round-roof", name: "Round Roof", src: "assets/editor/shape-icons-gray/round-roof.png", menuIcon: "assets/editor/shape-icons-gray/round-roof.png", kind: "roundRoof", color: "#67c4ce" },
   { id: "half-sphere", name: "Half Sphere", src: "assets/editor/shape-icons-gray/half-sphere.png", menuIcon: "assets/editor/shape-icons-gray/half-sphere.png", kind: "halfSphere", color: "#c9009a" },
   { id: "torus", name: "Torus", src: "assets/editor/shape-icons-gray/torus.png", menuIcon: "assets/editor/shape-icons-gray/torus.png", kind: "torus", color: "#0098c7" },
+  { id: "loft", name: "Loft", src: "assets/editor/shape-icons-gray/loft.png", menuIcon: "assets/editor/shape-icons-gray/loft.png", kind: "loft", color: "#c0703a" },
   { id: "tube", name: "Tube", src: "assets/editor/shape-icons-gray/tube.png", menuIcon: "assets/editor/shape-icons-gray/tube.png", kind: "tube", color: "#ce7013" },
   { id: "bentTube", name: "Bent Tube", src: "assets/editor/shape-icons-gray/bentTube.png", menuIcon: "assets/editor/shape-icons-gray/bentTube.png", kind: "bentTube", color: "#b5651d" },
   { id: "counterbore", name: "Counterbore", src: "assets/editor/shape-icons-gray/counterbore.png", menuIcon: "assets/editor/shape-icons-gray/counterbore.png", kind: "counterbore", color: "#5f7a8a" },
@@ -320,6 +323,10 @@ export function shapeAssetDefaultDimensions(kind: ShapeKind) {
   }
   if (kind === "dovetail") {
     return { width: DEFAULT_DOVETAIL_WIDTH, depth: DEFAULT_DOVETAIL_DEPTH, height: DEFAULT_DOVETAIL_HEIGHT };
+  }
+  if (kind === "loft") {
+    const frame = loftFrameSize(normalizeLoftMeasures(DEFAULT_LOFT));
+    return { width: frame.width, depth: frame.depth, height: DEFAULT_LOFT.height };
   }
   if (kind === "hinge") {
     return { width: DEFAULT_HINGE_WIDTH, depth: DEFAULT_HINGE_DEPTH, height: DEFAULT_HINGE_HEIGHT };
@@ -417,6 +424,9 @@ export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAss
       hingeLeafThickness: DEFAULT_HINGE_LEAF_THICKNESS,
       hingeClearance: DEFAULT_HINGE_CLEARANCE,
     };
+  }
+  if (kind === "loft") {
+    return loftFieldsFromMeasures(normalizeLoftMeasures(DEFAULT_LOFT));
   }
   if (kind === "dovetail") {
     return {
@@ -555,6 +565,19 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
     knurlChamfer: shape.knurlChamfer,
     dovetailNeckWidth: shape.dovetailNeckWidth,
     dovetailClearance: shape.dovetailClearance,
+    loftBottomOutline: shape.loftBottomOutline,
+    loftTopOutline: shape.loftTopOutline,
+    loftBottomWidth: shape.loftBottomWidth,
+    loftBottomDepth: shape.loftBottomDepth,
+    loftTopWidth: shape.loftTopWidth,
+    loftTopDepth: shape.loftTopDepth,
+    loftBottomCorner: shape.loftBottomCorner,
+    loftTopCorner: shape.loftTopCorner,
+    loftBottomSides: shape.loftBottomSides,
+    loftTopSides: shape.loftTopSides,
+    loftOffsetX: shape.loftOffsetX,
+    loftOffsetZ: shape.loftOffsetZ,
+    loftWall: shape.loftWall,
     screwHoleShaft: shape.screwHoleShaft,
     screwHoleHeadDepth: shape.screwHoleHeadDepth,
     screwHoleAngle: shape.screwHoleAngle,
@@ -627,11 +650,29 @@ export function makeShapeFromAsset(
     bentTubeQuality: customization.bentTubeQuality,
   }) : null;
   const bentTubeFootprint = bentTube ? bentTubeNaturalDimensions(bentTube) : null;
-  const width = bentTubeFootprint?.width ?? threadFootprint?.width ?? customization.width ?? defaults.width;
+  // A transition's frame is what its two ends need together (#188).
+  const loftMeasures = asset.kind === "loft" ? normalizeLoftMeasures({
+    ...DEFAULT_LOFT,
+    bottomOutline: customization.loftBottomOutline,
+    topOutline: customization.loftTopOutline,
+    bottomWidth: customization.loftBottomWidth,
+    bottomDepth: customization.loftBottomDepth,
+    topWidth: customization.loftTopWidth,
+    topDepth: customization.loftTopDepth,
+    bottomCorner: customization.loftBottomCorner,
+    topCorner: customization.loftTopCorner,
+    bottomSides: customization.loftBottomSides,
+    topSides: customization.loftTopSides,
+    offsetX: customization.loftOffsetX,
+    offsetZ: customization.loftOffsetZ,
+    wall: customization.loftWall,
+  }) : null;
+  const loftFootprint = loftMeasures ? loftFrameSize(loftMeasures) : null;
+  const width = loftFootprint?.width ?? bentTubeFootprint?.width ?? threadFootprint?.width ?? customization.width ?? defaults.width;
   // A cylinder is always circular - depth follows width here too, so it never
   // snaps between insert and first render (canonicalizeShape enforces this
   // again afterwards as the actual safety net).
-  const depth = asset.kind === "cylinder" ? width : bentTubeFootprint?.depth ?? threadFootprint?.depth ?? customization.depth ?? defaults.depth;
+  const depth = asset.kind === "cylinder" ? width : loftFootprint?.depth ?? bentTubeFootprint?.depth ?? threadFootprint?.depth ?? customization.depth ?? defaults.depth;
   const height = bentTubeFootprint?.height ?? customization.height ?? (threadDefaults ? threadNaturalHeight(threadDefaults) : defaults.height);
   const size = Math.max(width, depth);
   const gearTeeth = asset.kind === "gear" ? normalizeGearTeeth(customization.teeth ?? DEFAULT_GEAR_TEETH) : undefined;
@@ -735,6 +776,7 @@ export function makeShapeFromAsset(
     topBottomFillet: asset.kind === "roundedBox" ? normalizeTopBottomFillet(customization.topBottomFillet ?? DEFAULT_ROUNDED_BOX_TOP_BOTTOM_FILLET, height / 2) : undefined,
     roundedBoxQuality: asset.kind === "roundedBox" ? normalizeRoundedBoxQuality(customization.roundedBoxQuality ?? DEFAULT_ROUNDED_BOX_QUALITY) : undefined,
     ...(bentTube ?? {}),
+    ...(loftMeasures ? loftFieldsFromMeasures(loftMeasures) : {}),
     locked: false,
     hidden: false,
   };

@@ -121,7 +121,7 @@ export function shapeTaperDimensions(shape: WorkplaneShape) {
  * Wabe und Schwalbenschwanz sie an. Die Liste steht hier, damit das Merkmalsfeld, die
  * Vorschau und die MCP-Bruecke nicht je ihre eigene fuehren.
  */
-const SHAPES_WITHOUT_TAPER = new Set<WorkplaneShape["kind"]>(["gear", "thread", "spring", "pyramid", "ruler", "hinge", "knurl", "counterbore", "countersink", "teardrop", "bentTube"]);
+const SHAPES_WITHOUT_TAPER = new Set<WorkplaneShape["kind"]>(["gear", "thread", "spring", "pyramid", "ruler", "hinge", "knurl", "counterbore", "countersink", "teardrop", "bentTube", "loft"]);
 
 export function shapeSupportsTaper(kind: WorkplaneShape["kind"]) {
   return !SHAPES_WITHOUT_TAPER.has(kind);
@@ -542,6 +542,19 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.hingeClearance === b.hingeClearance &&
     a.dovetailNeckWidth === b.dovetailNeckWidth &&
     a.dovetailClearance === b.dovetailClearance &&
+    a.loftBottomOutline === b.loftBottomOutline &&
+    a.loftTopOutline === b.loftTopOutline &&
+    a.loftBottomWidth === b.loftBottomWidth &&
+    a.loftBottomDepth === b.loftBottomDepth &&
+    a.loftTopWidth === b.loftTopWidth &&
+    a.loftTopDepth === b.loftTopDepth &&
+    a.loftBottomCorner === b.loftBottomCorner &&
+    a.loftTopCorner === b.loftTopCorner &&
+    a.loftBottomSides === b.loftBottomSides &&
+    a.loftTopSides === b.loftTopSides &&
+    a.loftOffsetX === b.loftOffsetX &&
+    a.loftOffsetZ === b.loftOffsetZ &&
+    a.loftWall === b.loftWall &&
     a.screwHoleShaft === b.screwHoleShaft &&
     a.screwHoleHeadDepth === b.screwHoleHeadDepth &&
     a.screwHoleAngle === b.screwHoleAngle &&

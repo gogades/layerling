@@ -38,6 +38,7 @@ export const MCP_SHAPE_SETTING_KEYS = [
   "hingeKnuckles", "hingePinDiameter", "hingeLeafThickness", "hingeClearance",
   "knurlPattern", "knurlCount", "knurlDepth", "knurlAngle", "knurlChamfer",
   "dovetailNeckWidth", "dovetailClearance",
+  "loftBottomOutline", "loftTopOutline", "loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth", "loftBottomCorner", "loftTopCorner", "loftBottomSides", "loftTopSides", "loftOffsetX", "loftOffsetZ", "loftWall",
   "screwHoleShaft", "screwHoleHeadDepth", "screwHoleAngle",
   "cornerFillet", "topBottomFillet", "roundedBoxQuality",
   "bentTubeProfile", "bentTubeInnerProfile", "bentTubeSize", "bentTubeWall", "bentTubeQuality", "bentTubeSegments",

@@ -130,6 +130,7 @@ import { shapeDefaultsAsset, shapeDefaultsFromShape } from "@/lib/shapeDefaults"
 import { MAX_SCREW_HOLE_ANGLE, MIN_SCREW_HOLE_ANGLE, normalizeScrewHoleAngle, normalizeScrewHoleHeadDepth, normalizeScrewHoleShaft } from "@/lib/screwHoleGeometry";
 import { MAX_TEARDROP_TIP_ANGLE, MIN_TEARDROP_TIP_ANGLE, normalizeTeardropTipAngle, teardropHeightForTipAngle, teardropTipAngle } from "@/lib/teardropGeometry";
 import { MAX_DOVETAIL_CLEARANCE, normalizeDovetailClearance, normalizeDovetailNeckWidth } from "@/lib/dovetailGeometry";
+import { loftMeasures, loftShapePatch, maxLoftWall, MAX_LOFT_SIDES, MIN_LOFT_SIDES, MIN_LOFT_SIZE, normalizeLoftOutline, type LoftMeasures } from "@/lib/loftGeometry";
 import { MAX_KNURL_ANGLE, MIN_KNURL_ANGLE, MIN_KNURL_COUNT, MIN_KNURL_DEPTH, knurlSettings, maxKnurlChamfer, maxKnurlCount, maxKnurlDepth, normalizeKnurlAngle, normalizeKnurlChamfer, normalizeKnurlCount, normalizeKnurlDepth, normalizeKnurlPattern } from "@/lib/knurlGeometry";
 import { MAX_HINGE_CLEARANCE, MAX_HINGE_KNUCKLES, MIN_HINGE_CLEARANCE, MIN_HINGE_KNUCKLES, hingePlan, minimumHingeDepth, normalizeHingeClearance, normalizeHingeKnuckles, normalizeHingeLeafThickness, normalizeHingePinDiameter } from "@/lib/hingeGeometry";
 import { useLanguage } from "@/lib/useLanguage";
@@ -294,7 +295,7 @@ const RELATIVE_SIZE_PROPERTY_IDS = new Set(["width", "height", "length", "diamet
 const ROTATION_PROPERTY_IDS = new Set(["rotateX", "rotateY", "rotateZ"]);
 
 function propertyUsesLengthUnit(key: string) {
-  return ["positionX", "positionY", "positionZ", "pivotX", "pivotY", "pivotZ", "radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "boltClearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet", "bentTubeSize", "bentTubeWall", "bentTubeSegmentLength", "bentTubeBendRadius", "dovetailNeckWidth", "dovetailClearance", "hingePinDiameter", "hingeLeafThickness", "hingeClearance", "screwHoleShaft", "screwHoleHeadDepth", "knurlDepth", "knurlChamfer"].includes(key);
+  return ["positionX", "positionY", "positionZ", "pivotX", "pivotY", "pivotZ", "radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "thickness", "toothSize", "toothWidth", "centerHole", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "boltClearance", "threadLength", "headHeight", "chamfer", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet", "bentTubeSize", "bentTubeWall", "bentTubeSegmentLength", "bentTubeBendRadius", "dovetailNeckWidth", "dovetailClearance", "hingePinDiameter", "hingeLeafThickness", "hingeClearance", "screwHoleShaft", "screwHoleHeadDepth", "knurlDepth", "knurlChamfer", "loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth", "loftBottomCorner", "loftTopCorner", "loftOffsetX", "loftOffsetZ", "loftWall"].includes(key);
 }
 
 /**
@@ -827,6 +828,66 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         },
       },
       ...roundSideProperties(shape, shape.height, shape.height, onUpdate),
+    ];
+  }
+
+  if (shape.kind === "loft") {
+    // Every value as the body shows it; a change keeps the bottom where it stands (#188).
+    const m = loftMeasures(shape);
+    const change = (next: Partial<LoftMeasures>) => onUpdate(loftShapePatch(shape, next));
+    const outlines = [
+      { value: "round", label: t("loft.round") },
+      { value: "rectangle", label: t("loft.rectangle") },
+      { value: "polygon", label: t("loft.polygon") },
+    ];
+    const end = (bottom: boolean): ShapePropertyConfig[] => {
+      const outline = bottom ? m.bottomOutline : m.topOutline;
+      const endWidth = bottom ? m.bottomWidth : m.topWidth;
+      const endDepth = bottom ? m.bottomDepth : m.topDepth;
+      const name = bottom ? "Bottom" : "Top";
+      const properties: ShapePropertyConfig[] = [
+        {
+          type: "select",
+          id: `loft${name}Outline`,
+          label: t(bottom ? "prop.loftBottomOutline" : "prop.loftTopOutline"),
+          value: outline,
+          options: outlines,
+          onChange: (value) => change(bottom ? { bottomOutline: normalizeLoftOutline(value) } : { topOutline: normalizeLoftOutline(value) }),
+        },
+        { id: `loft${name}Width`, label: t(bottom ? "prop.loftBottomWidth" : "prop.loftTopWidth"), value: endWidth, min: MIN_LOFT_SIZE, max: 300, onChange: (value) => change(bottom ? { bottomWidth: value } : { topWidth: value }) },
+        { id: `loft${name}Depth`, label: t(bottom ? "prop.loftBottomDepth" : "prop.loftTopDepth"), value: endDepth, min: MIN_LOFT_SIZE, max: 300, onChange: (value) => change(bottom ? { bottomDepth: value } : { topDepth: value }) },
+      ];
+      if (outline === "rectangle") {
+        properties.push({
+          id: `loft${name}Corner`,
+          label: t(bottom ? "prop.loftBottomCorner" : "prop.loftTopCorner"),
+          value: bottom ? m.bottomCorner : m.topCorner,
+          min: 0,
+          max: Math.max(0.1, Math.min(endWidth, endDepth) / 2),
+          step: 0.1,
+          onChange: (value) => change(bottom ? { bottomCorner: value } : { topCorner: value }),
+        });
+      }
+      if (outline === "polygon") {
+        properties.push({
+          id: `loft${name}Sides`,
+          label: t(bottom ? "prop.loftBottomSides" : "prop.loftTopSides"),
+          value: bottom ? m.bottomSides : m.topSides,
+          min: MIN_LOFT_SIDES,
+          max: MAX_LOFT_SIDES,
+          step: 1,
+          onChange: (value) => change(bottom ? { bottomSides: value } : { topSides: value }),
+        });
+      }
+      return properties;
+    };
+    return [
+      ...end(true),
+      ...end(false),
+      { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 300, onChange: setHeight },
+      { id: "loftOffsetX", label: t("prop.loftOffsetX"), value: m.offsetX, min: -150, max: 150, step: 0.5, onChange: (value) => change({ offsetX: value }) },
+      { id: "loftOffsetZ", label: t("prop.loftOffsetZ"), value: m.offsetZ, min: -150, max: 150, step: 0.5, onChange: (value) => change({ offsetZ: value }) },
+      { id: "loftWall", label: t("prop.loftWall"), value: m.wall, min: 0, max: Math.max(0.1, maxLoftWall(m)), step: 0.1, onChange: (value) => change({ wall: value }) },
     ];
   }
 

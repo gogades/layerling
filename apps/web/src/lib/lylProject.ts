@@ -43,7 +43,7 @@ export const LYL_LIMITS = {
 
 const SHAPE_KINDS = new Set([
   "box", "roundedBox", "cylinder", "slot", "ellipse", "sphere", "sketch", "scribble", "cone", "pyramid", "roof", "text", "roundRoof",
-  "halfSphere", "torus", "tube", "bentTube", "star", "heart", "crescent", "gear", "honeycomb", "hinge", "knurl", "dovetail", "counterbore", "countersink", "teardrop", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
+  "halfSphere", "torus", "tube", "bentTube", "star", "heart", "crescent", "gear", "honeycomb", "hinge", "knurl", "dovetail", "counterbore", "countersink", "teardrop", "loft", "thread", "spring", "ring", "wedge", "polygon", "icosahedron", "ruler", "mesh",
 ]);
 
 const FEATURE_TYPES = new Set([
@@ -1377,6 +1377,20 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
       if (definition[key] === undefined) continue;
       const value = finiteNumber(definition[key], `${label}.${key}`);
       if (value < 0 || value > 1e6) throw new Error(`${label}.${key} is outside the supported range`);
+    }
+  }
+  if (kind === "loft") {
+    // Lenient on purpose: the geometry clamps the values itself; only nonsense is refused.
+    for (const key of ["loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth", "loftBottomCorner", "loftTopCorner", "loftBottomSides", "loftTopSides", "loftOffsetX", "loftOffsetZ", "loftWall"] as const) {
+      if (definition[key] === undefined) continue;
+      const value = finiteNumber(definition[key], `${label}.${key}`);
+      if (Math.abs(value) > 1e6) throw new Error(`${label}.${key} is outside the supported range`);
+    }
+    for (const key of ["loftBottomOutline", "loftTopOutline"] as const) {
+      const value = definition[key];
+      if (value !== undefined && value !== "round" && value !== "rectangle" && value !== "polygon") {
+        throw new Error(`${label}.${key} must be round, rectangle or polygon`);
+      }
     }
   }
   if (kind === "dovetail") {
