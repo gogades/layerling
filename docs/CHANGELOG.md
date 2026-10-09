@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.54.0
 
 - **New shape: Loft** ("Übergang" in German): joins one outline at the bottom to another at the top - a circle, an ellipse, a rectangle with rounded corners or a polygon at each end, the top moved sideways if you like. With a wall thickness it is a tube open at both ends, for hose adapters or a square fan onto a round duct. An exact body, so edges can be chamfered and filleted and STEP keeps it. Asked for by @Richard6360 and @mobiusfix in #188.
 - **Lines by length and angle:** While drawing a line in a sketch, type a number and two fields open: the length, then "<" or Tab and the angle, as in AutoCAD ("50<30"). Enter sets the point and the next line can be typed at once; an empty angle follows the pointer. The angle now shows next to the length at the pointer, and Shift snaps a new line in 15° steps instead of only horizontally or vertically. Suggested by @AnanasAPod in #194.

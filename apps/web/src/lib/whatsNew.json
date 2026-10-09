@@ -1,5 +1,40 @@
 [
   {
+    "version": "1.54.0",
+    "items": [
+      {
+        "title": {
+          "de": "Neue Form: Übergang",
+          "en": "New shape: Loft"
+        },
+        "body": {
+          "de": "Verbindet einen Umriss unten mit einem anderen oben, etwa rund auf eckig. Mit Wandstärke wird daraus ein offenes Rohr, für Schlauchadapter oder einen Lüfter auf ein rundes Rohr.",
+          "en": "Joins one outline at the bottom to another at the top, say round to square. With a wall thickness it becomes an open tube, for hose adapters or a fan onto a round duct."
+        }
+      },
+      {
+        "title": {
+          "de": "Linien nach Länge und Winkel",
+          "en": "Lines by length and angle"
+        },
+        "body": {
+          "de": "Beim Zeichnen einer Linie einfach tippen: „50<30“ und Enter setzt den nächsten Punkt 50 mm entfernt unter 30°. Umschalt rastet jetzt in 15°-Schritten ein.",
+          "en": "While drawing a line, just type: \"50<30\" and Enter sets the next point 50 mm away at 30°. Shift now snaps in 15° steps."
+        }
+      },
+      {
+        "title": {
+          "de": "Durch schmale Schlitze klicken",
+          "en": "Click through narrow slots"
+        },
+        "body": {
+          "de": "Ein Körper hinter einem Schlitz oder Loch unter 3 mm lässt sich jetzt anklicken, statt immer den Körper drumherum zu treffen.",
+          "en": "A body behind a slot or hole narrower than 3 mm can now be clicked, instead of always hitting the body around it."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.53.0",
     "items": [
       {
