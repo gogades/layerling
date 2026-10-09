@@ -10396,7 +10396,8 @@ function createAxisArrows(width: number, depth: number) {
       context.fillText(letter, 32, 34);
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+      // Hidden behind a body like the arrow itself; it showed through every part in front of it.
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
       const size = Math.max(4, layout.length * 0.3);
       sprite.scale.set(size, size, 1);
       sprite.position.copy(direction.clone().multiplyScalar(layout.length + size * 0.65));
