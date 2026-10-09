@@ -67,6 +67,13 @@ export function whatsNewSince(
     .slice(0, limit);
 }
 
+/** The entries older than `version`, newest first: what came before the versions a card shows. */
+export function whatsNewBefore(version: string, entries: readonly WhatsNewEntry[] = WHATS_NEW): WhatsNewEntry[] {
+  return entries
+    .filter((entry) => compareVersions(entry.version, version) < 0)
+    .sort((a, b) => compareVersions(b.version, a.version));
+}
+
 /** The newest entries up to `current`, for opening the list again when nothing is new. */
 export function latestWhatsNew(current: string, entries: readonly WhatsNewEntry[] = WHATS_NEW, limit = WHATS_NEW_MANUAL_VERSIONS): WhatsNewEntry[] {
   return entries

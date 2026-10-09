@@ -1,12 +1,12 @@
 "use client";
 
 import { Sparkles, X } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import type { WhatsNewView } from "@/lib/useWhatsNew";
-import type { WhatsNewEntry } from "@/lib/whatsNew";
+import { whatsNewBefore, type WhatsNewEntry } from "@/lib/whatsNew";
 
 /** The versions with their highlights, in the interface language. */
 export function WhatsNewList({ entries }: { entries: readonly WhatsNewEntry[] }) {
@@ -31,16 +31,19 @@ export function WhatsNewList({ entries }: { entries: readonly WhatsNewEntry[] })
 }
 
 /**
- * What came with the versions since the last visit, on the start page. The
- * newest version is open; older ones wait behind one button so a long absence
- * does not turn the card into a wall of text. Closing it remembers the current
- * version, so it does not come back until the next update.
+ * What came with the versions since the last visit, on the start page: every
+ * one of them, newest first. Only the newest used to be open, the rest behind a
+ * button - under a title saying "since your last visit" that read as if one
+ * version was all that came. A long absence scrolls inside the card instead
+ * (whats-new-body has a height limit). Below them, one button opens the versions
+ * from before the last visit. Closing it remembers the current version, so it
+ * does not come back until the next update.
  */
 export function WhatsNewCard({ view, current, onClose }: { view: WhatsNewView; current: string; onClose: () => void }) {
   useLanguage();
-  const [showOlder, setShowOlder] = useState(false);
-  const [newest, ...older] = view.entries;
-  const visible = showOlder ? view.entries : [newest];
+  const [showEarlier, setShowEarlier] = useState(false);
+  const oldestShown = view.entries[view.entries.length - 1]?.version;
+  const earlier = useMemo(() => (oldestShown ? whatsNewBefore(oldestShown) : []), [oldestShown]);
   const title = view.from
     ? t("whatsNew.title", { from: view.from, to: current })
     : t("whatsNew.titleRecent");
@@ -58,12 +61,18 @@ export function WhatsNewCard({ view, current, onClose }: { view: WhatsNewView; c
         </button>
       </header>
       <div className="whats-new-body">
-        <WhatsNewList entries={visible} />
+        <WhatsNewList entries={view.entries} />
+        {showEarlier && earlier.length > 0 ? (
+          <>
+            <h3 className="whats-new-earlier-heading">{t(view.from ? "whatsNew.beforeLastVisit" : "whatsNew.earlierHeading")}</h3>
+            <WhatsNewList entries={earlier} />
+          </>
+        ) : null}
       </div>
       <footer className="whats-new-footer">
-        {older.length > 0 && !showOlder ? (
-          <button className="whats-new-older" type="button" onClick={() => setShowOlder(true)}>
-            {t("whatsNew.older", { count: older.length })}
+        {earlier.length > 0 && !showEarlier ? (
+          <button className="whats-new-earlier" type="button" onClick={() => setShowEarlier(true)}>
+            {t("whatsNew.earlier", { count: earlier.length })}
           </button>
         ) : null}
         <button className="whats-new-done" type="button" onClick={onClose}>

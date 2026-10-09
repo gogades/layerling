@@ -1913,7 +1913,17 @@ button {
   gap: 10px;
 }
 
-.whats-new-older {
+/* The versions from before the last visit: a line and a quiet heading set them off. */
+.whats-new-earlier-heading {
+  margin: 4px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid #f0d9b8;
+  color: #7a6650;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.whats-new-earlier {
   padding: 7px 12px;
   color: #7a6650;
   font-size: 13px;
@@ -1924,7 +1934,7 @@ button {
   cursor: pointer;
 }
 
-.whats-new-older:hover {
+.whats-new-earlier:hover {
   background: #f6e9d6;
 }
 
@@ -1960,16 +1970,18 @@ html[data-theme="dark"] .whats-new-version h2 {
 
 html[data-theme="dark"] .whats-new-version li span,
 html[data-theme="dark"] .whats-new-close,
-html[data-theme="dark"] .whats-new-older {
+html[data-theme="dark"] .whats-new-earlier,
+html[data-theme="dark"] .whats-new-earlier-heading {
   color: #bda78e;
 }
 
-html[data-theme="dark"] .whats-new-older {
+html[data-theme="dark"] .whats-new-earlier,
+html[data-theme="dark"] .whats-new-earlier-heading {
   border-color: #6a4a26;
 }
 
 html[data-theme="dark"] .whats-new-close:hover,
-html[data-theme="dark"] .whats-new-older:hover {
+html[data-theme="dark"] .whats-new-earlier:hover {
   color: #f3ede3;
   background: #3a2c16;
 }

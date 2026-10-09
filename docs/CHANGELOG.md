@@ -7,6 +7,7 @@ code still carries it - so a lower number further down is older, not newer.
 ## 1.55.2
 
 - **The design menu stays in front in the list view:** On the start page's list view, a design's Options menu slipped behind the next row while the pointer was on its own card. Hovering lifts a card with a transform, which made it a stacking context of its own, so its menu only counted inside it; the card with an open menu now stands in front. Reported by @ucito in #200.
+- **"New since your last visit" lists every version since then:** The card on the start page opened only the newest version and kept the others behind a button, so under its title "since your last visit" it read as if one update was all that came. It now lists every version since the last visit, newest first, and scrolls inside the card after a long absence; a button below adds the versions from before the last visit.
 
 ## 1.55.1
 

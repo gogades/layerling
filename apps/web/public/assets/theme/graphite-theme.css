@@ -603,13 +603,18 @@ html:where([data-theme="dark"][data-palette="graphite"]),
   color: #595959;
 }
 
-:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-older {
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-earlier-heading {
+  border-top: 1px solid #d4d4d4;
+  color: #595959;
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-earlier {
   color: #595959;
   background: transparent;
   border: 1px solid #c9c9c9;
 }
 
-:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-older:hover {
+:where(html[data-theme="dark"][data-palette="graphite"]) .whats-new-earlier:hover {
   background: #e6e6e6;
 }
 
@@ -640,16 +645,18 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-version h2 {
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-version li span,
 html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-close,
-html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older {
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-earlier,
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-earlier-heading {
   color: #929292;
 }
 
-html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older {
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-earlier,
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-earlier-heading {
   border-color: #4a4a4a;
 }
 
 html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-close:hover,
-html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-older:hover {
+html[data-theme="dark"]:where([data-palette="graphite"]) .whats-new-earlier:hover {
   color: #ebebeb;
   background: #2d2d2d;
 }

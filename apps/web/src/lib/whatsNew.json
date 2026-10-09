@@ -11,6 +11,16 @@
           "de": "Das Optionen-Menü eines Entwurfs bleibt in der Listenansicht der Startseite vorn und rutscht nicht mehr hinter die nächste Zeile.",
           "en": "A design's Options menu in the start page's list view stays in front and no longer slips behind the next row."
         }
+      },
+      {
+        "title": {
+          "de": "Alles seit deinem letzten Besuch",
+          "en": "Everything since your last visit"
+        },
+        "body": {
+          "de": "Diese Karte zeigt jetzt jede Version seit deinem letzten Besuch untereinander, nicht nur die neueste. Darunter holt ein Knopf auch die Versionen von davor dazu.",
+          "en": "This card now lists every version since your last visit, not just the newest. A button below adds the versions from before that too."
+        }
       }
     ]
   },

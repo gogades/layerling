@@ -9,6 +9,7 @@ import {
   WHATS_NEW_BASELINE,
   WHATS_NEW_MANUAL_VERSIONS,
   WHATS_NEW_MAX_VERSIONS,
+  whatsNewBefore,
   whatsNewSince,
   type WhatsNewEntry,
 } from "@/lib/whatsNew";
@@ -32,6 +33,14 @@ describe("version numbers", () => {
     expect(compareVersions("2.0.0", "1.99.99")).toBeGreaterThan(0);
     expect(compareVersions("1.42.0", "v1.42.0")).toBe(0);
     expect(compareVersions("nonsense", "1.0.0")).toBe(0);
+  });
+});
+
+describe("whatsNewBefore", () => {
+  it("lists what came before the oldest version a card shows, the last one seen included, newest first", () => {
+    // Last seen 1.40.0, so the card shows 1.42.0 and 1.41.0; the button adds 1.40.0 and 1.38.0.
+    const shown = whatsNewSince("1.40.0", "1.42.0", ENTRIES);
+    expect(whatsNewBefore(shown[shown.length - 1].version, ENTRIES).map((e) => e.version)).toEqual(["1.40.0", "1.38.0"]);
   });
 });
 
