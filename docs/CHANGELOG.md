@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **No crash when Chrome translates the page:** Chrome's Translate (and some extensions) swap the page's text for their own elements. When layerling then showed or hid a piece of text, the browser stopped it with "Failed to execute 'insertBefore' on 'Node'" - while adding a fillet, for example. layerling now steps around such a change instead of crashing. Reported by @gpmw in #186.
+
 ## 1.49.2
 
 - **A crash no longer leaves a blank page:** When the editor or the page stops with an error, layerling now shows a window with the error message instead of the browser's "Application error" page. It offers to save the design as it was last stored in the browser as a .lyl file, to go back to the overview (the broken editor is closed, so it does not stop again right away) or to start a new design. The window follows the theme and can be moved. Prompted by @voltage3d in #187.

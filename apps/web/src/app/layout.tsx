@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
+import { DOM_MUTATION_GUARD_SCRIPT } from "@/lib/domMutationGuard";
 
 const NAME = "layerling";
 const TITLE = "layerling - Free 3D CAD for 3D printing in your browser";
@@ -82,6 +83,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" style={{ colorScheme: "light" }}>
+      <head>
+        {/* Before any of React's scripts: a page rearranged by Translate must not crash it (#186). */}
+        <script dangerouslySetInnerHTML={{ __html: DOM_MUTATION_GUARD_SCRIPT }} />
+      </head>
       <body suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: INSTALL_PROMPT_SCRIPT }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
