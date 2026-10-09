@@ -132,7 +132,9 @@ export function stepSourceForShape(shape: WorkplaneShape): StepSource {
 export function shapeYawDegrees(shape: WorkplaneShape): number {
   const round = shape.kind === "cylinder" || shape.kind === "cone";
   const circular = Math.abs(shapeWidth(shape) - shapeDepth(shape)) < SIZE_EPS;
-  return round && circular ? 0 : shape.rotation;
+  // Tipped about Z first, the yaw decides where a round body points (meshYawDegrees).
+  const tippedAboutZ = Math.abs(shape.rotationZ ?? 0) > 1e-9;
+  return round && circular && !tippedAboutZ ? 0 : shape.rotation;
 }
 
 type BuildOutcome = { solid: BrepSolid } | { skip: string };

@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **A cylinder lying on its side keeps its direction when grouped:** A round cylinder, ellipse or cone drops its turn about the vertical axis when it is baked into a mesh - harmless while it stands, but a cylinder tipped on its side points where that turn says. Pins laid round a ring with the circular pattern all faced one way once they were grouped (and in the STL and STEP files). The turn is now kept for a body tipped on its side. Reported by PePa in the forum.
 - **Tool panels fit on small screens:** The panels for patterns, edges, hollowing and scaling had no height limit, so on a 1080p laptop at 125 % scaling the pattern panel in circle mode ran off the bottom and "Create" could not be reached. They now scroll inside, and their buttons stay in view. Reported by PePa in the forum.
 - **Colour and solid/hole for several parts at once:** With more than one part selected, the properties panel used to disappear. It now stays, as in Tinkercad, with the number of parts, solid or hole for all of them (a mixed selection says so), one colour for all and the lock. Sizes stay with a single part, the handles and Scale by percent. Asked about by @kwjaarsveld-star in #183.
 - **The STEP export says what it left out:** A body STEP cannot carry exactly - a twisted one, say, or a mesh imported as STL - is skipped, and the status line only said "1 shape skipped". It now names the bodies and the reason. Reported by @nnikzat in #184.

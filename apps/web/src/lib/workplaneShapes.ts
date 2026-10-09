@@ -258,6 +258,11 @@ export function meshYawDegrees(shape: WorkplaneShape) {
   if (!isRoundPrimitive || !isCircular) {
     return shape.rotation;
   }
+  // The yaw only turns a round body about its own axis while that axis stands up. The Euler order
+  // (XYZ) applies the tilt about Z before the yaw, so a body tipped about Z lies on its side and
+  // the yaw decides where it points (forum 617836: pins laid round a ring all faced one way once
+  // grouped).
+  if (Math.abs(shape.rotationZ ?? 0) > 1e-9) return shape.rotation;
 
   // A tessellated circular primitive is only invariant by one whole side step.
   // Preserve the remaining yaw so low-sided cylinders are baked and used in
