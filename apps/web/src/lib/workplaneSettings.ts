@@ -49,6 +49,8 @@ export const DEFAULT_WORKPLANE_WORKSPACE: WorkplaneWorkspaceSettings = {
   edgeLines: false,
   edgeColor: DEFAULT_EDGE_LINE_COLOR,
   showShadows: true,
+  cameraInertia: true,
+  fastMode: false,
   shadeContrast: 0,
   shadowStrength: 100,
   sketchBackground: DEFAULT_SKETCH_BACKGROUND,
@@ -496,6 +498,8 @@ export function normalizeWorkspaceSettings(value: unknown, fallback: WorkplaneWo
     edgeLines: booleanOrDefault(candidate.edgeLines, fallback.edgeLines),
     edgeColor: colorOrDefault(candidate.edgeColor, fallback.edgeColor),
     showShadows: booleanOrDefault(candidate.showShadows, fallback.showShadows),
+    cameraInertia: booleanOrDefault(candidate.cameraInertia, fallback.cameraInertia),
+    fastMode: booleanOrDefault(candidate.fastMode, fallback.fastMode),
     shadeContrast: Math.round(Math.max(-100, Math.min(100, numberOrDefault(candidate.shadeContrast, fallback.shadeContrast)))),
     shadowStrength: Math.round(Math.max(0, Math.min(100, numberOrDefault(candidate.shadowStrength, fallback.shadowStrength)))),
     sketchBackground: colorOrDefault(candidate.sketchBackground, fallback.sketchBackground),
@@ -596,4 +600,18 @@ export function saveWorkspaceDefault(
   } catch {
     return false;
   }
+}
+
+/**
+ * The view settings as they take effect: fast mode switches shadows, edge lines on all bodies and
+ * camera inertia off, whatever they are set to, and keeps their own values for when it goes off.
+ */
+export function effectiveViewSettings<T extends Pick<WorkplaneWorkspaceSettings, "showShadows" | "edgeLines" | "cameraInertia" | "fastMode">>(workspace: T): T {
+  if (!workspace.fastMode) return workspace;
+  return { ...workspace, showShadows: false, edgeLines: false, cameraInertia: false };
+}
+
+/** How many pixels the view draws per screen pixel: fast mode draws no more than the screen has. */
+export function viewPixelRatio(workspace: Pick<WorkplaneWorkspaceSettings, "fastMode">, devicePixelRatio: number) {
+  return workspace.fastMode ? 1 : Math.min(Math.max(1, devicePixelRatio || 1), 2);
 }

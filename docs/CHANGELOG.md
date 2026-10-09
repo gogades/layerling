@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Fast mode and a camera that stops at once:** A new **Fast mode** under Settings → Appearance turns off shadows, edge lines on all bodies and the camera's inertia together, and draws the view at screen resolution only - for slower computers; your own settings are kept for when it goes off. On its own, **Camera keeps turning** switches off the inertia, so the view stops the moment you let go, as in Tinkercad and Fusion 360. A new section in the guide ("When layerling feels slow") collects what helps. Asked about by @Richard6360 in #188.
 - **No crash when Chrome translates the page:** Chrome's Translate (and some extensions) swap the page's text for their own elements. When layerling then showed or hid a piece of text, the browser stopped it with "Failed to execute 'insertBefore' on 'Node'" - while adding a fillet, for example. layerling now steps around such a change instead of crashing. Reported by @gpmw in #186.
 
 ## 1.49.2

@@ -84,3 +84,14 @@ Zwei Regler unter {{ui:workspace.appearance}} bestimmen, wie die Körper beleuch
 ![Der Editor im dunklen Farbschema. Das Farbschema stellst du oben rechts ein: System, Hell, Dunkel oder Graphit.](shot:editor-dark)
 
 > **Tipp:** Dreh die Ansicht nicht mehr, wenn du Teile genau aneinander setzt. Wechsle mit den Zifferntasten in die gerade Ansicht von oben oder von vorn und schalte mit [[O]] auf die flache Darstellung um. So erkennst du sofort, ob zwei Kanten wirklich bündig sind.
+
+## Wenn sich layerling langsam anfühlt
+
+layerling rechnet und zeichnet alles in deinem Browser. Auf einem älteren Rechner, mit einer schwachen Grafikkarte oder auf mehreren großen Bildschirmen kann die Ansicht deshalb zäh wirken. Das hilft:
+
+- **{{ui:workspace.fastMode}}** unter {{ui:workspace.appearance}} schaltet auf einen Schlag alles ab, was die Ansicht viel Kraft kostet: Schatten, Kantenlinien an allen Körpern und das Nachlaufen der Kamera. Außerdem zeichnet er die Ansicht nur in der Auflösung des Bildschirms, auf hochauflösenden Bildschirmen sind das bis zu viermal weniger Bildpunkte. Deine eigenen Einstellungen bleiben dabei erhalten und gelten wieder, sobald du ihn ausschaltest.
+- **Die Kamera läuft nach:** Lässt du die Maus nach dem Drehen los, dreht die Ansicht kurz weiter und bremst sanft ab. Das ist Absicht und kein Ruckeln. Wer es von Tinkercad oder Fusion 360 anders kennt, schaltet {{ui:workspace.cameraInertia}} unter {{ui:workspace.appearance}} aus, dann steht die Ansicht sofort.
+- **Einzelne Schalter:** Ohne Schnellmodus kannst du auch nur {{ui:workspace.showShadows}} oder {{ui:workspace.edgeLines}} ausschalten.
+- **Die Grafikkarte nutzen:** Öffne in Chrome `chrome://gpu` (in Edge `edge://gpu`). Bei „WebGL" sollte „Hardware accelerated" stehen. Steht dort „Software only", ist die Hardwarebeschleunigung in den Browsereinstellungen aus. Unter Windows kannst du außerdem in den Einstellungen unter System → Bildschirm → Grafik für den Browser „Hohe Leistung" wählen, damit er die eigentliche Grafikkarte nimmt und nicht die schwächere im Prozessor.
+- **Große importierte Netze vereinfachen:** Ein Modell aus vielen Hunderttausend Dreiecken bremst jede Ansicht. Wie du es ausdünnst, steht im Kapitel über Dateien unter „Ein importiertes Netz vereinfachen".
+- **Andere Tabs schließen:** Jeder offene layerling-Tab und jede andere 3D-Seite teilt sich dieselbe Grafikkarte.

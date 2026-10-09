@@ -208,6 +208,13 @@ export type WorkplaneWorkspaceSettings = {
   /** Colour of those edge lines. */
   edgeColor: string;
   showShadows: boolean;
+  /** The camera keeps turning for a moment after you let go, and slows down. */
+  cameraInertia: boolean;
+  /**
+   * Fast mode: turns the costly parts of the view down together - no shadows, no edge lines on
+   * all bodies, no camera inertia, and the view drawn at one pixel per screen pixel.
+   */
+  fastMode: boolean;
   /** Lighting contrast, -100 (soft) to 100 (punchy); 0 is the original look. */
   shadeContrast: number;
   /** How dark the cast shadows are, 0 to 100 (100 = as before). */

@@ -630,6 +630,12 @@ export function WorkspaceSettingsModal({
                     <strong>{t("workspace.appearance")}</strong>
                     <span>{t("workspace.appearanceHint")}</span>
                   </div>
+                  <WorkspaceToggle
+                    label={t("workspace.fastMode")}
+                    description={t("workspace.fastModeHint")}
+                    checked={workspace.fastMode}
+                    onChange={(fastMode) => patchWorkspace({ fastMode })}
+                  />
                   <label className="workspace-select">
                     <span>{t("workspace.theme")}</span>
                     <select
@@ -665,8 +671,9 @@ export function WorkspaceSettingsModal({
                   />
                   <WorkspaceToggle
                     label={t("workspace.edgeLines")}
-                    description={t("workspace.edgeLinesHint")}
-                    checked={workspace.edgeLines}
+                    description={workspace.fastMode ? t("workspace.offInFastMode") : t("workspace.edgeLinesHint")}
+                    checked={workspace.edgeLines && !workspace.fastMode}
+                    disabled={workspace.fastMode}
                     onChange={(edgeLines) => patchWorkspace({ edgeLines })}
                   />
                   <ColorSettingControl
@@ -674,7 +681,7 @@ export function WorkspaceSettingsModal({
                     color={edgeColor}
                     defaultColor={DEFAULT_WORKPLANE_WORKSPACE.edgeColor}
                     presets={EDGE_COLOR_PRESETS}
-                    disabled={!workspace.edgeLines}
+                    disabled={!workspace.edgeLines || workspace.fastMode}
                     onChange={(nextEdgeColor) => patchWorkspace({ edgeColor: nextEdgeColor })}
                   />
                   <ColorSettingControl
@@ -737,7 +744,13 @@ export function WorkspaceSettingsModal({
                     checked={workspace.objectSnap}
                     onChange={(objectSnap) => patchWorkspace({ objectSnap })}
                   />
-                  <WorkspaceToggle label={t("workspace.showShadows")} checked={workspace.showShadows} onChange={(showShadows) => patchWorkspace({ showShadows })} />
+                  <WorkspaceToggle
+                    label={t("workspace.showShadows")}
+                    description={workspace.fastMode ? t("workspace.offInFastMode") : undefined}
+                    checked={workspace.showShadows && !workspace.fastMode}
+                    disabled={workspace.fastMode}
+                    onChange={(showShadows) => patchWorkspace({ showShadows })}
+                  />
                   <label className="workspace-range">
                     <span>{t("workspace.shadowStrength")}: {workspace.shadowStrength} %</span>
                     <input
@@ -746,7 +759,7 @@ export function WorkspaceSettingsModal({
                       max={100}
                       step={5}
                       value={workspace.shadowStrength}
-                      disabled={!workspace.showShadows}
+                      disabled={!workspace.showShadows || workspace.fastMode}
                       onChange={(event) => patchWorkspace({ shadowStrength: Number(event.currentTarget.value) })}
                     />
                   </label>
@@ -799,6 +812,13 @@ export function WorkspaceSettingsModal({
                       <span>{t("workspace.fast")}</span>
                     </small>
                   </label>
+                  <WorkspaceToggle
+                    label={t("workspace.cameraInertia")}
+                    description={workspace.fastMode ? t("workspace.offInFastMode") : t("workspace.cameraInertiaHint")}
+                    checked={workspace.cameraInertia && !workspace.fastMode}
+                    disabled={workspace.fastMode}
+                    onChange={(cameraInertia) => patchWorkspace({ cameraInertia })}
+                  />
                   <label className="workspace-select">
                     <span>{t("workspace.booleanTriangleLimit")}</span>
                     <select
