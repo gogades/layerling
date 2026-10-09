@@ -10346,7 +10346,7 @@ const WORKPLANE_LABEL_FONT_STACK = '"Avenir Next", Avenir, "Helvetica Neue", Ari
  * static string that never needs to be a solid, and a texture costs one quad.
  */
 /**
- * Arrows for X, Y and Z at the plate's back left corner, in the frame of the workplane they sit
+ * Arrows for X, Y and Z at the plate's front left corner, in the frame of the workplane they sit
  * on: X to the right, Y towards the front (as the Y field counts), Z up. They are flat-coloured,
  * never take a click, and the letters stay readable from every side.
  */

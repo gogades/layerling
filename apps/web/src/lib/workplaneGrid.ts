@@ -64,11 +64,15 @@ export function workplaneLabelLayout(width: number, depth: number): WorkplaneLab
   const labelWidth = Math.min(clampedHeight * WORKPLANE_LABEL_ASPECT, maxLabelWidth);
   const labelHeight = labelWidth / WORKPLANE_LABEL_ASPECT;
   const inset = labelHeight * WORKPLANE_LABEL_INSET_RATIO;
+  // The axis arrows share the front left corner (#182): the name starts after the X arrow and its
+  // letter, as far as the left half of the plate allows.
+  const arrows = axisArrowLayout(safeWidth, safeDepth);
+  const arrowClearance = arrows.length + Math.max(4, arrows.length * 0.3) * 1.3;
   return {
     width: labelWidth,
     height: labelHeight,
     depthOffset: Math.max(0, safeDepth / 2 - inset - labelHeight / 2),
-    lateralOffset: Math.min(0, -safeWidth / 2 + inset + labelWidth / 2),
+    lateralOffset: Math.min(0, -labelWidth / 2, -safeWidth / 2 + inset + labelWidth / 2 + arrowClearance),
   };
 }
 
@@ -228,13 +232,13 @@ export function sceneLightLevels(contrast: number) {
 export const AXIS_ARROW_COLORS = { x: "#e5484d", y: "#3fae5a", z: "#3b82f6" } as const;
 
 /**
- * Where the axis arrows stand and how long they are: at the far left corner of the plate, where
- * they stay out of the way, long enough to read at a glance and never longer than a fifth of the
- * smaller side. The arrows point along the numbers' directions, right-handed (#182): X to the
- * right, Y towards the back (the way the Y field counts) and Z up.
+ * Where the axis arrows stand and how long they are: at the front left corner of the plate, so
+ * that X and Y both run along its edges and stay on it, long enough to read at a glance and never
+ * longer than a fifth of the smaller side. The arrows point along the numbers' directions,
+ * right-handed (#182): X to the right, Y towards the back (the way the Y field counts) and Z up.
  */
 export function axisArrowLayout(width: number, depth: number) {
   const smaller = Math.max(1, Math.min(width, depth));
   const length = Math.max(6, Math.min(24, smaller * 0.12, smaller * 0.2));
-  return { x: -width / 2, z: -depth / 2, length };
+  return { x: -width / 2, z: depth / 2, length };
 }

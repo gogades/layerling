@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   WORKPLANE_LABEL_ASPECT,
+  axisArrowLayout,
   workplaneLabelLayout,
 } from "@/lib/workplaneGrid";
 import { DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
@@ -53,12 +54,13 @@ describe("workplane label layout", () => {
     }
   });
 
-  it("keeps the same gap from the left edge as from the near edge", () => {
+  it("starts after the X arrow sharing its corner, unless the left half runs out (#182)", () => {
     for (const [width, depth] of SIZES) {
       const layout = workplaneLabelLayout(width, depth);
       const leftGap = layout.lateralOffset - layout.width / 2 + width / 2;
       const nearGap = depth / 2 - (layout.depthOffset + layout.height / 2);
-      expect(leftGap).toBeCloseTo(nearGap, 6);
+      const capped = Math.abs(layout.lateralOffset + layout.width / 2) < 1e-9;
+      if (!capped) expect(leftGap).toBeGreaterThan(nearGap + axisArrowLayout(width, depth).length);
     }
   });
 
