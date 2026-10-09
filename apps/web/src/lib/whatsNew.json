@@ -1,5 +1,30 @@
 [
   {
+    "version": "1.49.2",
+    "items": [
+      {
+        "title": {
+          "de": "Gerade Linien mit der Umschalt-Taste",
+          "en": "Straight lines with Shift"
+        },
+        "body": {
+          "de": "Halte beim Zeichnen in der Skizze die Umschalt-Taste: Die neue Linie rastet waagerecht oder senkrecht zum letzten Punkt ein. Das gilt für Linie, Weiche Kurve, Bézier-Kurve und das Maßband.",
+          "en": "Hold Shift while drawing in a sketch: the new line locks horizontally or vertically to the last point. This works for Line, Smooth curve, Bezier and the tape measure."
+        }
+      },
+      {
+        "title": {
+          "de": "Ein Absturz sperrt dich nicht mehr aus",
+          "en": "A crash no longer locks you out"
+        },
+        "body": {
+          "de": "Bleibt layerling mit einem Fehler stehen, erscheint statt einer leeren Seite ein Fenster mit der Fehlermeldung. Darin sicherst du den zuletzt gespeicherten Stand als .lyl, kehrst zur Übersicht zurück oder beginnst einen neuen Entwurf.",
+          "en": "If layerling stops with an error, a window with the error message shows instead of a blank page. From it you can save the last stored state as .lyl, go back to the overview or start a new design."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.49.1",
     "items": [
       {

@@ -7,7 +7,7 @@ code still carries it - so a lower number further down is older, not newer.
 ## 1.49.2
 
 - **A crash no longer leaves a blank page:** When the editor or the page stops with an error, layerling now shows a window with the error message instead of the browser's "Application error" page. It offers to save the design as it was last stored in the browser as a .lyl file, to go back to the overview (the broken editor is closed, so it does not stop again right away) or to start a new design. The window follows the theme and can be moved. Prompted by @voltage3d in #187.
-- **Draw straight horizontal and vertical lines in sketch mode:** Holding [[Shift]] while drawing with the Line or Smooth tool keeps the new line strictly horizontal or vertical from the previous point, locking to the X or Z axis. Tape measurements in the sketch follow the same lock with [[Shift]]. Asked for by @makinglayerschannel in #174.
+- **Draw straight horizontal and vertical lines in sketch mode:** Holding Shift while drawing with the Line, Smooth or Bezier tool keeps the new line strictly horizontal or vertical from the previous point. The tape measure in the sketch follows the same lock with Shift. Asked for by @makinglayerschannel in #174.
 
 ## 1.49.1
 
