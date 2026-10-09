@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.50.0
 
 - **A design with a large imported mesh opens again:** With the workplane on a face, opening such a design stopped with "Maximum call stack size exceeded": the editor projected every body onto the workplane for the sketch view - even with no sketch open - and measured the points with `Math.min(...list)`, which overflows for a few hundred thousand points. It now measures in a loop, and only while a sketch is open. Reported by @Elchifli in #190.
 - **Y counts towards the back (right-handed axes):** The Y position counted towards the front, which with X to the right and Z up is left-handed - unlike Tinkercad, CAD programs and the slicers, and unlike layerling's own pattern tool and MCP bridge. Y now counts towards the back everywhere: the position and pivot fields, the turn about Y, reference points, the distances to the origin and while moving, the section view and the split plane, and the axis arrows. Designs do not move; only the sign of the Y number (and of the turn about Y) changes. Asked for by @hs-20251111 in #182.

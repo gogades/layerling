@@ -1,5 +1,70 @@
 [
   {
+    "version": "1.50.0",
+    "items": [
+      {
+        "title": {
+          "de": "Y zählt jetzt nach hinten",
+          "en": "Y counts towards the back now"
+        },
+        "body": {
+          "de": "Die Achsen folgen jetzt der Rechte-Hand-Regel wie Tinkercad und CAD-Programme: X nach rechts, Y nach hinten, Z nach oben. Deine Teile bleiben, wo sie sind – nur das Vorzeichen der Y-Zahl und des Winkels um Y dreht sich um.",
+          "en": "The axes now follow the right-hand rule like Tinkercad and CAD programs: X to the right, Y towards the back, Z up. Your parts stay where they are – only the sign of the Y number and of the turn about Y flips."
+        }
+      },
+      {
+        "title": {
+          "de": "Verdrehte Formen exakt",
+          "en": "Twisted shapes, exact"
+        },
+        "body": {
+          "de": "Ein verdrehter Quader, Zylinder, Stern oder ein verdrehtes Rohr ist jetzt ein exakter CAD-Körper: Er geht ins STEP, und Fasen, Rundungen und Aushöhlen gehen daran. Auf dem Bildschirm winden sich die Seiten jetzt gleichmäßig.",
+          "en": "A twisted box, cylinder, star or tube is now an exact CAD body: it goes into STEP, and chamfers, fillets and hollowing work on it. On screen the sides now wind round evenly."
+        }
+      },
+      {
+        "title": {
+          "de": "Um Prozent skalieren",
+          "en": "Scale by percent"
+        },
+        "body": {
+          "de": "Rechtsklick auf die Auswahl, „Um Prozent skalieren“, z. B. 120 % – zusammen um die gemeinsame Mitte oder jedes Teil an seinem Platz.",
+          "en": "Right-click the selection, Scale by percent, e.g. 120 % – together around the common centre or each part in place."
+        }
+      },
+      {
+        "title": {
+          "de": "Mehrere Teile auf einmal",
+          "en": "Several parts at once"
+        },
+        "body": {
+          "de": "Sind mehrere Teile gewählt, bleibt das Eigenschaften-Feld offen: eine Farbe für alle, Körper oder Aussparung und Sperren.",
+          "en": "With several parts selected, the properties panel stays open: one colour for all, solid or hole, and locking."
+        }
+      },
+      {
+        "title": {
+          "de": "Schnellmodus",
+          "en": "Fast mode"
+        },
+        "body": {
+          "de": "Für langsamere Rechner schaltet der Schnellmodus in den Einstellungen Schatten, Kantenlinien und das Nachlaufen der Kamera auf einmal ab. Das Nachlaufen lässt sich auch einzeln abschalten.",
+          "en": "For slower computers, fast mode in the settings turns off shadows, edge lines and the camera's inertia at once. The inertia can also be switched off on its own."
+        }
+      },
+      {
+        "title": {
+          "de": "Fehler behoben",
+          "en": "Fixes"
+        },
+        "body": {
+          "de": "Chromes Übersetzer bringt layerling nicht mehr zum Absturz; Entwürfe mit großen Netzen öffnen wieder; liegende Zylinder behalten beim Gruppieren ihre Richtung; die Griffe reichen bis zur Plattengröße; Werkzeugfenster passen auf kleine Bildschirme; der STEP-Export nennt, was er auslässt.",
+          "en": "Chrome's Translate no longer crashes layerling; designs with large meshes open again; cylinders lying on their side keep their direction when grouped; the handles reach as far as the plate; tool panels fit on small screens; the STEP export names what it leaves out."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.49.2",
     "items": [
       {
