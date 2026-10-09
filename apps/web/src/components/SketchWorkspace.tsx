@@ -1852,8 +1852,19 @@ export function SketchWorkspace({
             );
           })() : null}
           {hover && hoverOnReference ? <circle className="sketch-reference-snap" cx={hover.x} cy={hover.z} r={7 * screenUnit} pointerEvents="none" /> : null}
-          {activePoint && previewEnd && ["line", "bezier", "smooth"].includes(tool) ? <line className="sketch-preview-line" x1={activePoint.x} y1={activePoint.z} x2={previewEnd.x} y2={previewEnd.z} pointerEvents="none" /> : null}
-          {activePoint && previewEnd && !typedLine && ["line", "bezier", "smooth"].includes(tool) ? (
+          {activePoint && previewEnd && pointerAction?.kind !== "bezier" && ["line", "bezier", "smooth"].includes(tool) ? <line className="sketch-preview-line" x1={activePoint.x} y1={activePoint.z} x2={previewEnd.x} y2={previewEnd.z} pointerEvents="none" /> : null}
+          {activePoint && pointerAction?.kind === "bezier" ? (() => {
+            // While a Bézier point is dragged out, the stretch to it bends live, exactly as it will
+            // once let go: its handle on this side mirrors the drag (#196). Before, a straight line
+            // ran to the pointer - not even to the point being placed.
+            const end = pointerAction.origin;
+            const handleIn = { x: 2 * end.x - pointerAction.current.x, z: 2 * end.z - pointerAction.current.z };
+            const d = activePoint.handleOut
+              ? `M ${activePoint.x} ${activePoint.z} C ${activePoint.handleOut.x} ${activePoint.handleOut.z} ${handleIn.x} ${handleIn.z} ${end.x} ${end.z}`
+              : `M ${activePoint.x} ${activePoint.z} L ${end.x} ${end.z}`;
+            return <path className="sketch-preview-line" d={d} fill="none" pointerEvents="none" />;
+          })() : null}
+          {activePoint && previewEnd && !typedLine && pointerAction?.kind !== "bezier" && ["line", "bezier", "smooth"].includes(tool) ? (
             <g className="sketch-segment-dimensions preview" pointerEvents="none" transform={`translate(${(activePoint.x + previewEnd.x) / 2} ${(activePoint.z + previewEnd.z) / 2 - labelOffset})`}>
               {(() => {
                 const pill = dimensionPillSize(previewLabel, screenUnit, 18);

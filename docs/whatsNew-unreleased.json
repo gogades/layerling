@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "title": {
+      "de": "Bézier-Kurve mit Vorschau",
+      "en": "Bézier curve with a preview"
+    },
+    "body": {
+      "de": "Beim Ziehen eines Bézier-Punkts biegt sich der Abschnitt jetzt sofort mit, so wie er nach dem Loslassen aussieht. Zieh in die Richtung, in der die Linie weiterlaufen soll.",
+      "en": "While you drag out a Bézier point, the stretch to it now bends live, just as it will look once you let go. Drag in the direction the line should carry on."
+    }
+  }
+]

@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **The Bézier curve shows what you draw:** While a point is dragged out with the Bézier tool, the stretch to it now bends live, exactly as it will once let go. Before, a straight line ran to the pointer - not even to the point being placed - so the bend only showed after letting go and felt the wrong way round. The guide now also says which way to drag. Asked by @hlmodtech in #196.
+
 ## 1.55.0
 
 - **Double click opens groups, and shaky clicks no longer move parts:** A double click on a group or a bundle now opens it for editing, as a double click on a sketch body opens its sketch; two switches in the settings turn either off. And a part only starts to move once the pointer has travelled a few pixels, so a slightly shaky click or double click no longer nudges it off the grid. Suggested by @luk-saw and @prmod3d in #150.
