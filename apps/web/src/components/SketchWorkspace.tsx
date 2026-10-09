@@ -10,7 +10,7 @@ import { useLanguage } from "@/lib/useLanguage";
 import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel";
 import { parseMeasurementInput } from "@/lib/measurementUnits";
 import { applySegmentDimension, SEGMENT_DIMENSION_CENTER } from "@/lib/sketchDimensions";
-import { applyCornerAngle, sketchCornerAt, type CornerTurn } from "@/lib/sketchAngles";
+import { applyCornerAngle, sketchCornerAt, type CornerTurn, type SketchCorner } from "@/lib/sketchAngles";
 import { isSegmentCurved } from "@/lib/sketchSegmentCurve";
 import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, workplaneGridLayout } from "@/lib/workplaneGrid";
 import { closestPointOnSketchSegment, type SketchSegmentPlacement } from "@/lib/sketchPointRefinement";
@@ -737,7 +737,7 @@ export function SketchWorkspace({
   const commitAngleEdit = useCallback((turnOverride?: CornerTurn) => {
     if (!editingAngle || angleEditDoneRef.current) return;
     angleEditDoneRef.current = true;
-    const degrees = parseFloat(editingAngle.value.replace(",", "."));
+    const degrees = parseMeasurementInput(editingAngle.value);
     const corner = sketchCornerAt(profile, editingAngle.pointId);
     if (corner && Number.isFinite(degrees)) {
       const updatedPoints = applyCornerAngle(profile.points, corner, degrees, turnOverride ?? editingAngle.turn);
@@ -1203,11 +1203,8 @@ export function SketchWorkspace({
     const samples = samplesFor(normal);
     return [{ segment, label, pill, offset, labelPosition, samples, curved }];
   });
-  // The angle at the selected corner, drawn as an arc between its two lines with the degrees beside it.
-  const cornerAngle = (() => {
-    if (!showMeasurements || !selectedPoint) return null;
-    const corner = sketchCornerAt(displayProfile, selectedPoint.id);
-    if (!corner) return null;
+  // The angle at a corner, drawn as an arc between its two lines with the degrees beside it.
+  const angleDisplay = (corner: SketchCorner) => {
     const lengths = [corner.before.far, corner.after.far].map((far) => Math.hypot(far.x - corner.point.x, far.z - corner.point.z));
     const radius = Math.max(8 * screenUnit, Math.min(34 * screenUnit, Math.min(...lengths) * 0.4));
     const steps = 28;
@@ -1227,7 +1224,20 @@ export function SketchWorkspace({
       pill,
       labelPosition: { x: corner.point.x + Math.cos(middle) * reach, z: corner.point.z + Math.sin(middle) * reach },
     };
+  };
+  // The selected corner, and the corners at the far ends of its two lines: moving the point
+  // changes all three angles, so all three are shown and can be typed (#149).
+  const cornerAngles = (() => {
+    if (!showMeasurements || !selectedPoint) return [];
+    const corner = sketchCornerAt(displayProfile, selectedPoint.id);
+    if (!corner) return [];
+    const neighbours = [corner.before.far, corner.after.far]
+      .map((far) => sketchCornerAt(displayProfile, far.id))
+      .filter((entry): entry is SketchCorner => Boolean(entry));
+    return [{ ...angleDisplay(corner), primary: true }, ...neighbours.map((entry) => ({ ...angleDisplay(entry), primary: false }))];
   })();
+  // The corner whose angle is being typed, for the line that will turn.
+  const editingCorner = editingAngle ? sketchCornerAt(displayProfile, editingAngle.pointId) : null;
   const referenceFootprints = useMemo(
     () => new Map(referenceShapes.map((shape) => [shape.id, importedMeshFootprint(shape)])),
     [referenceShapes],
@@ -1523,34 +1533,38 @@ export function SketchWorkspace({
               );
             })}
           </g>
-          {cornerAngle ? (
+          {cornerAngles.length > 0 ? (
             <g className="sketch-segment-dimensions sketch-corner-angle" pointerEvents="none">
-              {editingAngle ? (() => {
-                const turning = editingAngle.turn === "after" ? cornerAngle.corner.after.far : cornerAngle.corner.before.far;
-                return <line className="sketch-angle-turn" x1={cornerAngle.corner.point.x} y1={cornerAngle.corner.point.z} x2={turning.x} y2={turning.z} />;
+              {editingAngle && editingCorner ? (() => {
+                const turning = editingAngle.turn === "after" ? editingCorner.after.far : editingCorner.before.far;
+                return <line className="sketch-angle-turn" x1={editingCorner.point.x} y1={editingCorner.point.z} x2={turning.x} y2={turning.z} />;
               })() : null}
-              <path className="sketch-dimension-line" d={`M ${cornerAngle.arc.map((point) => `${point.x} ${point.z}`).join(" L ")}`} />
-              <g
-                className="sketch-dimension-pill clickable"
-                role="button"
-                tabIndex={0}
-                aria-label={`${t("sketch.clickToEditAngle")}: ${cornerAngle.label}`}
-                onPointerDown={(event) => event.stopPropagation()}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  startAngleEdit(cornerAngle.corner.point.id, String(Math.round(cornerAngle.corner.degrees * 10) / 10), cornerAngle.labelPosition);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter" && event.key !== " ") return;
-                  event.preventDefault();
-                  startAngleEdit(cornerAngle.corner.point.id, String(Math.round(cornerAngle.corner.degrees * 10) / 10), cornerAngle.labelPosition);
-                }}
-                transform={`translate(${cornerAngle.labelPosition.x} ${cornerAngle.labelPosition.z})`}
-              >
-                <title>{t("sketch.clickToEditAngle")}</title>
-                <rect x={-cornerAngle.pill.width / 2} y={-cornerAngle.pill.height / 2} width={cornerAngle.pill.width} height={cornerAngle.pill.height} rx={cornerAngle.pill.radius} />
-                <text y={5 * screenUnit} fontSize={13 * screenUnit}>{cornerAngle.label}</text>
-              </g>
+              {cornerAngles.map((angle) => (
+                <g key={angle.corner.point.id} className={angle.primary ? undefined : "sketch-neighbour-angle"}>
+                  <path className="sketch-dimension-line" d={`M ${angle.arc.map((point) => `${point.x} ${point.z}`).join(" L ")}`} />
+                  <g
+                    className="sketch-dimension-pill clickable"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${t("sketch.clickToEditAngle")}: ${angle.label}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      startAngleEdit(angle.corner.point.id, String(Math.round(angle.corner.degrees * 10) / 10), angle.labelPosition);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      startAngleEdit(angle.corner.point.id, String(Math.round(angle.corner.degrees * 10) / 10), angle.labelPosition);
+                    }}
+                    transform={`translate(${angle.labelPosition.x} ${angle.labelPosition.z})`}
+                  >
+                    <title>{t("sketch.clickToEditAngle")}</title>
+                    <rect x={-angle.pill.width / 2} y={-angle.pill.height / 2} width={angle.pill.width} height={angle.pill.height} rx={angle.pill.radius} />
+                    <text y={5 * screenUnit} fontSize={13 * screenUnit}>{angle.label}</text>
+                  </g>
+                </g>
+              ))}
             </g>
           ) : null}
           {selectedGeometryBounds && tool === "select" ? (() => {

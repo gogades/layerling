@@ -14773,3 +14773,8 @@ html[data-theme="dark"] .history-view-slider .range-control input[type="range"]:
   padding-bottom: 14px;
   background: inherit;
 }
+
+/* The angles at a selected point's two neighbouring corners (#149): the same, a touch quieter. */
+.sketch-neighbour-angle {
+  opacity: 0.82;
+}
