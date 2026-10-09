@@ -14628,3 +14628,111 @@ html[data-theme="dark"] .history-view-slider .range-control input[type="range"]:
 html[data-theme="dark"] .history-view-slider .range-control input[type="range"]::-moz-range-progress {
   background: #e0862a;
 }
+
+/* The safe-mode screen: shown instead of a blank page when the editor or the page stops with an
+   error. It borrows the dialog card, so it follows the theme like every other window. */
+.workspace-modal.safe-mode-screen {
+  position: fixed;
+  z-index: 1000;
+  align-items: center;
+  padding: 16px;
+}
+
+.safe-mode-screen .workspace-modal-backdrop {
+  background: rgba(40, 30, 20, 0.35);
+}
+
+.workspace-modal-card.safe-mode-card {
+  width: 540px;
+  height: auto;
+}
+
+.safe-mode-card .workspace-modal-header strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+}
+
+.safe-mode-card .workspace-modal-header svg {
+  flex: none;
+  color: var(--hover-accent-color);
+}
+
+.safe-mode-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.safe-mode-body p {
+  margin: 0;
+}
+
+.safe-mode-project {
+  font-weight: 700;
+}
+
+.safe-mode-details {
+  color: var(--muted-strong);
+  font-size: 12px;
+}
+
+.safe-mode-details summary {
+  cursor: pointer;
+}
+
+.safe-mode-details pre {
+  max-height: 160px;
+  margin: 6px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.safe-mode-note {
+  color: var(--hover-accent-color);
+}
+
+.safe-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.safe-mode-actions button {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.safe-mode-actions button.primary {
+  flex-basis: 100%;
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.safe-mode-actions button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.safe-mode-actions button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}

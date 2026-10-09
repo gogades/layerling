@@ -2057,9 +2057,16 @@ export default function Home() {
       ) : null}
       {editorStarted && canRenderEditor ? (
         <SafeModeErrorBoundary
-          activeProjectId={activeProjectId}
+          // One per design: opening another starts clean.
+          key={activeProjectId ?? "none"}
+          projectId={activeProjectId}
           projectName={activeProject?.name}
-          onGoToDashboard={() => openDashboard()}
+          onGoToDashboard={() => {
+            // The editor normally stays mounted behind the overview; a broken one is taken down,
+            // or it would draw the same design and stop again.
+            setEditorStarted(false);
+            openDashboard();
+          }}
           onNewEmptyProject={() => createAndOpenProject()}
         >
           <div className={view === "editor" ? "editor-stage active" : "editor-stage"} aria-hidden={view !== "editor"}>

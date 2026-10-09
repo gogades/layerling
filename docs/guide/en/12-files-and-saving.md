@@ -63,6 +63,8 @@ Cutting, merging and intersecting an imported mesh is calculated in your browser
 
 If layerling does something unexpected, save a {{ui:editor.bugReport}}: the link sits in the footer at the bottom, next to the forum. It is an ordinary .lyl file with your design that opens in layerling, and it also carries a short text file with the version, browser, screen size, the last messages and any errors. Nothing personal is in it. Attach the file to your post in the forum or on GitHub, so the problem can be followed with exactly your design.
 
+If layerling stops with an error, a window with the error message shows instead of a blank page. From it you can save the state of the design last stored in the browser as a .lyl file, go back to the overview, or start a new design. The error message from the window and the saved file help when you report it.
+
 ## Shared designs on a server
 
 When layerling runs on your own computer or web server, it can offer a shared folder in which all users keep designs. On the start page it then appears as {{ui:dashboard.sharedProjects}}. You create folders there, move designs by dragging and search across the whole folder. A design that lives there saves itself back to it. Custom shapes kept on the server sit in its folder `Custom shapes`, see [Shapes](chapter:shapes).

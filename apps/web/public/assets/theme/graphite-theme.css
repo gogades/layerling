@@ -6956,6 +6956,38 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-slider .r
   background: #e0862a;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .safe-mode-screen .workspace-modal-backdrop {
+  background: rgba(36, 36, 36, 0.35);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .safe-mode-card .workspace-modal-header svg {
+  color: var(--hover-accent-color);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .safe-mode-details {
+  color: var(--muted-strong);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .safe-mode-note {
+  color: var(--hover-accent-color);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .safe-mode-actions button {
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .safe-mode-actions button.primary {
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .safe-mode-actions button:focus-visible {
+  outline: 2px solid var(--primary);
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section-tools,
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section .action-buttons {
   background: var(--toolbar-tile);
