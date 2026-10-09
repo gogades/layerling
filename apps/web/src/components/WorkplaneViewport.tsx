@@ -82,6 +82,7 @@ import {
   placementWorkplaneCoordinates,
   placementWorkplaneFromSurface,
   placementWorkplaneIsBase,
+  placementWorkplaneLiesOnBase,
   placementWorkplanePoint,
   placementWorkplaneQuaternion,
   snapPlacementWorkplaneOrigin,
@@ -10315,7 +10316,9 @@ function rebuildWorkplane(
   state.controls.zoomSpeed = orbitControlsZoomSpeed(workspace.zoomSpeed);
 
   const activeIsBase = placementWorkplaneIsBase(placementWorkplane);
-  const addPlane = (workplane: PlacementWorkplane, muted: boolean, showMarker: boolean) => {
+  // A workplane lying on the plate shares its plane, so the plate drops its grid (#178).
+  const plateOutlineOnly = !activeIsBase && placementWorkplaneLiesOnBase(placementWorkplane);
+  const addPlane = (workplane: PlacementWorkplane, muted: boolean, showMarker: boolean, outlineOnly = false) => {
     const group = new THREE.Group();
     group.name = muted ? "ReferenceWorkplane" : "ActiveWorkplane";
     const surface = new THREE.Mesh(
@@ -10333,7 +10336,8 @@ function rebuildWorkplane(
         // test. Sixteen depth units holds the plate behind those lines.
         polygonOffset: true,
         polygonOffsetFactor: 1,
-        polygonOffsetUnits: 16,
+        // Under a workplane on the same level, the plate stays behind its surface too.
+        polygonOffsetUnits: outlineOnly ? 48 : 16,
       }),
     );
     surface.name = muted ? "WorkplaneBaseReference" : "WorkplaneBase";
@@ -10342,7 +10346,17 @@ function rebuildWorkplane(
     group.add(surface);
 
     const lineColor = muted ? theme === "dark" ? "#76828a" : "#99a3aa" : workspace.gridColor;
-    if (workspace.showGrid) {
+    if (outlineOnly) {
+      group.add(createGridLines(
+        workspace.width,
+        workspace.depth,
+        workplaneGridLayout(workspace),
+        theme,
+        lineColor,
+        state.palette,
+        true,
+      ));
+    } else if (workspace.showGrid) {
       group.add(createGridLines(
         workspace.width,
         workspace.depth,
@@ -10408,7 +10422,7 @@ function rebuildWorkplane(
     state.workplaneLayer.add(group);
   };
 
-  addPlane(horizontalPlacementWorkplane(), !activeIsBase, false);
+  addPlane(horizontalPlacementWorkplane(), !activeIsBase, false, plateOutlineOnly);
   if (!activeIsBase) {
     addPlane(placementWorkplane, false, true);
   }
@@ -10682,6 +10696,7 @@ function createGridLines(
   theme: ResolvedAppTheme = "light",
   gridColor = DEFAULT_WORKSPACE.gridColor,
   paletteName: AppThemePalette = "default",
+  outlineOnly = false,
 ) {
   const group = new THREE.Group();
   const palette = workplaneThemePalette(theme, DEFAULT_WORKSPACE.background, gridColor, paletteName).grid;
@@ -10696,11 +10711,11 @@ function createGridLines(
     points.push(...from, ...to);
   };
   const pointsFor = (kind: "axis" | "major" | "minor") => (kind === "axis" ? axisPoints : kind === "major" ? majorPoints : minorPoints);
-  for (const { coordinate: centeredX, kind } of workplaneGridLines(width, layout)) {
+  for (const { coordinate: centeredX, kind } of outlineOnly ? [] : workplaneGridLines(width, layout)) {
     pushLine(pointsFor(kind), [centeredX, WORKPLANE_LINE_ELEVATION, -depth / 2], [centeredX, WORKPLANE_LINE_ELEVATION, depth / 2]);
   }
 
-  for (const { coordinate: centeredZ, kind } of workplaneGridLines(depth, layout)) {
+  for (const { coordinate: centeredZ, kind } of outlineOnly ? [] : workplaneGridLines(depth, layout)) {
     pushLine(pointsFor(kind), [-width / 2, WORKPLANE_LINE_ELEVATION, centeredZ], [width / 2, WORKPLANE_LINE_ELEVATION, centeredZ]);
   }
 

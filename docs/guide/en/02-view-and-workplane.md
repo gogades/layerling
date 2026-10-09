@@ -59,7 +59,7 @@ New shapes align with the workplane. At first that is the base plate with the gr
 2. Move the mouse over a face of a body. It lights up.
 3. A click puts the workplane there. Everything you add now sits on that face.
 
-Click on the empty plate instead, and the workplane lies flat at the spot you clicked, on the snap grid. New shapes and a finished sketch, a revolved one too, then appear there rather than in the middle of the plate.
+Click on the empty plate instead, and the workplane lies flat at the spot you clicked, on the snap grid. New shapes and a finished sketch, a revolved one too, then appear there rather than in the middle of the plate. While the workplane lies flat on the plate like this, the plate shows only its outline: two grids in the same plane would make a flickering pattern.
 
 On a face the origin of the workplane otherwise snaps to the grid. Click close to a corner of the face and it sits exactly on that corner. Close to an edge it lies on the edge, and the grid lines up with it; that is how you choose the angle of the grid on purpose. Without a corner or an edge, the grid on a lying face runs parallel to the body, so on a turned box it is turned with it.
 

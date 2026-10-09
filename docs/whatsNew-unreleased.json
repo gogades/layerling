@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "title": {
+      "de": "Kein Flimmern unter der Arbeitsebene",
+      "en": "No flicker under the workplane"
+    },
+    "body": {
+      "de": "Liegt die Arbeitsebene flach auf der Platte, zeigt die Grundplatte nur noch ihren Rand. Die zwei Gitter übereinander ergaben vorher ein flimmerndes Muster.",
+      "en": "While the workplane lies flat on the plate, the plate shows only its outline. The two grids on top of each other used to make a flickering pattern."
+    }
+  }
+]

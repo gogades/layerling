@@ -6,12 +6,23 @@ import {
   placementWorkplaneCoordinates,
   placementWorkplaneFingerprint,
   placementWorkplaneFromSurface,
+  placementWorkplaneLiesOnBase,
   placementWorkplanePoint,
   snapPlacementWorkplaneOrigin,
   translationToWorkplane,
 } from "@/lib/placementWorkplane";
 
 describe("placement workplanes", () => {
+  it("knows when a workplane lies in the plate's plane (#178)", () => {
+    const moved = { ...horizontalPlacementWorkplane(), origin: { x: 40, y: 0, z: -25 } };
+    expect(placementWorkplaneLiesOnBase(moved)).toBe(true);
+    const turned = placementWorkplaneFromSurface({ x: 10, y: 0, z: 5 }, { x: 0, y: 1, z: 0 }, { x: 0.6, y: 0, z: 0.8 });
+    expect(placementWorkplaneLiesOnBase(turned)).toBe(true);
+    expect(placementWorkplaneLiesOnBase(horizontalPlacementWorkplane(12))).toBe(false);
+    const tilted = placementWorkplaneFromSurface({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }, { x: 1, y: 0, z: 0 });
+    expect(placementWorkplaneLiesOnBase(tilted)).toBe(false);
+  });
+
   it("round-trips coordinates on an oriented surface", () => {
     const plane = placementWorkplaneFromSurface(
       { x: 10, y: 5, z: -4 },

@@ -59,7 +59,7 @@ Neue Formen richten sich nach der Arbeitsebene. Anfangs ist das die Grundplatte 
 2. Fahre mit der Maus über eine Fläche eines Körpers. Sie wird hervorgehoben.
 3. Ein Klick legt die Arbeitsebene dorthin. Alles, was du jetzt hinzufügst, sitzt auf dieser Fläche.
 
-Klickst du dabei auf die freie Platte, liegt die Arbeitsebene flach an der Stelle, auf die du geklickt hast, am Raster eingerastet. Neue Formen und eine fertige Skizze, auch ein Drehkörper, entstehen dann dort statt in der Mitte der Platte.
+Klickst du dabei auf die freie Platte, liegt die Arbeitsebene flach an der Stelle, auf die du geklickt hast, am Raster eingerastet. Neue Formen und eine fertige Skizze, auch ein Drehkörper, entstehen dann dort statt in der Mitte der Platte. Solange die Arbeitsebene so flach auf der Platte liegt, zeigt die Grundplatte nur noch ihren Rand: Zwei Gitter in derselben Ebene würden ein flimmerndes Muster ergeben.
 
 Auf einer Fläche rastet der Ursprung der Arbeitsebene sonst am Raster ein. Klickst du nahe an eine Ecke der Fläche, sitzt er genau auf dieser Ecke. Nahe an einer Kante liegt er auf der Kante, und das Raster richtet sich nach ihr aus; so wählst du den Winkel des Rasters bewusst. Ohne Ecke oder Kante läuft das Raster auf einer liegenden Fläche parallel zum Körper, bei einem gedrehten Quader also mit ihm gedreht.
 

@@ -230,3 +230,15 @@ export function placementWorkplaneIsBase(workplane: PlacementWorkplane) {
     && Math.abs(workplane.normal.z) < 1e-6
   );
 }
+
+// A workplane moved or turned on the plate but still lying in its plane. Its grid
+// and the plate's then share one plane, slightly offset, and the two make a
+// moiré (#178), so the plate keeps only its outline.
+export function placementWorkplaneLiesOnBase(workplane: PlacementWorkplane) {
+  return (
+    Math.abs(workplane.origin.y) < 1e-3
+    && Math.abs(workplane.normal.x) < 1e-6
+    && Math.abs(Math.abs(workplane.normal.y) - 1) < 1e-6
+    && Math.abs(workplane.normal.z) < 1e-6
+  );
+}

@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **No moiré under a workplane on the plate:** A workplane put on the empty plate lies in the plate's own plane, and the two grids, slightly offset, made a flickering moiré. While a workplane lies flat on the plate, the plate now shows only its outline; a tilted or raised workplane keeps the plate's grid. Reported by @prmod3d in #178.
+
 ## 1.55.2
 
 - **The design menu stays in front in the list view:** On the start page's list view, a design's Options menu slipped behind the next row while the pointer was on its own card. Hovering lifts a card with a transform, which made it a stacking context of its own, so its menu only counted inside it; the card with an open menu now stands in front. Reported by @ucito in #200.
