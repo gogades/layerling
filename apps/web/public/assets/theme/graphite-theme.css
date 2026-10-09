@@ -2460,6 +2460,11 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .shell-openings-summary
   stroke: #ce7416;
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .sketch-reference-snap {
+  fill: none;
+  stroke: #079bc6;
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-drag-handles line,
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-curve-handles line {
   stroke: #f08036;

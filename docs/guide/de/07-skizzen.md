@@ -53,7 +53,7 @@ Klicke auf einen Eckpunkt und wähle {{ui:sketch.filletCorner}} oder {{ui:sketch
 
 Klicke auf {{ui:sketch.finishSketch}}. Der Umriss steht als Körper auf der Arbeitsebene und trägt den Namen „Skizzenkörper“. In seinen Einstellungen änderst du die Höhe, die Farbe und alles Weitere wie bei jeder anderen Form. Änderst du seine Größe, baut layerling ihn kurz danach aus der Skizze neu auf, und die Skizze wächst mit. So bleibt er ein exakter Körper, an dem Fase und Rundung gehen, und beim nächsten Bearbeiten hat die Skizze die Größe, die der Körper hat.
 
-Liegt die Arbeitsebene auf einer Seite eines Körpers, zeichnest du so, wie du auf diese Seite schaust: Oben in der Skizze ist auch am fertigen Körper oben. Der blasse Umriss des Körpers in der Skizzenansicht zeigt, wo er steht. Schneidet die Arbeitsebene durch einen Körper, zeigt die Skizzenansicht stattdessen den Umriss dieses Schnitts: Ein ausgehöhlter Körper erscheint als Ring, und du kannst die Skizze an seinen Wänden ausrichten.
+Liegt die Arbeitsebene auf einer Seite eines Körpers, zeichnest du so, wie du auf diese Seite schaust: Oben in der Skizze ist auch am fertigen Körper oben. Der blasse Umriss des Körpers in der Skizzenansicht zeigt, wo er steht. Schneidet die Arbeitsebene durch einen Körper, zeigt die Skizzenansicht stattdessen den Umriss dieses Schnitts: Ein ausgehöhlter Körper erscheint als Ring, und du kannst die Skizze an seinen Wänden ausrichten. Ein Punkt, den du nahe an eine Ecke dieser Umrisse setzt oder ziehst, rastet genau dort ein; ein kleiner blauer Ring zeigt das an. So übernimmst du Kanten anderer Körper in die Skizze, auch wenn die Arbeitsebene nicht genau auf ihnen liegt.
 
 ![Aus dem Umriss ist ein Körper geworden. Die Ecke ist gerundet.](shot:sketch-result)
 

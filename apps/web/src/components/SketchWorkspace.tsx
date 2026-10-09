@@ -349,6 +349,25 @@ function segmentData(segment: SketchSegment, pointById: Map<string, SketchPoint>
     : `M ${from.x} ${from.z} L ${to.x} ${to.z}`;
 }
 
+const REFERENCE_SNAP_PX = 10;
+
+/** The corner points of an SVG path made of M, L and Z only - as the reference outlines are. */
+function svgPathPoints(d: string) {
+  const numbers = (d.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? []).map(Number);
+  const points: Array<{ x: number; z: number }> = [];
+  for (let index = 0; index + 1 < numbers.length; index += 2) points.push({ x: numbers[index], z: numbers[index + 1] });
+  return points;
+}
+
+/** A point turned as SVG's rotate(degrees cx cz) turns it. */
+function rotateAround(point: { x: number; z: number }, degrees: number, cx: number, cz: number) {
+  if (!degrees) return point;
+  const angle = (degrees * Math.PI) / 180;
+  const dx = point.x - cx;
+  const dz = point.z - cz;
+  return { x: cx + dx * Math.cos(angle) - dz * Math.sin(angle), z: cz + dx * Math.sin(angle) + dz * Math.cos(angle) };
+}
+
 function isRoundReference(shape: WorkplaneShape) {
   return ["cylinder", "sphere", "cone", "torus", "tube", "ring", "halfSphere"].includes(shape.kind);
 }
@@ -836,6 +855,22 @@ export function SketchWorkspace({
   const pointFromEvent = (event: { clientX: number; clientY: number }) => {
     const local = unsnappedPointFromEvent(event);
     if (!local) return null;
+    // Near a corner of another body shown underneath, a drawn or dragged point takes that
+    // corner instead of the grid (#189). Not while a whole selection moves: its grip is
+    // wherever it was taken, so the corner would only make it jump.
+    if (!pointerAction || pointerAction.kind === "move-point") {
+      const reach = REFERENCE_SNAP_PX * screenUnit;
+      let nearest: { x: number; z: number } | null = null;
+      let nearestDistance = reach;
+      referenceSnapPoints.forEach((candidate) => {
+        const distance = Math.hypot(candidate.x - local.x, candidate.z - local.z);
+        if (distance <= nearestDistance) {
+          nearest = candidate;
+          nearestDistance = distance;
+        }
+      });
+      if (nearest) return { ...(nearest as { x: number; z: number }) };
+    }
     const step = snapStep(snap);
     return {
       x: clamp(snapValue(local.x, step), -workspace.width / 2, workspace.width / 2),
@@ -1306,6 +1341,30 @@ export function SketchWorkspace({
     () => new Map(referenceShapes.map((shape) => [shape.id, importedMeshFootprint(shape)])),
     [referenceShapes],
   );
+  // The corners of the bodies shown underneath, in sketch coordinates: where a point snaps to them.
+  const referenceSnapPoints = useMemo(() => {
+    const points: Array<{ x: number; z: number }> = [];
+    referenceShapes.filter((shape) => !shape.hidden).forEach((shape) => {
+      const slice = referenceSlices?.[shape.id];
+      if (slice) {
+        points.push(...svgPathPoints(slice));
+        return;
+      }
+      const turn = (point: { x: number; z: number }) => rotateAround(point, shape.rotation ?? 0, shape.x, shape.z);
+      const footprint = referenceFootprints.get(shape.id);
+      const halfWidth = shape.width / 2;
+      const halfDepth = shape.depth / 2;
+      const local = footprint?.outlineD
+        ? svgPathPoints(footprint.outlineD)
+        : isRoundReference(shape)
+          ? [{ x: shape.x, z: shape.z }, { x: shape.x - halfWidth, z: shape.z }, { x: shape.x + halfWidth, z: shape.z }, { x: shape.x, z: shape.z - halfDepth }, { x: shape.x, z: shape.z + halfDepth }]
+          : [{ x: shape.x, z: shape.z }, { x: shape.x - halfWidth, z: shape.z - halfDepth }, { x: shape.x + halfWidth, z: shape.z - halfDepth }, { x: shape.x + halfWidth, z: shape.z + halfDepth }, { x: shape.x - halfWidth, z: shape.z + halfDepth }];
+      points.push(...local.map(turn));
+    });
+    // Rounded, so a corner at 0 is 0 and not 7e-15.
+    return points.map((point) => ({ x: Number(point.x.toFixed(4)) || 0, z: Number(point.z.toFixed(4)) || 0 }));
+  }, [referenceFootprints, referenceShapes, referenceSlices]);
+  const hoverOnReference = hover ? referenceSnapPoints.some((point) => point.x === hover.x && point.z === hover.z) : false;
 
   // Colours picked in the settings reach the light theme through variables; the stylesheet
   // falls back to its own colours for what was not changed, and the dark themes ignore them.
@@ -1722,6 +1781,7 @@ export function SketchWorkspace({
               </g>
             );
           })() : null}
+          {hover && hoverOnReference ? <circle className="sketch-reference-snap" cx={hover.x} cy={hover.z} r={7 * screenUnit} pointerEvents="none" /> : null}
           {activePoint && hover && ["line", "bezier", "smooth"].includes(tool) ? <line className="sketch-preview-line" x1={activePoint.x} y1={activePoint.z} x2={hover.x} y2={hover.z} pointerEvents="none" /> : null}
           {activePoint && hover && ["line", "bezier", "smooth"].includes(tool) ? (
             <g className="sketch-segment-dimensions preview" pointerEvents="none" transform={`translate(${(activePoint.x + hover.x) / 2} ${(activePoint.z + hover.z) / 2 - labelOffset})`}>

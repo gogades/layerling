@@ -6149,6 +6149,14 @@ html[data-theme="dark"] .shell-openings-summary {
   vector-effect: non-scaling-stroke;
 }
 
+/* The pointer has caught a corner of a body shown underneath (#189). */
+.sketch-reference-snap {
+  fill: none;
+  stroke: #079bc6;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
 .sketch-drag-handles line,
 .sketch-curve-handles line {
   stroke: #f08036;

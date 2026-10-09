@@ -61,6 +61,8 @@ Neue Formen richten sich nach der Arbeitsebene. Anfangs ist das die Grundplatte 
 
 Klickst du dabei auf die freie Platte, liegt die Arbeitsebene flach an der Stelle, auf die du geklickt hast, am Raster eingerastet. Neue Formen und eine fertige Skizze, auch ein Drehkörper, entstehen dann dort statt in der Mitte der Platte.
 
+Auf einer Fläche rastet der Ursprung der Arbeitsebene sonst am Raster ein. Klickst du nahe an eine Ecke der Fläche, sitzt er genau auf dieser Ecke. Nahe an einer Kante liegt er auf der Kante, und das Raster richtet sich nach ihr aus; so wählst du den Winkel des Rasters bewusst. Ohne Ecke oder Kante läuft das Raster auf einer liegenden Fläche parallel zum Körper, bei einem gedrehten Quader also mit ihm gedreht.
+
 Ein Klick neben die Platte oder [[Esc]] holt die Arbeitsebene zurück auf die Grundplatte. Schneller geht es mit {{ui:camera.resetWorkplane}}: Der Knopf mit dem Pfeil nach unten steht in der Kameraleiste unter dem Auge, solange die Ebene auf einer Fläche liegt. Mit [[Umschalt]]+[[W]] legst du sie direkt auf die gerade ausgewählte Fläche. Hältst du beim Klicken [[Umschalt]] gedrückt, zeigt die Ebene in die andere Richtung.
 
 Solange die Arbeitsebene auf einer Fläche liegt, erscheint neben {{ui:camera.placeWorkplane}} ein Auge. Es blendet die Ebene aus, ohne sie aufzuheben, damit du freie Sicht auf den Entwurf hast: Neue Formen landen weiter auf dieser Fläche, und gedreht wird weiter um sie. Ein Klick auf das Auge blendet sie wieder ein, ebenso das Setzen einer neuen Arbeitsebene.

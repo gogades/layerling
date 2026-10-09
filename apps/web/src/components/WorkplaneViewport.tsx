@@ -3226,6 +3226,66 @@ function syncObjectSnapGuides(state: ThreeState, guides: ObjectSnapGuide[], y: n
 
 /** Bounding-Box einer Form auf drei vorgegebene Achsen projiziert, relativ zu `origin` - Kern sowohl fuer die Zieh-Griff-Rahmen als auch fuer die Abstands-zum-Ursprung-Anzeige. */
 /** Die acht Ecken der Box einer Form in Weltkoordinaten, mit ihrer Drehung - Ankerpunkte fuer das Winkellineal (#105). */
+const PLACEMENT_VERTEX_SNAP_PX = 10;
+const PLACEMENT_EDGE_SNAP_PX = 8;
+
+/**
+ * A corner or an edge of the clicked face near the pointer (#189): a workplane laid on a
+ * face starts there instead of on the snap grid, and on an edge it also lines up with it.
+ * The edges come from the mesh itself (25° crease), so they are there even with the edge
+ * lines switched off; only those lying in the face's plane count.
+ */
+function placementFeatureSnap(
+  state: ThreeState,
+  surface: THREE.Mesh<THREE.BufferGeometry>,
+  facePoint: THREE.Vector3,
+  normal: THREE.Vector3,
+  pointerX: number,
+  pointerY: number,
+): { kind: "vertex"; point: THREE.Vector3 } | { kind: "edge"; point: THREE.Vector3; start: THREE.Vector3; direction: THREE.Vector3 } | null {
+  const geometry = surface.geometry;
+  // A big imported mesh would stall the pointer while its edges are worked out.
+  if ((geometry.index?.count ?? geometry.getAttribute("position").count) > 600_000) return null;
+  let edges = surface.userData.placementFeatureEdges as { geometry: THREE.BufferGeometry; positions: Float32Array } | undefined;
+  if (!edges || edges.geometry !== geometry) {
+    const edgeGeometry = new THREE.EdgesGeometry(geometry, 25);
+    edges = { geometry, positions: Float32Array.from(edgeGeometry.getAttribute("position").array as ArrayLike<number>) };
+    edgeGeometry.dispose();
+    surface.userData.placementFeatureEdges = edges;
+  }
+  const positions = edges.positions;
+  const size = new THREE.Box3().setFromObject(surface).getSize(new THREE.Vector3()).length();
+  const planeTolerance = Math.max(0.01, size * 1e-4);
+  let vertex: { point: THREE.Vector3; distance: number } | null = null;
+  let edge: { point: THREE.Vector3; start: THREE.Vector3; direction: THREE.Vector3; distance: number } | null = null;
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  for (let index = 0; index + 5 < positions.length; index += 6) {
+    a.set(positions[index], positions[index + 1], positions[index + 2]).applyMatrix4(surface.matrixWorld);
+    b.set(positions[index + 3], positions[index + 4], positions[index + 5]).applyMatrix4(surface.matrixWorld);
+    if (Math.abs(a.clone().sub(facePoint).dot(normal)) > planeTolerance || Math.abs(b.clone().sub(facePoint).dot(normal)) > planeTolerance) continue;
+    const aScreen = projectToScreen(a, state);
+    const bScreen = projectToScreen(b, state);
+    [[a, aScreen], [b, bScreen]].forEach(([world, screen]) => {
+      const distance = Math.hypot((screen as { x: number }).x - pointerX, (screen as { y: number }).y - pointerY);
+      if (distance <= PLACEMENT_VERTEX_SNAP_PX && (!vertex || distance < vertex.distance)) vertex = { point: (world as THREE.Vector3).clone(), distance };
+    });
+    const dx = bScreen.x - aScreen.x;
+    const dy = bScreen.y - aScreen.y;
+    const lengthSq = dx * dx + dy * dy;
+    if (lengthSq < 1) continue;
+    const amount = clamp(((pointerX - aScreen.x) * dx + (pointerY - aScreen.y) * dy) / lengthSq, 0, 1);
+    const distance = Math.hypot(pointerX - (aScreen.x + dx * amount), pointerY - (aScreen.y + dy * amount));
+    if (distance <= PLACEMENT_EDGE_SNAP_PX && (!edge || distance < edge.distance)) {
+      edge = { point: a.clone().lerp(b, amount), start: a.clone(), direction: b.clone().sub(a).normalize(), distance };
+    }
+  }
+  const foundVertex = vertex as { point: THREE.Vector3; distance: number } | null;
+  if (foundVertex) return { kind: "vertex", point: foundVertex.point };
+  const foundEdge = edge as { point: THREE.Vector3; start: THREE.Vector3; direction: THREE.Vector3; distance: number } | null;
+  return foundEdge ? { kind: "edge", point: foundEdge.point, start: foundEdge.start, direction: foundEdge.direction } : null;
+}
+
 function shapeBoxCornersWorld(shape: WorkplaneShape): THREE.Vector3[] {
   const center = shapeCenter(shape);
   const extents = shapeLocalExtents(shape);
@@ -7067,8 +7127,19 @@ export function WorkplaneViewport({
           .filter((edge) => edge.lengthSq() > 1e-8)
           .sort((a, b) => b.lengthSq() - a.lengthSq())
       : [];
-    let tangent = faceEdges[Math.min(1, faceEdges.length - 1)]?.clone()
-      ?? new THREE.Vector3(1, 0, 0).applyQuaternion(shapeQuaternion).projectOnPlane(normal);
+    const pointerX = clientX - rect.left;
+    const pointerY = clientY - rect.top;
+    const feature = placementFeatureSnap(state, surface, hit.point, normal, pointerX, pointerY);
+    // On a lying face the grid runs along the body (for a plain or baked body: along the plate),
+    // not along whichever triangle edge was hit - that tilted it at random (#189). On an
+    // edge it runs along that edge, which is the way to choose another angle on purpose.
+    const lying = Math.abs(normal.y) > 0.999;
+    let tangent = feature?.kind === "edge"
+      ? feature.direction.clone().projectOnPlane(normal)
+      : lying
+        ? new THREE.Vector3(1, 0, 0).applyQuaternion(shapeQuaternion).projectOnPlane(normal)
+        : faceEdges[Math.min(1, faceEdges.length - 1)]?.clone()
+          ?? new THREE.Vector3(1, 0, 0).applyQuaternion(shapeQuaternion).projectOnPlane(normal);
     if (tangent.lengthSq() < 1e-8) {
       tangent = new THREE.Vector3(0, 0, 1).applyQuaternion(shapeQuaternion).projectOnPlane(normal);
     }
@@ -7080,19 +7151,28 @@ export function WorkplaneViewport({
       tangent.negate();
     }
 
+    // A corner is taken as it is; on an edge the point moves along it in grid steps from its end.
+    const step = snapStep(snapRef.current);
+    const featurePoint = feature?.kind === "vertex"
+      ? feature.point
+      : feature?.kind === "edge" && step > 0
+        ? feature.start.clone().addScaledVector(feature.direction, Math.round(feature.point.clone().sub(feature.start).dot(feature.direction) / step) * step)
+        : feature?.point ?? null;
+    const origin = featurePoint ?? hit.point;
     const workplane = placementWorkplaneFromSurface(
-      { x: hit.point.x, y: hit.point.y, z: hit.point.z },
+      { x: origin.x, y: origin.y, z: origin.z },
       { x: normal.x, y: normal.y, z: normal.z },
       { x: tangent.x, y: tangent.y, z: tangent.z },
       reverse,
-      true,
+      // A standing face keeps "up" pointing up - unless an edge was picked to set the angle.
+      feature?.kind !== "edge",
     );
 
     return {
       shapeId,
       point: hit.point.clone(),
       normal,
-      workplane: snapPlacementWorkplaneOrigin(workplane, snapStep(snapRef.current)),
+      workplane: featurePoint ? workplane : snapPlacementWorkplaneOrigin(workplane, step),
     };
   }, []);
 
