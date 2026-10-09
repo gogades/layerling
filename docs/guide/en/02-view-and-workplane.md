@@ -59,7 +59,9 @@ New shapes align with the workplane. At first that is the base plate with the gr
 2. Move the mouse over a face of a body. It lights up.
 3. A click puts the workplane there. Everything you add now sits on that face.
 
-A click on empty space or [[Esc]] returns the workplane to the base plate. Quicker still is {{ui:camera.resetWorkplane}}: the button with the downward arrow sits in the camera bar below the eye while the workplane lies on a face. [[Shift]]+[[W]] puts it directly on the currently selected face. If you hold [[Shift]] while clicking, the plane points the other way.
+Click on the empty plate instead, and the workplane lies flat at the spot you clicked, on the snap grid. New shapes and a finished sketch, a revolved one too, then appear there rather than in the middle of the plate.
+
+A click beside the plate or [[Esc]] returns the workplane to the base plate. Quicker still is {{ui:camera.resetWorkplane}}: the button with the downward arrow sits in the camera bar below the eye while the workplane lies on a face. [[Shift]]+[[W]] puts it directly on the currently selected face. If you hold [[Shift]] while clicking, the plane points the other way.
 
 While a workplane sits on a face, an eye appears next to {{ui:camera.placeWorkplane}}. It hides the workplane without dropping it, for a clear look at the design: new shapes still land on that face, and rotating still turns about it. A click on the eye shows it again, and so does setting a new workplane.
 

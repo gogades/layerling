@@ -7549,7 +7549,17 @@ export function WorkplaneViewport({
         if (surface) {
           onSetPlacementWorkplane(surface.workplane, "shape");
         } else {
-          onSetPlacementWorkplane(horizontalPlacementWorkplane(), "base");
+          // On the plate, the workplane lies where it was clicked (on the snap grid): a sketch
+          // finished on it, a revolved one too, lands there instead of in the middle (#178).
+          // A click near the middle, or beside the plate, puts it back on the plate's own origin.
+          const raw = toRawPlanePoint(event.clientX, event.clientY, new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+          const plate = workspaceRef.current;
+          const onPlate = raw && Math.abs(raw.x) <= plate.width / 2 && Math.abs(raw.z) <= plate.depth / 2;
+          const point = onPlate ? toPlanePoint(event.clientX, event.clientY) : null;
+          onSetPlacementWorkplane(
+            point ? { ...horizontalPlacementWorkplane(), origin: { x: point.x, y: 0, z: point.z } } : horizontalPlacementWorkplane(),
+            "base",
+          );
         }
         onWorkplaneModeChange(false);
         return;

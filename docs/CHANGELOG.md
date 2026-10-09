@@ -6,6 +6,7 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **A workplane on the plate where you click:** Placing the workplane on the empty plate always put it back in the middle, so a finished sketch - a revolved body especially - landed in the middle of the plate, often inside other parts. A click on the plate now puts the workplane at that spot (on the snap grid), and new shapes and sketch bodies appear there, as in Tinkercad. A click beside the plate still resets it. Asked for by @prmod3d in #178.
 - **All three angles a point changes:** With a corner point selected in a sketch, the angles at its two neighbouring corners are shown too, since moving the point changes them as well, and each one can be clicked and typed - so the bottom left corner can be set while the top left point, which moves for it, is selected. A typed angle may be a calculation like "90-14.5". Asked for by @prmod3d in #149.
 - **The view stays where it was after a sketch:** Leaving the sketch view put the 3D view back to its start position and zoom, so it had to be turned back by hand. It now looks where it looked before the sketch, in the same projection. Reported by @prmod3d in #150.
 - **Calculate in number fields:** Besides "45/3", which happened to work, every number field now takes `+`, `-`, `*` (or `x`) and brackets, e.g. "15*3", "120-2*4" or "(40+2)/2"; a decimal comma works inside a calculation too. Asked about by @prmod3d in #180.
