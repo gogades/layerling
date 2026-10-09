@@ -2782,15 +2782,28 @@ function imagePlateDimensions(pixelWidth: number, pixelHeight: number) {
   };
 }
 
-async function toSvg(shapes: WorkplaneShape[], title: string) {
+/** `cutMeshes` holds a body's mesh where loose holes have cut it (#203); the others are built from the shape. */
+async function toSvg(shapes: WorkplaneShape[], title: string, cutMeshes: ReadonlyArray<MeshData | null> = []) {
   const runtime = await getManifoldRuntime();
   const layers: SvgProjectionLayer[] = [];
 
-  for (const shape of shapes) {
+  for (const [index, shape] of shapes.entries()) {
     const created: ManifoldSolid[] = [];
     const projectedObjects: unknown[] = [];
     try {
-      const solid = shapeToManifoldSolid(runtime, shape, created);
+      const cut = cutMeshes[index];
+      let solid: ManifoldSolid | null;
+      if (cut) {
+        const manifoldMesh = meshDataToManifoldMesh(runtime, cut);
+        try {
+          solid = runtime.Manifold.ofMesh(manifoldMesh);
+          created.push(solid);
+        } finally {
+          disposeManifold(manifoldMesh);
+        }
+      } else {
+        solid = shapeToManifoldSolid(runtime, shape, created);
+      }
       if (!solid || solid.status() !== "NoError" || solid.numTri() < 1) {
         throw new Error(`Could not convert ${shape.name} into a watertight SVG outline`);
       }
@@ -4667,13 +4680,87 @@ async function unionOverlappingExportMeshes(shapes: WorkplaneShape[], meshes: Me
  * mit ihren Aussparungen verrechnet, Durchdringungen nur einmal gezaehlt.
  * Daraus schaetzt das Exportfenster Gewicht und Filament.
  */
+/**
+ * The bodies an export writes, with every hole left ungrouped taken out of the bodies it
+ * reaches (#203) - as the view shades it, as grouping would cut it and as the STEP export
+ * already did. Only the holes that go along count: with a selection, the selected ones.
+ * A body cut away entirely drops out; one whose cut fails stays whole and is counted.
+ */
+async function exportBodiesWithLooseHoles(visible: readonly WorkplaneShape[]) {
+  const solids = visible.filter((shape) => !shape.hole && !isNonSolidShapeKind(shape.kind));
+  const meshes = solids.map(meshForShape);
+  const holes = visible.filter((shape) => shape.hole && !isNonSolidShapeKind(shape.kind));
+  const untouched = { solids, meshes, cut: solids.map(() => false), holeCutsFailed: 0 };
+  if (holes.length === 0 || solids.length === 0) return untouched;
+  // Padded like a grouped cut, so a hole flush with a face goes cleanly through it.
+  const cutters = holes.map((hole) => meshForShape(paddedCutterShape(hole)));
+  const cutterBounds = cutters.map((mesh) => meshBounds(mesh.vertices));
+  const reaching = meshes.map((mesh) => {
+    const bounds = meshBounds(mesh.vertices);
+    return cutters.filter((_, index) => Boolean(bounds && cutterBounds[index] && boundsOverlap(bounds, cutterBounds[index]!, -1e-4)));
+  });
+  if (reaching.every((list) => list.length === 0)) return untouched;
+  const runtime = await getManifoldRuntime().catch(() => null);
+  const keptSolids: WorkplaneShape[] = [];
+  const keptMeshes: MeshData[] = [];
+  const keptCut: boolean[] = [];
+  let holeCutsFailed = 0;
+  meshes.forEach((mesh, index) => {
+    const cutting = reaching[index];
+    if (cutting.length === 0) {
+      keptSolids.push(solids[index]);
+      keptMeshes.push(mesh);
+      keptCut.push(false);
+      return;
+    }
+    const created: ManifoldSolid[] = [];
+    let result: MeshData | null = null;
+    let emptied = false;
+    try {
+      if (!runtime) throw new Error("no manifold runtime");
+      const ofMesh = (source: MeshData) => {
+        const manifoldMesh = meshDataToManifoldMesh(runtime, source);
+        try {
+          const solid = runtime.Manifold.ofMesh(manifoldMesh);
+          created.push(solid);
+          return solid.status() === "NoError" && solid.numTri() > 0 ? solid : null;
+        } finally {
+          disposeManifold(manifoldMesh);
+        }
+      };
+      const body = ofMesh(mesh);
+      const tools = cutting.map(ofMesh);
+      if (body && tools.every(Boolean)) {
+        const cutter = tools.length === 1 ? tools[0]! : runtime.Manifold.union(tools as ManifoldSolid[]);
+        created.push(cutter);
+        const rest = body.subtract(cutter);
+        created.push(rest);
+        if (rest.status() === "NoError") {
+          if (rest.numTri() > 0) result = manifoldMeshToMeshData(rest.getMesh(), mesh.name);
+          else emptied = true;
+        }
+      }
+    } catch {
+      result = null;
+    } finally {
+      Array.from(new Set(created)).forEach(disposeManifold);
+    }
+    if (emptied) return;
+    if (!result) holeCutsFailed += 1;
+    keptSolids.push(solids[index]);
+    keptMeshes.push(result ?? mesh);
+    keptCut.push(Boolean(result));
+  });
+  return { solids: keptSolids, meshes: keptMeshes, cut: keptCut, holeCutsFailed };
+}
+
 async function exportSolidVolume(source: readonly WorkplaneShape[]) {
   const { visible } = visibleExportShapes(source);
-  const solids = visible.filter((shape) => !shape.hole && !isNonSolidShapeKind(shape.kind));
+  const { solids, meshes: cut, holeCutsFailed } = await exportBodiesWithLooseHoles(visible);
   if (solids.length === 0) return { volumeMm3: 0, solids: 0, bodies: 0, unionFailed: 0 };
-  const { meshes, gescheitert } = await unionOverlappingExportMeshes(solids, solids.map(meshForShape));
+  const { meshes, gescheitert } = await unionOverlappingExportMeshes(solids, cut);
   const volumeMm3 = meshes.reduce((sum, mesh) => sum + Math.abs(closedMeshVolume(mesh.vertices, mesh.faces)), 0);
-  return { volumeMm3, solids: solids.length, bodies: meshes.length, unionFailed: gescheitert };
+  return { volumeMm3, solids: solids.length, bodies: meshes.length, unionFailed: gescheitert + holeCutsFailed };
 }
 
 type ExportSolidVolume = Awaited<ReturnType<typeof exportSolidVolume>>;
@@ -10696,9 +10783,9 @@ export function LayerlingEditor({
   const buildSectionSvg = useCallback(async (axis: SectionPlaneAxis, offset: number) => {
     const { visible, hiddenNote } = visibleExportShapes(shapesRef.current);
     const hiddenCount = shapesRef.current.length - visible.length;
-    const solids = visible.filter((shape) => !shape.hole && !isNonSolidShapeKind(shape.kind));
+    const { solids, meshes: cut } = await exportBodiesWithLooseHoles(visible);
     if (solids.length === 0) throw new Error(t("status.sectionSvgNothing"));
-    const { meshes, quellen, gescheitert } = await colorSeparatedExportMeshes(solids, solids.map(meshForShape));
+    const { meshes, quellen, gescheitert } = await colorSeparatedExportMeshes(solids, cut);
     const bodies = meshes.map((mesh, index) => {
       const source = solids[quellen[index]];
       return {
@@ -10715,9 +10802,9 @@ export function LayerlingEditor({
   /** Die Umrisse des Schnitts fuer das Messen - dieselben Koerper wie beim SVG. */
   const sectionContours = useCallback(async (axis: SectionPlaneAxis, offset: number) => {
     const { visible } = visibleExportShapes(shapesRef.current);
-    const solids = visible.filter((shape) => !shape.hole && !isNonSolidShapeKind(shape.kind));
+    const { solids, meshes: cut } = await exportBodiesWithLooseHoles(visible);
     if (solids.length === 0) return [];
-    const { meshes } = await colorSeparatedExportMeshes(solids, solids.map(meshForShape));
+    const { meshes } = await colorSeparatedExportMeshes(solids, cut);
     return meshes.flatMap((mesh) => sliceMeshContours(mesh, axis, offset));
   }, []);
 
@@ -12478,17 +12565,19 @@ export function LayerlingEditor({
     };
     if (format === "svg") {
       setNotice(t("status.buildingSvg"), true);
-      void toSvg(exportable, exportName.trim() || projectName)
+      void exportBodiesWithLooseHoles(sourceShapes)
+        .then(({ solids: cutSolids, meshes, cut }) => toSvg(cutSolids, exportName.trim() || projectName, meshes.map((mesh, index) => (cut[index] ? mesh : null))))
         .then((content) => downloadTextFile(projectExportFileName(exportName, "svg"), content, "image/svg+xml;charset=utf-8"))
         .then(() => finishNotice("SVG"))
         .catch((error: unknown) => failNotice("SVG", error));
       return;
     }
     const label = format === "stl" ? "STL" : format === "3mf" ? "3MF" : "OBJ";
-    const meshes = exportable.map(meshForShape);
+    // Loose holes cut the bodies they reach first (#203); a body cut away entirely drops out.
+    let bodiesWritten: WorkplaneShape[] = exportable;
     // A group showing its parts in their own colours keeps them in 3MF and OBJ (#153).
     const partFaceColors = (mesh: MeshData, sourceIndex: number) => {
-      const source = exportable[sourceIndex];
+      const source = bodiesWritten[sourceIndex];
       const solids = source ? multicolorExportSolids(source) : null;
       if (!source || !solids) return undefined;
       const colors = exportFaceColors(mesh, solids, source.color);
@@ -12499,19 +12588,24 @@ export function LayerlingEditor({
       });
       return colors;
     };
-    void (format === "stl" ? unionOverlappingExportMeshes(exportable, meshes) : colorSeparatedExportMeshes(exportable, meshes))
+    void exportBodiesWithLooseHoles(sourceShapes)
+      .then(async ({ solids: cutSolids, meshes, holeCutsFailed }) => {
+        bodiesWritten = cutSolids;
+        const joined = await (format === "stl" ? unionOverlappingExportMeshes(cutSolids, meshes) : colorSeparatedExportMeshes(cutSolids, meshes));
+        return { ...joined, gescheitert: joined.gescheitert + holeCutsFailed };
+      })
       .then(async ({ meshes: fertig, quellen, verschmolzen, gescheitert }) => {
         if (format === "stl") {
           await downloadBlobFile(projectExportFileName(exportName, "stl"), new Blob([exportMeshesToStl(fertig)], { type: "model/stl" }));
         } else if (format === "3mf") {
           const bodies = fertig.map((mesh, index) => {
-            const source = exportable[quellen[index]];
+            const source = bodiesWritten[quellen[index]];
             return { ...mesh, name: source?.name || mesh.name, color: source?.color, faceColors: partFaceColors(mesh, quellen[index]) };
           });
           const bytes = exportMeshesTo3mf(bodies, { title: exportName.trim() || projectName });
           await downloadBlobFile(projectExportFileName(exportName, "3mf"), new Blob([bytes as BlobPart], { type: THREE_MF_MEDIA_TYPE }));
         } else {
-          const bodies = fertig.map((mesh, index) => ({ ...mesh, color: exportable[quellen[index]]?.color, faceColors: partFaceColors(mesh, quellen[index]) }));
+          const bodies = fertig.map((mesh, index) => ({ ...mesh, color: bodiesWritten[quellen[index]]?.color, faceColors: partFaceColors(mesh, quellen[index]) }));
           await downloadTextFile(projectExportFileName(exportName, "obj"), exportMeshesToObj(bodies), "text/plain");
         }
         // The file is written either way; the notice below only adds a caveat.

@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Loose holes are cut on export:** A hole left ungrouped was dropped from an STL, 3MF, OBJ or SVG export, though the view shades the cut and the STEP export already made it, so a part had to be grouped before every export. Now every visible hole that goes along is taken out of the bodies it reaches, as grouping would cut it; with a selection, only the selected holes count. The material estimate, the section SVG and the MCP bridge's `layerling_export_section_svg` count them the same way. Reported by @mobiusfix in #203.
+
 ## 1.56.0
 
 - **No moiré under a workplane on the plate:** A workplane put on the empty plate lies in the plate's own plane, and the two grids, slightly offset, made a flickering moiré. While a workplane lies flat on the plate, the plate now shows only its outline; a tilted or raised workplane keeps the plate's grid. Reported by @prmod3d in #178.

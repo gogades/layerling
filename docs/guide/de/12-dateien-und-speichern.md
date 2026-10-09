@@ -35,13 +35,13 @@ Oben steht der Dateiname, darunter wählst du das Format. Ist etwas markiert, wi
 | **PNG** | Forenbeiträge, Druckportale, Rückfragen | Ein Bild der Ansicht, wie sie gerade ist, in doppelter Auflösung und ohne Griffe, Auswahlrahmen und Maße. {{ui:export.png.plate}} und {{ui:export.png.transparent}} wählst du im Fenster. Drehe und zoome vorher, bis der Ausschnitt passt; die Auswahl spielt hier keine Rolle. |
 | **LYL** | layerling selbst | Der bearbeitbare Entwurf mit allem Drum und Dran. |
 
-Aussparungen lassen sich nicht einzeln exportieren. Gruppiere sie zuerst mit einem Körper, sonst weist dich layerling darauf hin.
+Eine Aussparung, die du nicht gruppiert hast, zieht der Export von jedem Körper ab, den sie berührt, so wie die Ansicht es zeigt. Du musst also nicht vor jedem Export gruppieren. Mit einer Auswahl zählen nur die ausgewählten Aussparungen. Allein lässt sich eine Aussparung nicht exportieren; darauf weist dich layerling hin.
 
 STEP enthält nur exakte CAD-Körper. Was sich nicht exakt abbilden lässt, etwa ein als STL importiertes Netz, bleibt draußen. Die Meldung nach dem Export nennt diese Körper beim Namen und sagt, warum. Für den Drucker nimmst du dann STL oder 3MF, die tragen alles.
 
 ### Wie viel Filament braucht das?
 
-Bei STL, 3MF, OBJ und STEP zeigt das Feld {{ui:export.estimateTitle}} Volumen, Gewicht und Filamentlänge (1,75 mm) dessen, was exportiert wird. Gezählt wird wie in der Datei: nur sichtbare Körper, Gruppen mit abgezogenen Aussparungen, Überlappungen nur einmal. Rechts wählst du das Filament – PLA, PETG, ABS, ASA, TPU oder PA (Nylon) –, das Gewicht folgt seiner Dichte. Gerechnet ist massiv, also wie mit 100 % Füllung. Mit Wänden und Füllung zeigt der Slicer weniger; die Zahl ist die Obergrenze und taugt gut zum Vergleichen und dafür, ob die Rolle noch reicht.
+Bei STL, 3MF, OBJ und STEP zeigt das Feld {{ui:export.estimateTitle}} Volumen, Gewicht und Filamentlänge (1,75 mm) dessen, was exportiert wird. Gezählt wird wie in der Datei: nur sichtbare Körper, Aussparungen abgezogen, Überlappungen nur einmal. Rechts wählst du das Filament – PLA, PETG, ABS, ASA, TPU oder PA (Nylon) –, das Gewicht folgt seiner Dichte. Gerechnet ist massiv, also wie mit 100 % Füllung. Mit Wänden und Füllung zeigt der Slicer weniger; die Zahl ist die Obergrenze und taugt gut zum Vergleichen und dafür, ob die Rolle noch reicht.
 
 ## Importieren
 

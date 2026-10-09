@@ -35,13 +35,13 @@ At the top is the file name, below it you choose the format. With something sele
 | **PNG** | forum posts, print sites, questions | A picture of the view as it is, at twice the resolution and without handles, selection frames and dimensions. {{ui:export.png.plate}} and {{ui:export.png.transparent}} are chosen in the window. Turn and zoom first until the picture is right; the selection does not matter here. |
 | **LYL** | layerling itself | The editable design with everything that belongs to it. |
 
-Holes cannot be exported on their own. Group them with a body first, otherwise layerling points it out.
+A hole you have not grouped is taken out of every body it reaches when you export, as the view shows it. So there is no need to group before each export. With a selection, only the selected holes count. A hole cannot be exported on its own; layerling points that out.
 
 STEP only carries exact CAD bodies. What cannot be written exactly, such as a mesh imported as STL, is left out. The message after the export names those bodies and says why. For the printer, use STL or 3MF, which carry everything.
 
 ### How much filament does it take?
 
-For STL, 3MF, OBJ and STEP the {{ui:export.estimateTitle}} box shows the volume, weight and length of 1.75 mm filament of what is exported. It counts like the file: visible bodies only, groups with their holes taken off, overlaps only once. On the right you pick the filament - PLA, PETG, ABS, ASA, TPU or PA (nylon) - and the weight follows its density. It is worked out as solid, as if printed with 100 % infill. With walls and infill the slicer shows less; the number is the upper bound, good for comparing and for whether the spool will last.
+For STL, 3MF, OBJ and STEP the {{ui:export.estimateTitle}} box shows the volume, weight and length of 1.75 mm filament of what is exported. It counts like the file: visible bodies only, holes taken off, overlaps only once. On the right you pick the filament - PLA, PETG, ABS, ASA, TPU or PA (nylon) - and the weight follows its density. It is worked out as solid, as if printed with 100 % infill. With walls and infill the slicer shows less; the number is the upper bound, good for comparing and for whether the spool will last.
 
 ## Importing
 
