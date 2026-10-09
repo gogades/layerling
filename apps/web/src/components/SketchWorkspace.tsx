@@ -8,7 +8,7 @@ import { canApplySketchCornerTreatment } from "@/lib/sketchFilletChamfer";
 import { t } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
 import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel";
-import { parseMeasurementInput } from "@/lib/measurementUnits";
+import { parseMeasurementInput, resolveMeasurementInput } from "@/lib/measurementUnits";
 import { applySegmentDimension, SEGMENT_DIMENSION_CENTER } from "@/lib/sketchDimensions";
 import { applyCornerAngle, sketchCornerAt, type CornerTurn, type SketchCorner } from "@/lib/sketchAngles";
 import { isSegmentCurved } from "@/lib/sketchSegmentCurve";
@@ -76,7 +76,7 @@ type PointerAction =
   | { kind: "bezier"; pointerId: number; origin: { x: number; z: number }; current: { x: number; z: number } }
   | { kind: "move-point"; pointerId: number; pointId: string; origin: { x: number; z: number }; current: { x: number; z: number } }
   | { kind: "move-selection"; pointerId: number; origin: { x: number; z: number }; current: { x: number; z: number }; startPoints: SketchPoint[] }
-  | { kind: "resize-selection"; pointerId: number; handle: ResizeHandle; current: { x: number; z: number }; startPoints: SketchPoint[]; bounds: SelectionBounds }
+  | { kind: "resize-selection"; pointerId: number; handle: ResizeHandle; current: { x: number; z: number }; startPoints: SketchPoint[]; bounds: SelectionBounds; proportional?: boolean; grab?: { x: number; z: number } }
   | { kind: "move-handle"; pointerId: number; pointId: string; handle: "in" | "out"; current: { x: number; z: number } }
   | { kind: "pan"; pointerId: number; clientX: number; clientY: number }
   | { kind: "marquee"; pointerId: number; origin: { x: number; z: number }; current: { x: number; z: number }; clientX: number; clientY: number }
@@ -177,7 +177,12 @@ function translateSketchPoints(points: SketchPoint[], dx: number, dz: number) {
   }));
 }
 
-function resizeSketchPoints(points: SketchPoint[], bounds: SelectionBounds, handle: ResizeHandle, current: { x: number; z: number }) {
+// The edge follows the pointer minus the gap the handle stands off it.
+function resizeTarget(action: { current: { x: number; z: number }; grab?: { x: number; z: number } }) {
+  return action.grab ? { x: action.current.x - action.grab.x, z: action.current.z - action.grab.z } : action.current;
+}
+
+function resizeSketchPoints(points: SketchPoint[], bounds: SelectionBounds, handle: ResizeHandle, current: { x: number; z: number }, proportional = false) {
   const minimum = 0.5;
   let minX = bounds.minX;
   let maxX = bounds.maxX;
@@ -189,8 +194,18 @@ function resizeSketchPoints(points: SketchPoint[], bounds: SelectionBounds, hand
   if (handle.includes("s")) maxZ = Math.max(current.z, bounds.minZ + minimum);
   const width = Math.max(minimum, bounds.width);
   const depth = Math.max(minimum, bounds.depth);
-  const scaleX = (maxX - minX) / width;
-  const scaleZ = (maxZ - minZ) / depth;
+  let scaleX = (maxX - minX) / width;
+  let scaleZ = (maxZ - minZ) / depth;
+  // Shift on a corner keeps the proportions (#168): both sides take the larger stretch, from the opposite corner.
+  if (proportional && handle.length === 2) {
+    const scale = Math.max(scaleX, scaleZ);
+    scaleX = scale;
+    scaleZ = scale;
+    if (handle.includes("w")) minX = bounds.maxX - width * scale;
+    else maxX = bounds.minX + width * scale;
+    if (handle.includes("n")) minZ = bounds.maxZ - depth * scale;
+    else maxZ = bounds.minZ + depth * scale;
+  }
   const map = (value: { x: number; z: number }) => ({
     x: minX + (value.x - bounds.minX) * scaleX,
     z: minZ + (value.z - bounds.minZ) * scaleZ,
@@ -554,6 +569,9 @@ export function SketchWorkspace({
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
   const svgRef = useRef<SVGSVGElement | null>(null);
   const wrapRef = useRef<HTMLElement | null>(null);
+  // Width or height of the selected shape, while its value is typed (#168).
+  const [editingBoxSize, setEditingBoxSize] = useState<{ axis: "x" | "z"; value: string; sketchPos: { x: number; z: number } } | null>(null);
+  const boxSizeEditDoneRef = useRef(false);
   const [editingDimension, setEditingDimension] = useState<{
     segmentId: string;
     value: string;
@@ -586,7 +604,7 @@ export function SketchWorkspace({
       return { ...profile, points: profile.points.map((point) => movedById.get(point.id) ?? point) };
     }
     if (pointerAction?.kind === "resize-selection") {
-      const resized = resizeSketchPoints(pointerAction.startPoints, pointerAction.bounds, pointerAction.handle, pointerAction.current);
+      const resized = resizeSketchPoints(pointerAction.startPoints, pointerAction.bounds, pointerAction.handle, resizeTarget(pointerAction), pointerAction.proportional);
       const resizedById = new Map(resized.map((point) => [point.id, point]));
       return { ...profile, points: profile.points.map((point) => resizedById.get(point.id) ?? point) };
     }
@@ -723,6 +741,25 @@ export function SketchWorkspace({
     }
     setEditingDimension(null);
   }, [editingDimension, profile.segments, profile.points, selectedPoint, onTransformPoints]);
+
+  // A typed width or height stretches the selection along that axis only, from its left or top edge.
+  const commitBoxSizeEdit = useCallback(() => {
+    if (!editingBoxSize || boxSizeEditDoneRef.current) return;
+    boxSizeEditDoneRef.current = true;
+    if (selected?.kind === "multiple") {
+      const startPoints = selected.pointIds.map((id) => profile.points.find((entry) => entry.id === id)).filter((entry): entry is SketchPoint => Boolean(entry));
+      const bounds = boundsForSketchPoints(startPoints);
+      if (bounds) {
+        const current = editingBoxSize.axis === "x" ? bounds.width : bounds.depth;
+        const size = resolveMeasurementInput(editingBoxSize.value, current);
+        if (Number.isFinite(size) && size > 0) {
+          const target = editingBoxSize.axis === "x" ? { x: bounds.minX + size, z: bounds.maxZ } : { x: bounds.maxX, z: bounds.minZ + size };
+          onTransformPoints(resizeSketchPoints(startPoints, bounds, editingBoxSize.axis === "x" ? "e" : "s", target), t("sketch.shapeResized"));
+        }
+      }
+    }
+    setEditingBoxSize(null);
+  }, [editingBoxSize, onTransformPoints, profile.points, selected]);
 
   const angleEditDoneRef = useRef(false);
   const startAngleEdit = useCallback((pointId: string, value: string, sketchPos: { x: number; z: number }) => {
@@ -894,7 +931,11 @@ export function SketchWorkspace({
       const lockOrigin = pointerAction.kind === "move-point" || pointerAction.kind === "move-selection" || pointerAction.kind === "bezier"
         ? pointerAction.origin
         : null;
-      setPointerAction({ ...pointerAction, current: event.shiftKey && lockOrigin ? constrainToAxis(lockOrigin, point) : point });
+      setPointerAction({
+        ...pointerAction,
+        current: event.shiftKey && lockOrigin ? constrainToAxis(lockOrigin, point) : point,
+        ...(pointerAction.kind === "resize-selection" ? { proportional: event.shiftKey } : {}),
+      } as PointerAction);
     }
   };
 
@@ -949,7 +990,7 @@ export function SketchWorkspace({
         t("sketch.shapeMoved"),
       );
     } else if (action.kind === "resize-selection") {
-      onTransformPoints(resizeSketchPoints(action.startPoints, action.bounds, action.handle, action.current), t("sketch.shapeResized"));
+      onTransformPoints(resizeSketchPoints(action.startPoints, action.bounds, action.handle, resizeTarget(action), action.proportional), t("sketch.shapeResized"));
     } else if (action.kind === "move-point") {
       onMovePoint(action.pointId, action.current);
     } else if (action.kind === "move-handle") {
@@ -1024,6 +1065,8 @@ export function SketchWorkspace({
           : null;
         if (lockOrigin) {
           setPointerAction((prev) => prev ? { ...prev, current: shiftKey ? constrainToAxis(lockOrigin, point) : point } : null);
+        } else if (pointerAction.kind === "resize-selection") {
+          setPointerAction((prev) => prev?.kind === "resize-selection" ? { ...prev, proportional: shiftKey } : prev);
         }
       }
     };
@@ -1113,12 +1156,33 @@ export function SketchWorkspace({
     { id: "sw", x: selectedImageBounds.minX, z: selectedImageBounds.maxZ },
     { id: "w", x: selectedImageBounds.minX, z: selectedImage.z },
   ] : [];
-  const selectionResizeHandles: Array<{ id: ResizeHandle; x: number; z: number }> = selectedGeometryBounds ? [
-    { id: "nw", x: selectedGeometryBounds.minX, z: selectedGeometryBounds.minZ },
-    { id: "ne", x: selectedGeometryBounds.maxX, z: selectedGeometryBounds.minZ },
-    { id: "se", x: selectedGeometryBounds.maxX, z: selectedGeometryBounds.maxZ },
-    { id: "sw", x: selectedGeometryBounds.minX, z: selectedGeometryBounds.maxZ },
-  ] : [];
+  // The frame stands a little off the shape, so a corner handle never sits on the
+  // corner point of a rectangle and hides behind it (#168).
+  const selectionFrameGap = handleSize;
+  const selectionFrame = selectedGeometryBounds ? {
+    minX: selectedGeometryBounds.minX - selectionFrameGap,
+    maxX: selectedGeometryBounds.maxX + selectionFrameGap,
+    minZ: selectedGeometryBounds.minZ - selectionFrameGap,
+    maxZ: selectedGeometryBounds.maxZ + selectionFrameGap,
+  } : null;
+  const selectionResizeHandles: Array<{ id: ResizeHandle; x: number; z: number; grab: { x: number; z: number } }> = selectedGeometryBounds && selectionFrame ? ([
+    // Corners stretch both ways (Shift keeps the proportions), the sides one way only (#168).
+    { id: "nw", x: selectionFrame.minX, z: selectionFrame.minZ },
+    { id: "n", x: selectedGeometryBounds.cx, z: selectionFrame.minZ },
+    { id: "ne", x: selectionFrame.maxX, z: selectionFrame.minZ },
+    { id: "e", x: selectionFrame.maxX, z: selectedGeometryBounds.cz },
+    { id: "se", x: selectionFrame.maxX, z: selectionFrame.maxZ },
+    { id: "s", x: selectedGeometryBounds.cx, z: selectionFrame.maxZ },
+    { id: "sw", x: selectionFrame.minX, z: selectionFrame.maxZ },
+    { id: "w", x: selectionFrame.minX, z: selectedGeometryBounds.cz },
+  ] as Array<{ id: ResizeHandle; x: number; z: number }>).map((handle) => ({
+    ...handle,
+    // How far the handle stands off the edge it moves; taken off the pointer while dragging.
+    grab: {
+      x: handle.id.includes("w") ? -selectionFrameGap : handle.id.includes("e") ? selectionFrameGap : 0,
+      z: handle.id.includes("n") ? -selectionFrameGap : handle.id.includes("s") ? selectionFrameGap : 0,
+    },
+  })) : [];
   // Dimensions of the selected line, or of the lines meeting at the selected point.
   // Each label starts just off its segment; one that would cover a label placed
   // before it moves further out along its extension lines until it is clear.
@@ -1577,10 +1641,10 @@ export function SketchWorkspace({
                 <rect
                   data-sketch-entity="selection-box"
                   className="sketch-geometry-selection-box"
-                  x={selectedGeometryBounds.minX}
-                  y={selectedGeometryBounds.minZ}
-                  width={selectedGeometryBounds.width}
-                  height={selectedGeometryBounds.depth}
+                  x={selectedGeometryBounds.minX - selectionFrameGap}
+                  y={selectedGeometryBounds.minZ - selectionFrameGap}
+                  width={selectedGeometryBounds.width + 2 * selectionFrameGap}
+                  height={selectedGeometryBounds.depth + 2 * selectionFrameGap}
                   onPointerDown={(event) => {
                     if (event.button === 1) {
                       beginPan(event);
@@ -1604,14 +1668,34 @@ export function SketchWorkspace({
                     beginEntityDrag(event, { kind: "move-selection", pointerId: event.pointerId, origin: point, current: point, startPoints });
                   }}
                 />
-                <g className="sketch-geometry-dimension" display={showMeasurements ? undefined : "none"} pointerEvents="none" transform={`translate(${selectedGeometryBounds.cx} ${selectedGeometryBounds.minZ - labelOffset})`}>
-                  <rect x={-widthPill.width / 2} y={-widthPill.height / 2} width={widthPill.width} height={widthPill.height} rx={widthPill.radius} />
-                  <text y={5 * screenUnit} fontSize={13 * screenUnit}>{widthLabel}</text>
-                </g>
-                <g className="sketch-geometry-dimension" display={showMeasurements ? undefined : "none"} pointerEvents="none" transform={`translate(${selectedGeometryBounds.maxX + 34 * screenUnit} ${selectedGeometryBounds.cz})`}>
-                  <rect x={-depthPill.width / 2} y={-depthPill.height / 2} width={depthPill.width} height={depthPill.height} rx={depthPill.radius} />
-                  <text y={5 * screenUnit} fontSize={13 * screenUnit}>{depthLabel}</text>
-                </g>
+                {([
+                  { axis: "x" as const, label: widthLabel, pill: widthPill, at: { x: selectedGeometryBounds.cx, z: selectedGeometryBounds.minZ - selectionFrameGap - labelOffset } },
+                  { axis: "z" as const, label: depthLabel, pill: depthPill, at: { x: selectedGeometryBounds.maxX + selectionFrameGap + 34 * screenUnit, z: selectedGeometryBounds.cz } },
+                ]).map(({ axis, label, pill, at }) => {
+                  const editable = selected?.kind === "multiple";
+                  return (
+                    <g
+                      key={`box-size-${axis}`}
+                      className={editable ? "sketch-geometry-dimension clickable" : "sketch-geometry-dimension"}
+                      display={showMeasurements ? undefined : "none"}
+                      pointerEvents={editable ? undefined : "none"}
+                      role={editable ? "button" : undefined}
+                      tabIndex={editable ? 0 : undefined}
+                      aria-label={editable ? `${t("sketch.clickToEditDimension")}: ${label}` : undefined}
+                      onPointerDown={editable ? (event) => event.stopPropagation() : undefined}
+                      onClick={editable ? (event) => {
+                        event.stopPropagation();
+                        boxSizeEditDoneRef.current = false;
+                        setEditingBoxSize({ axis, value: label, sketchPos: at });
+                      } : undefined}
+                      transform={`translate(${at.x} ${at.z})`}
+                    >
+                      {editable ? <title>{t("sketch.clickToEditDimension")}</title> : null}
+                      <rect x={-pill.width / 2} y={-pill.height / 2} width={pill.width} height={pill.height} rx={pill.radius} />
+                      <text y={5 * screenUnit} fontSize={13 * screenUnit}>{label}</text>
+                    </g>
+                  );
+                })}
                 {selectionResizeHandles.map((handle) => (
                   <rect
                     key={`selection-handle-${handle.id}`}
@@ -1631,7 +1715,7 @@ export function SketchWorkspace({
                       const startPoints = selected.pointIds.map((id) => profile.points.find((entry) => entry.id === id)).filter((entry): entry is SketchPoint => Boolean(entry)).map((entry) => ({ ...entry, handleIn: entry.handleIn ? { ...entry.handleIn } : undefined, handleOut: entry.handleOut ? { ...entry.handleOut } : undefined }));
                       const bounds = boundsForSketchPoints(startPoints);
                       if (!bounds) return;
-                      beginEntityDrag(event, { kind: "resize-selection", pointerId: event.pointerId, handle: handle.id, current: { x: handle.x, z: handle.z }, startPoints, bounds });
+                      beginEntityDrag(event, { kind: "resize-selection", pointerId: event.pointerId, handle: handle.id, current: { x: handle.x, z: handle.z }, grab: handle.grab, startPoints, bounds });
                     }}
                   />
                 ))}
@@ -1833,6 +1917,35 @@ export function SketchWorkspace({
                 if (event.key === "Escape") {
                   event.preventDefault();
                   cancelAngleEdit();
+                }
+              }}
+            />
+          );
+        })() : null}
+        {editingBoxSize ? (() => {
+          const overlayPos = getOverlayPos(editingBoxSize.sketchPos);
+          if (!overlayPos) return null;
+          return (
+            <input
+              className="dimension-input sketch-dimension-input"
+              style={{ "--overlay-x": `${overlayPos.x}px`, "--overlay-y": `${overlayPos.y}px` } as CSSProperties}
+              value={editingBoxSize.value}
+              autoFocus
+              inputMode="decimal"
+              aria-label={t(editingBoxSize.axis === "x" ? "sketch.boxWidth" : "sketch.boxDepth")}
+              onPointerDown={(event) => event.stopPropagation()}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setEditingBoxSize((prev) => prev ? { ...prev, value: event.target.value } : null)}
+              onBlur={() => commitBoxSizeEdit()}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitBoxSizeEdit();
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  boxSizeEditDoneRef.current = true;
+                  setEditingBoxSize(null);
                 }
               }}
             />

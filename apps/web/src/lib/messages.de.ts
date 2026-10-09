@@ -1473,6 +1473,8 @@ export const MESSAGES_DE: Record<MessageKey, string> = {
   "status.sectionSvgNothing": "Es gibt keinen sichtbaren Körper zum Schneiden.",
   "status.sectionSvgMissed": "Die Schnittebene trifft keinen sichtbaren Körper. Schieb sie in den Entwurf.",
   "status.sectionSvgFailed": "Der Schnitt ließ sich nicht als SVG speichern.",
+  "sketch.boxWidth": "Breite der Auswahl",
+  "sketch.boxDepth": "Höhe der Auswahl",
   "sketch.clickToEditDimension": "Klicken, um die Länge einzutippen",
   "sketch.dimensionUpdated": "Linienlänge geändert",
   "sketch.clickToEditAngle": "Klicken, um den Winkel einzutippen",

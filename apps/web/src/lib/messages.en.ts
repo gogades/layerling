@@ -1474,6 +1474,8 @@ export const MESSAGES_EN = {
   "status.sectionSvgNothing": "There is no visible solid to cut.",
   "status.sectionSvgMissed": "The cutting plane misses every visible solid. Move it into the design.",
   "status.sectionSvgFailed": "The section could not be saved as SVG.",
+  "sketch.boxWidth": "Width of the selection",
+  "sketch.boxDepth": "Height of the selection",
   "sketch.clickToEditDimension": "Click to type the length",
   "sketch.dimensionUpdated": "Line length changed",
   "sketch.clickToEditAngle": "Click to type the angle",
