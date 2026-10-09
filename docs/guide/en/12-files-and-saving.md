@@ -37,6 +37,8 @@ At the top is the file name, below it you choose the format. With something sele
 
 Holes cannot be exported on their own. Group them with a body first, otherwise layerling points it out.
 
+STEP only carries exact CAD bodies. What cannot be written exactly, such as a twisted body or a mesh imported as STL, is left out. The message after the export names those bodies and says why. For the printer, use STL or 3MF, which carry everything.
+
 ### How much filament does it take?
 
 For STL, 3MF, OBJ and STEP the {{ui:export.estimateTitle}} box shows the volume, weight and length of 1.75 mm filament of what is exported. It counts like the file: visible bodies only, groups with their holes taken off, overlaps only once. On the right you pick the filament - PLA, PETG, ABS, ASA, TPU or PA (nylon) - and the weight follows its density. It is worked out as solid, as if printed with 100 % infill. With walls and infill the slicer shows less; the number is the upper bound, good for comparing and for whether the spool will last.

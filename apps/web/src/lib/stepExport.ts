@@ -11,10 +11,19 @@ import { profileExtrusionSolid } from "@/lib/cadProfileSolid";
 import { cadTransformRequiresGeneralTransform } from "@/lib/cadModifierRuntime";
 import { hingeWorldParts } from "@/lib/hingeParts";
 
+/**
+ * Why a body did not go into the STEP file, in a word the editor can say in the user's language
+ * (#184): a twist has no exact form yet, a mesh has no CAD source, a hole was left out, or the
+ * kernel could not build it.
+ */
+export type SkipCode = "twist" | "deform" | "mesh" | "oval" | "hole" | "holeCut" | "failed" | "noExact";
+
 export type SkippedShape = {
   name: string;
   kind: WorkplaneShape["kind"];
+  /** The technical reason, for the console and bug reports. */
   reason: string;
+  code: SkipCode;
 };
 
 export type StepExportResult = {
@@ -363,8 +372,19 @@ function buildHingeBody(brep: Brep, shape: WorkplaneShape): BuildOutcome {
   return fused.ok ? { solid: fused.value as BrepSolid } : { skip: "the hinge's parts could not be joined" };
 }
 
+export function skipCodeFor(shape: WorkplaneShape, reason: string): SkipCode {
+  if (reason.startsWith("hole subtraction")) return "holeCut";
+  if (shape.hole) return "hole";
+  if (/failed|could not/i.test(reason)) return "failed";
+  if (Math.abs(shape.extrudeTwist ?? 0) > 1e-9) return "twist";
+  if (shapeHasShapeDeform(shape)) return "deform";
+  if (shape.kind === "mesh") return "mesh";
+  if (/elliptical/i.test(reason)) return "oval";
+  return "noExact";
+}
+
 function describe(shape: WorkplaneShape, reason: string): SkippedShape {
-  return { name: shape.name, kind: shape.kind, reason };
+  return { name: shape.name, kind: shape.kind, reason, code: skipCodeFor(shape, reason) };
 }
 
 export type Aabb = { min: [number, number, number]; max: [number, number, number] };

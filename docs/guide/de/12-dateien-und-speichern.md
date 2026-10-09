@@ -37,6 +37,8 @@ Oben steht der Dateiname, darunter wählst du das Format. Ist etwas markiert, wi
 
 Aussparungen lassen sich nicht einzeln exportieren. Gruppiere sie zuerst mit einem Körper, sonst weist dich layerling darauf hin.
 
+STEP enthält nur exakte CAD-Körper. Was sich nicht exakt abbilden lässt, etwa ein verdrehter Körper oder ein als STL importiertes Netz, bleibt draußen. Die Meldung nach dem Export nennt diese Körper beim Namen und sagt, warum. Für den Drucker nimmst du dann STL oder 3MF, die tragen alles.
+
 ### Wie viel Filament braucht das?
 
 Bei STL, 3MF, OBJ und STEP zeigt das Feld {{ui:export.estimateTitle}} Volumen, Gewicht und Filamentlänge (1,75 mm) dessen, was exportiert wird. Gezählt wird wie in der Datei: nur sichtbare Körper, Gruppen mit abgezogenen Aussparungen, Überlappungen nur einmal. Rechts wählst du das Filament – PLA, PETG, ABS, ASA, TPU oder PA (Nylon) –, das Gewicht folgt seiner Dichte. Gerechnet ist massiv, also wie mit 100 % Füllung. Mit Wänden und Füllung zeigt der Slicer weniger; die Zahl ist die Obergrenze und taugt gut zum Vergleichen und dafür, ob die Rolle noch reicht.

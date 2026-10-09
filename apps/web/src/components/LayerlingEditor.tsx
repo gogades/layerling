@@ -13030,11 +13030,11 @@ export function LayerlingEditor({
       const text = await blob.text();
       await downloadTextFile(projectExportFileName(exportName, "step"), text, "application/step");
       setTopPanel(null);
-      const skipNote = skipped.length === 0
-        ? ""
-        : skipped.length === 1
-          ? t("status.exportStepSkippedOne")
-          : t("status.exportStepSkippedMany", { count: skipped.length });
+      if (skipped.length > 0) console.info("layerling: STEP export skipped", skipped);
+      // Name what was left out and why, so it is not missed (#184).
+      const named = skipped.slice(0, 3).map((entry) => t("status.exportStepSkippedItem", { name: entry.name, reason: t(`status.exportStepSkip.${entry.code}`) }));
+      const more = skipped.length > 3 ? t("status.exportStepSkippedMore", { count: skipped.length - 3 }) : "";
+      const skipNote = skipped.length === 0 ? "" : t("status.exportStepSkippedList", { list: named.join(", ") + more });
       setNotice((exportedCount === 1
         ? t("status.exportedStepOne", { skipNote })
         : t("status.exportedStepMany", { count: exportedCount, skipNote })) + hiddenNote);
