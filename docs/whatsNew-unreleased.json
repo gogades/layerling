@@ -1,12 +1,1 @@
-[
-  {
-    "title": {
-      "de": "Verrunden hängt nicht mehr",
-      "en": "Fillet no longer hangs"
-    },
-    "body": {
-      "de": "Nach einem Klick ins Größenfeld von Verrundung oder Fase blieb „Anwenden“ manchmal endlos am Rechnen. Das ist behoben.",
-      "en": "After a click into the size field of Fillet or Chamfer, Apply sometimes kept computing for good. That is fixed."
-    }
-  }
-]
+[]

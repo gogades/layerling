@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.56.2
 
 - **Fillet and chamfer: Apply no longer hangs after the size field:** Clicking into the size field and leaving it without a change - a click on its label is enough - threw the preview away as if the size had changed, but never computed a new one, so Apply kept spinning until the sharp-edge threshold was moved. Leaving a field unchanged now changes nothing. Reported by @trabtrading-design in #204.
 
