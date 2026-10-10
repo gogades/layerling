@@ -1,5 +1,90 @@
 [
   {
+    "version": "1.57.0",
+    "items": [
+      {
+        "title": {
+          "de": "SVG als Skizze",
+          "en": "SVG as a sketch"
+        },
+        "body": {
+          "de": "Ein SVG kommt jetzt als Skizzenkörper. In den Eigenschaften stellst du die Füllung ein: Fläche, Kontur außen oder innen, und Silhouette lässt die Löcher weg. Beides zusammen ergibt einen Ausstecher.",
+          "en": "An SVG now comes in as a sketch body. Set its fill in the properties: area, stroke outside or inside, and Silhouette leaves the holes out. Both together make a cookie cutter."
+        }
+      },
+      {
+        "title": {
+          "de": "SVG richtig herum",
+          "en": "SVG the right way round"
+        },
+        "body": {
+          "de": "Ein importiertes SVG und der SVG-Export lagen bisher von oben gesehen gespiegelt. Jetzt liest sich Schrift von oben richtig.",
+          "en": "An imported SVG and the SVG export used to lie mirrored as seen from above. Lettering now reads right from above."
+        }
+      },
+      {
+        "title": {
+          "de": "Übergang verdrehen und kippen",
+          "en": "Twist and tilt the loft"
+        },
+        "body": {
+          "de": "Der Übergang kann sich auf dem Weg nach oben verdrehen, und sein oberes Ende lässt sich bis 45° kippen. Er bleibt ein exakter Körper zum Verrunden.",
+          "en": "The loft can twist on its way up, and its top end tilts up to 45°. It stays an exact body you can fillet."
+        }
+      },
+      {
+        "title": {
+          "de": "Wie Tinkercad",
+          "en": "Tinkercad look"
+        },
+        "body": {
+          "de": "Ein Knopf unter Einstellungen → Darstellung stellt den Arbeitsbereich so ein, wie Tinkercad ihn zeigt. Die kräftige Rasterlinie kann jetzt alle 10 Schritte kommen und eine eigene Farbe haben. Auch die Fläche unter dem Skizzenraster hat jetzt eine eigene Farbe.",
+          "en": "A button under Settings → Appearance sets the work area up as Tinkercad shows it. The darker grid line can now come every 10 steps and have a colour of its own. The sketch's area under the grid has a colour of its own now too."
+        }
+      },
+      {
+        "title": {
+          "de": "Kapsel mit kleinem Ende",
+          "en": "Capsule with a small end"
+        },
+        "body": {
+          "de": "Die Kapsel kann an einem Ende schmaler sein, etwa als Abdeckung über einem Riemen. Kleines Ende und Mittenabstand stellst du in den Eigenschaften ein.",
+          "en": "The capsule can be narrower at one end, say as a guard over a belt. Set the small end and the centre distance in the properties."
+        }
+      },
+      {
+        "title": {
+          "de": "Farbwerte bleiben",
+          "en": "Colour values stay"
+        },
+        "body": {
+          "de": "Ein eingetippter Hex-Wert im Farbfeld der Einstellungen wird jetzt mit Enter übernommen und geht beim Schließen nicht mehr verloren.",
+          "en": "A hex value typed into a colour field of the settings is now taken with Enter and no longer lost when the picker closes."
+        }
+      },
+      {
+        "title": {
+          "de": "Punkt oder Komma überall",
+          "en": "Point or comma everywhere"
+        },
+        "body": {
+          "de": "Die Position der Schnittansicht und der Eckenradius in der Skizze nehmen jetzt Punkt und Komma, wie alle anderen Maßfelder.",
+          "en": "The section view's position and the corner radius in a sketch now take a point or a comma, like every other measure field."
+        }
+      },
+      {
+        "title": {
+          "de": "Keine Übersetzung beim Laden",
+          "en": "No translation on loading"
+        },
+        "body": {
+          "de": "Chrome hält die Startseite nicht mehr für deutsch und übersetzt sie beim Laden nicht mehr.",
+          "en": "Chrome no longer takes the start page for German and no longer translates it when it loads."
+        }
+      }
+    ]
+  },
+  {
     "version": "1.56.2",
     "items": [
       {
