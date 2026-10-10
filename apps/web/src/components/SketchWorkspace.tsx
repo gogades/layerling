@@ -12,7 +12,7 @@ import { parseMeasurementInput, resolveMeasurementInput } from "@/lib/measuremen
 import { applySegmentDimension, SEGMENT_DIMENSION_CENTER } from "@/lib/sketchDimensions";
 import { applyCornerAngle, sketchCornerAt, type CornerTurn, type SketchCorner } from "@/lib/sketchAngles";
 import { isSegmentCurved } from "@/lib/sketchSegmentCurve";
-import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, workplaneGridLayout } from "@/lib/workplaneGrid";
+import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, DEFAULT_SKETCH_PLATE_COLOR, workplaneGridLayout } from "@/lib/workplaneGrid";
 import { closestPointOnSketchSegment, type SketchSegmentPlacement } from "@/lib/sketchPointRefinement";
 import { isSketchPanGesture, SKETCH_MANUAL_MAX_ZOOM, SKETCH_MAX_ZOOM, SKETCH_WHEEL_ZOOM_BOOST, SKETCH_MIN_ZOOM, sketchWheelZoomFactor, zoomSketchViewAt, type SketchView } from "@/lib/sketchPointerControls";
 import { isSketchPrimitive, type SketchPrimitive } from "@/lib/sketchPrimitives";
@@ -1436,6 +1436,8 @@ export function SketchWorkspace({
   // falls back to its own colours for what was not changed, and the dark themes ignore them.
   const sketchColorStyle = {
     ...(workspace.sketchBackground !== DEFAULT_SKETCH_BACKGROUND ? { "--sketch-bg": workspace.sketchBackground } : {}),
+    // The area under the grid, which had no setting of its own (#143).
+    ...(workspace.sketchPlateColor && workspace.sketchPlateColor !== DEFAULT_SKETCH_PLATE_COLOR ? { "--sketch-plate": workspace.sketchPlateColor } : {}),
     ...(workspace.sketchGridColor !== DEFAULT_SKETCH_GRID_COLOR
       ? {
           "--sketch-grid-minor": `color-mix(in srgb, ${workspace.sketchGridColor} 46%, transparent)`,

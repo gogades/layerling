@@ -6047,7 +6047,7 @@ html[data-theme="dark"] .shell-openings-summary {
 }
 
 .sketch-plate-background {
-  fill: #f5f0e7;
+  fill: var(--sketch-plate, #f5f0e7);
   stroke: none;
 }
 

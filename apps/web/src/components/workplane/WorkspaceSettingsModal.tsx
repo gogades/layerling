@@ -66,7 +66,7 @@ import { useLanguage } from "@/lib/useLanguage";
 import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { BOOLEAN_TRIANGLE_LIMIT_PRESETS, BOOLEAN_TRIANGLE_LIMIT_STEP, DEFAULT_WORKPLANE_WORKSPACE, MAX_BOOLEAN_TRIANGLE_LIMIT, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_BOOLEAN_TRIANGLE_LIMIT, MIN_CUSTOM_SHAPE_DIMENSION, booleanTriangleLimitPreset, gridBlockForUnits, snapGridForUnits, type BooleanTriangleLimitPreset, CUSTOM_SNAP_GRID_DIVISORS, DEFAULT_SNAP_GRID, MAX_CUSTOM_SNAP_GRID, MAX_CUSTOM_SNAP_GRID_NAME, MAX_CUSTOM_SNAP_GRIDS, MIN_CUSTOM_SNAP_GRID, customSnapGridLabel, customSnapGridSize, parseCustomSnapGrid, snapGridOptions } from "@/lib/workplaneSettings";
-import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm, workplaneGridPalette } from "@/lib/workplaneGrid";
+import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, DEFAULT_SKETCH_PLATE_COLOR, IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm, workplaneGridPalette } from "@/lib/workplaneGrid";
 import type { BentTubeProfile, CustomSnapGrid, GearProfile, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { DEFAULT_LOFT } from "@/lib/loftGeometry";
 import { selectWholeValue } from "@/lib/numberField";
@@ -443,6 +443,7 @@ export function WorkspaceSettingsModal({
   const edgeColor = hexOrDefault(workspace.edgeColor, DEFAULT_WORKPLANE_WORKSPACE.edgeColor);
   const sketchBackground = hexOrDefault(workspace.sketchBackground, DEFAULT_SKETCH_BACKGROUND);
   const sketchGridColor = hexOrDefault(workspace.sketchGridColor, DEFAULT_SKETCH_GRID_COLOR);
+  const sketchPlateColor = hexOrDefault(workspace.sketchPlateColor, DEFAULT_SKETCH_PLATE_COLOR);
   const mainGridColor = hexOrDefault(workspace.gridColor, DEFAULT_WORKPLANE_WORKSPACE.gridColor);
   // The darker grid lines: their own colour, or by default the one the grid colour gives them (#143).
   const derivedGridMajorColor = workplaneGridPalette("light", gridColor).major.color;
@@ -723,6 +724,13 @@ export function WorkspaceSettingsModal({
                     onChange={(nextBackground) => patchWorkspace({ sketchBackground: nextBackground })}
                   />
                   <ColorSettingControl
+                    label={t("workspace.sketchPlateColor")}
+                    color={sketchPlateColor}
+                    defaultColor={DEFAULT_SKETCH_PLATE_COLOR}
+                    presets={SKETCH_BACKGROUND_PRESETS}
+                    onChange={(nextPlate) => patchWorkspace({ sketchPlateColor: nextPlate })}
+                  />
+                  <ColorSettingControl
                     label={t("workspace.sketchGridColor")}
                     color={sketchGridColor}
                     defaultColor={DEFAULT_SKETCH_GRID_COLOR}
@@ -733,8 +741,8 @@ export function WorkspaceSettingsModal({
                     <button
                       type="button"
                       title={t("workspace.sketchMatchHint")}
-                      disabled={sketchBackground === backgroundColor && sketchGridColor === mainGridColor}
-                      onClick={() => patchWorkspace({ sketchBackground: backgroundColor, sketchGridColor: mainGridColor })}
+                      disabled={sketchBackground === backgroundColor && sketchGridColor === mainGridColor && sketchPlateColor === surfaceColor}
+                      onClick={() => patchWorkspace({ sketchBackground: backgroundColor, sketchGridColor: mainGridColor, sketchPlateColor: surfaceColor })}
                     >
                       {t("workspace.sketchMatch")}
                     </button>
@@ -1442,6 +1450,7 @@ function tinkercadLookPatch(workspace: WorkplaneWorkspaceSettings): Partial<Work
     gridMajorInterval: 10,
     ...(workspace.units === "Imperial" ? {} : { gridBlockPreset: "1 mm", gridBlockSize: 1 }),
     sketchBackground: "#ffffff",
+    sketchPlateColor: "#fafafa",
     sketchGridColor: "#8fcbe1",
     edgeLines: true,
     edgeColor: "#000000",

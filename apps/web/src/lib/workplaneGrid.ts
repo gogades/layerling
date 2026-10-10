@@ -11,6 +11,8 @@ export const DEFAULT_WORKPLANE_SURFACE_COLOR = "#fdf4dd";
 /** The sketch view's background and grid colour in the light theme, which can be changed in the settings. */
 export const DEFAULT_SKETCH_BACKGROUND = "#fcfbf8";
 export const DEFAULT_SKETCH_GRID_COLOR = "#d9822b";
+/** The sketch's area under the grid in the light theme (#143). */
+export const DEFAULT_SKETCH_PLATE_COLOR = "#f5f0e7";
 /** Edge lines on every body, when switched on: black like in Tinkercad. */
 export const DEFAULT_EDGE_LINE_COLOR = "#000000";
 

@@ -2385,7 +2385,7 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .shell-openings-summary
 }
 
 :where(html[data-theme="dark"][data-palette="graphite"]) .sketch-plate-background {
-  fill: #eeeeee;
+  fill: var(--sketch-plate, #eeeeee);
   stroke: none;
 }
 
