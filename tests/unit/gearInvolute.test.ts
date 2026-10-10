@@ -146,7 +146,7 @@ describe("two selected gears", () => {
 
   it("tells where two gears of one module mesh, and where they stand now", () => {
     const wheel = { ...pinion, teeth: 30, size: 64, width: 64, depth: 64, x: 40, z: 0 };
-    expect(involuteGearPair(pinion, wheel)).toEqual({ modules: [2, 2], current: 40, distance: 42 });
+    expect(involuteGearPair(pinion, wheel)).toEqual({ modules: [2, 2], current: 40, distance: 42, internal: false });
   });
 
   it("says when the modules differ, and leaves other shapes alone", () => {

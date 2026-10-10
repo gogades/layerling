@@ -438,7 +438,7 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
       entry.centerHoleSize = optionalShapeNumber(source.centerHoleSize, fallbackEntry?.centerHoleSize, 0, MAX_CUSTOM_SHAPE_DIMENSION);
       entry.gearType = source.gearType === undefined
         ? fallbackEntry?.gearType
-        : source.gearType === "spur" || source.gearType === "helical" || source.gearType === "bevel"
+        : source.gearType === "spur" || source.gearType === "helical" || source.gearType === "bevel" || source.gearType === "internal" || source.gearType === "rack"
           ? source.gearType
           : fallbackEntry?.gearType;
       entry.helixAngle = optionalShapeNumber(source.helixAngle, fallbackEntry?.helixAngle, -45, 45);
@@ -446,6 +446,7 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
       entry.gearProfile = source.gearProfile === "involute" || source.gearProfile === "round" || source.gearProfile === "simple" ? source.gearProfile : fallbackEntry?.gearProfile;
       entry.gearPressureAngle = optionalShapeNumber(source.gearPressureAngle, fallbackEntry?.gearPressureAngle, 14.5, 30);
       entry.gearBacklash = optionalShapeNumber(source.gearBacklash, fallbackEntry?.gearBacklash, 0, 2);
+      entry.gearRim = optionalShapeNumber(source.gearRim, fallbackEntry?.gearRim, 0.5, 60);
     }
     const compact = Object.fromEntries(Object.entries(entry).filter(([, entryValue]) => entryValue !== undefined)) as ShapeCustomization;
     if (Object.keys(compact).length > 0) normalized[kind] = compact;

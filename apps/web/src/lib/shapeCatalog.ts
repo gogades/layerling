@@ -3,27 +3,32 @@ import { regularPolygonAspect } from "@/lib/regularPolygonFootprint";
 import { normalizePyramidTop } from "@/lib/pyramidGeometry";
 import { createLocalId } from "@/lib/localIds";
 import {
+  DEFAULT_GEAR_BACKLASH,
   DEFAULT_GEAR_CENTER_HOLE_SIZE,
   DEFAULT_GEAR_HELIX_ANGLE,
   DEFAULT_GEAR_HELIX_QUALITY,
+  DEFAULT_GEAR_MODULE,
+  DEFAULT_GEAR_PRESSURE_ANGLE,
+  DEFAULT_GEAR_RIM,
   DEFAULT_GEAR_TEETH,
   DEFAULT_GEAR_TOOTH_SIZE,
   DEFAULT_GEAR_TYPE,
-  DEFAULT_GEAR_BACKLASH,
-  DEFAULT_GEAR_MODULE,
-  DEFAULT_GEAR_PRESSURE_ANGLE,
+  MAX_GEAR_BACKLASH,
+  gearSizeForModule,
+  gearToothProfile,
   gearUsesModule,
   involuteGearDiameter,
-  MAX_GEAR_BACKLASH,
   normalizeGearCenterHoleSize,
-  normalizeGearPressureAngle,
-  normalizeGearProfile,
   normalizeGearHelixAngle,
   normalizeGearHelixQuality,
+  normalizeGearPressureAngle,
+  normalizeGearProfile,
+  normalizeGearRim,
   normalizeGearTeeth,
   normalizeGearToothSize,
   normalizeGearToothWidth,
   normalizeGearType,
+  rackToothHeight,
 } from "@/lib/gearGeometry";
 import {
   DEFAULT_THREAD_CLEARANCE,
@@ -490,6 +495,7 @@ export function shapeAssetSpecialDefaults(kind: ShapeKind, dimensions = shapeAss
       gearProfile: "involute",
       gearPressureAngle: DEFAULT_GEAR_PRESSURE_ANGLE,
       gearBacklash: DEFAULT_GEAR_BACKLASH,
+      gearRim: DEFAULT_GEAR_RIM,
     };
   }
   return {};
@@ -535,6 +541,7 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
     toothWidth: shape.toothWidth,
     centerHoleSize: shape.centerHoleSize,
     gearType: shape.gearType,
+    gearRim: shape.gearRim,
     helixAngle: shape.helixAngle,
     helixQuality: shape.helixQuality,
     gearProfile: shape.gearProfile,
@@ -691,15 +698,26 @@ export function makeShapeFromAsset(
   }) : null;
   const loftFootprint = loftMeasures ? loftFrameSize(loftMeasures) : null;
   // New gears get involute teeth (#201); their size follows the module, so other teeth keep module 2.
-  const gearProfile = asset.kind === "gear" ? normalizeGearProfile(customization.gearProfile ?? "involute") : undefined;
-  const gearDiameter = gearUsesModule(gearProfile) && customization.width === undefined
-    ? involuteGearDiameter(DEFAULT_GEAR_MODULE, customization.teeth ?? DEFAULT_GEAR_TEETH, gearProfile)
+  const gearType = asset.kind === "gear" ? normalizeGearType(customization.gearType ?? DEFAULT_GEAR_TYPE) : undefined;
+  const gearRim = asset.kind === "gear" ? normalizeGearRim(customization.gearRim ?? DEFAULT_GEAR_RIM) : undefined;
+  // A ring gear and a rack (#201) have no straight teeth: "simple" counts as involute there.
+  const gearProfile = asset.kind === "gear" ? gearToothProfile({ gearType, gearProfile: customization.gearProfile ?? "involute" }) : undefined;
+  // Its size follows module 2 and the teeth unless a width was asked for; a new rack keeps a 3 mm bar behind its teeth.
+  const gearSize = asset.kind === "gear" && gearUsesModule(gearProfile) && customization.width === undefined
+    ? gearSizeForModule(DEFAULT_GEAR_MODULE, {
+      gearType,
+      gearProfile,
+      gearRim,
+      teeth: customization.teeth ?? DEFAULT_GEAR_TEETH,
+      width: 0,
+      depth: gearType === "rack" ? customization.depth ?? rackToothHeight(DEFAULT_GEAR_MODULE, gearProfile) + DEFAULT_GEAR_RIM : 0,
+    })
     : null;
-  const width = gearDiameter ?? loftFootprint?.width ?? bentTubeFootprint?.width ?? threadFootprint?.width ?? customization.width ?? defaults.width;
+  const width = gearSize?.width ?? loftFootprint?.width ?? bentTubeFootprint?.width ?? threadFootprint?.width ?? customization.width ?? defaults.width;
   // A cylinder is always circular - depth follows width here too, so it never
   // snaps between insert and first render (canonicalizeShape enforces this
   // again afterwards as the actual safety net).
-  const depth = asset.kind === "cylinder" ? width : gearDiameter ?? loftFootprint?.depth ?? bentTubeFootprint?.depth ?? threadFootprint?.depth ?? customization.depth ?? defaults.depth;
+  const depth = asset.kind === "cylinder" ? width : gearSize?.depth ?? loftFootprint?.depth ?? bentTubeFootprint?.depth ?? threadFootprint?.depth ?? customization.depth ?? defaults.depth;
   const height = bentTubeFootprint?.height ?? customization.height ?? (threadDefaults ? threadNaturalHeight(threadDefaults) : defaults.height);
   const size = Math.max(width, depth);
   const gearTeeth = asset.kind === "gear" ? normalizeGearTeeth(customization.teeth ?? DEFAULT_GEAR_TEETH) : undefined;
@@ -746,7 +764,8 @@ export function makeShapeFromAsset(
       ? normalizeGearToothWidth(customization.toothWidth, width, depth, gearTeeth)
       : undefined,
     centerHoleSize: asset.kind === "gear" ? normalizeGearCenterHoleSize(customization.centerHoleSize ?? DEFAULT_GEAR_CENTER_HOLE_SIZE, width, depth, gearToothSize, { teeth: gearTeeth, gearProfile }) : undefined,
-    gearType: asset.kind === "gear" ? normalizeGearType(customization.gearType ?? DEFAULT_GEAR_TYPE) : undefined,
+    gearType,
+    gearRim,
     helixAngle: asset.kind === "gear" ? normalizeGearHelixAngle(customization.helixAngle ?? DEFAULT_GEAR_HELIX_ANGLE) : undefined,
     helixQuality: asset.kind === "gear" ? normalizeGearHelixQuality(customization.helixQuality ?? DEFAULT_GEAR_HELIX_QUALITY) : undefined,
     gearProfile,

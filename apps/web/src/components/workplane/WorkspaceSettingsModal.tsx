@@ -111,6 +111,8 @@ const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: MessageKey }> = [
   { value: "spur", label: "gear.spur" },
   { value: "helical", label: "gear.helical" },
   { value: "bevel", label: "gear.bevel" },
+  { value: "internal", label: "gear.internal" },
+  { value: "rack", label: "gear.rack" },
 ];
 const GEAR_PROFILE_OPTIONS: Array<{ value: GearProfile; label: MessageKey }> = [
   { value: "involute", label: "gear.profileInvolute" },
@@ -146,7 +148,7 @@ const BENT_TUBE_PROFILE_OPTIONS: Array<{ value: BentTubeProfile; label: MessageK
   { value: "octagon", label: "bentTube.profileOctagon" },
 ];
 
-type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "gearPressureAngle" | "gearBacklash" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadBoltClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth" | "starPoints" | "starInnerSize" | "starOuterFillet" | "starInnerFillet" | "starQuality" | "heartTipFillet" | "heartQuality" | "crescentThickness" | "crescentTipFillet" | "crescentQuality" | "honeycombCellSize" | "honeycombWallThickness" | "honeycombFrameWidth" | "dovetailNeckWidth" | "dovetailClearance" | "hingeKnuckles" | "hingePinDiameter" | "hingeLeafThickness" | "hingeClearance" | "screwHoleShaft" | "screwHoleHeadDepth" | "screwHoleAngle" | "cornerFillet" | "topBottomFillet" | "roundedBoxQuality" | "bentTubeSize" | "bentTubeWall" | "bentTubeQuality" | "knurlCount" | "knurlDepth" | "knurlAngle" | "knurlChamfer"
+type ShapeSpecialNumberKey = "steps" | "sides" | "bevel" | "segments" | "topRadius" | "baseRadius" | "teeth" | "toothSize" | "toothWidth" | "centerHoleSize" | "helixAngle" | "helixQuality" | "gearPressureAngle" | "gearBacklash" | "gearRim" | "threadDiameter" | "threadPitch" | "threadClearance" | "threadBoltClearance" | "threadQuality" | "threadChamfer" | "threadHeadChamfer" | "springTurns" | "springWire" | "springQuality" | "topWidth" | "topDepth" | "starPoints" | "starInnerSize" | "starOuterFillet" | "starInnerFillet" | "starQuality" | "heartTipFillet" | "heartQuality" | "crescentThickness" | "crescentTipFillet" | "crescentQuality" | "honeycombCellSize" | "honeycombWallThickness" | "honeycombFrameWidth" | "dovetailNeckWidth" | "dovetailClearance" | "hingeKnuckles" | "hingePinDiameter" | "hingeLeafThickness" | "hingeClearance" | "screwHoleShaft" | "screwHoleHeadDepth" | "screwHoleAngle" | "cornerFillet" | "topBottomFillet" | "roundedBoxQuality" | "bentTubeSize" | "bentTubeWall" | "bentTubeQuality" | "knurlCount" | "knurlDepth" | "knurlAngle" | "knurlChamfer"
   | "loftBottomWidth" | "loftBottomDepth" | "loftTopWidth" | "loftTopDepth" | "loftWall";
 type ShapeSpecialField =
   | { type: "number"; key: ShapeSpecialNumberKey; label: string; defaultValue: number; min: number; max: number; step?: number; unit?: string }
@@ -277,6 +279,9 @@ function specialFieldsForShape(
       ] satisfies ShapeSpecialField[]),
       { type: "number", key: "centerHoleSize", label: t("prop.centerHole"), defaultValue: defaults.centerHoleSize ?? 6, min: centerHoleLimits.min, max: centerHoleLimits.max, unit: "mm" },
     ];
+    if (gearType === "internal") {
+      fields.push({ type: "number", key: "gearRim", label: t("prop.gearRim"), defaultValue: defaults.gearRim ?? 3, min: 0.5, max: 60, unit: "mm" });
+    }
     if (gearType === "helical") {
       fields.push(
         { type: "number", key: "helixAngle", label: t("prop.helixAngle"), defaultValue: defaults.helixAngle ?? 22.5, min: -45, max: 45, unit: "°" },

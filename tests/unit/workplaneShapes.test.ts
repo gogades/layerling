@@ -204,6 +204,13 @@ describe("workplane shape helpers", () => {
     const ellipse = canonicalizeShape(shape({ kind: "ellipse", width: 12, depth: 8 }));
     expect(ellipse.width).toBe(12);
     expect(ellipse.depth).toBe(8);
+
+    // A gear set by module stays round; the rack (#201) is a bar whose depth is its own.
+    const ring = canonicalizeShape(shape({ kind: "gear", gearType: "internal", gearProfile: "involute", width: 71, depth: 50 }));
+    expect(ring.depth).toBe(71);
+    const rack = canonicalizeShape(shape({ kind: "gear", gearType: "rack", gearProfile: "involute", width: 75.4, depth: 7.5 }));
+    expect(rack.width).toBe(75.4);
+    expect(rack.depth).toBe(7.5);
   });
 
   it("keeps rotated groups editable so they can still be ungrouped", () => {

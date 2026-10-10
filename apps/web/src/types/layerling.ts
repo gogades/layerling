@@ -116,6 +116,8 @@ export type ShapeCustomization = {
   gearPressureAngle?: number;
   /** Involute teeth: play of a meshing pair in mm, half taken off each gear. */
   gearBacklash?: number;
+  /** Ring gear (#201): the rim outside its teeth, in mm (3 by default). */
+  gearRim?: number;
   threadRole?: ThreadRole;
   threadHead?: ThreadHead;
   threadHand?: ThreadHand;
@@ -359,7 +361,8 @@ export type SketchProfile = {
 
 export type SketchOperation = "extrude" | "revolve";
 
-export type GearType = "spur" | "helical" | "bevel";
+/** Spur, helical and bevel gears; a ring gear with its teeth pointing in and a rack (#201). */
+export type GearType = "spur" | "helical" | "bevel" | "internal" | "rack";
 export type GearProfile = "involute" | "round" | "simple";
 
 /** Was aus dem Gewinde wird: Stange, Schraube, Mutter oder das Loch dafuer. */
@@ -538,6 +541,8 @@ export type WorkplaneShape = {
   gearPressureAngle?: number;
   /** Involute teeth: play of a meshing pair in mm, half taken off each gear. */
   gearBacklash?: number;
+  /** Ring gear (#201): the rim outside its teeth, in mm (3 by default). */
+  gearRim?: number;
   threadRole?: ThreadRole;
   threadHead?: ThreadHead;
   threadHand?: ThreadHand;

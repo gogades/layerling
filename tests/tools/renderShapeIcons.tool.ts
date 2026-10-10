@@ -20,6 +20,7 @@ import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createRoundedBoxGeometry } from "@/lib/roundedBoxGeometry";
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { bentTubeNaturalDimensions, createBentTubeGeometry } from "@/lib/bentTubeGeometry";
+import { createGearGeometry } from "@/lib/gearGeometry";
 
 /*
  * Zeichnet die Symbole fuer die Formenliste aus genau der Geometrie, die der
@@ -240,6 +241,23 @@ function render({ name, build, height, lay, azimuth, elevation }: Variant) {
 
 describe("palette icons", () => {
   it("renders them from the real geometry", () => {
+    // The ring gear and the rack (#201), beside the drawn spur, helical and bevel gear pictures.
+    render({
+      name: "apps/web/public/assets/editor/gear-types/internal.png",
+      height: 6,
+      lay: false,
+      azimuth: 35,
+      elevation: 50,
+      build: () => createGearGeometry({ width: 44, depth: 44, height: 6, teeth: 18, gearType: "internal", gearProfile: "involute", gearRim: 3, gearBacklash: 0 }),
+    });
+    render({
+      name: "apps/web/public/assets/editor/gear-types/rack.png",
+      height: 6,
+      lay: false,
+      azimuth: 35,
+      elevation: 50,
+      build: () => createGearGeometry({ width: 10 * Math.PI * 2, depth: 9, height: 6, teeth: 10, gearType: "rack", gearProfile: "involute", gearBacklash: 0 }),
+    });
     render({
       name: "apps/web/public/assets/editor/shape-icons-gray/thread.png",
       height: 14,

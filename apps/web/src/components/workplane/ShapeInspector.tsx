@@ -32,6 +32,19 @@ import {
   normalizeGearBacklash,
   normalizeGearPressureAngle,
   normalizeGearProfile,
+  DEFAULT_GEAR_RIM,
+  MAX_GEAR_RIM,
+  MIN_GEAR_RIM,
+  gearAddendum,
+  gearModuleOf,
+  gearSizeForModule,
+  gearToothProfile,
+  gearTypeIsModular,
+  gearUsesModule,
+  normalizeGearRim,
+  rackMinDepth,
+  rackModule,
+  rackToothHeight,
 } from "@/lib/gearGeometry";
 import {
   MAX_THREAD_CLEARANCE,
@@ -219,6 +232,8 @@ const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: MessageKey }> = [
   { value: "spur", label: "gear.spur" },
   { value: "helical", label: "gear.helical" },
   { value: "bevel", label: "gear.bevel" },
+  { value: "internal", label: "gear.internal" },
+  { value: "rack", label: "gear.rack" },
 ];
 const BENT_TUBE_PROFILE_OPTIONS: Array<{ value: BentTubeProfile; label: MessageKey }> = [
   { value: "round", label: "bentTube.profileRound" },
@@ -1442,32 +1457,43 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
   }
 
   if (shape.kind === "gear") {
-    const gearProfile = normalizeGearProfile(shape.gearProfile);
+    const gearType = normalizeGearType(shape.gearType);
+    // A ring gear and a rack (#201) have no straight teeth; "simple" counts as involute there.
+    const modular = gearTypeIsModular(gearType);
+    const gearProfile = gearToothProfile(shape);
     // Involute and round teeth are set by module (#201); the pressure angle is the involute's own.
     const involute = gearProfile !== "simple";
     const teeth = shape.teeth ?? DEFAULT_GEAR_TEETH;
-    const module = involuteGearModule(width, depth, teeth, gearProfile);
-    // A gear set by module stays round: its size is module x (teeth + 2) both ways, round teeth module x (teeth + 1.2).
-    const setInvoluteSize = (nextModule: number, nextTeeth = teeth) => {
-      const diameter = involuteGearDiameter(nextModule, nextTeeth, gearProfile);
-      const profile = { ...shape, teeth: nextTeeth };
+    const module = gearModuleOf({ ...shape, width, depth });
+    // A gear set by module stays round: its size is module x (teeth + 2) both ways, round teeth module x (teeth + 1.2);
+    // a ring gear adds its rim, a rack is teeth x pitch long and keeps its depth.
+    const setInvoluteSize = (nextModule: number, nextTeeth = teeth, patch: Partial<WorkplaneShape> = {}) => {
+      const next = gearSizeForModule(nextModule, { ...shape, ...patch, width, depth }, nextTeeth);
+      const profile = { ...shape, ...patch, teeth: nextTeeth };
       onUpdate({
+        ...patch,
         teeth: nextTeeth,
-        width: diameter,
-        depth: diameter,
-        size: diameter,
-        centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, diameter, diameter, shape.toothSize, profile),
+        width: next.width,
+        depth: next.depth,
+        size: Math.max(next.width, next.depth),
+        centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, next.width, next.depth, shape.toothSize, profile),
       }, { resizeAxis: "width" });
     };
     const setGearWidth = (value: number) => {
-      if (involute) return setInvoluteSize(involuteGearModule(value, value, teeth, gearProfile));
+      if (gearType === "rack") return setInvoluteSize(rackModule(value, teeth));
+      if (involute) return setInvoluteSize(gearModuleOf({ ...shape, width: value, depth: value }));
       const toothSize = normalizeGearToothSize(shape.toothSize, value, depth);
       const toothWidth = normalizeGearToothWidth(shape.toothWidth, value, depth, shape.teeth);
       const centerHoleSize = normalizeGearCenterHoleSize(shape.centerHoleSize, value, depth, toothSize);
       onUpdate({ width: value, size: resizedShapeSize(value, depth), toothSize, toothWidth, centerHoleSize }, { resizeAxis: "width" });
     };
     const setGearDepth = (value: number) => {
-      if (involute) return setInvoluteSize(involuteGearModule(value, value, teeth, gearProfile));
+      // A rack's depth is its bar: free, as long as the teeth and a little bar fit in.
+      if (gearType === "rack") {
+        const nextDepth = Math.max(rackMinDepth(module, gearProfile), value);
+        return onUpdate({ depth: nextDepth, size: Math.max(width, nextDepth) }, { resizeAxis: "depth" });
+      }
+      if (involute) return setInvoluteSize(gearModuleOf({ ...shape, width: value, depth: value }));
       const toothSize = normalizeGearToothSize(shape.toothSize, width, value);
       const toothWidth = normalizeGearToothWidth(shape.toothWidth, width, value, shape.teeth);
       const centerHoleSize = normalizeGearCenterHoleSize(shape.centerHoleSize, width, value, toothSize);
@@ -1486,27 +1512,31 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         options: [
           { value: "involute", label: t("gear.profileInvolute") },
           { value: "round", label: t("gear.profileRound") },
-          { value: "simple", label: t("gear.profileSimple") },
+          ...(modular ? [] : [{ value: "simple", label: t("gear.profileSimple") }]),
         ],
-        hint: gearProfile === "involute"
-          ? t("gear.involuteHint", { pitch: plainNumber(pitchDiameter), module: plainNumber(module) })
-          : gearProfile === "round"
-            ? t("gear.roundHint", { pitch: plainNumber(pitchDiameter), module: plainNumber(module) })
-            : t("gear.simpleHint"),
+        hint: gearType === "rack"
+          ? t(gearProfile === "round" ? "gear.rackRoundHint" : "gear.rackHint", { pitchLength: plainNumber(Math.PI * module), module: plainNumber(module), offset: plainNumber(gearAddendum(gearProfile) * module) })
+          : gearType === "internal"
+            ? t(gearProfile === "round" ? "gear.internalRoundHint" : "gear.internalHint", { pitch: plainNumber(pitchDiameter), module: plainNumber(module) })
+            : gearProfile === "involute"
+              ? t("gear.involuteHint", { pitch: plainNumber(pitchDiameter), module: plainNumber(module) })
+              : gearProfile === "round"
+                ? t("gear.roundHint", { pitch: plainNumber(pitchDiameter), module: plainNumber(module) })
+                : t("gear.simpleHint"),
         onChange: (value) => {
           if (value === "involute" || value === "round") {
             // Between involute and round the module stays; from simple teeth the size stays as
             // near as a whole tenth of a module allows.
             const nextModule = involute ? module : Math.max(0.1, Math.round(involuteGearModule(width, depth, teeth, value) * 10) / 10);
-            const diameter = involuteGearDiameter(nextModule, teeth, value);
+            const next = gearSizeForModule(nextModule, { ...shape, gearProfile: value, width, depth }, teeth);
             onUpdate({
               gearProfile: value,
               gearPressureAngle: normalizeGearPressureAngle(shape.gearPressureAngle),
               gearBacklash: shape.gearBacklash ?? DEFAULT_GEAR_BACKLASH,
-              width: diameter,
-              depth: diameter,
-              size: diameter,
-              centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, diameter, diameter, shape.toothSize, { teeth, gearProfile: value }),
+              width: next.width,
+              depth: next.depth,
+              size: Math.max(next.width, next.depth),
+              centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, next.width, next.depth, shape.toothSize, { teeth, gearProfile: value }),
             });
           } else {
             onUpdate({ gearProfile: "simple", centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize) });
@@ -1560,6 +1590,16 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
           onChange: (gearBacklash) => onUpdate({ gearBacklash }),
         },
       );
+      // The ring gear's rim grows its outside; the module stays.
+      if (gearType === "internal") properties.push({
+        id: "gearRim",
+        label: t("prop.gearRim"),
+        value: normalizeGearRim(shape.gearRim),
+        min: MIN_GEAR_RIM,
+        max: MAX_GEAR_RIM,
+        step: 0.1,
+        onChange: (gearRim) => setInvoluteSize(module, teeth, { gearRim }),
+      });
     }
     if (!involute) properties.push(
       {
@@ -1604,16 +1644,17 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         onChange: (helixQuality) => onUpdate({ helixQuality: Math.round(helixQuality) }),
       });
     }
-    properties.push(
-      {
-        id: "centerHole",
+    // A ring gear is a bore itself, a rack has none.
+    if (!modular) properties.push({
+      id: "centerHole",
       label: t("prop.centerHole"),
-        value: normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize, shape),
-        min: centerHoleLimits.min,
-        max: centerHoleLimits.max,
-        step: 0.1,
-        onChange: (centerHoleSize) => onUpdate({ centerHoleSize }),
-      },
+      value: normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize, shape),
+      min: centerHoleLimits.min,
+      max: centerHoleLimits.max,
+      step: 0.1,
+      onChange: (centerHoleSize) => onUpdate({ centerHoleSize }),
+    });
+    properties.push(
       { id: "length", label: t("prop.length"), value: depth, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearDepth },
       { id: "width", label: t("prop.width"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setGearWidth },
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
@@ -1872,7 +1913,7 @@ export function ShapeInspector({
     ? properties.filter((property) => ["pitch", "threadsPerInch", "threadHand", "threadProfile", "clearance", "boltClearance", "chamfer", "quality"].includes(property.id))
     : [];
   const gearTeethProperties = shape.kind === "gear"
-    ? properties.filter((property) => ["gearProfile", "teeth", "gearModule", "gearPressureAngle", "gearBacklash", "toothSize", "toothWidth"].includes(property.id))
+    ? properties.filter((property) => ["gearProfile", "teeth", "gearModule", "gearPressureAngle", "gearBacklash", "gearRim", "toothSize", "toothWidth"].includes(property.id))
     : [];
   const gearHelixProperties = shape.kind === "gear"
     ? properties.filter((property) => ["helixAngle", "quality"].includes(property.id))
@@ -2251,7 +2292,25 @@ export function ShapeInspector({
               <GearTypeSelector
                 value={gearType}
                 disabled={locked}
-                onChange={(gearType) => onUpdate({ gearType })}
+                onChange={(nextType) => {
+                  // The module stays across the types (#201): a ring gear adds its rim round the same
+                  // teeth, a rack lays them out straight with a 3 mm bar, a gear is module x (teeth + 2) again.
+                  const profile = gearToothProfile({ gearType: nextType, gearProfile: shape.gearProfile });
+                  if (!gearUsesModule(profile)) return onUpdate({ gearType: nextType });
+                  const module = gearModuleOf(shape);
+                  const rim = normalizeGearRim(shape.gearRim ?? DEFAULT_GEAR_RIM);
+                  const next = gearSizeForModule(module, { ...shape, gearType: nextType, gearProfile: profile, gearRim: rim, depth: nextType === "rack" ? rackToothHeight(module, profile) + DEFAULT_GEAR_RIM : shape.depth }, shape.teeth);
+                  onUpdate({
+                    gearType: nextType,
+                    gearProfile: profile,
+                    gearPressureAngle: normalizeGearPressureAngle(shape.gearPressureAngle),
+                    gearBacklash: shape.gearBacklash ?? DEFAULT_GEAR_BACKLASH,
+                    gearRim: nextType === "internal" ? rim : shape.gearRim,
+                    width: next.width,
+                    depth: next.depth,
+                    size: Math.max(next.width, next.depth),
+                  });
+                }}
               />
             ) : null}
             {threadRoleProperty ? (
@@ -3322,7 +3381,7 @@ export function SelectionInspector({
         <p className="selection-gear-pair" role="status">
           {gearPair.distance === null
             ? t("inspector.gearPairMismatch", { a: plainNumber(gearPair.modules[0]), b: plainNumber(gearPair.modules[1]) })
-            : t("inspector.gearPair", { distance: plainNumber(gearPair.distance), current: plainNumber(gearPair.current) })}
+            : t(gearPair.internal ? "inspector.gearPairInternal" : "inspector.gearPair", { distance: plainNumber(gearPair.distance), current: plainNumber(gearPair.current) })}
         </p>
       ) : null}
       <p className="selection-inspector-hint">{t("inspector.selectionHint")}</p>

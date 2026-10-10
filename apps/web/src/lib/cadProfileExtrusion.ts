@@ -25,7 +25,7 @@ import { buildCurvedText, curvedTextFitScale, curvedTextLayout } from "@/lib/tex
 import { threadBuildPlan, WHITWORTH_PROFILE_CONSTANTS } from "@/lib/threadGeometry";
 import { springBuildPlan, springRingSectionShare } from "@/lib/springGeometry";
 import { knurlCorners, knurlSettings, roundKnurlWave } from "@/lib/knurlGeometry";
-import { BEVEL_GEAR_TOP_SCALE, gearHelixTwist, gearOutlineCorners, involuteFlankPoint, involuteGearMeasures, involuteOutlineStretch, involuteToothCentre, normalizeGearCenterHoleSize, normalizeGearProfile, normalizeGearToothSize, normalizeGearType, roundGearMeasures, roundToothArcs, type GearOutlineOptions, type InvoluteGearMeasures, type RoundWave } from "@/lib/gearGeometry";
+import { BEVEL_GEAR_TOP_SCALE, gearHelixTwist, gearOutlineCorners, internalGearMeasures, internalGearOutline, involuteFlankPoint, involuteGearMeasures, involuteOutlineStretch, involuteToothCentre, normalizeGearCenterHoleSize, normalizeGearProfile, normalizeGearToothSize, normalizeGearType, rackMeasures, rackOutlinePoints, rackToothArcs, roundGearMeasures, roundInternalMeasures, roundToothArcs, type GearOutlineOptions, type InternalGearOptions, type InvoluteGearMeasures, type RackOptions, type RoundWave } from "@/lib/gearGeometry";
 
 /*
  * The outlines below follow the display geometry of each shape
@@ -585,16 +585,60 @@ function outlineClearance(outline: Point[]) {
   return Math.min(...outline.map((point, index) => originDistanceToSegment(point, outline[(index + 1) % outline.length])));
 }
 
+/** A circle (or an axis-aligned ellipse) about the origin as a loop, in two halves. */
+function circleLoop(radiusX: number, radiusZ = radiusX) {
+  const half = (start: number): Corner => {
+    const arc: Arc = { cx: 0, cz: 0, rx: radiusX, rz: radiusZ, start, end: start + Math.PI };
+    return { start: profileArcPoint(arc, arc.start), end: profileArcPoint(arc, arc.end), arc };
+  };
+  return loopFromCorners([half(0), half(Math.PI)]);
+}
+
 /** The bore as a true circle, in two halves; it has to stay clear of the outline. */
 function boreLoop(outline: Point[], radius: number) {
   // A bore reaching the teeth cuts the outline; the display mesh then folds
   // over itself and the shape stays on its old path.
   if (!(radius < outlineClearance(outline) * 0.999)) throw new Error("The gear's centre hole reaches its teeth");
-  const half = (start: number): Corner => {
-    const arc: Arc = { cx: 0, cz: 0, rx: radius, rz: radius, start, end: start + Math.PI };
-    return { start: profileArcPoint(arc, arc.start), end: profileArcPoint(arc, arc.end), arc };
+  return circleLoop(radius);
+}
+
+/**
+ * A ring gear (#201) as the kernel builds it: the rim's circle round the teeth of a gear turned
+ * inside out - the same involute curves or true arcs as the external gear's - both stretched to
+ * width x depth as the display stretches them.
+ */
+export function internalGearLoops(width: number, depth: number, options: InternalGearOptions) {
+  const safeWidth = Math.max(0.01, width);
+  const safeDepth = Math.max(0.01, depth);
+  const teeth = normalizeGearProfile(options.gearProfile) === "round"
+    ? roundGearLoop(roundInternalMeasures(safeWidth, safeDepth, options))
+    : involuteGearLoop(internalGearMeasures(safeWidth, safeDepth, options));
+  const { rimRadius, stretch } = internalGearOutline(safeWidth, safeDepth, options);
+  return [circleLoop(rimRadius * stretch.x, rimRadius * stretch.z), mapLoop(teeth, stretch.x, 0, stretch.z, 0)];
+}
+
+/**
+ * A rack (#201) as the kernel builds it: straight flanks at the pressure angle, all lines as
+ * drawn - or the round wave's true arcs on the bar.
+ */
+export function rackLoop(width: number, depth: number, options: RackOptions): CadModifierProfileLoop {
+  const measures = rackMeasures(Math.max(0.01, width), Math.max(0.01, depth), options);
+  if (measures.profile === "involute") return polygonLoop(rackOutlinePoints(measures));
+  const { length, backZ, rootZ, gapRadius, touchAngle } = measures;
+  const arcCorner = (arc: { x: number; z: number; radius: number; start: number; end: number }): Corner => {
+    const shape: Arc = { cx: arc.x, cz: arc.z, rx: arc.radius, rz: arc.radius, start: arc.start, end: arc.end };
+    return { start: profileArcPoint(shape, shape.start), end: profileArcPoint(shape, shape.end), arc: shape };
   };
-  return loopFromCorners([half(0), half(Math.PI)]);
+  const corners: Corner[] = [
+    { start: { x: -length / 2, z: backZ }, end: { x: -length / 2, z: backZ } },
+    { start: { x: length / 2, z: backZ }, end: { x: length / 2, z: backZ } },
+    arcCorner({ x: length / 2, z: rootZ + gapRadius, radius: gapRadius, start: -Math.PI / 2, end: -Math.PI + touchAngle }),
+  ];
+  for (let tooth = measures.teeth - 1; tooth >= 0; tooth -= 1) {
+    const arcs = rackToothArcs(measures, tooth);
+    corners.push(arcCorner(arcs.tooth), arcCorner(arcs.gap));
+  }
+  return loopFromCorners(corners);
 }
 
 /**
@@ -989,8 +1033,12 @@ export function cadProfileForShapeKind(shape: WorkplaneShape, designedRound = fa
       // solid (x, y, z) -> local (x, z, -y): the turned body stands along z, the shape's height runs along y
       return { loops: [polygonLoop(section)], frame: { kind: "revolution", height: shape.height, local: new THREE.Matrix4().makeRotationX(-Math.PI / 2) } };
     }
-    case "gear":
-      return normalizeGearType(shape.gearType) === "spur" ? { loops: gearProfileLoops(width, depth, shape) } : null;
+    case "gear": {
+      const gearType = normalizeGearType(shape.gearType);
+      if (gearType === "internal") return { loops: internalGearLoops(width, depth, shape) };
+      if (gearType === "rack") return { loops: [rackLoop(width, depth, shape)] };
+      return gearType === "spur" ? { loops: gearProfileLoops(width, depth, shape) } : null;
+    }
     case "knurl": {
       // Crossed knurling stays a mesh: the kernel needs 40 s for what two
       // counter-turned rings of 30 grooves have in common, and fails at 60.

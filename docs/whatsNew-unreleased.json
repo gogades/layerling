@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "title": {
+      "de": "Hohlrad und Zahnstange",
+      "en": "Ring gear and rack"
+    },
+    "body": {
+      "de": "Das Zahnrad gibt es jetzt auch als Hohlrad mit Zähnen nach innen und als Zahnstange, eingestellt über Modul und Zähnezahl wie bisher: für Planetengetriebe und geradlinige Antriebe.",
+      "en": "The gear now comes as a ring gear with its teeth pointing in and as a rack, set by module and teeth as before: for planetary sets and straight drives."
+    }
+  }
+]

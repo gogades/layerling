@@ -2272,6 +2272,7 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         toothWidth: shape.toothWidth,
         centerHoleSize: shape.centerHoleSize,
         gearType: shape.gearType,
+        gearRim: shape.gearRim,
         helixAngle: shape.helixAngle,
         helixQuality: shape.helixQuality,
         gearProfile: shape.gearProfile,
