@@ -9,6 +9,7 @@ import {
   checkedTypefaceData,
   contoursFromCommands,
   CustomFontError,
+  customFontId,
   isCustomFontId,
   normalizeGlyphContours,
   typefaceFromFontFile,
@@ -79,6 +80,18 @@ describe("fonts of one's own", () => {
     const ring = font.generateShapes("B", 10);
     expect(ring).toHaveLength(1);
     expect(ring[0].holes).toHaveLength(2);
+  });
+
+  it("gives the same id over http, where the browser has no crypto.subtle", async () => {
+    const bytes = fileBytes(pixelPath);
+    const secure = await customFontId(bytes);
+    const subtle = globalThis.crypto.subtle;
+    Object.defineProperty(globalThis.crypto, "subtle", { value: undefined, configurable: true });
+    try {
+      expect(await customFontId(bytes)).toBe(secure);
+    } finally {
+      Object.defineProperty(globalThis.crypto, "subtle", { value: subtle, configurable: true });
+    }
   });
 
   it("turns PostScript-style outlines (outer counter-clockwise) the way three.js wants them", () => {
