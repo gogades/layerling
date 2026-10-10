@@ -14099,9 +14099,19 @@ export function LayerlingEditor({
           busy={edgeModifier.busy}
           prepared={edgeModifier.prepared}
           error={edgeModifier.error}
-          onAmountChange={(value) => setEdgeModifier((current) => current?.prepared ? { ...current, amount: Math.max(MIN_EDGE_MODIFIER_AMOUNT, Math.min(edgeModifierMaxAmount, value)), preview: null, busy: true, error: null } : current)}
-          onChamferAngleChange={(value) => setEdgeModifier((current) => current?.prepared ? { ...current, chamferAngle: Math.max(5, Math.min(85, value)), preview: null, busy: true, error: null } : current)}
-          onQualityChange={(quality) => setEdgeModifier((current) => current?.prepared ? { ...current, quality, preview: null, busy: true, error: null } : current)}
+          // The same value again changes nothing: dropping the preview for it left Apply
+          // waiting on a computation nobody started (#204).
+          onAmountChange={(value) => setEdgeModifier((current) => {
+            if (!current?.prepared) return current;
+            const amount = Math.max(MIN_EDGE_MODIFIER_AMOUNT, Math.min(edgeModifierMaxAmount, value));
+            return amount === current.amount ? current : { ...current, amount, preview: null, busy: current.selectedEdgeIds.length > 0, error: null };
+          })}
+          onChamferAngleChange={(value) => setEdgeModifier((current) => {
+            if (!current?.prepared) return current;
+            const chamferAngle = Math.max(5, Math.min(85, value));
+            return chamferAngle === current.chamferAngle ? current : { ...current, chamferAngle, preview: null, busy: current.selectedEdgeIds.length > 0, error: null };
+          })}
+          onQualityChange={(quality) => setEdgeModifier((current) => !current?.prepared || quality === current.quality ? current : { ...current, quality, preview: null, busy: current.selectedEdgeIds.length > 0, error: null })}
           onSharpAngleChange={(sharpAngle) => setEdgeModifier((current) => {
             if (!current?.prepared) return current;
             const nextAngle = Math.max(1, Math.min(CAD_MODIFIER_MAX_SHARP_ANGLE, sharpAngle));

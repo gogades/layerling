@@ -91,7 +91,10 @@ export function EdgeModifierSlider({
   const commitDraft = () => {
     const next = parseMeasurementInput(draft);
     const finiteNext = Number.isFinite(next) ? next : controlValue;
-    onChange(clamp(toModelValue(finiteNext), safeMin, safeMax));
+    const committed = clamp(toModelValue(finiteNext), safeMin, safeMax);
+    // Leaving the field without a change is no change: reporting it threw the preview
+    // away and nothing computed a new one, so Apply spun for good (#204).
+    if (Math.abs(committed - actualValue) > 1e-9) onChange(committed);
     setEditing(false);
   };
 
