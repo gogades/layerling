@@ -38,5 +38,15 @@
       "de": "Die Position der Schnittansicht und der Eckenradius in der Skizze nehmen jetzt Punkt und Komma, wie alle anderen Maßfelder.",
       "en": "The section view's position and the corner radius in a sketch now take a point or a comma, like every other measure field."
     }
+  },
+  {
+    "title": {
+      "de": "Keine Übersetzung beim Laden",
+      "en": "No translation on loading"
+    },
+    "body": {
+      "de": "Chrome hält die Startseite nicht mehr für deutsch und übersetzt sie beim Laden nicht mehr.",
+      "en": "Chrome no longer takes the start page for German and no longer translates it when it loads."
+    }
   }
 ]
