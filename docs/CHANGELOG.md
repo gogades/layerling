@@ -4,7 +4,7 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
-## Unreleased
+## 1.58.0
 
 - **Cancelling a sketch returns to the 3D editor:** Cancelling a new or an edited sketch (extrude and revolve) left the toolbar on the Sketch tab, now empty, until you clicked 3D editor yourself; finishing one switched back as expected. Cancelling now switches back too and closes the stroke panel. Reported by @prmod3d in #212.
 - **Every grid line grows with the zoom:** Only the centre cross and the plate border grew as you zoomed in; the other grid lines stayed one pixel wide and faded into a light plate, most of all in the Tinkercad look. Every grid line now also lies on the plate as a narrow band - a twentieth of the grid step, twice that for the darker lines - so it grows as you zoom in, as in Tinkercad, while the pixel line keeps the grid visible from afar. Where lines cross, the colour is laid once, so no darker dots form. Reported by @prmod3d in #143.
