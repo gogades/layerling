@@ -62,7 +62,7 @@ function localMesh(source: WorkplaneShape) {
       geometry = createCrescentGeometry({ width, depth, height, crescentThickness: source.crescentThickness, crescentTipFillet: source.crescentTipFillet, crescentQuality: source.crescentQuality });
       break;
     case "slot":
-      geometry = createSlotGeometry({ width, depth, height, sides: source.sides });
+      geometry = createSlotGeometry({ width, depth, height, sides: source.sides, slotEndRatio: source.slotEndRatio });
       break;
     case "honeycomb":
       geometry = createHoneycombGeometry({ width, depth, height, honeycombCellSize: source.honeycombCellSize, honeycombWallThickness: source.honeycombWallThickness, honeycombFrameWidth: source.honeycombFrameWidth });
@@ -201,6 +201,13 @@ describe("exact profile extrusions with the real OCCT kernel", () => {
     expectFilletOnTop(solid, 20, 2, 4);
     expectExactBody(shape("slot", { width: 12, depth: 50, height: 5, sides: 12 }), 6, (38 * 12 + Math.PI * 6 * 6) * 5);
     expectExactBody(shape("slot", { width: 20, depth: 20, height: 5 }), 4, Math.PI * 10 * 10 * 5);
+  });
+
+  it("builds a tapered capsule (#206) as two cylinder pieces and two tangent sides, lying, standing and turned", () => {
+    const solid = expectExactBody(shape("slot", { width: 60, depth: 20, height: 10, slotEndRatio: 0.5 }), 6);
+    expectFilletOnTop(solid, 10, 1, 4);
+    expectExactBody(shape("slot", { width: 16, depth: 70, height: 6, slotEndRatio: 0.25 }), 6);
+    expectExactBody(shape("slot", { width: 50, depth: 30, height: 8, slotEndRatio: 0.3, rotation: 35, mirrorX: true }), 6);
   });
 
   it("builds a heart from two true lobes, with and without a rounded tip", () => {

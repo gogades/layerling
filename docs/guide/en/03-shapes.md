@@ -24,6 +24,8 @@ What the library offers:
 
 You get a triangle in two ways: the {{ui:shape.polygon}} with three sides is an isosceles triangle, the "Roof" of Tinkercad, and the {{ui:shape.wedge}} is a right triangle. Both are true triangular prisms. For a triangular hole, copy the shape, make the copy smaller, mark it as a hole and line it up with {{ui:editor.tool.centerOnWorkplane}} or {{ui:editor.tool.align}}. Both work with the shape's bounding box, the smallest box that encloses it, so a halved square still counts as a whole square. The command search ([[Ctrl]]+[[K]]) also finds both shapes under "triangle" or "roof".
 
+The {{ui:shape.slot}} can be narrower at one end than at the other, say for a guard over a belt between two pulleys. Under {{ui:inspector.properties}} set {{ui:prop.slotSmallEnd}}; the large end is as wide as the capsule, and the sides run straight from one arc to the other. {{ui:prop.slotCentreDistance}} is the distance between the two arcs' centres, that is how far apart the pulleys are. Change the small end and the centre distance stays, the capsule getting longer or shorter. The tapered capsule stays an exact body too, for fillets and STEP.
+
 ## The shape's settings
 
 As soon as a shape is selected, its settings appear on the right. At the top is the name; the pencil beside it ({{ui:outliner.rename}}) lets you type a new one. [[Enter]] keeps it, [[Esc]] cancels, and an empty name brings back the shape's default name. Further right, the padlock locks the shape against accidental moving and the eye hides it. The arrow on the far left folds the settings down to their title bar.

@@ -12,7 +12,7 @@ import { cadModifierPrepareTimeoutMs, CAD_MODIFIER_EXACT_SEGMENT_LIMIT, CAD_MODI
 import { createStarGeometry } from "@/lib/starGeometry";
 import { createHeartGeometry } from "@/lib/heartGeometry";
 import { buildCrescentContourPoints, createCrescentGeometry } from "@/lib/crescentGeometry";
-import { createSlotGeometry } from "@/lib/slotGeometry";
+import { createSlotGeometry, taperedSlotOutline } from "@/lib/slotGeometry";
 import { createHoneycombGeometry } from "@/lib/honeycombGeometry";
 import { createPrismGeometry } from "@/lib/prismGeometry";
 import { createBooleanHollowCylinderGeometry, createBooleanRoundRoofGeometry } from "@/lib/roundBodyGeometry";
@@ -124,6 +124,22 @@ describe("exact profiles for catalog shapes", () => {
       expect(profileArea(loops)).toBeCloseTo((Math.max(width, depth) - 2 * radius) * 2 * radius + Math.PI * radius * radius, 9);
       expectMatchesMesh(loops, createSlotGeometry({ width, depth, height: 10, sides: 256 }), 10, 0.005);
     });
+  });
+
+  it("builds a tapered capsule (#206) from two arcs joined by their tangents, lying or standing", () => {
+    [[60, 20, 0.5], [20, 60, 0.5], [50, 30, 0.2], [40, 20, 0.999]].forEach(([width, depth, ratio]) => {
+      const outline = taperedSlotOutline(width, depth, ratio);
+      expect(outline).not.toBeNull();
+      const { R, r, angle, centreDistance } = outline!;
+      const tangent = Math.sqrt(centreDistance ** 2 - (R - r) ** 2);
+      const loops = slotProfileLoops(width, depth, ratio);
+      expect(profileArea(loops)).toBeCloseTo(R * R * (Math.PI - angle) + r * r * angle + (R + r) * tangent, 6);
+      const [minX, minZ, maxX, maxZ] = profileLoopBounds(loops[0]);
+      expect(maxX - minX).toBeCloseTo(width, 6);
+      expect(maxZ - minZ).toBeCloseTo(depth, 6);
+      expectMatchesMesh(loops, createSlotGeometry({ width, depth, height: 10, sides: 256, slotEndRatio: ratio }), 10, 0.005);
+    });
+    expect(taperedSlotOutline(40, 20, 1)).toBeNull();
   });
 
   it("builds hearts from two lobes, filling width and depth exactly", () => {

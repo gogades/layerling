@@ -1265,6 +1265,7 @@ function tapeShapeTopologyKey(shape: WorkplaneShape): string {
     loftOffsetZ: shape.loftOffsetZ,
     loftWall: shape.loftWall,
     loftTwist: shape.loftTwist,
+    slotEndRatio: shape.slotEndRatio,
     loftTiltX: shape.loftTiltX,
     loftTiltZ: shape.loftTiltZ,
     screwHoleShaft: shape.screwHoleShaft,
@@ -1495,6 +1496,7 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     loftOffsetZ: shape.loftOffsetZ,
     loftWall: shape.loftWall,
     loftTwist: shape.loftTwist,
+    slotEndRatio: shape.slotEndRatio,
     loftTiltX: shape.loftTiltX,
     loftTiltZ: shape.loftTiltZ,
     screwHoleShaft: shape.screwHoleShaft,
@@ -13034,6 +13036,7 @@ function createShapeObject(
         depth,
         height,
         sides: shape.sides,
+        slotEndRatio: shape.slotEndRatio,
       })), material, shape);
       break;
     case "sphere": {

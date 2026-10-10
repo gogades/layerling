@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { taperedSlotOutline } from "@/lib/slotGeometry";
 import type { WorkplaneShape } from "@/types/layerling";
 import type { CadModifierProfileLoop, CadModifierProfilePart, CadModifierProfileSegment, CadModifierHelicalGearPart, CadModifierSpringPart, CadModifierSweepPiece, CadModifierThreadPart } from "@/lib/cadModifierTypes";
 import { profileArcPoint, profileLoopBounds, validateCadProfile } from "@/lib/cadProfileSolid";
@@ -383,11 +384,26 @@ export function crescentProfile(
 }
 
 /** createSlotGeometry: two straight sides and two half circles (or one circle when the slot is round). */
-export function slotProfileLoops(width: number, depth: number) {
+export function slotProfileLoops(width: number, depth: number, slotEndRatio?: number) {
   const safeW = Math.max(0.01, width);
   const safeD = Math.max(0.01, depth);
   const corners: Corner[] = [];
   const half = (arc: Arc): Corner => ({ start: profileArcPoint(arc, arc.start), end: profileArcPoint(arc, arc.end), arc });
+  // A smaller second end (#206): two arcs on their circles, the tangents between them added as lines.
+  const tapered = taperedSlotOutline(safeW, safeD, slotEndRatio);
+  if (tapered) {
+    const { alongX, R, r, largeU, smallU, angle } = tapered;
+    if (alongX) {
+      corners.push(half({ cx: smallU, cz: 0, rx: r, rz: r, start: -angle, end: angle }));
+      corners.push(half({ cx: largeU, cz: 0, rx: R, rz: R, start: angle, end: 2 * Math.PI - angle }));
+    } else {
+      // Along z the long axis turns a quarter: the same outline, its angles turned to run from +z.
+      const turn = Math.PI / 2;
+      corners.push(half({ cx: 0, cz: smallU, rx: r, rz: r, start: turn - angle, end: turn + angle }));
+      corners.push(half({ cx: 0, cz: largeU, rx: R, rz: R, start: turn + angle, end: turn + 2 * Math.PI - angle }));
+    }
+    return [loopFromCorners(corners)];
+  }
   if (safeW >= safeD) {
     const R = safeD / 2;
     const hx = (safeW - safeD) / 2 > 1e-4 ? (safeW - safeD) / 2 : 0;
@@ -835,7 +851,7 @@ export function cadProfileForShapeKind(shape: WorkplaneShape, designedRound = fa
     case "crescent":
       return crescentProfile(width, depth, shape);
     case "slot":
-      return { loops: slotProfileLoops(width, depth) };
+      return { loops: slotProfileLoops(width, depth, shape.slotEndRatio) };
     case "honeycomb":
       return { loops: honeycombProfileLoops(width, depth, shape) };
     case "dovetail":

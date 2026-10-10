@@ -2216,6 +2216,7 @@ function geometryMeshForShape(shape: WorkplaneShape): MeshData | null {
         depth,
         height,
         sides: shape.sides,
+        slotEndRatio: shape.slotEndRatio,
       });
       break;
     case "counterbore":

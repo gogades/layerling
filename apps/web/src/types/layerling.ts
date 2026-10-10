@@ -189,6 +189,8 @@ export type ShapeCustomization = {
   loftWall?: number;
   /** Transition: degrees the section turns from bottom to top (#205). */
   loftTwist?: number;
+  /** Capsule: the small end's diameter as a share of the large one, 1 or missing for equal ends (#206). */
+  slotEndRatio?: number;
   /** Transition: degrees the top end tilts about the x axis and about the z axis (#205). */
   loftTiltX?: number;
   loftTiltZ?: number;
@@ -607,6 +609,8 @@ export type WorkplaneShape = {
   loftWall?: number;
   /** Transition: degrees the section turns from bottom to top (#205). */
   loftTwist?: number;
+  /** Capsule: the small end's diameter as a share of the large one, 1 or missing for equal ends (#206). */
+  slotEndRatio?: number;
   /** Transition: degrees the top end tilts about the x axis and about the z axis (#205). */
   loftTiltX?: number;
   loftTiltZ?: number;

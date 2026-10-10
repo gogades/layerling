@@ -1388,6 +1388,10 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
       if (value < 0 || value > 1e6) throw new Error(`${label}.${key} is outside the supported range`);
     }
   }
+  if (kind === "slot" && definition.slotEndRatio !== undefined) {
+    const ratio = finiteNumber(definition.slotEndRatio, `${label}.slotEndRatio`);
+    if (ratio <= 0 || ratio > 1) throw new Error(`${label}.slotEndRatio is outside the supported range`);
+  }
   if (kind === "loft") {
     // Lenient on purpose: the geometry clamps the values itself; only nonsense is refused.
     for (const key of ["loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth", "loftBottomCorner", "loftTopCorner", "loftBottomSides", "loftTopSides", "loftOffsetX", "loftOffsetZ", "loftWall", "loftTwist", "loftTiltX", "loftTiltZ"] as const) {

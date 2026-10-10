@@ -561,6 +561,7 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     a.loftOffsetZ === b.loftOffsetZ &&
     a.loftWall === b.loftWall &&
     a.loftTwist === b.loftTwist &&
+    a.slotEndRatio === b.slotEndRatio &&
     a.loftTiltX === b.loftTiltX &&
     a.loftTiltZ === b.loftTiltZ &&
     a.screwHoleShaft === b.screwHoleShaft &&

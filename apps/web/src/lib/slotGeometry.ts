@@ -11,9 +11,62 @@ export type SlotGeometryOptions = {
   depth: number;
   height: number;
   sides?: number;
+  /** The small end's diameter as a share of the large one, 1 for the plain capsule (#206). */
+  slotEndRatio?: number;
 };
 
 type Point2D = { x: number; y: number };
+
+/** The smallest small end: a tenth of the large one. */
+export const MIN_SLOT_END_RATIO = 0.1;
+
+export function normalizeSlotEndRatio(value: number | undefined) {
+  return Number.isFinite(value) ? Math.min(1, Math.max(MIN_SLOT_END_RATIO, value as number)) : 1;
+}
+
+/**
+ * A capsule with a smaller second end (#206, a belt guard): along its long axis the large
+ * circle (radius R) sits at the start, the small one (radius r) at the end, both touching the
+ * frame's ends, and the sides run as the two outer tangents. Measured along the long axis `u`
+ * from the frame's middle, across it `v`. `angle` is where the tangents touch, from the long
+ * axis: the small end's arc runs from -angle to +angle, the large one's from angle round to
+ * 2 pi - angle. Null for the plain capsule.
+ */
+export function taperedSlotOutline(width: number, depth: number, ratio: number | undefined) {
+  const share = normalizeSlotEndRatio(ratio);
+  if (share > 1 - 1e-6) return null;
+  const alongX = width >= depth;
+  const length = Math.max(0.01, alongX ? width : depth);
+  const R = Math.max(0.005, (alongX ? depth : width) / 2);
+  let r = R * share;
+  // The circles must not overlap so far that the small one sits inside: keep the centres apart.
+  const centreDistance = () => length - R - r;
+  if (centreDistance() <= (R - r) * 1.001) r = Math.max(R * MIN_SLOT_END_RATIO, R - (length - 2 * R) / 2);
+  const c = Math.max(1e-6, centreDistance());
+  const tilt = Math.asin(Math.min(0.999, (R - r) / c));
+  return { alongX, R, r, largeU: -length / 2 + R, smallU: length / 2 - r, angle: Math.PI / 2 - tilt, centreDistance: c };
+}
+
+/** The tapered capsule's outline as points, counter-clockwise in (u, v) and mapped to (x, y). */
+function taperedSlotContourPoints(width: number, depth: number, ratio: number | undefined, arcSteps: number): Point2D[] | null {
+  const outline = taperedSlotOutline(width, depth, ratio);
+  if (!outline) return null;
+  const { alongX, R, r, largeU, smallU, angle } = outline;
+  const points: Point2D[] = [];
+  const push = (u: number, v: number) => points.push(alongX ? { x: u, y: v } : { x: v, y: u });
+  const smallSteps = Math.max(2, Math.round((arcSteps * 2 * angle) / Math.PI));
+  const largeSteps = Math.max(4, Math.round((arcSteps * (2 * Math.PI - 2 * angle)) / Math.PI));
+  for (let i = 0; i <= smallSteps; i += 1) {
+    const phi = -angle + (2 * angle * i) / smallSteps;
+    push(smallU + r * Math.cos(phi), r * Math.sin(phi));
+  }
+  for (let i = 0; i <= largeSteps; i += 1) {
+    const phi = angle + ((2 * Math.PI - 2 * angle) * i) / largeSteps;
+    push(largeU + R * Math.cos(phi), R * Math.sin(phi));
+  }
+  // Along z the mapping mirrors the turn; the outline is still one closed ring.
+  return points;
+}
 
 /**
  * Erzeugt die geschlossene 2D-Kontur eines Langlochs / einer Kapsel
@@ -24,12 +77,16 @@ export function buildSlotContourPoints(
   width: number,
   depth: number,
   sides?: number,
+  slotEndRatio?: number,
 ): Point2D[] {
   const safeW = Math.max(0.01, width);
   const safeD = Math.max(0.01, depth);
   const minDim = Math.min(safeW, safeD);
   const effectiveSides = roundSideCount(sides, minDim, minDim);
   const arcSteps = Math.max(4, Math.round(effectiveSides / 2));
+  const tapered = taperedSlotContourPoints(safeW, safeD, slotEndRatio, arcSteps);
+  // The ring closes by itself: from the large arc's end the lower tangent runs back to the start.
+  if (tapered) return tapered;
   const pts: Point2D[] = [];
 
   if (safeW >= safeD) {
@@ -101,6 +158,7 @@ export function createSlotGeometry({
   depth,
   height,
   sides,
+  slotEndRatio,
 }: SlotGeometryOptions): THREE.BufferGeometry {
   const safeWidth = Math.max(0.01, width);
   const safeDepth = Math.max(0.01, depth);
@@ -108,7 +166,7 @@ export function createSlotGeometry({
 
   const minDim = Math.min(safeWidth, safeDepth);
   const effectiveSides = roundSideCount(sides, minDim, minDim);
-  const contour2D = buildSlotContourPoints(safeWidth, safeDepth, effectiveSides);
+  const contour2D = buildSlotContourPoints(safeWidth, safeDepth, effectiveSides, slotEndRatio);
   const M = contour2D.length;
 
   const positions: number[] = [];

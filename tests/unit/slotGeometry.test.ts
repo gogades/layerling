@@ -4,6 +4,8 @@ import { Brush, Evaluator, SUBTRACTION } from "three-bvh-csg";
 import {
   buildSlotContourPoints,
   createSlotGeometry,
+  MIN_SLOT_END_RATIO,
+  normalizeSlotEndRatio,
 } from "@/lib/slotGeometry";
 
 function edgeUseCounts(position: { count: number; getX: (index: number) => number; getY: (index: number) => number; getZ: (index: number) => number }) {
@@ -35,6 +37,33 @@ function signedVolume(position: { count: number; getX: (index: number) => number
 }
 
 describe("slot geometry", () => {
+  it("tapers one end (#206): closed, the frame filled, the small end at the long axis' end", () => {
+    [[60, 20, "x"], [20, 60, "z"]].forEach(([width, depth, axis]) => {
+      const geometry = createSlotGeometry({ width: width as number, depth: depth as number, height: 8, sides: 48, slotEndRatio: 0.4 });
+      const position = geometry.getAttribute("position");
+      expect(signedVolume(position)).toBeGreaterThan(0);
+      expect([...edgeUseCounts(position).values()].every((uses) => uses === 2)).toBe(true);
+      const box = geometry.boundingBox!;
+      expect(box.max.x - box.min.x).toBeCloseTo(width as number, 2);
+      expect(box.max.z - box.min.z).toBeCloseTo(depth as number, 2);
+      // Near the long axis' end the body is only as wide as the small circle: 0.4 x 20.
+      let across = 0;
+      for (let i = 0; i < position.count; i += 1) {
+        const along = axis === "x" ? position.getX(i) : position.getZ(i);
+        const side = axis === "x" ? position.getZ(i) : position.getX(i);
+        if (along > 30 - 4.01) across = Math.max(across, Math.abs(side));
+      }
+      expect(across).toBeLessThanOrEqual(4 + 1e-6);
+    });
+  });
+
+  it("keeps the plain capsule for a ratio of 1 or none", () => {
+    expect(buildSlotContourPoints(40, 20, 32, 1)).toEqual(buildSlotContourPoints(40, 20, 32));
+    expect(normalizeSlotEndRatio(0)).toBe(MIN_SLOT_END_RATIO);
+    expect(normalizeSlotEndRatio(undefined)).toBe(1);
+    expect(normalizeSlotEndRatio(3)).toBe(1);
+  });
+
   it("creates a closed, watertight 2-manifold horizontal slot with exact bounding box", () => {
     const geometry = createSlotGeometry({
       width: 40,

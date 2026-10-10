@@ -21,6 +21,16 @@
   },
   {
     "title": {
+      "de": "Kapsel mit kleinem Ende",
+      "en": "Capsule with a small end"
+    },
+    "body": {
+      "de": "Die Kapsel kann an einem Ende schmaler sein, etwa als Abdeckung über einem Riemen. Kleines Ende und Mittenabstand stellst du in den Eigenschaften ein.",
+      "en": "The capsule can be narrower at one end, say as a guard over a belt. Set the small end and the centre distance in the properties."
+    }
+  },
+  {
+    "title": {
       "de": "Farbwerte bleiben",
       "en": "Colour values stay"
     },

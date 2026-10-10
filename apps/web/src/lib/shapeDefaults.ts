@@ -18,7 +18,7 @@ const SHAPE_DEFAULT_FIELDS = [
   "starQuality", "heartTipFillet", "heartQuality", "crescentThickness", "crescentTipFillet", "crescentQuality",
   "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "hingeKnuckles", "hingePinDiameter",
   "hingeLeafThickness", "hingeClearance", "knurlPattern", "knurlCount", "knurlDepth", "knurlAngle", "knurlChamfer",
-  "dovetailNeckWidth", "dovetailClearance", "loftBottomOutline", "loftTopOutline", "loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth", "loftBottomCorner", "loftTopCorner", "loftBottomSides", "loftTopSides", "loftOffsetX", "loftOffsetZ", "loftWall", "loftTwist", "loftTiltX", "loftTiltZ", "screwHoleShaft", "screwHoleHeadDepth", "screwHoleAngle", "bentTubeProfile",
+  "dovetailNeckWidth", "dovetailClearance", "loftBottomOutline", "loftTopOutline", "loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth", "loftBottomCorner", "loftTopCorner", "loftBottomSides", "loftTopSides", "loftOffsetX", "loftOffsetZ", "loftWall", "loftTwist", "loftTiltX", "loftTiltZ", "slotEndRatio", "screwHoleShaft", "screwHoleHeadDepth", "screwHoleAngle", "bentTubeProfile",
   "bentTubeInnerProfile", "bentTubeSize", "bentTubeWall", "bentTubeQuality", "font", "textCurved", "textRadius",
   "textSize", "textInward", "textFlipped",
 ] as const;
