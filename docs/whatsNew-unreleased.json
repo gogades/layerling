@@ -1,6 +1,26 @@
 [
   {
     "title": {
+      "de": "SVG als Skizze",
+      "en": "SVG as a sketch"
+    },
+    "body": {
+      "de": "Ein SVG kommt jetzt als Skizzenkörper. In den Eigenschaften stellst du die Füllung ein: Fläche, Kontur außen oder innen, und Silhouette lässt die Löcher weg. Beides zusammen ergibt einen Ausstecher.",
+      "en": "An SVG now comes in as a sketch body. Set its fill in the properties: area, stroke outside or inside, and Silhouette leaves the holes out. Both together make a cookie cutter."
+    }
+  },
+  {
+    "title": {
+      "de": "SVG richtig herum",
+      "en": "SVG the right way round"
+    },
+    "body": {
+      "de": "Ein importiertes SVG und der SVG-Export lagen bisher von oben gesehen gespiegelt. Jetzt liest sich Schrift von oben richtig.",
+      "en": "An imported SVG and the SVG export used to lie mirrored as seen from above. Lettering now reads right from above."
+    }
+  },
+  {
+    "title": {
       "de": "Übergang verdrehen und kippen",
       "en": "Twist and tilt the loft"
     },

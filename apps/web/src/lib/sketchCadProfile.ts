@@ -96,6 +96,30 @@ function pointInPolygon(point: { x: number; z: number }, polygon: Array<{ x: num
   return inside;
 }
 
+/**
+ * The sketch without its holes (#197, Tinkercad's Silhouette): only the closed outlines no larger
+ * one holds stay, with the open lines; every outline inside them - holes and islands in holes -
+ * is left out.
+ */
+export function silhouetteSketchProfile(profile: SketchProfile): SketchProfile {
+  const closed = orderedCadSketchPaths(profile)
+    .filter((path) => path.closed)
+    .map((path) => {
+      const polygon = sampledPath(path);
+      return { path, polygon, area: Math.abs(signedArea(polygon)) };
+    })
+    .filter((record) => record.polygon.length >= 3 && record.area > 1e-8);
+  const dropped = new Set<string>();
+  closed.forEach((record) => {
+    const held = closed.some((other) => other !== record && other.area > record.area && pointInPolygon(record.polygon[0], other.polygon));
+    if (held) record.path.steps.forEach((step) => dropped.add(step.segment.id));
+  });
+  if (!dropped.size) return profile;
+  const segments = profile.segments.filter((segment) => !dropped.has(segment.id));
+  const used = new Set(segments.flatMap((segment) => [segment.startId, segment.endId]));
+  return { ...profile, points: profile.points.filter((point) => used.has(point.id)), segments };
+}
+
 export function cadSketchRegions(profile: SketchProfile): CadSketchRegion[] {
   const allPaths = orderedCadSketchPaths(profile);
   const openCount = allPaths.filter((path) => !path.closed).length;

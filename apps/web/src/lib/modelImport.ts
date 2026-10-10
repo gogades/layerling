@@ -6,7 +6,8 @@ import { attachProjectAsset, projectAssetFromBytes, sourceFormatForFileName } fr
 import { importedShapeFromStl } from "@/lib/stlImport";
 import { importedShapeFromSvg } from "@/lib/svgImport";
 import { importedShapesFrom3mf } from "@/lib/threemfImport";
-import type { ProjectAsset, WorkplaneShape } from "@/types/layerling";
+import { sketchProfileFromSvg } from "@/lib/svgSketch";
+import type { ProjectAsset, SketchProfile, WorkplaneShape } from "@/types/layerling";
 
 /**
  * Der Import von Modelldateien, fuer das Importfenster im Editor, die MCP-
@@ -64,7 +65,15 @@ export type ModelImportResult = {
 
 export async function importModelFiles(
   selected: readonly File[],
-  options: { onProgress?: (index: number, total: number, file: File, isStep: boolean) => void; cancelled?: () => boolean } = {},
+  options: {
+    onProgress?: (index: number, total: number, file: File, isStep: boolean) => void;
+    cancelled?: () => boolean;
+    /**
+     * Builds an SVG as a sketch body (#197), given the mesh the import would make otherwise and
+     * the sketch of its outlines. Null keeps the mesh - so does an import without it.
+     */
+    svgAsSketch?: (mesh: WorkplaneShape, profile: SketchProfile) => Promise<WorkplaneShape | null>;
+  } = {},
 ): Promise<ModelImportResult | null> {
   const prepared = await prepareImportFiles(selected);
   const files = prepared.files;
@@ -122,7 +131,18 @@ export async function importModelFiles(
         const { importedShapeFromStep } = await import("@/lib/stepImport");
         shape = await importedShapeFromStep(file.name, buffer);
       } else if (isSvg) {
-        shape = importedShapeFromSvg(file.name, new TextDecoder().decode(bytes));
+        const text = new TextDecoder().decode(bytes);
+        // The mesh lies mirrored top to bottom - turned up out of the drawing - and older designs
+        // rebuild it so from their file. A new import mirrors it back to read right from above (#197).
+        shape = { ...importedShapeFromSvg(file.name, text), mirrorZ: true };
+        // A sketch body carries its outline itself and needs neither the file nor its mesh.
+        const profile = options.svgAsSketch ? sketchProfileFromSvg(text) : null;
+        const sketched = profile ? await options.svgAsSketch!(shape, profile).catch(() => null) : null;
+        if (sketched) {
+          result.shapes.push(sketched);
+          result.importedFileNames.push(file.name);
+          continue;
+        }
       } else {
         shape = importedShapeFromStl(file.name, buffer);
       }

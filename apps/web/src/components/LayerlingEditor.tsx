@@ -221,7 +221,9 @@ import {
 } from "@/lib/placementWorkplane";
 import { localizedError } from "@/lib/userErrors";
 import { sketchBodyStretch, stretchedSketchProfile } from "@/lib/sketchResize";
-import { normalizeSketchStroke, strokedSketchProfile } from "@/lib/sketchStroke";
+import { silhouetteSketchProfile } from "@/lib/sketchCadProfile";
+import { svgSketchMatchesMesh } from "@/lib/svgSketch";
+import { DEFAULT_SKETCH_STROKE, normalizeSketchStroke, strokedSketchProfile } from "@/lib/sketchStroke";
 import { topCadModifierEdgeIds } from "@/lib/topEdges";
 import { placeSketchShape } from "@/lib/sketchPlacement";
 import { meshSlicePath, planeCutsMesh } from "@/lib/sketchSlice";
@@ -488,9 +490,10 @@ function ensureSketchCadWorker() {
 async function cadShapeFromSketchProfile(profile: SketchProfile, height: number, existing?: WorkplaneShape | null) {
   const safeHeight = Math.max(MIN_SHAPE_DIMENSION, height);
   // A stroked sketch builds from the outline of its line; the body keeps the drawn line (#154).
-  let buildProfile = profile;
+  // A silhouette leaves its holes out first, so its outer line runs round the outside only (#197).
+  let buildProfile = profile.silhouette ? silhouetteSketchProfile(profile) : profile;
   if (profile.stroke) {
-    const stroked = strokedSketchProfile(await getManifoldRuntime(), profile);
+    const stroked = strokedSketchProfile(await getManifoldRuntime(), buildProfile);
     if (!stroked) throw new Error(t("sketch.strokeEmpty"));
     buildProfile = stroked;
   }
@@ -2809,7 +2812,9 @@ async function toSvg(shapes: WorkplaneShape[], title: string, cutMeshes: Readonl
         throw new Error(`Could not convert ${shape.name} into a watertight SVG outline`);
       }
 
-      const topView = solid.rotate([90, 0, 0]);
+      // Seen from above with the front at the bottom, as the top view shows it: the plate's z runs
+      // down the page. Turned the other way, every export came out mirrored top to bottom (#197).
+      const topView = solid.rotate([-90, 0, 0]);
       if (topView !== solid) created.push(topView);
       const projection = topView.project();
       projectedObjects.push(projection);
@@ -5872,8 +5877,37 @@ function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary {
     cadDisplayEdgeCount: shape.cadDisplayEdges?.length ?? null,
     sketchPointCount: shape.sketchProfile?.points.length ?? 0,
     sketchSegmentCount: shape.sketchProfile?.segments.length ?? 0,
+    ...(shape.sketchProfile && shape.sketchOperation !== "revolve"
+      ? { sketchStroke: shape.sketchProfile.stroke ?? null, silhouette: Boolean(shape.sketchProfile.silhouette) }
+      : {}),
     children: shape.groupedShapes?.map(mcpShapeSummary),
   };
+}
+
+/**
+ * The sketch with the fill an MCP command asks for (#197), or null when it asks for none:
+ * `stroke` as an object sets the stroke (missing values keep the current ones), null or false
+ * makes it an area again; `silhouette` leaves the holes out or brings them back.
+ */
+function mcpSketchFillProfile(profile: SketchProfile, params: Record<string, unknown>): SketchProfile | null {
+  const strokeRequested = params.stroke !== undefined;
+  const silhouetteRequested = typeof params.silhouette === "boolean";
+  if (!strokeRequested && !silhouetteRequested) return null;
+  const next: SketchProfile = { ...profile };
+  if (strokeRequested) {
+    if (params.stroke === null || params.stroke === false) {
+      delete next.stroke;
+    } else {
+      const stroke = normalizeSketchStroke({ ...DEFAULT_SKETCH_STROKE, ...profile.stroke, ...(params.stroke as object) });
+      if (!stroke) throw new Error("stroke needs a width above 0, or null for an area");
+      next.stroke = stroke;
+    }
+  }
+  if (silhouetteRequested) {
+    if (params.silhouette) next.silhouette = true;
+    else delete next.silhouette;
+  }
+  return next;
 }
 
 function defaultMcpSketchProfile(width: number, depth: number): SketchProfile {
@@ -8334,7 +8368,7 @@ export function LayerlingEditor({
     const timer = window.setTimeout(() => {
       void getManifoldRuntime().then((runtime) => {
         if (cancelled) return;
-        const stroked = strokedSketchProfile(runtime, sketchProfile);
+        const stroked = strokedSketchProfile(runtime, sketchProfile.silhouette ? silhouetteSketchProfile(sketchProfile) : sketchProfile);
         if (!stroked) {
           setSketchStrokePreview(null);
           return;
@@ -8527,6 +8561,43 @@ export function LayerlingEditor({
     commitShapes(next, ids, t("status.carryPlaced", { count: ids.length }));
   }, [commitShapes, shapes]);
 
+  /*
+   * The fill of an extruded sketch body changed from outside sketch mode - area, a line round it
+   * or the silhouette (#197): the body is built again from its sketch, where it stands, at the
+   * size it has. Edge treatments go, as when the sketch is edited.
+   */
+  const sketchFillUpdateRequestRef = useRef(new Map<string, number>());
+  const sketchFillUpdateTimerRef = useRef(new Map<string, number>());
+  const rebuildSketchBodyFill = useCallback(async (id: string, profile: SketchProfile) => {
+    const current = shapesRef.current.find((shape) => shape.id === id);
+    if (!current?.sketchProfile || current.sketchOperation === "revolve") throw new Error(t("status.selectSketchShape"));
+    const stretch = sketchBodyStretch(current);
+    const source = stretch ? stretchedSketchProfile(profile, stretch.x, stretch.z) : profile;
+    const extrusion = await cadShapeFromSketchProfile(source, current.height, current);
+    return placeSketchShape(extrusion, placementWorkplaneRef.current, current);
+  }, []);
+  const scheduleSketchFillUpdate = useCallback((id: string, profile: SketchProfile) => {
+    const previousTimer = sketchFillUpdateTimerRef.current.get(id);
+    if (previousTimer !== undefined) window.clearTimeout(previousTimer);
+    const requestId = (sketchFillUpdateRequestRef.current.get(id) ?? 0) + 1;
+    sketchFillUpdateRequestRef.current.set(id, requestId);
+    const timer = window.setTimeout(() => {
+      sketchFillUpdateTimerRef.current.delete(id);
+      setNotice(t("status.buildingSketch"), true);
+      void rebuildSketchBodyFill(id, profile)
+        .then((rebuilt) => {
+          if (sketchFillUpdateRequestRef.current.get(id) !== requestId) return;
+          commitShapes(shapesRef.current.map((shape) => shape.id === id ? rebuilt : shape), selectedIdsRef.current, t("status.sketchUpdated"));
+        })
+        .catch((error) => {
+          if (sketchFillUpdateRequestRef.current.get(id) === requestId) {
+            setNotice(error instanceof Error ? localizedError(error.message) : t("status.sketchCannotExtrude"), true);
+          }
+        });
+    }, 250);
+    sketchFillUpdateTimerRef.current.set(id, timer);
+  }, [commitShapes, rebuildSketchBodyFill]);
+
   const scheduleRevolveShapeUpdate = useCallback((id: string, settings: SketchRevolveSettings) => {
     const previousTimer = sketchRevolveUpdateTimerRef.current.get(id);
     if (previousTimer !== undefined) window.clearTimeout(previousTimer);
@@ -8601,6 +8672,14 @@ export function LayerlingEditor({
           return;
         }
       }
+      if (cleanedPatch.sketchProfile) {
+        // Only the fill comes in this way (#197); the body is built again from its sketch.
+        const source = shapesRef.current.find((shape) => shape.id === id);
+        if (source?.sketchProfile && source.sketchOperation !== "revolve") {
+          scheduleSketchFillUpdate(id, cleanedPatch.sketchProfile);
+          return;
+        }
+      }
       const applyPatch = (current: WorkplaneShape[]) => {
         let changed = false;
         const next = current.map((shape) => {
@@ -8642,7 +8721,7 @@ export function LayerlingEditor({
         commitShapes(next, selectedIds);
       }
     },
-    [commitShapes, scheduleRevolveShapeUpdate, selectedIds, shapes],
+    [commitShapes, scheduleRevolveShapeUpdate, scheduleSketchFillUpdate, selectedIds, shapes],
   );
   writeOwnPivotRef.current = (shapeId, value) => updateShape(shapeId, { rotationPivot: value });
 
@@ -11170,7 +11249,7 @@ export function LayerlingEditor({
         if (kind === "sketch") {
           // A stroke builds the outline as a frame, as the editor's Stroke does (#154).
           const stroke = normalizeSketchStroke(params.stroke);
-          const profile = { ...defaultMcpSketchProfile(width, depth), ...(stroke ? { stroke } : {}) };
+          const profile = { ...defaultMcpSketchProfile(width, depth), ...(stroke ? { stroke } : {}), ...(params.silhouette === true ? { silhouette: true } : {}) };
           const extruded = await cadShapeFromSketchProfile(profile, height);
           shape = canonicalizeShape({
             ...extruded,
@@ -11399,8 +11478,16 @@ export function LayerlingEditor({
           const canonical = withPivotRequest(canonicalizeShape({ ...patched, size: Math.max(width, depth) }));
           return rotationWasRequested ? canonicalizeShape(bakeShapeTransformIntoMesh(canonical)) : canonical;
         });
-        const updated = nextShapes.find((shape) => shape.id === target.id) as WorkplaneShape;
+        let updated = nextShapes.find((shape) => shape.id === target.id) as WorkplaneShape;
         commitShapes(nextShapes, target.id, t("status.shapeUpdatedMcp", { name: displayShapeName(updated) }));
+        // The fill of an extruded sketch (#197): built again from its sketch, as the inspector does.
+        const fillProfile = updated.sketchProfile && updated.sketchOperation !== "revolve"
+          ? mcpSketchFillProfile(updated.sketchProfile, params)
+          : null;
+        if (fillProfile) {
+          updated = await rebuildSketchBodyFill(target.id, fillProfile);
+          commitShapes(currentShapes().map((shape) => shape.id === target.id ? updated : shape), target.id, t("status.sketchUpdated"));
+        }
         return { object: mcpShapeSummary(updated) };
       }
 
@@ -12198,6 +12285,7 @@ export function LayerlingEditor({
     }
   }, [
     buildSectionSvg,
+    rebuildSketchBodyFill,
     addReferencePoints,
     commitNotes,
     workspaceSettings.width,
@@ -13043,6 +13131,13 @@ export function LayerlingEditor({
     const sourceProjectId = projectInfoRef.current.projectId;
     const result = await importModelFiles(selected, {
       cancelled: () => projectInfoRef.current.projectId !== sourceProjectId,
+      // An SVG comes in as a sketch body, its fill changeable afterwards (#197); should the
+      // kernel build it differently from the mesh, the mesh stays.
+      svgAsSketch: async (mesh, profile) => {
+        const built = await cadShapeFromSketchProfile(profile, mesh.height);
+        if (!svgSketchMatchesMesh(built, mesh)) return null;
+        return canonicalizeShape({ ...built, name: mesh.name, color: mesh.color, x: mesh.x, z: mesh.z });
+      },
       onProgress: (index, total, file, isStep) => setNotice(t("status.importingFile", {
         index: index + 1,
         total,
@@ -13848,6 +13943,11 @@ export function LayerlingEditor({
               { ...sketchProfile, stroke },
               t(stroke ? "status.sketchStrokeSet" : "status.sketchStrokeOff"),
             )}
+            onSilhouetteChange={(silhouette) => {
+              const next: SketchProfile = { ...sketchProfile, silhouette };
+              if (!silhouette) delete next.silhouette;
+              commitSketchProfile(next, t(silhouette ? "status.sketchSilhouetteOn" : "status.sketchSilhouetteOff"));
+            }}
             strokePreview={sketchStrokePreview}
           />
         ) : (

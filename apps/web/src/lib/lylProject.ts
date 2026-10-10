@@ -669,6 +669,7 @@ async function serializeShapeNode(
       segments: sketchProfile.segments,
       ...(images.length ? { images } : {}),
       ...(sketchProfile.stroke ? { stroke: sketchProfile.stroke } : {}),
+      ...(sketchProfile.silhouette ? { silhouette: true } : {}),
     };
   }
 
@@ -1108,6 +1109,7 @@ function validateSketchProfile(value: unknown, label: string) {
     const endId = stringValue(segment.endId, `${label}.segments[${index}].endId`);
     if (!pointIds.has(startId) || !pointIds.has(endId)) throw new Error(`${label} contains a segment with a missing point reference`);
   });
+  if (profile.silhouette !== undefined && typeof profile.silhouette !== "boolean") throw new Error(`${label}.silhouette must be true or false`);
 }
 
 const BENT_TUBE_PROFILE_VALUES = new Set(["round", "square", "hexagon", "octagon"]);

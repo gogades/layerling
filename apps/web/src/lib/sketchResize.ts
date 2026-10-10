@@ -44,5 +44,6 @@ export function stretchedSketchProfile(profile: SketchProfile, x: number, z: num
     images: (profile.images ?? []).map((image) => ({ ...image })),
     // The stroke keeps its width: a stretched frame keeps its wall.
     ...(profile.stroke ? { stroke: { ...profile.stroke } } : {}),
+    ...(profile.silhouette ? { silhouette: true } : {}),
   };
 }

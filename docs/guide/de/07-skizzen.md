@@ -81,6 +81,14 @@ Normalerweise wird die Fläche innerhalb eines geschlossenen Umrisses zum Körpe
 
 Die Skizze behält die gezeichnete Linie. Öffnest du sie wieder, änderst du Linie und Kontur weiter, und ohne Häkchen wird wieder die Fläche gebaut. Kurven werden dabei in kurze gerade Stücke zerlegt. Beim Rotieren gibt es die Kontur nicht.
 
+## Füllung und Silhouette
+
+Die Kontur stellst du auch ein, ohne die Skizze zu öffnen: In den Eigenschaften eines Skizzenkörpers wählst du unter {{ui:prop.sketchFill}} {{ui:prop.sketchFill.area}}, {{ui:prop.sketchFill.outside}}, {{ui:prop.sketchFill.inside}} oder {{ui:prop.sketchFill.center}}, dazu {{ui:prop.sketchLineWidth}} und {{ui:sketch.strokeJoin}}. Der Körper wird gleich neu gebaut, an seinem Platz. Das entspricht den Füllarten beim SVG-Import in Tinkercad: Standard, Außenlinie und Innenlinie.
+
+{{ui:prop.sketchSilhouette}} lässt alle Umrisse weg, die in einem anderen liegen: Löcher und was in ihnen liegt. Übrig bleibt nur der äußere Umriss. Zusammen mit {{ui:prop.sketchFill.outside}} wird daraus ein Ausstecher: Importiere ein SVG zweimal, einmal mit Silhouette als Fläche für den Boden und einmal mit Silhouette und 1 bis 2 mm Kontur außen als Wand. Den Schalter gibt es auch in der Tafel {{ui:sketch.stroke}} im Skizzenmodus.
+
+Verrundungen und Fasen an den Kanten gehen beim Neubau verloren, wie beim Bearbeiten der Skizze.
+
 ## Ein Bild als Vorlage
 
 Mit {{ui:sketch.addImage}} legst du ein Foto oder eine Zeichnung unter die Skizze und zeichnest sie nach. Du kannst die Größe, die Deckkraft und die Lage einstellen. Sobald das Bild richtig liegt, sperrst du es mit [[L]], damit du es beim Zeichnen nicht versehentlich verschiebst. Ein gesperrtes Bild ist aus dem Weg: Klicks gehen durch es hindurch, du wählst also Linien und Punkte darauf an und ziehst einen Rahmen darüber. Um es wieder auszuwählen, etwa zum Entsperren, klickst du mit [[Alt]] darauf. Verdecken seine Einstellungen am rechten Rand das Bild, ziehst du sie an ihrer Titelleiste weg; ein Doppelklick darauf dockt sie wieder an.

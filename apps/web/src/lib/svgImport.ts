@@ -502,8 +502,25 @@ export function validateClosedSolidTriangleSoup(positions: readonly number[], la
   return analysis;
 }
 
+/** The paths that make the body: visibly filled ones, and the closed parts of visibly stroked ones. */
+export function svgProfilePaths(paths: readonly THREE.ShapePath[]) {
+  return paths.map(extrusionProfileFromPath).filter((path): path is THREE.ShapePath => Boolean(path));
+}
+
+/** The checked and parsed drawing, as both the mesh and the sketch import read it. */
+export function parseSvgForImport(source: string) {
+  validateSvgSourcePreflight(source);
+  const parsed = svgLoader.parse(normalizeSvgUseReferences(normalizeSvgDocumentType(source)));
+  const parsedXml = parsed.xml as unknown as XMLDocument | Element;
+  const root = "documentElement" in parsedXml ? parsedXml.documentElement : parsedXml;
+  if (root.localName !== "svg" || root.querySelector("parsererror")) {
+    throw new Error("SVG is not valid XML");
+  }
+  return parsed;
+}
+
 export function buildSvgExtrusionFromPaths(paths: readonly THREE.ShapePath[]) {
-  const profilePaths = paths.map(extrusionProfileFromPath).filter((path): path is THREE.ShapePath => Boolean(path));
+  const profilePaths = svgProfilePaths(paths);
   if (!profilePaths.length) {
     if (paths.some(pathHasVisibleStroke)) {
       throw new Error("SVG contains only open strokes. Close the paths or convert the strokes to filled outlines before importing");
@@ -570,13 +587,7 @@ export function buildSvgExtrusionFromPaths(paths: readonly THREE.ShapePath[]) {
 }
 
 export function importedShapeFromSvg(fileName: string, source: string): WorkplaneShape {
-  validateSvgSourcePreflight(source);
-  const parsed = svgLoader.parse(normalizeSvgUseReferences(normalizeSvgDocumentType(source)));
-  const parsedXml = parsed.xml as unknown as XMLDocument | Element;
-  const root = "documentElement" in parsedXml ? parsedXml.documentElement : parsedXml;
-  if (root.localName !== "svg" || root.querySelector("parsererror")) {
-    throw new Error("SVG is not valid XML");
-  }
+  const parsed = parseSvgForImport(source);
   const { rawPositions, rawNormals, analysis } = buildSvgExtrusionFromPaths(parsed.paths);
   const centerX = analysis.width / 2;
   const centerZ = analysis.depth / 2;

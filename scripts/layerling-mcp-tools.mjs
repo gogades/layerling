@@ -254,6 +254,7 @@ export const tools = [
           },
           required: ["width"],
         },
+        silhouette: { type: "boolean", description: "Only for kind sketch: leave out every outline inside another - holes, and islands in them - so only the outermost outlines count, as Tinkercad's Silhouette." },
         ...shapeSettingSchema,
         ...threadSizeSetting,
       },
@@ -261,7 +262,7 @@ export const tools = [
   },
   {
     name: "layerling_import_file",
-    description: "Import a file the way the editor's import window does: STL, OBJ, 3MF, STEP, SVG or a ZIP holding them. A coloured OBJ - vertex colours as layerling writes them, or materials with their .mtl (pass it as mtl, or inside the ZIP, as Tinkercad delivers it) - comes in as one body per colour, each in its place; so does a coloured 3MF (its own colours, or the filament of each part in a Bambu Studio, OrcaSlicer or PrusaSlicer project), and a 3MF with several objects comes in as one body per object. Slicer modifiers, negative volumes and support blockers are left out. Give the content as text (OBJ, SVG, ASCII STL, STEP) or as base64 (binary STL, 3MF, ZIP). Returns the imported bodies with id, name, colour, size and position.",
+    description: "Import a file the way the editor's import window does: STL, OBJ, 3MF, STEP, SVG or a ZIP holding them. A coloured OBJ - vertex colours as layerling writes them, or materials with their .mtl (pass it as mtl, or inside the ZIP, as Tinkercad delivers it) - comes in as one body per colour, each in its place; so does a coloured 3MF (its own colours, or the filament of each part in a Bambu Studio, OrcaSlicer or PrusaSlicer project), and a 3MF with several objects comes in as one body per object. Slicer modifiers, negative volumes and support blockers are left out. Give the content as text (OBJ, SVG, ASCII STL, STEP) or as base64 (binary STL, 3MF, ZIP). Returns the imported bodies with id, name, colour, size and position. An SVG comes in as an extruded sketch body, reading from above as in the drawing; set its fill (stroke outside or inside, silhouette) with layerling_update_object.",
     inputSchema: {
       ...editorTargetSchema,
       required: ["fileName"],
@@ -322,6 +323,22 @@ export const tools = [
         },
         locked: { type: "boolean" },
         hidden: { type: "boolean" },
+        stroke: {
+          anyOf: [
+            {
+              type: "object",
+              properties: {
+                width: { type: "number" },
+                align: { type: "string", enum: ["center", "inside", "outside"] },
+                join: { type: "string", enum: ["miter", "round", "bevel"] },
+                cap: { type: "string", enum: ["flat", "square", "round"] },
+              },
+            },
+            { type: "null" },
+          ],
+          description: "Extruded sketch bodies only, an imported SVG among them: how the body is filled. An object builds the outline as a frame - align outside is Tinkercad's outer line, inside its inner line, center on the line; width in mm; join miter (sharp), round or bevel; values left out keep the current ones. null makes it a filled area again. The body is built again from its sketch, where it stands.",
+        },
+        silhouette: { type: "boolean", description: "Extruded sketch bodies only: true leaves out every outline inside another - holes, and islands in them - false brings them back. With an outside stroke this makes a cookie cutter from one SVG." },
         x: { type: "number" },
         z: { type: "number" },
         elevation: { type: "number" },

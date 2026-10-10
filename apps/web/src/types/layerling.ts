@@ -353,6 +353,8 @@ export type SketchProfile = {
   segments: SketchSegment[];
   images?: SketchImage[];
   stroke?: SketchStroke;
+  /** Built without its holes: only the outermost outlines count, as Tinkercad's Silhouette (#197). */
+  silhouette?: boolean;
 };
 
 export type SketchOperation = "extrude" | "revolve";

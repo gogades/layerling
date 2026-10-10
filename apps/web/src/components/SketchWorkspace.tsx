@@ -76,6 +76,8 @@ type SketchWorkspaceProps = {
   strokePanelOpen?: boolean;
   onCloseStrokePanel?: () => void;
   onStrokeChange?: (stroke: SketchStroke | undefined) => void;
+  /** Leave the holes out (#197), set in the same panel. */
+  onSilhouetteChange?: (silhouette: boolean) => void;
   strokePreview?: string | null;
 };
 
@@ -566,6 +568,7 @@ export function SketchWorkspace({
   strokePanelOpen = false,
   onCloseStrokePanel,
   onStrokeChange,
+  onSilhouetteChange,
   strokePreview = null,
 }: SketchWorkspaceProps) {
   useLanguage();
@@ -2198,6 +2201,8 @@ export function SketchWorkspace({
           hasOpen={paths.some((path) => !path.closed)}
           accuracy={workspace.accuracy}
           onChange={(stroke) => onStrokeChange?.(stroke)}
+          silhouette={Boolean(profile.silhouette)}
+          onSilhouetteChange={(silhouette) => onSilhouetteChange?.(silhouette)}
           onClose={() => onCloseStrokePanel?.()}
         />
       ) : null}
@@ -2398,6 +2403,8 @@ function SketchStrokePanel({
   hasOpen,
   accuracy,
   onChange,
+  silhouette,
+  onSilhouetteChange,
   onClose,
 }: {
   stroke: SketchStroke | undefined;
@@ -2405,6 +2412,8 @@ function SketchStrokePanel({
   hasOpen: boolean;
   accuracy: 1 | 2 | 3;
   onChange: (stroke: SketchStroke | undefined) => void;
+  silhouette: boolean;
+  onSilhouetteChange: (silhouette: boolean) => void;
   onClose: () => void;
 }) {
   const movable = useMovablePanel<HTMLElement>("layerling.sketch.strokePanelPosition", STROKE_PANEL);
@@ -2460,6 +2469,11 @@ function SketchStrokePanel({
           {options<SketchStrokeAlign>(t("sketch.strokeAlign"), SKETCH_STROKE_ALIGNS, current.align, (option) => t(`sketch.strokeAlign.${option}`), (align) => set({ align }), hasClosed ? undefined : t("sketch.strokeAlignHint"))}
           {options<SketchStrokeJoin>(t("sketch.strokeJoin"), SKETCH_STROKE_JOINS, current.join, (option) => t(`sketch.strokeJoin.${option}`), (join) => set({ join }))}
           {options<SketchStrokeCap>(t("sketch.strokeCap"), SKETCH_STROKE_CAPS, current.cap, (option) => t(`sketch.strokeCap.${option}`), (cap) => set({ cap }), hasOpen ? undefined : t("sketch.strokeCapHint"))}
+          <label className="sketch-stroke-toggle">
+            <input type="checkbox" checked={silhouette} onChange={(event) => onSilhouetteChange(event.currentTarget.checked)} />
+            <span>{t("prop.sketchSilhouette")}</span>
+          </label>
+          <small className="sketch-stroke-note">{t("sketch.silhouetteHint")}</small>
         </div>
       </div>
     </aside>

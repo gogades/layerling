@@ -216,9 +216,10 @@ describe("guide content", () => {
     expect(guideSectionForShape({ kind: "mesh", groupedShapes: [{}], groupOperation: "bundle" })).toBe("bundling");
     // Every shape's question mark jumps to a heading, not just into a chapter.
     expect(guideSectionForShape({ kind: "text" })).toBe("addingText");
-    expect(guideSectionForShape({ kind: "mesh", sketchProfile: {} })).toBe("sketchToBody");
+    expect(guideSectionForShape({ kind: "mesh", sketchProfile: {} })).toBe("sketchFill");
+    expect(guideSectionForShape({ kind: "mesh", sketchProfile: {}, sketchOperation: "revolve" })).toBe("sketchToBody");
     expect(guideSectionForShape({ kind: "mesh", importedMesh: { sourceFormat: "stl" } })).toBe("importing");
-    expect(guideHref("de", guideChapterForShape({ kind: "mesh", sketchProfile: {} }), guideSectionForShape({ kind: "mesh", sketchProfile: {} }))).toBe("/anleitung/skizzen.html#ein-koerper-daraus-machen");
+    expect(guideHref("de", guideChapterForShape({ kind: "mesh", sketchProfile: {} }), guideSectionForShape({ kind: "mesh", sketchProfile: {} }))).toBe("/anleitung/skizzen.html#fuellung-und-silhouette");
     for (const kind of ["thread", "gear", "spring", "bentTube", "honeycomb", "hinge", "knurl", "dovetail", "teardrop", "counterbore", "countersink", "ruler"] as const) {
       const section = guideSectionForShape({ kind });
       expect(section && GUIDE_SECTIONS[section].chapter, kind).toBe(guideChapterForShape({ kind }));

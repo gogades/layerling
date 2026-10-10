@@ -72,6 +72,7 @@ export const GUIDE_SECTIONS = {
   sketchCorners: { chapter: "sketches", de: "ecken-runden-oder-fasen", en: "rounding-or-chamfering-corners" },
   sketchImage: { chapter: "sketches", de: "ein-bild-als-vorlage", en: "a-picture-as-template" },
   sketchStroke: { chapter: "sketches", de: "als-kontur-bauen", en: "building-as-a-stroke" },
+  sketchFill: { chapter: "sketches", de: "fuellung-und-silhouette", en: "fill-and-silhouette" },
   sketchDrawing: { chapter: "sketches", de: "zeichnen", en: "drawing" },
   sketchToBody: { chapter: "sketches", de: "ein-koerper-daraus-machen", en: "making-a-body-from-it" },
   addShape: { chapter: "shapes", de: "eine-form-hinzufuegen", en: "adding-a-shape" },
@@ -104,6 +105,7 @@ type GuideShape = {
   groupedShapes?: readonly unknown[];
   groupOperation?: string;
   sketchProfile?: unknown;
+  sketchOperation?: string;
   importedMesh?: { sourceFormat?: string };
 };
 
@@ -114,7 +116,8 @@ export function guideSectionForShape(shape: GuideShape): GuideSection | undefine
     return "grouping";
   }
   // A body made from a sketch, or a file brought in, is explained where it was made.
-  if (shape.sketchProfile) return "sketchToBody";
+  // An extruded one shows its fill in the properties (#197); a revolved one, how it was made.
+  if (shape.sketchProfile) return shape.sketchOperation === "revolve" ? "sketchToBody" : "sketchFill";
   if (shape.kind === "mesh" && shape.importedMesh && shape.importedMesh.sourceFormat !== "json") return "importing";
   switch (shape.kind) {
     case "text":
