@@ -16,6 +16,8 @@ type ErrorRule = {
 };
 
 export const ERROR_RULES: ErrorRule[] = [
+  // A design from a newer layerling with something this one does not know yet (lylProject.ts).
+  { pattern: /^This design was saved with layerling ([\d.]+), newer than this layerling ([\d.]+)/, key: "error.newerDesign", values: (m) => ({ saved: m[1], current: m[2] }) },
   // History view (also the answers the AI bridge gives while it is open)
   { pattern: /The history view is open/i, key: "error.historyViewOpen" },
   { pattern: /no earlier state to look at/i, key: "error.noEarlierState" },

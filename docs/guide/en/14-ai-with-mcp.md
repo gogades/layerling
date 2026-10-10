@@ -48,6 +48,8 @@ The AI works with the same functions as you, through the same path as your opera
 | `layerling_delete_objects` | deletes objects |
 | `layerling_create_shape` | creates a shape: box, cylinder, text (also curved), thread, gear, sketch body and all the others |
 | `layerling_import_file` | imports a file as the import window does, a coloured OBJ or 3MF as one body per colour, a 3MF with several objects as one body per object |
+| `layerling_add_font` | adds a font of one's own for text from a TrueType, OpenType or WOFF file; it stays in the browser, a design keeps only the letters it uses |
+| `layerling_list_fonts` | lists the built-in fonts and the fonts of one's own, with id and name |
 | `layerling_import_mesh` | brings a triangle mesh into the design |
 | `layerling_update_object` | changes dimensions, position, colour, name, solid or hole and everything else that makes up the shape |
 | `layerling_align_objects` | aligns objects with each other |

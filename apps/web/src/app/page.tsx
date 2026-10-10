@@ -11,6 +11,7 @@ import { storeFolderNameProblem, suggestStoreFolderName } from "@/lib/storeFolde
 import dynamic from "next/dynamic";
 import { importFailureSummary, importModelFiles } from "@/lib/modelImport";
 import { loadTextFonts } from "@/lib/textFonts";
+import { loadStoredCustomFonts } from "@/lib/customFontStore";
 import { applyAppTheme, getAppThemePreference, readStoredAppTheme, resolveAppTheme, setAppTheme, storeAppTheme, subscribeToAppTheme, type AppThemePreference, type ResolvedAppTheme } from "@/lib/appTheme";
 import { hydrateEditorHistoryState, notesForHistoryIndex, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { detectLanguage, setLanguage, t, translate, type Language } from "@/lib/i18n";
@@ -194,7 +195,8 @@ const EDITOR_SKELETON_MIN_DURATION_MS = 320;
 let editorModulePromise: Promise<typeof import("@/components/LayerlingEditor")> | null = null;
 
 function loadEditorModule() {
-  editorModulePromise ??= Promise.all([import("@/components/LayerlingEditor"), loadTextFonts()])
+  // Fonts of one's own kept in this browser come along; without them the built-in ones still work.
+  editorModulePromise ??= Promise.all([import("@/components/LayerlingEditor"), loadTextFonts(), loadStoredCustomFonts()])
     .then(([editorModule]) => editorModule)
     .catch((error) => {
       editorModulePromise = null;
@@ -1294,13 +1296,16 @@ export default function Home() {
       setProjects((current) => existing
         ? current.map((entryProject) => (entryProject.id === project.id ? project : entryProject))
         : [project, ...current]);
-      setDashboardNotice(sharedProject
+      const openedMessage = sharedProject
         ? t("notice.openedServerProject", { name: sharedProject.name })
-        : t("notice.openedLocalProject", { name: file.name }));
+        : t("notice.openedLocalProject", { name: file.name });
+      // Saved by a newer layerling: say so, what it added may look different here.
+      const message = restored.savedWithNewerVersion
+        ? `${openedMessage}. ${t("notice.newerDesignOpened", { saved: restored.savedWithNewerVersion, current: LYL_CREATED_WITH_VERSION })}`
+        : openedMessage;
+      setDashboardNotice(message);
       openEditor(project.id, { allowMissingFromStorage: true });
-      return { ok: true, message: sharedProject
-        ? t("notice.openedServerProject", { name: sharedProject.name })
-        : t("notice.openedLocalProject", { name: file.name }) };
+      return { ok: true, message };
     } catch (error) {
       const message = error instanceof Error ? localizedError(error.message) : "Could not open layerling project";
       setDashboardNotice(message);

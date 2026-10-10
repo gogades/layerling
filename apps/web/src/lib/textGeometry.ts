@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Font } from "three/examples/jsm/loaders/FontLoader.js";
-import { textFont } from "@/lib/textFonts";
+import { customFontRevision, textFont } from "@/lib/textFonts";
 import { shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
 import type { WorkplaneShape } from "@/types/layerling";
 
@@ -170,7 +170,7 @@ const footprintCache = new Map<string, { width: number; depth: number }>();
 
 /** The width and depth curved text takes at its own radius and letter size. */
 export function curvedTextFootprint(shape: WorkplaneShape): { width: number; depth: number } {
-  const key = JSON.stringify([textOf(shape), shape.font ?? "Multilanguage", curvedSize(shape), curvedRadius(shape), Boolean(shape.textInward), Boolean(shape.textFlipped), shape.bevel ?? 0]);
+  const key = JSON.stringify([textOf(shape), shape.font ?? "Multilanguage", customFontRevision(shape.font), curvedSize(shape), curvedRadius(shape), Boolean(shape.textInward), Boolean(shape.textFlipped), shape.bevel ?? 0]);
   const cached = footprintCache.get(key);
   if (cached) return cached;
   const geometry = buildCurvedText({ ...shape, height: 1 });

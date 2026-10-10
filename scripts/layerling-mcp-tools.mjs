@@ -168,7 +168,7 @@ export const shapeSettingSchema = {
     description: "Bent tube only: the chain of segments, each a straight run followed by an arc bend. The tube starts along +X; roll 0 bends within the workplane, roll 90 bends upward. layerling_read_scene reports this list as JSON text, which is accepted here as well.",
   },
   text: { type: "string", description: "Text only: the lettering itself." },
-  font: { type: "string", description: "Text only." },
+  font: { type: "string", description: "Text only: a built-in font (Multilanguage, Sans, Serif, Script, Monospace, Rounded, Stencil), or a font of one's own by its id (custom:...) or its name, as layerling_list_fonts gives them." },
   textCurved: { type: "boolean", description: "Text only: true bends the line along a circle. Width and depth then follow radius and letter size." },
   textRadius: { type: "number", description: "Curved text only: radius of the circle the baseline follows, in mm (5 to 500)." },
   textSize: { type: "number", description: "Curved text only: letter size in mm. Defaults to the size the straight text had." },
@@ -274,6 +274,25 @@ export const tools = [
         mtl: { type: "string", description: "The .mtl material file of an OBJ, as text, for its colours." },
       },
     },
+  },
+  {
+    name: "layerling_add_font",
+    description: "Add a font of one's own for the text shape, as the editor's \"Your own fonts\" window does: a TrueType (.ttf), OpenType (.otf) or WOFF (.woff) file as base64. WOFF2 and font collections (.ttc) are refused. The font is kept in this browser, and a design keeps only the outlines of the letters its texts use. Returns its id (\"custom:...\") and name; pass either as `font` to layerling_create_shape or layerling_update_object. With `useOnSelection` true it goes onto the selected texts at once. Installed fonts of the computer can only be picked by hand in the editor (Chrome and Edge).",
+    inputSchema: {
+      ...editorTargetSchema,
+      required: ["fileName", "base64"],
+      properties: {
+        ...editorTargetSchema.properties,
+        fileName: { type: "string", description: "The font file's name, e.g. MyFont-Bold.ttf - its name is the fallback when the font names none." },
+        base64: { type: "string", description: "The font file as base64." },
+        useOnSelection: { type: "boolean", description: "Put the font on the selected texts straight away." },
+      },
+    },
+  },
+  {
+    name: "layerling_list_fonts",
+    description: "List the fonts a text can use: the built-in ones by name, and the fonts of one's own with their id, name, whether this browser keeps the whole font (`stored`) or only the letters an open design brought along.",
+    inputSchema: { ...editorTargetSchema },
   },
   {
     name: "layerling_import_mesh",

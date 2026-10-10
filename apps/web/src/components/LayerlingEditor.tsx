@@ -91,6 +91,11 @@ import { MateFacesPanel } from "./workplane/MateFacesPanel";
 import { mateMotion, type FacePick, type MateMode } from "@/lib/mateFaces";
 import { carriedOntoFace } from "@/lib/carryOntoFace";
 import { MeshSimplifyPanel } from "./workplane/MeshSimplifyPanel";
+import { addCustomFontFile, customFontErrorMessage, FontManagerPanel } from "./workplane/FontManagerPanel";
+import { onFontManagerRequested } from "@/lib/fontManagerEvents";
+import { customFontList, onCustomFontsChanged, textFontLabel } from "@/lib/textFonts";
+import { isCustomFontId } from "@/lib/customFonts";
+import { storedCustomFonts } from "@/lib/customFontStore";
 import { ArrayPanel } from "./workplane/ArrayPanel";
 import { ScalePercentPanel, type ScalePercentSettings } from "./workplane/ScalePercentPanel";
 import { scaleShapesByPercent } from "@/lib/scaleByPercent";
@@ -5910,6 +5915,13 @@ function mcpSketchFillProfile(profile: SketchProfile, params: Record<string, unk
   return next;
 }
 
+/** A text font an MCP command names: a font of one's own by id or by name becomes its id; null for anything else. */
+function mcpTextFont(value: string) {
+  if (isCustomFontId(value)) return value;
+  const wanted = value.trim().toLowerCase();
+  return customFontList().find((font) => font.name.toLowerCase() === wanted)?.id ?? null;
+}
+
 function defaultMcpSketchProfile(width: number, depth: number): SketchProfile {
   const halfWidth = Math.max(0.01, width) / 2;
   const halfDepth = Math.max(0.01, depth) / 2;
@@ -6506,6 +6518,12 @@ export function LayerlingEditor({
   const [edgeModifier, setEdgeModifier] = useState<EdgeModifierSession | null>(null);
   const [shellTool, setShellTool] = useState<{ thickness: number; openings: ShellOpenings; edges: ShellEdges; busy: boolean; error: string | null } | null>(null);
   const [simplifyToolId, setSimplifyToolId] = useState<string | null>(null);
+  /** The window for fonts of one's own (#customFonts), opened from a text's font select. */
+  const [fontManagerOpen, setFontManagerOpen] = useState(false);
+  // A font that came or went changes the font select and maybe the letters drawn: draw again.
+  const [, setCustomFontRound] = useState(0);
+  useEffect(() => onFontManagerRequested(() => setFontManagerOpen(true)), []);
+  useEffect(() => onCustomFontsChanged(() => setCustomFontRound((round) => round + 1)), []);
   const edgeModifierRef = useRef<EdgeModifierSession | null>(null);
   const cadModifierWorkerRef = useRef<Worker | null>(null);
   const cadModifierPendingRef = useRef(new Map<number, {
@@ -10781,6 +10799,19 @@ export function LayerlingEditor({
     if (simplifyToolId && !simplifyToolShape) setSimplifyToolId(null);
   }, [simplifyToolId, simplifyToolShape]);
 
+  /** Puts a font of one's own on every selected text, as one step. */
+  const applyCustomFontToSelection = useCallback((fontId: string) => {
+    const selected = new Set(selectedIdsRef.current);
+    const texts = shapesRef.current.filter((shape) => selected.has(shape.id) && shape.kind === "text");
+    if (!texts.length) return;
+    const name = textFontLabel(fontId) ?? fontId;
+    commitShapes(
+      shapesRef.current.map((shape) => (selected.has(shape.id) && shape.kind === "text" ? canonicalizeShape({ ...shape, font: fontId }) : shape)),
+      selectedIdsRef.current,
+      t("font.usedOnText", { name }),
+    );
+  }, [commitShapes]);
+
   const startSimplifyTool = useCallback(() => {
     if (simplifyToolShape) {
       setSimplifyToolId(null);
@@ -11312,6 +11343,9 @@ export function LayerlingEditor({
           const point = placementWorkplanePoint(activeWorkplane, x, z);
           shape = canonicalizeShape({ ...shape, ...placementPatchForNewShape(shape, activeWorkplane, point) });
         }
+        // A font of one's own passes the shape defaults by; it is set here, by id or by name.
+        const ownFont = shape.kind === "text" && typeof params.font === "string" ? mcpTextFont(params.font) : null;
+        if (ownFont && isCustomFontId(ownFont)) shape = canonicalizeShape({ ...shape, font: ownFont });
         const committedShape = canonicalizeShape(bakeShapeTransformIntoMesh(shape));
         commitShapes([...currentShapes(), committedShape], committedShape.id, t("status.shapeAddedMcp", { name: displayShapeName(committedShape) }));
         return { object: mcpShapeSummary(committedShape) };
@@ -11403,7 +11437,7 @@ export function LayerlingEditor({
         if (typeof params.hidden === "boolean") patch.hidden = params.hidden;
         if (typeof params.transparent === "boolean") patch.transparent = params.transparent || undefined;
         if (typeof params.multicolor === "boolean") patch.multicolor = params.multicolor;
-        if (typeof params.font === "string") patch.font = params.font;
+        if (typeof params.font === "string") patch.font = mcpTextFont(params.font) ?? params.font;
         // Alles Formeigene in einem Zug, mit denselben Grenzen wie im
         // Merkmalsfeld: Seitenzahl, Kegelradien, Zahnrad, Gewinde, Feder,
         // Beschriftung. Was die Art gar nicht kennt, faellt dabei weg.
@@ -12179,6 +12213,28 @@ export function LayerlingEditor({
         return result;
       }
 
+      if (command.action === "add_font") {
+        const fileName = mcpString(params.fileName, "font.ttf").trim() || "font.ttf";
+        if (typeof params.base64 !== "string" || !params.base64) throw new Error("base64 is required: the font file as base64");
+        const bytes = Uint8Array.from(atob(params.base64), (char) => char.charCodeAt(0));
+        let typeface;
+        try {
+          typeface = await addCustomFontFile(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, fileName, getManifoldRuntime);
+        } catch (error) {
+          throw new Error(customFontErrorMessage(error));
+        }
+        if (params.useOnSelection === true) applyCustomFontToSelection(typeface.id);
+        return { id: typeface.id, name: typeface.name, characters: Object.keys(typeface.data.glyphs as object).length };
+      }
+
+      if (command.action === "list_fonts") {
+        const stored = new Set((await storedCustomFonts().catch(() => [])).map((font) => font.id));
+        return {
+          builtIn: ["Multilanguage", "Sans", "Serif", "Script", "Monospace", "Rounded", "Stencil"],
+          custom: customFontList().map((font) => ({ id: font.id, name: font.name, stored: stored.has(font.id), complete: font.complete })),
+        };
+      }
+
       if (command.action === "import_file") {
         // Wie eine Datei im Importfenster: dieselbe Auswertung, dieselben
         // Farben, ZIP und .mtl eingeschlossen.
@@ -12286,6 +12342,7 @@ export function LayerlingEditor({
   }, [
     buildSectionSvg,
     rebuildSketchBodyFill,
+    applyCustomFontToSelection,
     addReferencePoints,
     commitNotes,
     workspaceSettings.width,
@@ -14112,6 +14169,15 @@ export function LayerlingEditor({
             setScalePercentTool(null);
             setScalePercentError(null);
           }}
+        />
+      ) : null}
+      {fontManagerOpen ? (
+        <FontManagerPanel
+          canApply={selectedShapes.some((shape) => shape.kind === "text")}
+          loadRuntime={getManifoldRuntime}
+          onUse={applyCustomFontToSelection}
+          onNotice={(message) => setNotice(message)}
+          onClose={() => setFontManagerOpen(false)}
         />
       ) : null}
       {simplifyToolShape ? (

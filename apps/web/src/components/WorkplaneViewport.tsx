@@ -63,6 +63,7 @@ import { createBentTubeGeometry, createBentTubeSegmentGeometry } from "@/lib/ben
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { createTextGeometry } from "@/lib/textGeometry";
+import { customFontRevision } from "@/lib/textFonts";
 import { displayToMillimeters, formatLengthMm, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseLengthMm, parseMeasurementInput, resolveLengthMm, setLengthUnit } from "@/lib/measurementUnits";
 import {
   computeCornerRulerRelativeCoordinates,
@@ -1284,6 +1285,8 @@ function tapeShapeTopologyKey(shape: WorkplaneShape): string {
     bentTubeSegments: shape.bentTubeSegments,
     text: shape.text,
     font: shape.font,
+    // A font of one's own can gain letters (a design's few, then the whole file): draw again then.
+    fontRevision: customFontRevision(shape.font),
     textCurved: shape.textCurved,
     textRadius: shape.textRadius,
     textSize: shape.textSize,
@@ -1515,6 +1518,8 @@ function shapeGeometrySignature(shape: WorkplaneShape): string {
     bentTubeSegments: shape.bentTubeSegments,
     text: shape.text,
     font: shape.font,
+    // A font of one's own can gain letters (a design's few, then the whole file): draw again then.
+    fontRevision: customFontRevision(shape.font),
     textCurved: shape.textCurved,
     textRadius: shape.textRadius,
     textSize: shape.textSize,

@@ -165,6 +165,10 @@ async function callTool(name, args) {
       return bridgeCommand("export_section_svg", args);
     case "layerling_import_file":
       return bridgeCommand("import_file", args);
+    case "layerling_add_font":
+      return bridgeCommand("add_font", args, 60000);
+    case "layerling_list_fonts":
+      return bridgeCommand("list_fonts", args);
     case "layerling_set_workplane":
       return bridgeCommand("set_workplane", args);
     case "layerling_capture_image":

@@ -141,6 +141,8 @@ import { MAX_SCREW_HOLE_ANGLE, MIN_SCREW_HOLE_ANGLE, normalizeScrewHoleAngle, no
 import { MAX_TEARDROP_TIP_ANGLE, MIN_TEARDROP_TIP_ANGLE, normalizeTeardropTipAngle, teardropHeightForTipAngle, teardropTipAngle } from "@/lib/teardropGeometry";
 import { MAX_DOVETAIL_CLEARANCE, normalizeDovetailClearance, normalizeDovetailNeckWidth } from "@/lib/dovetailGeometry";
 import { DEFAULT_SKETCH_STROKE, MAX_SKETCH_STROKE_WIDTH, MIN_SKETCH_STROKE_WIDTH, normalizeSketchStroke, SKETCH_STROKE_JOINS } from "@/lib/sketchStroke";
+import { FONT_MANAGER_OPTION, requestFontManager } from "@/lib/fontManagerEvents";
+import { customFontList, textFontLabel } from "@/lib/textFonts";
 import { MIN_SLOT_END_RATIO, normalizeSlotEndRatio, taperedSlotOutline } from "@/lib/slotGeometry";
 import { loftMeasures, loftShapePatch, loftTiltLimit, maxLoftWall, MAX_LOFT_SIDES, MAX_LOFT_TWIST, MIN_LOFT_SIDES, MIN_LOFT_SIZE, normalizeLoftOutline, type LoftMeasures } from "@/lib/loftGeometry";
 import { MAX_KNURL_ANGLE, MIN_KNURL_ANGLE, MIN_KNURL_COUNT, MIN_KNURL_DEPTH, knurlSettings, maxKnurlChamfer, maxKnurlCount, maxKnurlDepth, maxRoundKnurlDepth, normalizeKnurlAngle, normalizeKnurlChamfer, normalizeKnurlCount, normalizeKnurlDepth, normalizeKnurlPattern } from "@/lib/knurlGeometry";
@@ -1633,7 +1635,7 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
           onUpdate({ text: nextText, width: nextWidth, size: nextWidth });
         },
       },
-      { type: "select", id: "font", label: t("prop.font"), value: shape.font ?? "Multilanguage", options: TEXT_FONT_OPTIONS.map((value) => ({ value, label: value })), onChange: (font) => onUpdate({ font }) },
+      textFontProperty(shape, onUpdate),
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 40, onChange: setHeight },
       { id: "bevel", label: t("prop.bevel"), value: shape.bevel ?? 0, min: 0, max: 8, onChange: (bevel) => onUpdate({ bevel }) },
       { id: "segments", label: t("prop.segments"), value: shape.segments ?? 0, min: 0, max: 24, step: 1, onChange: (segments) => onUpdate({ segments: Math.round(segments) }) },
@@ -1749,6 +1751,34 @@ function sketchFillProperties(profile: SketchProfile, onUpdate: ShapeInspectorUp
     },
     silhouette,
   ];
+}
+
+/**
+ * The text's font: the built-in ones, then the fonts of one's own this browser keeps or the open
+ * design brought along, and "Your own fonts …" to add one. A font the design names but nobody
+ * has here shows as missing; its text is drawn in Multilanguage meanwhile.
+ */
+function textFontProperty(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate): ShapePropertyConfig {
+  const current = shape.font ?? "Multilanguage";
+  const builtIn = t("font.builtInGroup");
+  const own = t("font.customGroup");
+  const options: SelectPropertyOption[] = [
+    ...TEXT_FONT_OPTIONS.map((value) => ({ value, label: value, group: builtIn })),
+    ...customFontList().map((font) => ({ value: font.id, label: font.name, group: own })),
+  ];
+  if (!options.some((option) => option.value === current)) options.push({ value: current, label: textFontLabel(current) ?? t("font.missing"), group: own });
+  options.push({ value: FONT_MANAGER_OPTION, label: t("font.manage"), group: own });
+  return {
+    type: "select",
+    id: "font",
+    label: t("prop.font"),
+    value: current,
+    options,
+    onChange: (font) => {
+      if (font === FONT_MANAGER_OPTION) requestFontManager();
+      else onUpdate({ font });
+    },
+  };
 }
 
 function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate, workspace: WorkplaneWorkspaceSettings): ShapePropertyConfig[] {

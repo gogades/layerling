@@ -14967,3 +14967,104 @@ html[data-theme="dark"] .history-view-slider .range-control input[type="range"]:
 .sketch-neighbour-angle {
   opacity: 0.82;
 }
+
+/* Fonts of one's own (#customFonts): adding a file or an installed font, and the list of fonts. */
+.font-manager-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.font-manager-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.font-manager-actions {
+  margin-bottom: 0;
+}
+
+.font-manager-actions > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.font-manager-note {
+  opacity: 0.8;
+  line-height: 1.35;
+}
+
+.font-manager-busy,
+.font-manager-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.font-manager-error {
+  color: #b3261e;
+}
+
+.font-manager-system {
+  display: grid;
+  gap: 6px;
+}
+
+.font-manager-system input {
+  width: 100%;
+}
+
+.font-manager-system ul {
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 8px;
+}
+
+.font-manager-system li button {
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.font-manager-system li button:hover,
+.font-manager-system li button:focus-visible {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.font-manager-list {
+  display: grid;
+  gap: 6px;
+}
+
+.font-manager-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.font-manager-row > div {
+  display: grid;
+  min-width: 0;
+}
+
+.font-manager-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-manager-row small {
+  opacity: 0.75;
+}

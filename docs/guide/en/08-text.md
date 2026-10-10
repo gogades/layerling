@@ -1,13 +1,13 @@
 ---
 title: Text and curved lettering
-summary: Raised or engraved lettering in seven typefaces, and if you like along a circular arc, such as on a coin, a lid or a ring.
+summary: Raised or engraved lettering in seven typefaces or one of your own, and if you like along a circular arc, such as on a coin, a lid or a ring.
 ---
 
 ## Adding text
 
 Choose {{ui:shape.text}} in the shape library and place it. In the {{ui:prop.text}} field on the right, type what it should say. The settings below:
 
-- **{{ui:prop.font}}:** Seven typefaces are available: Multilanguage, Sans, Serif, Script, Monospace, Rounded and Stencil (letters made of straight lines). New text starts in Sans. Accented letters such as ä, ö, ü, é and the € sign are in every typeface.
+- **{{ui:prop.font}}:** Seven typefaces are available: Multilanguage, Sans, Serif, Script, Monospace, Rounded and Stencil (letters made of straight lines). New text starts in Sans. Accented letters such as ä, ö, ü, é and the € sign are in every typeface. Fonts of your own come on top, see [Your own fonts](#your-own-fonts) below.
 - **{{ui:prop.height}}:** How far the lettering stands out from the surface.
 - **{{ui:prop.bevel}}:** Rounds the letter edges so they look softer. With {{ui:prop.segments}} you decide in how many steps.
 - **Size:** You set the length and width of the line as with any shape. Drag the handles or type the dimensions.
@@ -15,6 +15,47 @@ Choose {{ui:shape.text}} in the shape library and place it. In the {{ui:prop.tex
 Text is at first a single body. If you want to treat the letters individually, click {{ui:inspector.separateParts}}. Then every letter is a shape of its own.
 
 The edges of text can be chamfered or filleted too, straight or curved, see [Breaking edges and hollowing bodies](chapter:edges-and-hollowing). Use small sizes such as 0.2 to 0.5 mm, because the strokes of the letters are narrow.
+
+## Your own fonts
+
+Besides the seven built-in fonts you can use any font of your own: a font file from your computer or, in Chrome and Edge, a font installed on your computer. Choose {{ui:font.manage}} at the bottom of {{ui:prop.font}}. The {{ui:font.title}} window opens.
+
+- **{{ui:font.addFile}}** takes a TrueType file (`.ttf`), an OpenType file (`.otf`) or a WOFF file (`.woff`). On Windows the installed fonts live in `C:\Windows\Fonts`, on a Mac in `/Library/Fonts` and `~/Library/Fonts`.
+- **{{ui:font.fromSystem}}** lists the fonts installed on your computer. The first time, the browser asks whether layerling may read them. The search field finds a font quickly, a click takes it.
+
+If a text is selected, it gets the new font at once. Otherwise the font shows up under {{ui:prop.font}} in the {{ui:font.customGroup}} group, and {{ui:font.use}} in the window puts it on the selected texts. Fonts of your own work like the built-in ones: text on a circular arc, chamfers and fillets on the edges and the STEP export all work the same. Letters a font lacks are taken from Sans.
+
+### What works in which browser
+
+| Browser | Choose a font file | Font from the computer |
+| --- | --- | --- |
+| Chrome and Edge on a computer, the installed layerling app too | yes | yes, after the browser asks |
+| Firefox | yes | no |
+| Safari on a Mac | yes | no |
+| Tablet and phone | yes, from the device's files | no |
+
+Web pages may not simply read the installed fonts. Only Chrome and Edge have a permission for it. In the other browsers you choose the font file from the fonts folder, with the same result. If you declined the question in Chrome or Edge, allow it again in the site settings, behind the padlock to the left of the address.
+
+layerling cannot read WOFF2 files (there is almost always a TTF or OTF version), font collections (`.ttc`, several fonts in one file) or colour emoji fonts. From very large fonts, such as Chinese ones, layerling takes the first 8000 characters. A variable font is read in its default setting, usually the regular weight.
+
+Some fonts, script and variable fonts above all, draw a letter from strokes that overlap. layerling merges them into one clean outline when it reads the font, so the body stays printable. Such letters are then made of very short straight pieces instead of curves; it does not show.
+
+### Where the fonts are kept
+
+A font of your own stays **in this browser on this computer**. Another browser or another computer does not know it until you add it there too. Clearing the browser's site data clears the fonts as well. In the {{ui:font.title}} window the bin removes a font from the browser. Your designs lose nothing by it, as the next section shows.
+
+### Passing on designs with a font of your own
+
+A design does **not store the font file**, only the outlines of the letters its texts use, those in earlier steps of the history included. If a text says "Hello", only H, e, l and o travel with it. That holds for every way a design is saved: in the browser, on your own server, as a `.lyl` file and in {{ui:myShapes.title}}.
+
+So:
+
+- **The design opens correctly anywhere**, also on a computer without the font. The texts look the same and can be moved, turned, scaled and filleted.
+- **New letters need the font.** If someone without the font types a letter the design did not bring along, layerling draws it from Sans. Under {{ui:prop.font}} the font is then marked {{ui:font.fromDesign}}. Adding the font file brings back every letter.
+- **Exports hold geometry only.** STL, 3MF, OBJ, STEP and SVG contain bodies and outlines, no font.
+- **Older layerling versions** do not know fonts of one's own yet and draw such texts in Multilanguage.
+
+**Licences:** Fonts are protected by copyright, and their licence says what you may do with them. The embedded letter outlines are what PDF files take along from a font, and most licences allow that. Some commercial fonts, though, forbid passing on even single letters. Before you pass on or publish a design with a font of your own, check the font's licence. Free fonts such as those from Google Fonts (mostly under the SIL Open Font License) can be passed on without worry. For a printed part or an exported STL it does not matter: they hold no font any more, only geometry.
 
 ## Raised or engraved
 

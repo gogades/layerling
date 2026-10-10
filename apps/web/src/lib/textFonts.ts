@@ -1,4 +1,5 @@
 import { FontLoader, type Font, type FontData } from "three/examples/jsm/loaders/FontLoader.js";
+import { isCustomFontId, type CustomTypeface } from "@/lib/customFonts";
 
 /**
  * The typefaces the text shape offers, loaded on demand.
@@ -76,6 +77,7 @@ export function loadTextFonts(): Promise<void> {
       const loader = new FontLoader();
       const parsed = new Map<FontData, Font>();
       const sans = entries.find(([name]) => name === "Sans")?.[1];
+      sansData = sans ?? null;
       // Filled once per typeface file, so Multilanguage and Stencil keep sharing one.
       const filled = new Map<FontData, FontData>();
       entries = entries.map(([name, data]) => {
@@ -109,5 +111,70 @@ export function textFont(name: string | undefined): Font {
   if (!loadedFonts) {
     throw new Error("Text fonts are not loaded yet - await loadTextFonts() first");
   }
+  if (isCustomFontId(name)) {
+    const entry = customFonts.get(name);
+    if (entry) {
+      // Letters the font lacks - or a design did not bring along - come from Sans, as for the built-in faces.
+      entry.font ??= new FontLoader().parse(sansData ? withFallbackGlyphs(entry.data, sansData) : entry.data);
+      return entry.font;
+    }
+  }
   return loadedFonts[name ?? "Multilanguage"] ?? loadedFonts.Multilanguage;
+}
+
+/*
+ * Fonts of one's own (customFonts.ts), by their id ("custom:<hash of the file>"). A font read
+ * from a file or from the computer is complete; one a design brought along holds only the
+ * letters its texts use. A complete one always wins; the letters of several designs add up.
+ */
+type CustomFontEntry = { id: string; name: string; data: FontData; complete: boolean; font: Font | null; revision: number };
+
+let sansData: FontData | null = null;
+const customFonts = new Map<string, CustomFontEntry>();
+const customFontListeners = new Set<() => void>();
+
+export function registerCustomFont(typeface: CustomTypeface, complete: boolean) {
+  const existing = customFonts.get(typeface.id);
+  if (existing?.complete && !complete) return;
+  let data = typeface.data;
+  if (existing && !existing.complete && !complete) {
+    data = { ...existing.data, glyphs: { ...(existing.data.glyphs as object), ...(typeface.data.glyphs as object) } } as FontData;
+  }
+  customFonts.set(typeface.id, { id: typeface.id, name: existing?.complete ? existing.name : typeface.name, data, complete, font: null, revision: (existing?.revision ?? 0) + 1 });
+  customFontListeners.forEach((listener) => listener());
+}
+
+/** Every font of one's own the editor knows now, by name. */
+export function customFontList() {
+  return [...customFonts.values()]
+    .map(({ id, name, complete }) => ({ id, name, complete }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function customFontEntry(id: string) {
+  const entry = customFonts.get(id);
+  return entry ? { id: entry.id, name: entry.name, data: entry.data, complete: entry.complete } : null;
+}
+
+/** Changes whenever a font's letters change, so cached text shapes are drawn again. */
+export function customFontRevision(id: string | undefined) {
+  return id ? customFonts.get(id)?.revision ?? 0 : 0;
+}
+
+/** The display name of a text's font: a built-in name, a font of one's own, or null when it is missing. */
+export function textFontLabel(id: string | undefined) {
+  if (!isCustomFontId(id)) return id ?? "Multilanguage";
+  return customFonts.get(id)?.name ?? null;
+}
+
+/** Forgets every font of one's own - for tests, which share this module's state. */
+export function resetCustomFontsForTests() {
+  customFonts.clear();
+}
+
+export function onCustomFontsChanged(listener: () => void) {
+  customFontListeners.add(listener);
+  return () => {
+    customFontListeners.delete(listener);
+  };
 }

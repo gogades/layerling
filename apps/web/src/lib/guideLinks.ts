@@ -72,6 +72,7 @@ export const GUIDE_SECTIONS = {
   sketchCorners: { chapter: "sketches", de: "ecken-runden-oder-fasen", en: "rounding-or-chamfering-corners" },
   sketchImage: { chapter: "sketches", de: "ein-bild-als-vorlage", en: "a-picture-as-template" },
   sketchStroke: { chapter: "sketches", de: "als-kontur-bauen", en: "building-as-a-stroke" },
+  customFonts: { chapter: "text", de: "eigene-schriften", en: "your-own-fonts" },
   sketchFill: { chapter: "sketches", de: "fuellung-und-silhouette", en: "fill-and-silhouette" },
   sketchDrawing: { chapter: "sketches", de: "zeichnen", en: "drawing" },
   sketchToBody: { chapter: "sketches", de: "ein-koerper-daraus-machen", en: "making-a-body-from-it" },

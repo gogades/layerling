@@ -18,5 +18,15 @@
       "de": "Die Rändelung kann jetzt auch rund: Rillen und Rippen als weiche Wellenkante, mit freier Rillenzahl und Fase - ein angenehmer Griff für Drehknöpfe.",
       "en": "Knurling can be round now: grooves and ridges as a soft wave, with free groove count and chamfer - a pleasant grip for knobs."
     }
+  },
+  {
+    "title": {
+      "de": "Eigene Schriften",
+      "en": "Fonts of your own"
+    },
+    "body": {
+      "de": "Text kann jetzt jede TrueType- oder OpenType-Schrift nutzen, in Chrome und Edge auch eine auf dem Computer installierte. Unter Schriftart ganz unten: Eigene Schriften.",
+      "en": "Text can now use any TrueType or OpenType font, in Chrome and Edge also one installed on the computer. At the bottom of Font: Your own fonts."
+    }
   }
 ]

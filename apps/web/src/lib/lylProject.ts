@@ -1,3 +1,5 @@
+import { checkedTypefaceData, customFontName, isCustomFontId, textCharacters, typefaceSubset } from "@/lib/customFonts";
+import { customFontEntry, registerCustomFont } from "@/lib/textFonts";
 import { strFromU8, strToU8, unzip, zip, type AsyncZippable } from "fflate";
 import { editorHistoryEntry, hydrateEditorHistoryState, type EditorHistoryEntry } from "@/lib/editorHistory";
 import { normalizePlacementWorkplane, placementWorkplaneIsBase, type PlacementWorkplane } from "@/lib/placementWorkplane";
@@ -117,6 +119,45 @@ export type LylFeatureV1 = {
   parameters?: Record<string, unknown>;
 };
 
+export type LylFontV1 = { id: string; name: string; typeface: unknown };
+
+/** At most this many fonts of one's own travel with a design. */
+const LYL_MAX_FONTS = 64;
+
+/**
+ * The letters each font of one's own needs in these states: every character of every text that
+ * uses it, in every undo state, so going back in the history still finds its letters.
+ */
+function embeddedFonts(states: WorkplaneShape[][]): LylFontV1[] {
+  const characters = new Map<string, Set<string>>();
+  const visit = (shape: WorkplaneShape) => {
+    if (isCustomFontId(shape.font) && shape.kind === "text") {
+      const used = characters.get(shape.font) ?? new Set<string>();
+      textCharacters((shape.text ?? "TEXT").trim() || " ").forEach((character) => used.add(character));
+      characters.set(shape.font, used);
+    }
+    shape.groupedShapes?.forEach(visit);
+  };
+  states.forEach((shapes) => shapes.forEach(visit));
+  const fonts: LylFontV1[] = [];
+  for (const [id, used] of characters) {
+    const entry = customFontEntry(id);
+    if (entry) fonts.push({ id, name: entry.name, typeface: typefaceSubset(entry.data, used) });
+  }
+  return fonts.sort((a, b) => a.id.localeCompare(b.id)).slice(0, LYL_MAX_FONTS);
+}
+
+function validateFonts(fonts: unknown) {
+  if (fonts === undefined) return [] as Array<{ id: string; name: string; data: ReturnType<typeof checkedTypefaceData> }>;
+  if (!Array.isArray(fonts) || fonts.length > LYL_MAX_FONTS) throw new Error("project.json has an invalid font list");
+  return fonts.map((raw, index) => {
+    const font = objectRecord(raw, `fonts[${index}]`);
+    if (!isCustomFontId(font.id)) throw new Error(`fonts[${index}].id is invalid`);
+    const name = customFontName(stringValue(font.name, `fonts[${index}].name`), "Font");
+    return { id: font.id, name, data: checkedTypefaceData(font.typeface, `fonts[${index}].typeface`) };
+  });
+}
+
 export type LylProjectDocumentV1 = {
   schema: typeof LYL_SCHEMA_ID | typeof LEGACY_LYL_SCHEMA_ID;
   formatVersion: 1 | 2;
@@ -147,6 +188,12 @@ export type LylProjectDocumentV1 = {
   groups: Array<{ id: string; nodeId: string; objectId: string; memberNodeIds: string[]; operation: string }>;
   workplanes: Array<{ id: string; kind: "base" | "offset"; elevation: number }>;
   exactCad: Array<{ nodeId: string; objectId: string; brepAssetId?: string; importedStepAssetId?: string }>;
+  /**
+   * Fonts of one's own the texts use (#customFonts): only the letters they use, as outlines in the
+   * three.js typeface format - never the font file. Older readers pass over them and draw those
+   * texts in the default font.
+   */
+  fonts?: LylFontV1[];
   editor: {
     workspace: WorkplaneWorkspaceSettings;
     snapGrid: GridSize;
@@ -193,6 +240,8 @@ export type LylRestoredProject = {
   placementWorkplane: PlacementWorkplane;
   sketchPlacementWorkplane: PlacementWorkplane;
   migratedFromVersion?: number;
+  /** Set when a newer layerling saved the design: its version, for a hint that an update helps. */
+  savedWithNewerVersion?: string;
 };
 
 export type LylProjectPackageSummary = {
@@ -916,6 +965,7 @@ export async function exportLylProject(input: LylProjectExportInput) {
   });
   const builder = new LylArchiveBuilder();
   const stateShapes = exportEntries.map((entry) => entry.shapes);
+  const designFonts = embeddedFonts(stateShapes);
   await builder.addSources(input.assets, referencedSourceAssetIds(stateShapes));
   const sourceAssetsByArchiveId = new Map(builder.assets.filter((asset) => asset.kind === "source").map((asset) => [asset.id, asset]));
   // A state is serialized once and its text remembered on its history entry: the
@@ -987,6 +1037,7 @@ export async function exportLylProject(input: LylProjectExportInput) {
       ...(selectedWorkplaneId === "workplane-active" ? [{ id: "workplane-active" as const, kind: "offset" as const, elevation: placementElevation }] : []),
     ],
     exactCad: indexes.exactCad,
+    ...(designFonts.length ? { fonts: designFonts } : {}),
     editor: {
       workspace: normalizeWorkspaceSettings(input.workspace),
       snapGrid: normalizeSnapGrid(input.snapGrid),
@@ -1513,6 +1564,7 @@ async function validateDocumentAndAssets(raw: unknown, files: ArchiveFiles) {
     throw new Error("project.json is missing assets, states, or history");
   }
   if (document.states.length === 0 || document.states.length > LYL_LIMITS.states) throw new Error("Project contains an invalid number of states");
+  validateFonts(document.fonts);
 
   const assetById = new Map<string, LylAssetRecordV1>();
   const assetPaths = new Set<string>();
@@ -1880,6 +1932,31 @@ function projectInputBytes(input: ArrayBuffer | Uint8Array) {
   return bytes;
 }
 
+/** Whether version `saved` (like "1.58.0") is newer than `current`. Anything unreadable is not. */
+export function isNewerLayerlingVersion(saved: unknown, current: string) {
+  if (typeof saved !== "string") return false;
+  const parts = (value: string) => value.split(/[.-]/).slice(0, 3).map((part) => Number.parseInt(part, 10));
+  const a = parts(saved);
+  const b = parts(current);
+  if (a.some((part) => !Number.isFinite(part))) return false;
+  for (let index = 0; index < 3; index += 1) {
+    if ((a[index] ?? 0) !== (b[index] ?? 0)) return (a[index] ?? 0) > (b[index] ?? 0);
+  }
+  return false;
+}
+
+/**
+ * A design saved by a newer layerling may hold what this one does not know yet - a new shape,
+ * a new setting, fonts of one's own. Where that stops it from opening, the reason says so, with
+ * both versions, instead of the bare technical one (userErrors.ts turns it into the user's
+ * language).
+ */
+function newerDesignError(saved: unknown, error: unknown) {
+  if (!isNewerLayerlingVersion(saved, LYL_CREATED_WITH_VERSION)) return error;
+  const detail = error instanceof Error ? error.message : String(error);
+  return new Error(`This design was saved with layerling ${saved as string}, newer than this layerling ${LYL_CREATED_WITH_VERSION}, and holds something this version does not know yet (${detail})`);
+}
+
 async function readPackagedLyl(bytes: Uint8Array) {
   inspectZipBeforeExpansion(bytes);
   let files: ArchiveFiles;
@@ -1894,7 +1971,11 @@ async function readPackagedLyl(bytes: Uint8Array) {
   } catch {
     throw new Error("project.json is malformed");
   }
-  return { files, validated: await validateDocumentAndAssets(raw, files) };
+  try {
+    return { files, validated: await validateDocumentAndAssets(raw, files) };
+  } catch (error) {
+    throw newerDesignError((raw as { createdWithVersion?: unknown } | null)?.createdWithVersion, error);
+  }
 }
 
 export async function inspectLylProjectPackage(input: ArrayBuffer | Uint8Array): Promise<LylProjectPackageSummary> {
@@ -1931,5 +2012,16 @@ export async function importLylProject(input: ArrayBuffer | Uint8Array, options:
   }
 
   const { files, validated } = await readPackagedLyl(bytes);
-  return restoreV1(validated.document, validated.assetById, files, options);
+  // The letters a design brought along: its texts draw in their own font, even where the font
+  // is not installed. A complete font kept in this browser wins over them.
+  validateFonts(validated.document.fonts).forEach((font) => registerCustomFont(font, false));
+  const savedWith = validated.document.createdWithVersion;
+  let restored: LylRestoredProject;
+  try {
+    restored = await restoreV1(validated.document, validated.assetById, files, options);
+  } catch (error) {
+    throw newerDesignError(savedWith, error);
+  }
+  // Opened, but saved by a newer layerling: what it added may look different here.
+  return isNewerLayerlingVersion(savedWith, LYL_CREATED_WITH_VERSION) ? { ...restored, savedWithNewerVersion: savedWith } : restored;
 }

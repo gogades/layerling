@@ -129,6 +129,8 @@ export type LayerlingMcpCommandName =
   | "show_workplane"
   | "export_section_svg"
   | "import_file"
+  | "add_font"
+  | "list_fonts"
   | "set_workplane"
   | "capture_image";
 

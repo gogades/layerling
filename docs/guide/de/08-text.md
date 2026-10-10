@@ -1,13 +1,13 @@
 ---
 title: Text und gebogene Schrift
-summary: Beschriftungen erhaben oder vertieft, mit sieben Schriftarten – und auf Wunsch entlang eines Kreisbogens, etwa auf einer Münze, einem Deckel oder einem Ring.
+summary: Beschriftungen erhaben oder vertieft, mit sieben Schriftarten oder einer eigenen – und auf Wunsch entlang eines Kreisbogens, etwa auf einer Münze, einem Deckel oder einem Ring.
 ---
 
 ## Text hinzufügen
 
 Wähle in der Formenbibliothek {{ui:shape.text}} und setze ihn ab. Im Feld {{ui:prop.text}} rechts tippst du, was da stehen soll. Die Einstellungen darunter:
 
-- **{{ui:prop.font}}:** Sieben Schriftarten stehen bereit: Multilanguage, Sans, Serif, Script, Monospace, Rounded und Stencil (Buchstaben aus geraden Linien). Neuer Text beginnt in Sans. Umlaute, ß und € gibt es in jeder Schrift.
+- **{{ui:prop.font}}:** Sieben Schriftarten stehen bereit: Multilanguage, Sans, Serif, Script, Monospace, Rounded und Stencil (Buchstaben aus geraden Linien). Neuer Text beginnt in Sans. Umlaute, ß und € gibt es in jeder Schrift. Eigene Schriften kommen dazu, siehe [Eigene Schriften](#eigene-schriften) weiter unten.
 - **{{ui:prop.height}}:** Wie hoch die Schrift aus der Fläche ragt.
 - **{{ui:prop.bevel}}:** Rundet die Buchstabenkanten ab, damit sie weicher wirken. Mit {{ui:prop.segments}} bestimmst du, in wie vielen Stufen.
 - **Größe:** Länge und Breite der Zeile stellst du wie bei jeder Form ein. Zieh an den Griffen oder tippe die Maße ein.
@@ -15,6 +15,47 @@ Wähle in der Formenbibliothek {{ui:shape.text}} und setze ihn ab. Im Feld {{ui:
 Ein Text ist zunächst ein einzelner Körper. Willst du die Buchstaben einzeln behandeln, klicke auf {{ui:inspector.separateParts}}. Dann ist jeder Buchstabe eine eigene Form.
 
 Auch die Kanten einer Schrift lassen sich fasen oder verrunden, gerade oder gebogen, siehe [Kanten brechen und Körper aushöhlen](chapter:kanten-und-aushoehlen). Nimm dafür kleine Maße wie 0,2 bis 0,5 mm, denn die Striche der Buchstaben sind schmal.
+
+## Eigene Schriften
+
+Neben den sieben mitgelieferten Schriften kannst du jede eigene Schrift nehmen: eine Schriftdatei von deinem Rechner oder, in Chrome und Edge, eine Schrift, die auf deinem Computer installiert ist. Wähle dazu unter {{ui:prop.font}} ganz unten {{ui:font.manage}}. Es öffnet sich das Fenster {{ui:font.title}}.
+
+- **{{ui:font.addFile}}** nimmt eine TrueType-Datei (`.ttf`), eine OpenType-Datei (`.otf`) oder eine WOFF-Datei (`.woff`). Unter Windows liegen die installierten Schriften in `C:\Windows\Fonts`, am Mac in `/Library/Fonts` und `~/Library/Fonts`.
+- **{{ui:font.fromSystem}}** listet die Schriften, die auf deinem Computer installiert sind. Beim ersten Mal fragt der Browser, ob layerling sie lesen darf. Über das Suchfeld findest du eine Schrift schnell, ein Klick übernimmt sie.
+
+Ist gerade ein Text ausgewählt, bekommt er die neue Schrift sofort. Sonst steht sie danach unter {{ui:prop.font}} in der Gruppe {{ui:font.customGroup}}, und mit {{ui:font.use}} im Fenster setzt du sie auf die ausgewählten Texte. Eigene Schriften verhalten sich wie die mitgelieferten: Text auf dem Kreisbogen, Fasen und Rundungen an den Kanten und der STEP-Export gehen genauso. Buchstaben, die eine Schrift nicht hat, nimmt layerling aus Sans.
+
+### Was in welchem Browser geht
+
+| Browser | Schriftdatei wählen | Schrift vom Computer |
+| --- | --- | --- |
+| Chrome und Edge am Computer, auch die installierte layerling-App | ja | ja, nach einer Rückfrage des Browsers |
+| Firefox | ja | nein |
+| Safari am Mac | ja | nein |
+| Tablet und Handy | ja, aus den Dateien des Geräts | nein |
+
+Webseiten dürfen die installierten Schriften nicht einfach lesen. Nur Chrome und Edge haben dafür eine eigene Erlaubnis. In den anderen Browsern wählst du die Schriftdatei aus dem Schriftenordner, das Ergebnis ist dasselbe. Hast du die Rückfrage in Chrome oder Edge abgelehnt, gibst du den Zugriff in den Einstellungen der Website wieder frei, über das Schloss links neben der Adresse.
+
+Nicht lesen kann layerling WOFF2-Dateien (dafür gibt es fast immer eine TTF- oder OTF-Fassung), Schriftsammlungen (`.ttc`, sie enthalten mehrere Schriften in einer Datei) und farbige Emoji-Schriften. Bei sehr großen Schriften, etwa für Chinesisch, nimmt layerling die ersten 8000 Zeichen. Bei variablen Schriften gilt die Grundeinstellung der Schrift, meist der normale Schnitt.
+
+Manche Schriften, vor allem Schreibschriften und variable Schriften, zeichnen einen Buchstaben aus Strichen, die sich überlappen. layerling vereinigt sie beim Einlesen zu einem sauberen Umriss, damit der Körper druckbar bleibt. Solche Buchstaben bestehen dann aus sehr kurzen geraden Stücken statt aus Kurven; zu sehen ist das nicht.
+
+### Wo die Schriften bleiben
+
+Eine eigene Schrift bleibt **in diesem Browser auf diesem Computer**. Ein anderer Browser oder ein anderer Rechner kennt sie nicht, bis du sie dort ebenfalls hinzufügst. Wer die Website-Daten des Browsers löscht, löscht auch die Schriften. Im Fenster {{ui:font.title}} entfernst du eine Schrift mit dem Papierkorb aus dem Browser. Deine Entwürfe verlieren dadurch nichts, wie der nächste Abschnitt zeigt.
+
+### Entwürfe mit eigener Schrift weitergeben
+
+Ein Entwurf speichert **nicht die Schriftdatei**, sondern nur die Umrisse der Buchstaben, die seine Texte benutzen, auch die aus früheren Schritten im Verlauf. Steht in einem Text „Hallo“, reisen nur H, a, l und o mit. Das gilt für jede Art, wie ein Entwurf gespeichert wird: im Browser, auf dem eigenen Server, als `.lyl`-Datei und in {{ui:myShapes.title}}.
+
+Daraus folgt:
+
+- **Der Entwurf öffnet sich überall richtig**, auch auf einem Rechner ohne die Schrift. Die Texte sehen genauso aus und lassen sich verschieben, drehen, skalieren und verrunden.
+- **Neue Buchstaben brauchen die Schrift.** Tippt jemand ohne die Schrift einen Buchstaben, den der Entwurf nicht mitgebracht hat, zeichnet layerling ihn aus Sans. Unter {{ui:prop.font}} steht die Schrift dann mit dem Zusatz {{ui:font.fromDesign}}. Wer die Schriftdatei hinzufügt, bekommt wieder alle Buchstaben.
+- **Exporte enthalten nur Geometrie.** STL, 3MF, OBJ, STEP und SVG enthalten Körper und Umrisse, keine Schrift.
+- **Ältere layerling-Versionen** kennen eigene Schriften noch nicht und zeichnen solche Texte in Multilanguage.
+
+**Lizenzen:** Schriften sind urheberrechtlich geschützt, und ihre Lizenz regelt, was du damit tun darfst. Die eingebetteten Buchstabenumrisse sind dasselbe, was PDF-Dateien von einer Schrift mitnehmen, und das erlauben die meisten Lizenzen. Manche kaufbaren Schriften verbieten aber jede Weitergabe, auch einzelner Buchstaben. Bevor du einen Entwurf mit eigener Schrift weitergibst oder veröffentlichst, prüfe deshalb die Lizenz der Schrift. Freie Schriften wie die von Google Fonts (meist unter der SIL Open Font License) darfst du ohne Bedenken weitergeben. Für ein gedrucktes Teil oder eine exportierte STL spielt das keine Rolle: Die enthalten keine Schrift mehr, nur noch Geometrie.
 
 ## Erhaben oder vertieft
 
