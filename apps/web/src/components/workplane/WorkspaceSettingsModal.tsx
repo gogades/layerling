@@ -114,6 +114,7 @@ const GEAR_TYPE_OPTIONS: Array<{ value: GearType; label: MessageKey }> = [
 ];
 const GEAR_PROFILE_OPTIONS: Array<{ value: GearProfile; label: MessageKey }> = [
   { value: "involute", label: "gear.profileInvolute" },
+  { value: "round", label: "gear.profileRound" },
   { value: "simple", label: "gear.profileSimple" },
 ];
 const THREAD_ROLE_OPTIONS: Array<{ value: ThreadRole; label: MessageKey }> = [
@@ -265,8 +266,10 @@ function specialFieldsForShape(
       { type: "select", key: "gearType", label: t("inspector.gearType"), defaultValue: defaults.gearType ?? "spur", options: GEAR_TYPE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })) },
       { type: "select", key: "gearProfile", label: t("prop.gearProfile"), defaultValue: defaults.gearProfile ?? "involute", options: GEAR_PROFILE_OPTIONS.map((option) => ({ value: option.value, label: t(option.label) })) },
       { type: "number", key: "teeth", label: t("prop.teeth"), defaultValue: defaults.teeth ?? 12, min: 6, max: 64, step: 1 },
-      ...(gearProfile === "involute" ? [
-        { type: "number", key: "gearPressureAngle", label: t("prop.gearPressureAngle"), defaultValue: defaults.gearPressureAngle ?? 20, min: 14.5, max: 30, step: 0.5, unit: "°" },
+      ...(gearProfile === "involute" || gearProfile === "round" ? [
+        ...(gearProfile === "involute" ? [
+          { type: "number", key: "gearPressureAngle", label: t("prop.gearPressureAngle"), defaultValue: defaults.gearPressureAngle ?? 20, min: 14.5, max: 30, step: 0.5, unit: "°" },
+        ] satisfies ShapeSpecialField[] : []),
         { type: "number", key: "gearBacklash", label: t("prop.gearBacklash"), defaultValue: defaults.gearBacklash ?? 0.2, min: 0, max: 2, step: 0.05, unit: "mm" },
       ] satisfies ShapeSpecialField[] : [
         { type: "number", key: "toothSize", label: t("prop.toothSize"), defaultValue: defaults.toothSize ?? 2.5, min: 0.2, max: Math.max(0.2, Math.min(dimensions.width, dimensions.depth) * 0.22), unit: "mm" },

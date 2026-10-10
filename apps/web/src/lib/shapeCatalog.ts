@@ -12,6 +12,7 @@ import {
   DEFAULT_GEAR_BACKLASH,
   DEFAULT_GEAR_MODULE,
   DEFAULT_GEAR_PRESSURE_ANGLE,
+  gearUsesModule,
   involuteGearDiameter,
   MAX_GEAR_BACKLASH,
   normalizeGearCenterHoleSize,
@@ -691,8 +692,8 @@ export function makeShapeFromAsset(
   const loftFootprint = loftMeasures ? loftFrameSize(loftMeasures) : null;
   // New gears get involute teeth (#201); their size follows the module, so other teeth keep module 2.
   const gearProfile = asset.kind === "gear" ? normalizeGearProfile(customization.gearProfile ?? "involute") : undefined;
-  const gearDiameter = gearProfile === "involute" && customization.width === undefined
-    ? involuteGearDiameter(DEFAULT_GEAR_MODULE, customization.teeth ?? DEFAULT_GEAR_TEETH)
+  const gearDiameter = gearUsesModule(gearProfile) && customization.width === undefined
+    ? involuteGearDiameter(DEFAULT_GEAR_MODULE, customization.teeth ?? DEFAULT_GEAR_TEETH, gearProfile)
     : null;
   const width = gearDiameter ?? loftFootprint?.width ?? bentTubeFootprint?.width ?? threadFootprint?.width ?? customization.width ?? defaults.width;
   // A cylinder is always circular - depth follows width here too, so it never
@@ -750,7 +751,7 @@ export function makeShapeFromAsset(
     helixQuality: asset.kind === "gear" ? normalizeGearHelixQuality(customization.helixQuality ?? DEFAULT_GEAR_HELIX_QUALITY) : undefined,
     gearProfile,
     gearPressureAngle: gearProfile === "involute" ? normalizeGearPressureAngle(customization.gearPressureAngle) : undefined,
-    gearBacklash: gearProfile === "involute" ? Math.max(0, Math.min(MAX_GEAR_BACKLASH, customization.gearBacklash ?? DEFAULT_GEAR_BACKLASH)) : undefined,
+    gearBacklash: gearUsesModule(gearProfile) ? Math.max(0, Math.min(MAX_GEAR_BACKLASH, customization.gearBacklash ?? DEFAULT_GEAR_BACKLASH)) : undefined,
     threadRole: asset.kind === "thread" ? normalizeThreadRole(customization.threadRole ?? DEFAULT_THREAD_ROLE) : undefined,
     threadHead: asset.kind === "thread" ? normalizeThreadHead(customization.threadHead ?? DEFAULT_THREAD_HEAD) : undefined,
     threadHand: asset.kind === "thread" ? normalizeThreadHand(customization.threadHand ?? DEFAULT_THREAD_HAND) : undefined,

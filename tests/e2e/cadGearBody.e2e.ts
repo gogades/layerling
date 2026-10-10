@@ -263,6 +263,54 @@ describe("the helical and bevel gears' exact bodies", () => {
     expect(seconds).toBeLessThan(20);
   });
 
+  it.each<[string, Partial<WorkplaneShape>]>([
+    ["round spur gear", { gearType: "spur" }],
+    ["round spur gear of 6 teeth", { gearType: "spur", teeth: 6, width: 14.4, depth: 14.4, size: 14.4, centerHoleSize: 2 }],
+    ["round spur gear of 50 teeth", { gearType: "spur", teeth: 50, width: 51.2, depth: 51.2, size: 51.2 }],
+    ["round helical gear", { gearType: "helical", helixAngle: 20 }],
+    ["round bevel gear", { gearType: "bevel" }],
+  ])("builds the %s as drawn, from true arcs (#201)", (_name, extra) => {
+    const shape = gear({ width: 26.4, depth: 26.4, size: 26.4, gearProfile: "round", gearBacklash: 0.2, centerHoleSize: 5, ...extra });
+    let solid: ShapeHandle;
+    if (gearSettings(shape).gearType === "helical") {
+      const part = cadModifierHelicalGearForShape(shape);
+      expect(part).not.toBeNull();
+      const local = helicalGearPartSolid(cad, part!);
+      solid = !part!.transform ? local : cadTransformRequiresGeneralTransform(part!.transform) ? cad.generalTransform(local, part!.transform) : cad.transform(local, part!.transform);
+    } else {
+      const part = cadModifierProfileForShape(shape);
+      expect(part).not.toBeNull();
+      // Two arcs a tooth and nothing else.
+      expect(part!.loops[0].segments.every((segment) => segment.kind === "arc")).toBe(true);
+      expect(part!.loops[0].segments).toHaveLength(2 * (shape.teeth ?? 12));
+      const local = profileExtrusionSolid(cad, part!);
+      solid = !part!.transform ? local : cadTransformRequiresGeneralTransform(part!.transform) ? cad.generalTransform(local, part!.transform) : cad.transform(local, part!.transform);
+    }
+    expect(cad.isValid(solid)).toBe(true);
+    const expected = displayMesh(shape);
+    expect(cadProfileSolidMismatch(cad, solid, expected)).toBeNull();
+    const box = cad.getBoundingBox(solid);
+    expect(Math.max(box.xmax - box.xmin, box.zmax - box.zmin)).toBeLessThanOrEqual(shape.width + 0.01);
+    expect(Math.abs(cad.getVolume(solid) - expected.volume) / expected.volume).toBeLessThan(0.01);
+  });
+
+  it("takes a fillet on the round spur gear's top edges", () => {
+    const shape = gear({ width: 26.4, depth: 26.4, size: 26.4, gearType: "spur", gearProfile: "round", centerHoleSize: 5 });
+    const solid = profileExtrusionSolid(cad, cadModifierProfileForShape(shape)!);
+    const bounds = cad.getBoundingBox(solid);
+    const up = bounds.ymax - bounds.ymin < bounds.zmax - bounds.zmin ? "y" : "z";
+    const edges = cad.getSubShapes(solid, "edge").filter((edge) => {
+      const box = cad.getBoundingBox(edge);
+      return up === "y"
+        ? box.ymax - box.ymin < 1e-6 && Math.abs(box.ymax - bounds.ymax) < 1e-6
+        : box.zmax - box.zmin < 1e-6 && Math.abs(box.zmax - bounds.zmax) < 1e-6;
+    });
+    expect(edges.length).toBeGreaterThanOrEqual(12 * 2);
+    const rounded = cad.fillet(solid, edges, 0.3);
+    expect(cad.isValid(rounded)).toBe(true);
+    expect(cad.getVolume(rounded)).toBeLessThan(cad.getVolume(solid));
+  });
+
   it("takes a fillet on the involute spur gear's top edges", () => {
     const shape = gear({ width: 28, depth: 28, size: 28, gearType: "spur", gearProfile: "involute", centerHoleSize: 5 });
     const part = cadModifierProfileForShape(shape)!;

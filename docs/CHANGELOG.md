@@ -4,6 +4,10 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Round gear teeth:** Gears have a third tooth shape, Round: each tooth one arc over the tip and each gap one arc over the root, running smoothly into each other, like Tinkercad's Useful gear. Small printed gears with them are more forgiving and turn more easily than involute ones, and on a knob they make a smooth grip. They are set like involute teeth by number of teeth, module and backlash (no pressure angle). They stand lower - tip 0.6 module above the pitch circle, root 0.85 below - so the outside diameter is module × (teeth + 1.2); the tooth is half a pitch thick on the pitch circle less half the backlash, so round gears with the same module mesh at the usual centre distance. The exact body is made of true arcs, for the edge tool and STEP. The MCP bridge takes `gearProfile: "round"`. Suggested by @luk-saw and @prmod3d in #201.
+
 ## 1.57.0
 
 - **Tinkercad look, and darker grid lines your way:** Settings → Appearance has a "Tinkercad look" button that sets the work area as Tinkercad shows it - white ground, a pale blue millimetre grid with a darker line every centimetre, black edge lines, light from above with soft shadows - with the values @prmod3d measured; everything stays adjustable. Under Workplane the darker grid line now comes every 5 or every 10 grid steps and can have a colour of its own, which the centre cross and the plate border take too. The centre cross and the border are drawn as narrow bands on the plate, so they are stronger and grow as you zoom in. Suggested by @prmod3d in #143.

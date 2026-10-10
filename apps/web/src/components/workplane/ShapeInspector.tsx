@@ -1431,12 +1431,14 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
   }
 
   if (shape.kind === "gear") {
-    const involute = normalizeGearProfile(shape.gearProfile) === "involute";
+    const gearProfile = normalizeGearProfile(shape.gearProfile);
+    // Involute and round teeth are set by module (#201); the pressure angle is the involute's own.
+    const involute = gearProfile !== "simple";
     const teeth = shape.teeth ?? DEFAULT_GEAR_TEETH;
-    const module = involuteGearModule(width, depth, teeth);
-    // An involute gear stays round: its size is module x (teeth + 2) both ways (#201).
+    const module = involuteGearModule(width, depth, teeth, gearProfile);
+    // A gear set by module stays round: its size is module x (teeth + 2) both ways, round teeth module x (teeth + 1.2).
     const setInvoluteSize = (nextModule: number, nextTeeth = teeth) => {
-      const diameter = involuteGearDiameter(nextModule, nextTeeth);
+      const diameter = involuteGearDiameter(nextModule, nextTeeth, gearProfile);
       const profile = { ...shape, teeth: nextTeeth };
       onUpdate({
         teeth: nextTeeth,
@@ -1447,14 +1449,14 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
       }, { resizeAxis: "width" });
     };
     const setGearWidth = (value: number) => {
-      if (involute) return setInvoluteSize(involuteGearModule(value, value, teeth));
+      if (involute) return setInvoluteSize(involuteGearModule(value, value, teeth, gearProfile));
       const toothSize = normalizeGearToothSize(shape.toothSize, value, depth);
       const toothWidth = normalizeGearToothWidth(shape.toothWidth, value, depth, shape.teeth);
       const centerHoleSize = normalizeGearCenterHoleSize(shape.centerHoleSize, value, depth, toothSize);
       onUpdate({ width: value, size: resizedShapeSize(value, depth), toothSize, toothWidth, centerHoleSize }, { resizeAxis: "width" });
     };
     const setGearDepth = (value: number) => {
-      if (involute) return setInvoluteSize(involuteGearModule(value, value, teeth));
+      if (involute) return setInvoluteSize(involuteGearModule(value, value, teeth, gearProfile));
       const toothSize = normalizeGearToothSize(shape.toothSize, width, value);
       const toothWidth = normalizeGearToothWidth(shape.toothWidth, width, value, shape.teeth);
       const centerHoleSize = normalizeGearCenterHoleSize(shape.centerHoleSize, width, value, toothSize);
@@ -1469,27 +1471,31 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         type: "select",
         id: "gearProfile",
         label: t("prop.gearProfile"),
-        value: involute ? "involute" : "simple",
+        value: gearProfile,
         options: [
           { value: "involute", label: t("gear.profileInvolute") },
+          { value: "round", label: t("gear.profileRound") },
           { value: "simple", label: t("gear.profileSimple") },
         ],
-        hint: involute
+        hint: gearProfile === "involute"
           ? t("gear.involuteHint", { pitch: plainNumber(pitchDiameter), module: plainNumber(module) })
-          : t("gear.simpleHint"),
+          : gearProfile === "round"
+            ? t("gear.roundHint", { pitch: plainNumber(pitchDiameter), module: plainNumber(module) })
+            : t("gear.simpleHint"),
         onChange: (value) => {
-          if (value === "involute") {
-            // Keeps the size as near as a whole tenth of a module allows.
-            const nextModule = Math.max(0.1, Math.round(involuteGearModule(width, depth, teeth) * 10) / 10);
-            const diameter = involuteGearDiameter(nextModule, teeth);
+          if (value === "involute" || value === "round") {
+            // Between involute and round the module stays; from simple teeth the size stays as
+            // near as a whole tenth of a module allows.
+            const nextModule = involute ? module : Math.max(0.1, Math.round(involuteGearModule(width, depth, teeth, value) * 10) / 10);
+            const diameter = involuteGearDiameter(nextModule, teeth, value);
             onUpdate({
-              gearProfile: "involute",
+              gearProfile: value,
               gearPressureAngle: normalizeGearPressureAngle(shape.gearPressureAngle),
               gearBacklash: shape.gearBacklash ?? DEFAULT_GEAR_BACKLASH,
               width: diameter,
               depth: diameter,
               size: diameter,
-              centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, diameter, diameter, shape.toothSize, { teeth, gearProfile: "involute" }),
+              centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, diameter, diameter, shape.toothSize, { teeth, gearProfile: value }),
             });
           } else {
             onUpdate({ gearProfile: "simple", centerHoleSize: normalizeGearCenterHoleSize(shape.centerHoleSize, width, depth, toothSize) });
@@ -1524,15 +1530,15 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
           step: 0.05,
           onChange: (nextModule) => setInvoluteSize(nextModule),
         },
-        {
+        ...(gearProfile === "involute" ? [{
           id: "gearPressureAngle",
           label: t("prop.gearPressureAngle"),
           value: normalizeGearPressureAngle(shape.gearPressureAngle),
           min: MIN_GEAR_PRESSURE_ANGLE,
           max: MAX_GEAR_PRESSURE_ANGLE,
           step: 0.5,
-          onChange: (gearPressureAngle) => onUpdate({ gearPressureAngle }),
-        },
+          onChange: (gearPressureAngle: number) => onUpdate({ gearPressureAngle }),
+        }] : []),
         {
           id: "gearBacklash",
           label: t("prop.gearBacklash"),

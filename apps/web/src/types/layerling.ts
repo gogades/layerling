@@ -360,7 +360,7 @@ export type SketchProfile = {
 export type SketchOperation = "extrude" | "revolve";
 
 export type GearType = "spur" | "helical" | "bevel";
-export type GearProfile = "involute" | "simple";
+export type GearProfile = "involute" | "round" | "simple";
 
 /** Was aus dem Gewinde wird: Stange, Schraube, Mutter oder das Loch dafuer. */
 export type ThreadRole = "rod" | "screw" | "nut" | "bore";

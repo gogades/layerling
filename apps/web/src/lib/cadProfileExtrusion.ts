@@ -25,7 +25,7 @@ import { buildCurvedText, curvedTextFitScale, curvedTextLayout } from "@/lib/tex
 import { threadBuildPlan, WHITWORTH_PROFILE_CONSTANTS } from "@/lib/threadGeometry";
 import { springBuildPlan, springRingSectionShare } from "@/lib/springGeometry";
 import { knurlCorners, knurlSettings } from "@/lib/knurlGeometry";
-import { BEVEL_GEAR_TOP_SCALE, gearHelixTwist, gearOutlineCorners, involuteFlankPoint, involuteGearMeasures, involuteOutlineStretch, involuteToothCentre, normalizeGearCenterHoleSize, normalizeGearToothSize, normalizeGearType, type GearOutlineOptions, type InvoluteGearMeasures } from "@/lib/gearGeometry";
+import { BEVEL_GEAR_TOP_SCALE, gearHelixTwist, gearOutlineCorners, involuteFlankPoint, involuteGearMeasures, involuteOutlineStretch, involuteToothCentre, normalizeGearCenterHoleSize, normalizeGearProfile, normalizeGearToothSize, normalizeGearType, roundGearMeasures, roundToothArcs, type GearOutlineOptions, type InvoluteGearMeasures, type RoundGearMeasures } from "@/lib/gearGeometry";
 
 /*
  * The outlines below follow the display geometry of each shape
@@ -540,6 +540,21 @@ export function involuteGearLoop(measures: InvoluteGearMeasures): CadModifierPro
   return { ...start, segments };
 }
 
+/**
+ * Round teeth (#201) as the kernel builds them: per tooth its convex arc over the tip and the
+ * concave arc over the root of the gap after it, true circles touching each other smoothly.
+ */
+export function roundGearLoop(measures: RoundGearMeasures): CadModifierProfileLoop {
+  const segments: CadModifierProfileSegment[] = [];
+  for (let tooth = 0; tooth < measures.teeth; tooth += 1) {
+    const { tooth: crest, gap } = roundToothArcs(measures, tooth);
+    segments.push(arcSegment({ cx: crest.x, cz: crest.z, rx: crest.radius, rz: crest.radius, start: crest.start, end: crest.end }));
+    segments.push(arcSegment({ cx: gap.x, cz: gap.z, rx: gap.radius, rz: gap.radius, start: gap.start, end: gap.end }));
+  }
+  const first = roundToothArcs(measures, 0).tooth;
+  return { x: first.x + first.radius * Math.cos(first.start), z: first.z + first.radius * Math.sin(first.start), segments };
+}
+
 /** The gear's outline stretched to width x depth (createGearGeometry), its loop for the kernel and its bore radius. */
 function gearOutline(width: number, depth: number, options: GearProfileOptions) {
   const safeWidth = Math.max(0.01, width);
@@ -550,7 +565,10 @@ function gearOutline(width: number, depth: number, options: GearProfileOptions) 
   const involute = involuteOutlineStretch(safeWidth, safeDepth, options);
   if (involute) {
     const outline = raw.map((point) => ({ x: point.x * involute.x, z: point.z * involute.z }));
-    const loop = mapLoop(involuteGearLoop(involuteGearMeasures(safeWidth, safeDepth, options)), involute.x, 0, involute.z, 0);
+    const exact = normalizeGearProfile(options.gearProfile) === "round"
+      ? roundGearLoop(roundGearMeasures(safeWidth, safeDepth, options))
+      : involuteGearLoop(involuteGearMeasures(safeWidth, safeDepth, options));
+    const loop = mapLoop(exact, involute.x, 0, involute.z, 0);
     return { outline, loop, boreRadius: centerHoleSize / 2 };
   }
   // The display stretches the ring about the origin until it spans width x depth.
