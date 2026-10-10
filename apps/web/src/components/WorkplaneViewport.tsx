@@ -110,7 +110,7 @@ import { positionsForTwist, twistBandCount } from "@/lib/heightSlices";
 import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { canBeginShapeDrag, handleDimensionLimit, DEFAULT_SNAP_GRID, DEFAULT_WORKPLANE_WORKSPACE, effectiveViewSettings, viewPixelRatio, normalizeSnapGrid, normalizeWorkspaceSettings, orbitControlsZoomSpeed, readWorkspaceDefault, saveWorkspaceDefault, snapGridForUnits, snapGridStep as snapStep, workplaneSettingsFingerprint, workspaceHydrationSyncDecision, zoomDistanceScale } from "@/lib/workplaneSettings";
 import { withShapeDefaults } from "@/lib/shapeDefaults";
-import { AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, fillLightPosition, keyLightPosition, sceneLightLevels, shadowBlurRadius, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
+import { workplaneGridBandWidths, AXIS_ARROW_COLORS, axisArrowLayout, DEFAULT_EDGE_LINE_COLOR, fillLightPosition, keyLightPosition, sceneLightLevels, shadowBlurRadius, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneLabelLayout, workplaneThemePalette, WORKPLANE_LABEL_ASPECT, WORKPLANE_LINE_ELEVATION, type WorkplaneGridLayout } from "@/lib/workplaneGrid";
 import { cleanNearZero, cleanRotationDegrees, isNonSolidShapeKind, mirroredAxisCount, mirrorSign, preservesEdgeTreatmentSize, proportionalResizeScale, resizedImportedCoordinates, resizedImportedMeshPositions, resizedShapeSize, shapeDepth, shapeExtrudeDeformAt, shapeHasExtrudeDeform, shapeHasShapeDeform, shapeHasTaper, shapeOverallFootprintDimensions, shapeSupportsTaper, shapeTaperDimensions, shapeTaperScaleAt, shapeWidth, shapeWithParametricSource } from "@/lib/workplaneShapes";
 import { sphereTessellation } from "@/lib/sphereTessellation";
 import type { LayerlingMcpViewFace } from "@/lib/layerlingMcpProtocol";
@@ -10788,12 +10788,18 @@ function createGridLines(
     points.push(...from, ...to);
   };
   const pointsFor = (kind: "axis" | "major" | "minor") => (kind === "axis" ? axisPoints : kind === "major" ? majorPoints : minorPoints);
+  // Every fine and darker line also gets a band on the plate, growing as you zoom in (#143).
+  const minorBands: Array<[number, number, number, number]> = [];
+  const majorBands: Array<[number, number, number, number]> = [];
+  const bandsFor = (kind: "axis" | "major" | "minor") => (kind === "major" ? majorBands : kind === "minor" ? minorBands : null);
   for (const { coordinate: centeredX, kind } of outlineOnly ? [] : workplaneGridLines(width, layout)) {
     pushLine(pointsFor(kind), [centeredX, WORKPLANE_LINE_ELEVATION, -depth / 2], [centeredX, WORKPLANE_LINE_ELEVATION, depth / 2]);
+    bandsFor(kind)?.push([centeredX, -depth / 2, centeredX, depth / 2]);
   }
 
   for (const { coordinate: centeredZ, kind } of outlineOnly ? [] : workplaneGridLines(depth, layout)) {
     pushLine(pointsFor(kind), [-width / 2, WORKPLANE_LINE_ELEVATION, centeredZ], [width / 2, WORKPLANE_LINE_ELEVATION, centeredZ]);
+    bandsFor(kind)?.push([-width / 2, centeredZ, width / 2, centeredZ]);
   }
 
   const border = new THREE.LineBasicMaterial({ ...palette.border, transparent: true, depthWrite: false });
@@ -10804,6 +10810,10 @@ function createGridLines(
 
   group.add(linesFromPoints(minorPoints, minor));
   group.add(linesFromPoints(majorPoints, major));
+  const gridBands = workplaneGridBandWidths(layout.step);
+  // The darker lines first, so they stay whole where a fine line crosses them.
+  if (majorBands.length) group.add(bandsFromSegments(majorBands, gridBands.major, palette.major, { order: 1 }));
+  if (minorBands.length) group.add(bandsFromSegments(minorBands, gridBands.minor, palette.minor, { order: 1.5 }));
   group.add(linesFromPoints(axisPoints, axis));
   group.add(linesFromPoints(borderPoints, border));
 
@@ -10829,7 +10839,13 @@ function createGridLines(
 }
 
 /** Flat bands of a width in millimetres along segments (x1, z1, x2, z2) on the plate. */
-function bandsFromSegments(segments: Array<[number, number, number, number]>, bandWidth: number, look: { color: string; opacity: number }) {
+/**
+ * `crossings`: where bands cross, each pixel is drawn once instead of the see-through colour
+ * twice, which would leave a darker dot at every crossing of the grid. The band writes depth and
+ * the next one at the same depth gives way; `order` decides which kind is drawn first and so
+ * wins at a crossing.
+ */
+function bandsFromSegments(segments: Array<[number, number, number, number]>, bandWidth: number, look: { color: string; opacity: number }, crossings?: { order: number }) {
   const positions: number[] = [];
   for (const [x1, z1, x2, z2] of segments) {
     const length = Math.hypot(x2 - x1, z2 - z1) || 1;
@@ -10847,13 +10863,14 @@ function bandsFromSegments(segments: Array<[number, number, number, number]>, ba
     color: look.color,
     opacity: look.opacity,
     transparent: true,
-    depthWrite: false,
+    depthWrite: Boolean(crossings),
+    depthFunc: crossings ? THREE.LessDepth : THREE.LessEqualDepth,
     side: THREE.DoubleSide,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
   }));
-  bands.renderOrder = 1;
+  bands.renderOrder = crossings?.order ?? 1;
   return bands;
 }
 

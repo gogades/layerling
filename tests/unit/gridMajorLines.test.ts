@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneThemePalette } from "@/lib/workplaneGrid";
+import { workplaneGridBandWidths, workplaneGridLayout, workplaneGridLines, workplaneGridPalette, workplaneThemePalette } from "@/lib/workplaneGrid";
 import { DEFAULT_WORKPLANE_WORKSPACE, normalizeWorkspaceSettings } from "@/lib/workplaneSettings";
 
 // #143: the darker grid lines every 5 or, as in Tinkercad, every 10 steps, in a colour of their own.
+describe("grid lines that grow with the zoom (#143)", () => {
+  it("lie on the plate as bands a twentieth of the step wide, twice that for the darker ones", () => {
+    expect(workplaneGridBandWidths(1)).toEqual({ minor: 0.05, major: 0.1 });
+    expect(workplaneGridBandWidths(5).minor).toBeCloseTo(0.25, 9);
+    // Never thinner than 0.02 mm nor wider than half a millimetre, whatever the step.
+    expect(workplaneGridBandWidths(0.1).minor).toBe(0.02);
+    expect(workplaneGridBandWidths(25).minor).toBe(0.5);
+    expect(workplaneGridBandWidths(Number.NaN).minor).toBe(0.05);
+  });
+});
+
 describe("darker grid lines", () => {
   it("come every fifth step unless ten are chosen", () => {
     expect(workplaneGridLayout({ gridBlockSize: 1 }).majorInterval).toBe(5);

@@ -228,6 +228,17 @@ export function centeredWorkplaneGridCoordinates(span: number, step: number): Wo
 }
 
 /** The grid lines across `span` for a layout, each marked as the axis, a major or a minor line. */
+/**
+ * How wide the grid's lines lie on the plate, in millimetres, besides their one-pixel line (#143):
+ * a band that grows as you zoom in, as every grid line does in Tinkercad, while the pixel line
+ * keeps the grid visible from afar. A twentieth of the grid step for the fine lines, twice that for
+ * the darker ones, so a 1 mm grid gets 0.05 and 0.1 mm.
+ */
+export function workplaneGridBandWidths(step: number) {
+  const minor = Math.min(0.5, Math.max(0.02, (Number.isFinite(step) && step > 0 ? step : 1) * 0.05));
+  return { minor, major: minor * 2 };
+}
+
 export function workplaneGridLines(span: number, layout: WorkplaneGridLayout) {
   const coordinates = centeredWorkplaneGridCoordinates(span, layout.step);
   return coordinates.map(({ coordinate, index }) => ({
