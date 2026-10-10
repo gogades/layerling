@@ -66,7 +66,7 @@ import { useLanguage } from "@/lib/useLanguage";
 import { measurementOptionLabel, normalizeScaleForUnits, parseMeasurementInput, scaleOptionsForUnits, WORKSPACE_UNIT_OPTIONS } from "@/lib/measurementUnits";
 import { shapeAssetDefaultDimensions, shapeAssetLabel, shapeAssetSpecialDefaults, toolbarShapeAssets } from "@/lib/shapeCatalog";
 import { BOOLEAN_TRIANGLE_LIMIT_PRESETS, BOOLEAN_TRIANGLE_LIMIT_STEP, DEFAULT_WORKPLANE_WORKSPACE, MAX_BOOLEAN_TRIANGLE_LIMIT, MAX_CUSTOM_SHAPE_DIMENSION, MAX_HIGH_RESOLUTION_SIDES, MAX_HIGH_RESOLUTION_STEPS, MIN_BOOLEAN_TRIANGLE_LIMIT, MIN_CUSTOM_SHAPE_DIMENSION, booleanTriangleLimitPreset, gridBlockForUnits, snapGridForUnits, type BooleanTriangleLimitPreset, CUSTOM_SNAP_GRID_DIVISORS, DEFAULT_SNAP_GRID, MAX_CUSTOM_SNAP_GRID, MAX_CUSTOM_SNAP_GRID_NAME, MAX_CUSTOM_SNAP_GRIDS, MIN_CUSTOM_SNAP_GRID, customSnapGridLabel, customSnapGridSize, parseCustomSnapGrid, snapGridOptions } from "@/lib/workplaneSettings";
-import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm } from "@/lib/workplaneGrid";
+import { DEFAULT_SKETCH_BACKGROUND, DEFAULT_SKETCH_GRID_COLOR, IMPERIAL_GRID_BLOCK_PRESETS, inchGridPresetMm, workplaneGridPalette } from "@/lib/workplaneGrid";
 import type { BentTubeProfile, CustomSnapGrid, GearProfile, GearType, GridSize, ShapeCustomization, ShapeKind, ThreadHand, ThreadHead, ThreadProfile, ThreadRole, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { DEFAULT_LOFT } from "@/lib/loftGeometry";
 import { selectWholeValue } from "@/lib/numberField";
@@ -444,6 +444,9 @@ export function WorkspaceSettingsModal({
   const sketchBackground = hexOrDefault(workspace.sketchBackground, DEFAULT_SKETCH_BACKGROUND);
   const sketchGridColor = hexOrDefault(workspace.sketchGridColor, DEFAULT_SKETCH_GRID_COLOR);
   const mainGridColor = hexOrDefault(workspace.gridColor, DEFAULT_WORKPLANE_WORKSPACE.gridColor);
+  // The darker grid lines: their own colour, or by default the one the grid colour gives them (#143).
+  const derivedGridMajorColor = workplaneGridPalette("light", gridColor).major.color;
+  const gridMajorColor = /^#[0-9a-f]{6}$/i.test(workspace.gridMajorColor) ? workspace.gridMajorColor : derivedGridMajorColor;
   const selectedShapeAsset = toolbarShapeAssets.find((asset) => asset.kind === selectedShapeKind) ?? toolbarShapeAssets[0];
   const selectedShapeAppDefaults = shapeAssetDefaultDimensions(selectedShapeKind);
   const selectedShapeCustomization = workspace.shapeCustomizations[selectedShapeKind] ?? {};
@@ -877,6 +880,13 @@ export function WorkspaceSettingsModal({
                     >
                       {t("workspace.lightReset")}
                     </button>
+                    <button
+                      type="button"
+                      title={t("workspace.tinkercadLookHint")}
+                      onClick={() => patchWorkspace(tinkercadLookPatch(workspace))}
+                    >
+                      {t("workspace.tinkercadLook")}
+                    </button>
                   </div>
                   <label className="workspace-range">
                     <span>{t("workspace.overhangAngle", { angle: workspace.overhangAngle })}</span>
@@ -1103,6 +1113,22 @@ export function WorkspaceSettingsModal({
                     defaultColor={DEFAULT_WORKPLANE_WORKSPACE.gridColor}
                     presets={GRID_COLOR_PRESETS}
                     onChange={(nextGridColor) => patchWorkspace({ gridColor: nextGridColor })}
+                  />
+                  {workspace.units === "Imperial" ? null : (
+                    <WorkspaceSelect
+                      label={t("workspace.gridMajorEvery")}
+                      value={String(workspace.gridMajorInterval === 10 ? 10 : 5)}
+                      options={["5", "10"]}
+                      optionLabel={(option) => t("workspace.gridMajorSteps", { count: Number(option) })}
+                      onChange={(option) => patchWorkspace({ gridMajorInterval: option === "10" ? 10 : 5 })}
+                    />
+                  )}
+                  <ColorSettingControl
+                    label={t("workspace.gridMajorColor")}
+                    color={gridMajorColor}
+                    defaultColor={derivedGridMajorColor}
+                    presets={GRID_COLOR_PRESETS}
+                    onChange={(nextColor) => patchWorkspace({ gridMajorColor: nextColor.toLowerCase() === derivedGridMajorColor.toLowerCase() ? "" : nextColor })}
                   />
                   {workspace.gridBlockPreset === "Custom" ? (
                     <div className="workspace-dimensions workspace-grid-dimensions">
@@ -1402,6 +1428,31 @@ const EDGE_COLOR_PRESETS = [
   "#dc5252",
 ] as const;
 
+/**
+ * The work area as Tinkercad shows it, with the values @prmod3d measured (#143): white ground,
+ * pale blue grid with darker lines every centimetre, black edge lines, light from straight above
+ * with soft shadows. Everything stays adjustable afterwards.
+ */
+function tinkercadLookPatch(workspace: WorkplaneWorkspaceSettings): Partial<WorkplaneWorkspaceSettings> {
+  return {
+    background: "#ffffff",
+    surfaceColor: "#fafafa",
+    gridColor: "#c8edf9",
+    gridMajorColor: "#8fcbe1",
+    gridMajorInterval: 10,
+    ...(workspace.units === "Imperial" ? {} : { gridBlockPreset: "1 mm", gridBlockSize: 1 }),
+    sketchBackground: "#ffffff",
+    sketchGridColor: "#8fcbe1",
+    edgeLines: true,
+    edgeColor: "#000000",
+    shadeContrast: 10,
+    shadowStrength: 100,
+    shadowSoftness: 100,
+    lightAzimuth: 90,
+    lightElevation: 90,
+  };
+}
+
 function ColorSettingControl({
   label,
   color,
@@ -1430,8 +1481,19 @@ function ColorSettingControl({
     setDraftColor(nextColor);
   };
 
+  // The outside-click listener lives as long as the picker is open; it must call the newest onChange.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   const commitDraftColor = () => {
-    onChange(draftColorRef.current);
+    onChangeRef.current(draftColorRef.current);
+  };
+  // A hex value typed into the field counted only when the field lost focus, and a click
+  // outside closed the picker first - so the value was lost (#143). Closing keeps it now.
+  const colorRef = useRef(color);
+  colorRef.current = color;
+  const closeKeepingDraft = () => {
+    if (draftColorRef.current.toLowerCase() !== colorRef.current.toLowerCase()) commitDraftColor();
+    setOpen(false);
   };
 
   const armPickerCommit = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -1463,7 +1525,7 @@ function ColorSettingControl({
     const closeOnOutsidePointer = (event: PointerEvent) => {
       const target = event.target as Node;
       if (!rootRef.current?.contains(target) && !popoverRef.current?.contains(target)) {
-        setOpen(false);
+        closeKeepingDraft();
       }
     };
     document.addEventListener("pointerdown", closeOnOutsidePointer);
@@ -1560,6 +1622,12 @@ function ColorSettingControl({
               color={draftColor}
               onChange={previewColor}
               onBlur={commitDraftColor}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitDraftColor();
+                }
+              }}
               prefixed
               aria-label={t("aria.colorHex", { name: label })}
             />
@@ -1601,10 +1669,12 @@ function ColorSettingControl({
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => {
-            if (!open) {
-              previewColor(color);
+            if (open) {
+              closeKeepingDraft();
+              return;
             }
-            setOpen((current) => !current);
+            previewColor(color);
+            setOpen(true);
           }}
         >
           <span className="workspace-color-swatch" style={{ backgroundColor: color }} aria-hidden="true" />

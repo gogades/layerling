@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "title": {
+      "de": "Wie Tinkercad",
+      "en": "Tinkercad look"
+    },
+    "body": {
+      "de": "Ein Knopf unter Einstellungen → Darstellung stellt den Arbeitsbereich so ein, wie Tinkercad ihn zeigt. Die kräftige Rasterlinie kann jetzt alle 10 Schritte kommen und eine eigene Farbe haben.",
+      "en": "A button under Settings → Appearance sets the work area up as Tinkercad shows it. The darker grid line can now come every 10 steps and have a colour of its own."
+    }
+  },
+  {
+    "title": {
+      "de": "Farbwerte bleiben",
+      "en": "Colour values stay"
+    },
+    "body": {
+      "de": "Ein eingetippter Hex-Wert im Farbfeld der Einstellungen wird jetzt mit Enter übernommen und geht beim Schließen nicht mehr verloren.",
+      "en": "A hex value typed into a colour field of the settings is now taken with Enter and no longer lost when the picker closes."
+    }
+  }
+]

@@ -10385,6 +10385,7 @@ function rebuildWorkplane(
     group.add(surface);
 
     const lineColor = muted ? theme === "dark" ? "#76828a" : "#99a3aa" : workspace.gridColor;
+    const majorLineColor = muted ? "" : workspace.gridMajorColor;
     if (outlineOnly) {
       group.add(createGridLines(
         workspace.width,
@@ -10394,6 +10395,7 @@ function rebuildWorkplane(
         lineColor,
         state.palette,
         true,
+        majorLineColor,
       ));
     } else if (workspace.showGrid) {
       group.add(createGridLines(
@@ -10403,6 +10405,8 @@ function rebuildWorkplane(
         theme,
         lineColor,
         state.palette,
+        false,
+        majorLineColor,
       ));
       const labelPalette = workplaneGridPalette(theme, lineColor, state.palette).major;
       // The design's name in the near left corner, so a screenshot of the scene
@@ -10736,9 +10740,10 @@ function createGridLines(
   gridColor = DEFAULT_WORKSPACE.gridColor,
   paletteName: AppThemePalette = "default",
   outlineOnly = false,
+  majorColor = "",
 ) {
   const group = new THREE.Group();
-  const palette = workplaneThemePalette(theme, DEFAULT_WORKSPACE.background, gridColor, paletteName).grid;
+  const palette = workplaneThemePalette(theme, DEFAULT_WORKSPACE.background, gridColor, paletteName, undefined, majorColor).grid;
   const minor = new THREE.LineBasicMaterial({ ...palette.minor, transparent: true, depthWrite: false });
   const major = new THREE.LineBasicMaterial({ ...palette.major, transparent: true, depthWrite: false });
   const axis = new THREE.LineBasicMaterial({ ...palette.axis, transparent: true, depthWrite: false });
@@ -10769,7 +10774,54 @@ function createGridLines(
   group.add(linesFromPoints(axisPoints, axis));
   group.add(linesFromPoints(borderPoints, border));
 
+  // A line is one pixel wide whatever the zoom, so the centre cross and the border also get
+  // a narrow band on the plate: stronger, and growing as you zoom in, as in Tinkercad (#143).
+  const axisBand = THREE.MathUtils.clamp(Math.min(width, depth) * 0.0012, 0.15, 1);
+  const borderBand = axisBand * 2;
+  const axisBands: Array<[number, number, number, number]> = outlineOnly ? [] : [
+    [0, -depth / 2, 0, depth / 2],
+    [-width / 2, 0, width / 2, 0],
+  ];
+  group.add(bandsFromSegments(axisBands, axisBand, palette.axis));
+  // The border band lies inside the plate, so the plate keeps its size.
+  const inset = borderBand / 2;
+  group.add(bandsFromSegments([
+    [-width / 2, -depth / 2 + inset, width / 2, -depth / 2 + inset],
+    [-width / 2, depth / 2 - inset, width / 2, depth / 2 - inset],
+    [-width / 2 + inset, -depth / 2, -width / 2 + inset, depth / 2],
+    [width / 2 - inset, -depth / 2, width / 2 - inset, depth / 2],
+  ], borderBand, palette.border));
+
   return group;
+}
+
+/** Flat bands of a width in millimetres along segments (x1, z1, x2, z2) on the plate. */
+function bandsFromSegments(segments: Array<[number, number, number, number]>, bandWidth: number, look: { color: string; opacity: number }) {
+  const positions: number[] = [];
+  for (const [x1, z1, x2, z2] of segments) {
+    const length = Math.hypot(x2 - x1, z2 - z1) || 1;
+    const nx = (-(z2 - z1) / length) * (bandWidth / 2);
+    const nz = ((x2 - x1) / length) * (bandWidth / 2);
+    const y = WORKPLANE_LINE_ELEVATION;
+    positions.push(
+      x1 - nx, y, z1 - nz, x2 - nx, y, z2 - nz, x2 + nx, y, z2 + nz,
+      x1 - nx, y, z1 - nz, x2 + nx, y, z2 + nz, x1 + nx, y, z1 + nz,
+    );
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  const bands = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+    color: look.color,
+    opacity: look.opacity,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  }));
+  bands.renderOrder = 1;
+  return bands;
 }
 
 function linesFromPoints(points: number[], material: THREE.LineBasicMaterial) {

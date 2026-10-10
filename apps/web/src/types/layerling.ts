@@ -223,6 +223,10 @@ export type WorkplaneWorkspaceSettings = {
   gridBlockSize: number;
   gridBlockPreset: string;
   gridColor: string;
+  /** Every how many grid steps a darker line is drawn on a millimetre grid: 5 or 10 (#143). */
+  gridMajorInterval: number;
+  /** Colour of those darker lines; empty takes it from the grid colour (#143). */
+  gridMajorColor: string;
   /** The work area's background in the light theme; the dark themes keep their own. */
   background: string;
   /** The workplane's surface colour in the light theme. */

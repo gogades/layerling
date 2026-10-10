@@ -98,7 +98,21 @@ export function workplaneGridPalette(
   theme: ResolvedAppTheme = "light",
   configuredColor: string = DEFAULT_WORKPLANE_GRID_COLOR,
   palette: AppThemePalette = "default",
+  majorColor = "",
 ): WorkplaneGridPalette {
+  const base = baseWorkplaneGridPalette(theme, configuredColor, palette);
+  // The darker lines in a colour of their own (#143); the centre cross and the border take it
+  // too, a little stronger, as Tinkercad draws them.
+  if (!/^#[0-9a-f]{6}$/i.test(majorColor)) return base;
+  return {
+    ...base,
+    major: { color: majorColor, opacity: theme === "dark" ? 0.8 : 0.9 },
+    axis: { color: majorColor, opacity: 1 },
+    border: { color: majorColor, opacity: 1 },
+  };
+}
+
+function baseWorkplaneGridPalette(theme: ResolvedAppTheme, configuredColor: string, palette: AppThemePalette): WorkplaneGridPalette {
   if (configuredColor.toLowerCase() !== DEFAULT_WORKPLANE_GRID_COLOR) {
     return {
       minor: { color: configuredColor, opacity: theme === "dark" ? 0.42 : 0.38 },
@@ -138,6 +152,7 @@ export function workplaneThemePalette(
   configuredGridColor: string = DEFAULT_WORKPLANE_GRID_COLOR,
   palette: AppThemePalette = "default",
   configuredSurface: string = DEFAULT_WORKPLANE_SURFACE_COLOR,
+  configuredMajorColor = "",
 ): WorkplaneThemePalette {
   // The background and the surface colour belong to the light theme; the dark
   // themes keep their own, so a light choice cannot spoil them.
@@ -145,19 +160,19 @@ export function workplaneThemePalette(
     return {
       sceneBackground: "#1e1e1e",
       surface: { color: "#343434", opacity: 0.9 },
-      grid: workplaneGridPalette("dark", configuredGridColor, "graphite"),
+      grid: workplaneGridPalette("dark", configuredGridColor, "graphite", configuredMajorColor),
     };
   }
   return theme === "dark"
     ? {
         sceneBackground: "#141210",
         surface: { color: "#332b16", opacity: 0.9 },
-        grid: workplaneGridPalette("dark", configuredGridColor),
+        grid: workplaneGridPalette("dark", configuredGridColor, "default", configuredMajorColor),
       }
     : {
         sceneBackground: configuredBackground,
         surface: { color: configuredSurface, opacity: 0.68 },
-        grid: workplaneGridPalette("light", configuredGridColor),
+        grid: workplaneGridPalette("light", configuredGridColor, "default", configuredMajorColor),
       };
 }
 
@@ -186,10 +201,11 @@ export type WorkplaneGridLayout = {
  * the stronger lines meet the axes whatever the plate measures. Millimetre
  * grids draw a stronger line every fifth, inch grids on every whole inch.
  */
-export function workplaneGridLayout(workspace: { gridBlockSize: number; gridBlockPreset?: string; units?: string }): WorkplaneGridLayout {
+export function workplaneGridLayout(workspace: { gridBlockSize: number; gridBlockPreset?: string; units?: string; gridMajorInterval?: number }): WorkplaneGridLayout {
   const step = Math.min(200, Math.max(1, workspace.gridBlockSize));
   const inches = inchGridPresetMm(workspace.gridBlockPreset ?? "") !== null || workspace.units === "Imperial";
-  if (!inches) return { step, majorInterval: WORKPLANE_MAJOR_GRID_INTERVAL };
+  // A millimetre grid draws its darker line every fifth or, as Tinkercad, every tenth step (#143).
+  if (!inches) return { step, majorInterval: workspace.gridMajorInterval === 10 ? 10 : WORKPLANE_MAJOR_GRID_INTERVAL };
   const perInch = Math.round(MM_PER_INCH / step);
   const majorInterval = Math.abs(perInch * step - MM_PER_INCH) < 1e-6 && perInch >= 2 ? perInch : step >= MM_PER_INCH - 1e-6 ? 12 : WORKPLANE_MAJOR_GRID_INTERVAL;
   return { step, majorInterval };

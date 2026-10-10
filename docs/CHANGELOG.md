@@ -4,6 +4,11 @@ layerling started over at 1.0.0 when it was forked from SketchForge-3D 1.0.9.
 Everything from 1.0.9 downwards is SketchForge's history, kept here because the
 code still carries it - so a lower number further down is older, not newer.
 
+## Unreleased
+
+- **Tinkercad look, and darker grid lines your way:** Settings → Appearance has a "Tinkercad look" button that sets the work area as Tinkercad shows it - white ground, a pale blue millimetre grid with a darker line every centimetre, black edge lines, light from above with soft shadows - with the values @prmod3d measured; everything stays adjustable. Under Workplane the darker grid line now comes every 5 or every 10 grid steps and can have a colour of its own, which the centre cross and the plate border take too. The centre cross and the border are drawn as narrow bands on the plate, so they are stronger and grow as you zoom in. Suggested by @prmod3d in #143.
+- **Typed colour values are kept:** In the colour fields of the settings a typed hex value only counted once the field lost focus, and a click outside closed the picker before that - the value was lost. Enter now takes it, and closing the picker keeps it. Reported by @prmod3d in #143.
+
 ## 1.56.2
 
 - **Fillet and chamfer: Apply no longer hangs after the size field:** Clicking into the size field and leaving it without a change - a click on its label is enough - threw the preview away as if the size had changed, but never computed a new one, so Apply kept spinning until the sharp-edge threshold was moved. Leaving a field unchanged now changes nothing. Reported by @trabtrading-design in #204.
