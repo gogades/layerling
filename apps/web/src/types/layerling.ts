@@ -187,6 +187,11 @@ export type ShapeCustomization = {
   loftOffsetZ?: number;
   /** Transition: wall thickness in mm; 0 is a solid body, more a tube open at both ends. */
   loftWall?: number;
+  /** Transition: degrees the section turns from bottom to top (#205). */
+  loftTwist?: number;
+  /** Transition: degrees the top end tilts about the x axis and about the z axis (#205). */
+  loftTiltX?: number;
+  loftTiltZ?: number;
   /** Counterbore/countersink: diameter of the shaft below the head in mm. */
   screwHoleShaft?: number;
   /** Counterbore: depth of the head pocket in mm. */
@@ -598,6 +603,11 @@ export type WorkplaneShape = {
   loftOffsetZ?: number;
   /** Transition: wall thickness in mm; 0 is a solid body, more a tube open at both ends. */
   loftWall?: number;
+  /** Transition: degrees the section turns from bottom to top (#205). */
+  loftTwist?: number;
+  /** Transition: degrees the top end tilts about the x axis and about the z axis (#205). */
+  loftTiltX?: number;
+  loftTiltZ?: number;
   /** Counterbore/countersink: diameter of the shaft below the head in mm. */
   screwHoleShaft?: number;
   /** Counterbore: depth of the head pocket in mm. */

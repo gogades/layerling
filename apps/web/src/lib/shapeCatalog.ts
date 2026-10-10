@@ -592,6 +592,9 @@ export function sceneShape(shape: Partial<WorkplaneShape> & Pick<WorkplaneShape,
     loftOffsetX: shape.loftOffsetX,
     loftOffsetZ: shape.loftOffsetZ,
     loftWall: shape.loftWall,
+    loftTwist: shape.loftTwist,
+    loftTiltX: shape.loftTiltX,
+    loftTiltZ: shape.loftTiltZ,
     screwHoleShaft: shape.screwHoleShaft,
     screwHoleHeadDepth: shape.screwHoleHeadDepth,
     screwHoleAngle: shape.screwHoleAngle,
@@ -680,6 +683,9 @@ export function makeShapeFromAsset(
     offsetX: customization.loftOffsetX,
     offsetZ: customization.loftOffsetZ,
     wall: customization.loftWall,
+    twist: customization.loftTwist,
+    tiltX: customization.loftTiltX,
+    tiltZ: customization.loftTiltZ,
   }) : null;
   const loftFootprint = loftMeasures ? loftFrameSize(loftMeasures) : null;
   // New gears get involute teeth (#201); their size follows the module, so other teeth keep module 2.

@@ -129,6 +129,12 @@ export type CadModifierProfilePart = {
   twistCenter?: { x: number; z: number };
   /** Loft only, with a twist: how far the lean moves the top; the turning centre moves along with it. */
   twistLean?: { x: number; z: number };
+  /**
+   * Loft only: degrees the sections tilt on the way up, evenly to the top - about the x axis
+   * (the front rising) and about the z axis (the right side rising), around each section's
+   * turning centre, after its twist (a transition's tilted top, #205).
+   */
+  tilt?: { x: number; z: number };
   /** Extrusion only: round every edge of the two flat ends by this radius (a rounded box). */
   capFillet?: number;
   /**

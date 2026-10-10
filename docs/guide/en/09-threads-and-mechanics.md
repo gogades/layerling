@@ -65,7 +65,9 @@ The {{ui:shape.loft}} joins one outline at the bottom to another at the top, lik
 
 {{ui:prop.loftWall}} turns the solid body into a tube open at the top and the bottom. The opening is smaller by the wall at both ends, measured across; where the wall slants it is a little thinner. Drag the frame bigger and both ends grow along, while the corner radius and the wall keep their size.
 
-The loft is an exact body: its edges can be chamfered and filleted, and STEP export keeps it. Add a flange with screw holes as usual and group them.
+{{ui:prop.loftTwist}} turns the section evenly about the vertical on the way up, up to 360° either way; the sides then wind round. {{ui:prop.loftTiltX}} and {{ui:prop.loftTiltZ}} tilt the top end, up to 45°: a positive value raises its front edge or its right side. The sections in between tilt by their share, so the wall runs smoothly into the slant. The highest point stays at the set height. If the height later becomes so small that the slanted end would reach under the plate, the tilt gives way until it fits. A bend along a path, such as a pipe elbow, is not something the loft does.
+
+The loft is an exact body, twisted and tilted too: its edges can be chamfered and filleted, and STEP export keeps it. Add a flange with screw holes as usual and group them.
 
 ## Honeycomb
 

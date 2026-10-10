@@ -116,6 +116,46 @@ describe("exact bodies for the transition with the real OCCT kernel", () => {
     exact(source);
   });
 
+  // #205: the sections turn and tilt evenly on the way up; the body follows the same sections as the mesh.
+  it("twisted square to circle: where the mesh is, its height kept", () => {
+    const source = loft({ loftTwist: 90 });
+    const { solid, mesh } = exact(source);
+    const box = cad.getBoundingBox(solid);
+    expect(box.ymin).toBeCloseTo(0, 4);
+    expect(box.ymax).toBeCloseTo(30, 4);
+    const meshVolume = closedMeshVolume(mesh.vertices, mesh.faces);
+    expect(Math.abs(cad.getVolume(solid) - meshVolume) / meshVolume).toBeLessThan(0.01);
+  });
+
+  it("a twist keeps every slice: two equal squares turned are as big as the straight prism", () => {
+    const source = loft({ loftTopOutline: "rectangle", loftTopWidth: 40, loftTopDepth: 40, loftTwist: 120 });
+    const { solid } = exact(source);
+    expect(Math.abs(cad.getVolume(solid) - 40 * 40 * 30) / (40 * 40 * 30)).toBeLessThan(0.005);
+  });
+
+  it("tilted top: its highest point at the frame's height, the body where the mesh is", () => {
+    const source = loft({ loftTopOutline: "rectangle", loftTopWidth: 24, loftTopDepth: 20, loftOffsetX: 4, loftTiltX: 20, loftTiltZ: -15, elevation: 3 });
+    const { solid, mesh } = exact(source);
+    const box = cad.getBoundingBox(solid);
+    expect(box.ymin).toBeCloseTo(3, 3);
+    expect(box.ymax).toBeCloseTo(33, 2);
+    const meshVolume = closedMeshVolume(mesh.vertices, mesh.faces);
+    expect(Math.abs(cad.getVolume(solid) - meshVolume) / meshVolume).toBeLessThan(0.01);
+  });
+
+  it("twisted and tilted with a wall, turned on the plate: one valid tube", () => {
+    const source = loft({ loftTwist: -135, loftTiltX: 25, loftWall: 2, loftBottomCorner: 4, rotation: 30, x: 5, z: -2 });
+    exact(source);
+  });
+
+  it("takes a fillet on a twisted loft's top rim", () => {
+    const { solid } = exact(loft({ loftTwist: 60 }));
+    const rim = edgesAtHeight(solid, 30);
+    expect(rim.length).toBeGreaterThan(0);
+    const rounded = cad.fillet(solid, rim, 0.8);
+    expect(cad.isValid(rounded)).toBe(true);
+  });
+
   it("takes a fillet on its top rim", () => {
     const { solid } = exact(loft({}));
     const rim = edgesAtHeight(solid, 30);

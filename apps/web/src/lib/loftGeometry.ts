@@ -33,8 +33,16 @@ export const DEFAULT_LOFT = {
   offsetX: 0,
   offsetZ: 0,
   wall: 0,
+  twist: 0,
+  tiltX: 0,
+  tiltZ: 0,
   height: 30,
 };
+
+/** How far the top may turn against the bottom, in degrees either way (#205). */
+export const MAX_LOFT_TWIST = 360;
+/** How far the top end may tilt about each horizontal axis, in degrees either way (#205). */
+export const MAX_LOFT_TILT = 45;
 
 export const MIN_LOFT_SIZE = 1;
 export const MIN_LOFT_SIDES = 3;
@@ -70,12 +78,18 @@ export type LoftMeasures = {
   offsetX: number;
   offsetZ: number;
   wall: number;
+  /** Degrees the section turns from bottom to top about the vertical, evenly on the way up (#205). */
+  twist: number;
+  /** Degrees the top end tilts about the x axis (its front rising) and about the z axis (its right side rising). */
+  tiltX: number;
+  tiltZ: number;
 };
 
 export type LoftShapeFields = Pick<WorkplaneShape,
   "width" | "depth" | "size" | "height"
   | "loftBottomOutline" | "loftTopOutline" | "loftBottomWidth" | "loftBottomDepth" | "loftTopWidth" | "loftTopDepth"
-  | "loftBottomCorner" | "loftTopCorner" | "loftBottomSides" | "loftTopSides" | "loftOffsetX" | "loftOffsetZ" | "loftWall">;
+  | "loftBottomCorner" | "loftTopCorner" | "loftBottomSides" | "loftTopSides" | "loftOffsetX" | "loftOffsetZ" | "loftWall"
+  | "loftTwist" | "loftTiltX" | "loftTiltZ">;
 
 export function normalizeLoftOutline(value: unknown, fallback: LoftOutline = "round"): LoftOutline {
   return value === "round" || value === "rectangle" || value === "polygon" ? value : fallback;
@@ -115,7 +129,15 @@ export function normalizeLoftMeasures(raw: Partial<LoftMeasures>): LoftMeasures 
     offsetX: finite(raw.offsetX, 0),
     offsetZ: finite(raw.offsetZ, 0),
     wall: Math.min(maxLoftWall(sizes), Math.max(0, finite(raw.wall, 0))),
+    twist: Math.min(MAX_LOFT_TWIST, Math.max(-MAX_LOFT_TWIST, finite(raw.twist, 0))),
+    tiltX: Math.min(MAX_LOFT_TILT, Math.max(-MAX_LOFT_TILT, finite(raw.tiltX, 0))),
+    tiltZ: Math.min(MAX_LOFT_TILT, Math.max(-MAX_LOFT_TILT, finite(raw.tiltZ, 0))),
   };
+}
+
+/** Whether the sections turn or tilt on the way up, so the sides are no longer ruled lines. */
+export function loftIsTurned(measures: Pick<LoftMeasures, "twist" | "tiltX" | "tiltZ">) {
+  return Math.abs(measures.twist) > 1e-9 || Math.abs(measures.tiltX) > 1e-9 || Math.abs(measures.tiltZ) > 1e-9;
 }
 
 /** The stored values of a shape, as set (before the frame stretches them). */
@@ -134,11 +156,16 @@ export function loftStoredMeasures(shape: LoftShapeFields): LoftMeasures {
     offsetX: shape.loftOffsetX,
     offsetZ: shape.loftOffsetZ,
     wall: shape.loftWall,
+    twist: shape.loftTwist,
+    tiltX: shape.loftTiltX,
+    tiltZ: shape.loftTiltZ,
   });
 }
 
 /** Both ends side by side: [minX, minZ, maxX, maxZ] with the bottom's middle at the origin. */
 export function loftMeasuresBounds(measures: LoftMeasures) {
+  // Turned or tilted sections reach out differently: measured on the sections themselves.
+  if (loftIsTurned(measures)) return turnedLoftBounds(measures);
   return [
     Math.min(-measures.bottomWidth / 2, measures.offsetX - measures.topWidth / 2),
     Math.min(-measures.bottomDepth / 2, measures.offsetZ - measures.topDepth / 2),
@@ -227,13 +254,21 @@ export function loftFieldsFromMeasures(measures: LoftMeasures): Partial<Workplan
     loftOffsetX: measures.offsetX,
     loftOffsetZ: measures.offsetZ,
     loftWall: measures.wall,
+    loftTwist: measures.twist,
+    loftTiltX: measures.tiltX,
+    loftTiltZ: measures.tiltZ,
   };
 }
 
 /** The two ends in the shape's own frame, the frame's middle at the origin. */
-export function loftSections(shape: LoftShapeFields): { bottom: LoftSection; top: LoftSection; wall: number } {
+export function loftSections(shape: LoftShapeFields): { bottom: LoftSection; top: LoftSection; wall: number; measures: LoftMeasures } {
   const measures = loftMeasures(shape);
   const frame = loftFrameSize(measures);
+  return { ...sectionsAt(measures, -frame.centerX, -frame.centerZ), wall: measures.wall, measures };
+}
+
+/** The two ends with the bottom's box centred on (cx, cz). */
+function sectionsAt(measures: LoftMeasures, cx: number, cz: number): { bottom: LoftSection; top: LoftSection } {
   return {
     bottom: {
       outline: measures.bottomOutline,
@@ -241,8 +276,8 @@ export function loftSections(shape: LoftShapeFields): { bottom: LoftSection; top
       depth: measures.bottomDepth,
       corner: measures.bottomCorner,
       sides: measures.bottomSides,
-      cx: -frame.centerX,
-      cz: -frame.centerZ,
+      cx,
+      cz,
     },
     top: {
       outline: measures.topOutline,
@@ -250,10 +285,9 @@ export function loftSections(shape: LoftShapeFields): { bottom: LoftSection; top
       depth: measures.topDepth,
       corner: measures.topCorner,
       sides: measures.topSides,
-      cx: measures.offsetX - frame.centerX,
-      cz: measures.offsetZ - frame.centerZ,
+      cx: cx + measures.offsetX,
+      cz: cz + measures.offsetZ,
     },
-    wall: measures.wall,
   };
 }
 
@@ -434,27 +468,148 @@ function insetSection(section: LoftSection, wall: number): LoftSection {
 export type LoftPieces = { bottom: Piece[]; top: Piece[] };
 
 /**
- * The outer pair of outlines and, with a wall, the inner pair (the opening), each pair cut
- * alike. Angles 0, 90, 180 and 270 degrees are always cuts, so even two circles meet in four
- * pieces and start at the same point.
+ * Two outlines cut alike. Angles 0, 90, 180 and 270 degrees are always cuts, so even two
+ * circles meet in four pieces and start at the same point.
  */
+function pairSections(lower: LoftSection, upper: LoftSection): LoftPieces {
+  const lowerMiddle = sectionMiddle(lower);
+  const upperMiddle = sectionMiddle(upper);
+  const lowerPieces = sectionPieces(lower);
+  const upperPieces = sectionPieces(upper);
+  const cuts = uniqueAngles([
+    0, Math.PI / 2, Math.PI, Math.PI * 1.5,
+    ...cornerAngles(lowerPieces.filter((piece) => piece.kind === "line" || Math.abs(piece.t1 - piece.t0) < TWO_PI - 1e-9), lowerMiddle),
+    ...cornerAngles(upperPieces.filter((piece) => piece.kind === "line" || Math.abs(piece.t1 - piece.t0) < TWO_PI - 1e-9), upperMiddle),
+  ]);
+  return { bottom: cutAtAngles(lowerPieces, lowerMiddle, cuts), top: cutAtAngles(upperPieces, upperMiddle, cuts) };
+}
+
+/** The outer pair of outlines and, with a wall, the inner pair (the opening), each pair cut alike. */
 export function loftPieces(shape: LoftShapeFields): { outer: LoftPieces; inner: LoftPieces | null } {
   const { bottom, top, wall } = loftSections(shape);
-  const pair = (lower: LoftSection, upper: LoftSection): LoftPieces => {
-    const lowerMiddle = sectionMiddle(lower);
-    const upperMiddle = sectionMiddle(upper);
-    const lowerPieces = sectionPieces(lower);
-    const upperPieces = sectionPieces(upper);
-    const cuts = uniqueAngles([
-      0, Math.PI / 2, Math.PI, Math.PI * 1.5,
-      ...cornerAngles(lowerPieces.filter((piece) => piece.kind === "line" || Math.abs(piece.t1 - piece.t0) < TWO_PI - 1e-9), lowerMiddle),
-      ...cornerAngles(upperPieces.filter((piece) => piece.kind === "line" || Math.abs(piece.t1 - piece.t0) < TWO_PI - 1e-9), upperMiddle),
-    ]);
-    return { bottom: cutAtAngles(lowerPieces, lowerMiddle, cuts), top: cutAtAngles(upperPieces, upperMiddle, cuts) };
-  };
-  const outer = pair(bottom, top);
-  const inner = wall > 1e-6 ? pair(insetSection(bottom, wall), insetSection(top, wall)) : null;
+  const outer = pairSections(bottom, top);
+  const inner = wall > 1e-6 ? pairSections(insetSection(bottom, wall), insetSection(top, wall)) : null;
   return { outer, inner };
+}
+
+// --- Turning and tilting (#205) ------------------------------------------------------------
+
+/** Degrees between two sections of a turned loft: the kernel's TWIST_SECTION_STEP, so the mesh follows the body's sections. */
+const LOFT_SECTION_STEP = 7.5;
+
+/** How many sections a turned or tilted loft is built through, ends included. */
+export function loftSectionCount(measures: Pick<LoftMeasures, "twist" | "tiltX" | "tiltZ">) {
+  const most = Math.max(Math.abs(measures.twist), Math.abs(measures.tiltX), Math.abs(measures.tiltZ));
+  return Math.max(2, Math.ceil(most / LOFT_SECTION_STEP) + 1);
+}
+
+type Point3 = { x: number; y: number; z: number };
+
+/**
+ * Where a point of the section at height share t lands: turned about the vertical through the
+ * section's middle by t x twist, then tilted by t x tiltX about the x axis (its front rising) and
+ * by t x tiltZ about the z axis (its right side rising), and lifted to t x lift. The kernel
+ * places its sections with the same turns (twistedLoftSolid).
+ */
+function placeTurned(point: Point, middle: Point, t: number, measures: Pick<LoftMeasures, "twist" | "tiltX" | "tiltZ">, lift: number): Point3 {
+  const twist = THREE.MathUtils.degToRad(measures.twist * t);
+  const a = THREE.MathUtils.degToRad(measures.tiltX * t);
+  const b = THREE.MathUtils.degToRad(measures.tiltZ * t);
+  const rx = point.x - middle.x;
+  const rz = point.z - middle.z;
+  const x1 = rx * Math.cos(twist) - rz * Math.sin(twist);
+  const z1 = rx * Math.sin(twist) + rz * Math.cos(twist);
+  const y2 = z1 * Math.sin(a);
+  const z2 = z1 * Math.cos(a);
+  return {
+    x: middle.x + x1 * Math.cos(b) - y2 * Math.sin(b),
+    y: lift * t + x1 * Math.sin(b) + y2 * Math.cos(b),
+    z: middle.z + z2,
+  };
+}
+
+const mix = (a: Point, b: Point, t: number): Point => ({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
+
+/** The footprint of a turned or tilted loft, bottom's box centred on the origin: [minX, minZ, maxX, maxZ]. */
+function turnedLoftBounds(measures: LoftMeasures) {
+  const { bottom, top } = sectionsAt(measures, 0, 0);
+  const rings = sampledRings(pairSections(bottom, top));
+  const bottomMiddle = sectionMiddle(bottom);
+  const topMiddle = sectionMiddle(top);
+  // Finer than the sections: the mesh draws rows between them, and the frame has to hold those too.
+  const count = (loftSectionCount(measures) - 1) * 4 + 1;
+  let minX = Infinity;
+  let minZ = Infinity;
+  let maxX = -Infinity;
+  let maxZ = -Infinity;
+  for (let step = 0; step < count; step += 1) {
+    const t = step / (count - 1);
+    const middle = mix(bottomMiddle, topMiddle, t);
+    rings.bottom.forEach((point, index) => {
+      const placed = placeTurned(mix(point, rings.top[index], t), middle, t, measures, 0);
+      minX = Math.min(minX, placed.x);
+      maxX = Math.max(maxX, placed.x);
+      minZ = Math.min(minZ, placed.z);
+      maxZ = Math.max(maxZ, placed.z);
+    });
+  }
+  return [minX, minZ, maxX, maxZ];
+}
+
+/**
+ * How the sections turn and how high the top end's middle stands: a tilted top rises on one side,
+ * so its middle sits lower and the highest point stays at the frame's height.
+ */
+export function loftTurn(shape: LoftShapeFields) {
+  const { bottom, top, measures } = loftSections(shape);
+  const bottomMiddle = sectionMiddle(bottom);
+  const topMiddle = sectionMiddle(top);
+  const height = Math.max(0.01, shape.height);
+  if (!loftIsTurned(measures)) return { measures, bottomMiddle, topMiddle, lift: height, turned: false };
+  const rings = sampledRings(pairSections(bottom, top));
+  const liftFor = (tilted: LoftMeasures) => height - Math.max(0, ...rings.top.map((point) => placeTurned(point, topMiddle, 1, tilted, 0).y));
+  // The lowest point of the wall: not only the top end, a section a little way up tilts too
+  // while it has hardly risen, and with a steep tilt on a low frame it dips under the plate.
+  const lowest = (tilted: LoftMeasures, lift: number) => {
+    let low = 0;
+    for (let step = 1; step <= 24; step += 1) {
+      const t = step / 24;
+      const middle = mix(bottomMiddle, topMiddle, t);
+      rings.bottom.forEach((point, index) => {
+        low = Math.min(low, placeTurned(mix(point, rings.top[index], t), middle, t, tilted, lift).y);
+      });
+    }
+    return low;
+  };
+  const fits = (tilted: LoftMeasures) => {
+    const lift = liftFor(tilted);
+    return lift >= height * 0.05 && lowest(tilted, lift) >= 0;
+  };
+  // A frame made lower after the tilt was set would push the wall under the plate: the tilt then
+  // gives way until it fits.
+  let turned = measures;
+  if (!fits(turned)) {
+    let low = 0;
+    let high = 1;
+    for (let step = 0; step < 30; step += 1) {
+      const share = (low + high) / 2;
+      if (fits({ ...measures, tiltX: measures.tiltX * share, tiltZ: measures.tiltZ * share })) low = share;
+      else high = share;
+    }
+    turned = { ...measures, tiltX: measures.tiltX * low, tiltZ: measures.tiltZ * low };
+  }
+  return { measures: turned, bottomMiddle, topMiddle, lift: Math.max(height * 0.05, liftFor(turned)), turned: true };
+}
+
+/**
+ * The steepest tilt about one axis that still keeps the top end above the plate: its rise and
+ * drop together stay within nine tenths of the height. At most MAX_LOFT_TILT.
+ */
+export function loftTiltLimit(shape: LoftShapeFields, axis: "x" | "z") {
+  const measures = loftMeasures(shape);
+  const reach = axis === "x" ? measures.topDepth : measures.topWidth;
+  const ratio = Math.min(1, (Math.max(0.01, shape.height) * 0.9) / Math.max(0.01, reach));
+  return Math.min(MAX_LOFT_TILT, Math.floor(THREE.MathUtils.radToDeg(Math.asin(ratio))));
 }
 
 function piecesToLoop(pieces: Piece[]): CadModifierProfileLoop {
@@ -470,33 +625,95 @@ function piecesToLoop(pieces: Piece[]): CadModifierProfileLoop {
   };
 }
 
-/** The loops of the exact body: outer first, the opening second, bottom and top piece for piece. */
+/**
+ * The same loop with every piece a cubic Bezier curve: a line with its thirds as handles, an arc of
+ * at most a quarter turn by the usual handle length (within 0.03 % of its radius). The kernel mixes
+ * a turned loft's sections between bottom and top piece by piece, which needs pieces of one kind.
+ */
+function piecesToBezierLoop(pieces: Piece[]): CadModifierProfileLoop {
+  const start = pieceAt(pieces[0], 0);
+  return {
+    x: start.x,
+    z: start.z,
+    segments: pieces.map((piece) => {
+      const from = pieceAt(piece, 0);
+      const end = pieceAt(piece, 1);
+      if (piece.kind === "line") {
+        return {
+          kind: "bezier" as const,
+          x: end.x,
+          z: end.z,
+          controls: [mix(from, end, 1 / 3), mix(from, end, 2 / 3)],
+        };
+      }
+      const span = piece.t1 - piece.t0;
+      const k = (4 / 3) * Math.tan(span / 4);
+      const tangent = (t: number) => ({ x: -piece.rx * Math.sin(t), z: piece.rz * Math.cos(t) });
+      const startTangent = tangent(piece.t0);
+      const endTangent = tangent(piece.t1);
+      return {
+        kind: "bezier" as const,
+        x: end.x,
+        z: end.z,
+        controls: [
+          { x: from.x + startTangent.x * k, z: from.z + startTangent.z * k },
+          { x: end.x - endTangent.x * k, z: end.z - endTangent.z * k },
+        ],
+      };
+    }),
+  };
+}
+
+/**
+ * The loops of the exact body: outer first, the opening second, bottom and top piece for piece.
+ * A turned or tilted loft also says how its sections turn and how high its top's middle stands.
+ */
 export function loftProfileLoops(shape: LoftShapeFields) {
   const { outer, inner } = loftPieces(shape);
-  const loops = [piecesToLoop(outer.bottom)];
-  const topLoops = [piecesToLoop(outer.top)];
+  const turn = loftTurn(shape);
+  const toLoop = turn.turned ? piecesToBezierLoop : piecesToLoop;
+  const loops = [toLoop(outer.bottom)];
+  const topLoops = [toLoop(outer.top)];
   if (inner) {
-    loops.push(piecesToLoop(inner.bottom));
-    topLoops.push(piecesToLoop(inner.top));
+    loops.push(toLoop(inner.bottom));
+    topLoops.push(toLoop(inner.top));
   }
-  return { loops, topLoops };
+  if (!turn.turned) return { loops, topLoops };
+  return {
+    loops,
+    topLoops,
+    twist: turn.measures.twist,
+    twistCenter: turn.bottomMiddle,
+    twistLean: { x: turn.topMiddle.x - turn.bottomMiddle.x, z: turn.topMiddle.z - turn.bottomMiddle.z },
+    tilt: { x: turn.measures.tiltX, z: turn.measures.tiltZ },
+    height: turn.lift,
+  };
 }
 
 // --- Display mesh ----------------------------------------------------------------------------
 
-/** Steps along a piece pair: one for two lines, more for an arc, by how far it turns. */
-function pieceSteps(a: Piece, b: Piece) {
+/**
+ * Steps along a piece pair: one for two lines, more for an arc, by how far it turns. A turned
+ * loft winds even a straight side, so there every piece gets at least `least` steps - one long
+ * twisted quad per row would fold, and its fold showed as a dark streak.
+ */
+function pieceSteps(a: Piece, b: Piece, least = 1) {
   const steps = (piece: Piece) => (piece.kind === "line" ? 1 : Math.max(2, Math.ceil(Math.abs(piece.t1 - piece.t0) / (TWO_PI / 96))));
-  return Math.max(steps(a), steps(b));
+  return Math.max(least, steps(a), steps(b));
+}
+
+/** Steps a straight side of a turned loft gets: more the further it winds. */
+function turnedSideSteps(measures: Pick<LoftMeasures, "twist" | "tiltX" | "tiltZ">) {
+  return loftIsTurned(measures) ? Math.min(24, Math.max(4, Math.ceil(Math.abs(measures.twist) / 10))) : 1;
 }
 
 /** Both outlines sampled at the same fractions of each piece: ring i of the bottom faces ring i of the top. */
-function sampledRings(pair: LoftPieces) {
+function sampledRings(pair: LoftPieces, least = 1) {
   const bottom: Point[] = [];
   const top: Point[] = [];
   pair.bottom.forEach((piece, index) => {
     const partner = pair.top[index];
-    const steps = pieceSteps(piece, partner);
+    const steps = pieceSteps(piece, partner, least);
     for (let step = 0; step < steps; step += 1) {
       bottom.push(pieceAt(piece, step / steps));
       top.push(pieceAt(partner, step / steps));
@@ -524,13 +741,19 @@ function wallRows(rings: { bottom: Point[]; top: Point[] }, height: number) {
 export function createLoftGeometry(shape: LoftShapeFields): THREE.BufferGeometry {
   const height = Math.max(0.01, shape.height);
   const { outer, inner } = loftPieces(shape);
+  const turn = loftTurn(shape);
   const positions: number[] = [];
   const indices: number[] = [];
-  const addRing = (points: Point[], y: number) => {
+  const addRing = (points: Point3[]) => {
     const first = positions.length / 3;
-    points.forEach((point) => positions.push(point.x, y, point.z));
+    points.forEach((point) => positions.push(point.x, point.y, point.z));
     return first;
   };
+  // A turned or tilted loft is built through the kernel's sections: every row of the wall is a
+  // section, mixed between bottom and top, turned and tilted by its share and lifted.
+  const place = (point: Point, v: number): Point3 => turn.turned
+    ? placeTurned(point, mix(turn.bottomMiddle, turn.topMiddle, v), v, turn.measures, turn.lift)
+    : { x: point.x, y: height * v, z: point.z };
   // The outlines run counter-clockwise (x towards z); seen that way a wall triangle
   // (bottom i, top i+1, bottom i+1) faces outwards, the opening's the other way round.
   // Where a small corner below meets a long side above the wall is twisted, and one quad from
@@ -538,11 +761,11 @@ export function createLoftGeometry(shape: LoftShapeFields): THREE.BufferGeometry
   // lines. The wall is then cut into rows up the height, as many as that twist needs.
   const addWall = (rings: { bottom: Point[]; top: Point[] }, outward: boolean) => {
     const count = rings.bottom.length;
-    const rows = wallRows(rings, height);
+    const rows = turn.turned ? Math.max(wallRows(rings, height), (loftSectionCount(turn.measures) - 1) * 2) : wallRows(rings, height);
     const starts: number[] = [];
     for (let row = 0; row <= rows; row += 1) {
       const v = row / rows;
-      starts.push(addRing(rings.bottom.map((b, i) => ({ x: b.x + (rings.top[i].x - b.x) * v, z: b.z + (rings.top[i].z - b.z) * v })), height * v));
+      starts.push(addRing(rings.bottom.map((b, i) => place(mix(b, rings.top[i], v), v))));
     }
     for (let row = 0; row < rows; row += 1) {
       const b = starts[row];
@@ -555,11 +778,12 @@ export function createLoftGeometry(shape: LoftShapeFields): THREE.BufferGeometry
     }
     return { bottom: starts[0], top: starts[rows] };
   };
-  const outerRings = sampledRings(outer);
-  const innerRings = inner ? sampledRings(inner) : null;
+  const outerRings = sampledRings(outer, turnedSideSteps(turn.measures));
+  const innerRings = inner ? sampledRings(inner, turnedSideSteps(turn.measures)) : null;
   const outerStart = addWall(outerRings, true);
   const innerStart = innerRings ? addWall(innerRings, false) : null;
-  // The two ends on the walls' own rim points, the opening as a hole: facing down at the bottom, up at the top.
+  // The two ends on the walls' own rim points, the opening as a hole: facing down at the bottom,
+  // up at the top. A tilted top is triangulated flat, before its turn, and keeps its facing.
   const addCap = (contour: Point[], contourStart: number, hole: Point[] | null, holeStart: number, up: boolean) => {
     const all = hole ? [...contour, ...hole] : contour;
     const index = (k: number) => (k < contour.length ? contourStart + k : holeStart + k - contour.length);

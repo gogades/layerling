@@ -5936,6 +5936,7 @@ function mcpLoftSettings(shape: WorkplaneShape): Record<string, string | number>
     loftBottomWidth: m.bottomWidth, loftBottomDepth: m.bottomDepth, loftTopWidth: m.topWidth, loftTopDepth: m.topDepth,
     loftBottomCorner: m.bottomCorner, loftTopCorner: m.topCorner, loftBottomSides: m.bottomSides, loftTopSides: m.topSides,
     loftOffsetX: m.offsetX, loftOffsetZ: m.offsetZ, loftWall: m.wall,
+    loftTwist: m.twist, loftTiltX: m.tiltX, loftTiltZ: m.tiltZ,
   };
 }
 
@@ -5951,6 +5952,7 @@ function mcpLoftChange(params: Record<string, unknown>): Partial<LoftMeasures> {
     ["loftBottomWidth", "bottomWidth"], ["loftBottomDepth", "bottomDepth"], ["loftTopWidth", "topWidth"], ["loftTopDepth", "topDepth"],
     ["loftBottomCorner", "bottomCorner"], ["loftTopCorner", "topCorner"], ["loftBottomSides", "bottomSides"], ["loftTopSides", "topSides"],
     ["loftOffsetX", "offsetX"], ["loftOffsetZ", "offsetZ"], ["loftWall", "wall"],
+    ["loftTwist", "twist"], ["loftTiltX", "tiltX"], ["loftTiltZ", "tiltZ"],
   ];
   numbers.forEach(([param, key]) => {
     const value = mcpOptionalNumber(params[param]);

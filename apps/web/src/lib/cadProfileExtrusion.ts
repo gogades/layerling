@@ -592,8 +592,9 @@ function bevelGearProfile(shape: WorkplaneShape, width: number, depth: number): 
  * ruled loft; with a wall the opening is a second pair of loops, lofted and taken away.
  */
 function loftShapeProfile(shape: WorkplaneShape): CadModifierProfilePart {
-  const { loops, topLoops } = loftProfileLoops(shape);
-  const part: CadModifierProfilePart = { kind: "loft", loops, topLoops, height: shape.height, transform: profileTransformForShape(shape) };
+  // A turned or tilted transition (#205) also brings its turn, its tilt and its top's middle height.
+  const { loops, topLoops, height, ...turn } = loftProfileLoops(shape);
+  const part: CadModifierProfilePart = { kind: "loft", loops, topLoops, height: height ?? shape.height, ...turn, transform: profileTransformForShape(shape) };
   validateCadProfile(part);
   return part;
 }

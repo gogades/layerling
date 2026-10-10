@@ -146,3 +146,42 @@ describe("transition (loft, #188)", () => {
     expect(measures.wall).toBeLessThan(3);
   });
 });
+
+// #205: the sections turn and tilt evenly on the way up.
+describe("a twisted and tilted transition", () => {
+  it("stays closed, on the plate, up to its height and inside its frame", () => {
+    for (const fields of [{ loftTwist: 90 }, { loftTiltX: 25, loftTiltZ: -15 }, { loftTwist: -180, loftTiltX: 20, loftWall: 2, loftBottomCorner: 4 }]) {
+      const shape = loft(fields);
+      const { volume, open, box } = meshCheck(createLoftGeometry(shape));
+      expect(open).toBe(0);
+      expect(volume).toBeGreaterThan(0);
+      expect(box.min.y).toBeGreaterThanOrEqual(-1e-6);
+      expect(box.max.y).toBeCloseTo(30, 3);
+      expect(box.max.x - box.min.x).toBeLessThanOrEqual(shape.width! + 1e-3);
+      expect(box.max.z - box.min.z).toBeLessThanOrEqual(shape.depth! + 1e-3);
+    }
+  });
+
+  it("frames a turned top by where it really reaches", () => {
+    // A square turned by 45 degrees reaches out by its half diagonal.
+    const turned = loftFrameSize(loftStoredMeasures(loft({ loftBottomOutline: "rectangle", loftTopOutline: "rectangle", loftBottomWidth: 10, loftBottomDepth: 10, loftTopWidth: 40, loftTopDepth: 40, loftTwist: 45 })));
+    expect(turned.width).toBeCloseTo(40 * Math.SQRT2, 1);
+  });
+
+  it("hands the kernel its turn, its tilt, the top's middle height and pieces of one kind", () => {
+    const part = loftProfileLoops(loft({ loftTwist: 60, loftTiltX: 10 }));
+    expect(part.twist).toBe(60);
+    expect(part.tilt).toEqual({ x: 10, z: 0 });
+    expect(part.height).toBeLessThan(30);
+    expect([...part.loops, ...part.topLoops].every((loop) => loop.segments.every((segment) => segment.kind === "bezier"))).toBe(true);
+    expect(() => validateCadProfile({ kind: "loft", loops: part.loops, topLoops: part.topLoops, height: part.height!, twist: part.twist, tilt: part.tilt })).not.toThrow();
+    // Untouched, it stays the ruled loft it was.
+    expect(loftProfileLoops(loft({})).twist).toBeUndefined();
+  });
+
+  it("gives way when the frame is too low for the tilt, so the top stays above the plate", () => {
+    const { box } = meshCheck(createLoftGeometry(loft({ loftTiltX: 45, height: 8 })));
+    expect(box.min.y).toBeGreaterThanOrEqual(-1e-6);
+    expect(box.max.y).toBeCloseTo(8, 3);
+  });
+});

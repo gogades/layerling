@@ -1,6 +1,16 @@
 [
   {
     "title": {
+      "de": "Übergang verdrehen und kippen",
+      "en": "Twist and tilt the loft"
+    },
+    "body": {
+      "de": "Der Übergang kann sich auf dem Weg nach oben verdrehen, und sein oberes Ende lässt sich bis 45° kippen. Er bleibt ein exakter Körper zum Verrunden.",
+      "en": "The loft can twist on its way up, and its top end tilts up to 45°. It stays an exact body you can fillet."
+    }
+  },
+  {
+    "title": {
       "de": "Wie Tinkercad",
       "en": "Tinkercad look"
     },

@@ -455,7 +455,8 @@ function twistedLoftSolid(cad: OcctKernel, profile: CadModifierProfilePart, tole
   const twist = profile.twist ?? 0;
   const center = profile.twistCenter ?? { x: 0, z: 0 };
   const lean = profile.twistLean ?? { x: 0, z: 0 };
-  const sections = Math.max(2, Math.ceil(Math.abs(twist) / TWIST_SECTION_STEP) + 1);
+  const tilt = profile.tilt ?? { x: 0, z: 0 };
+  const sections = Math.max(2, Math.ceil(Math.max(Math.abs(twist), Math.abs(tilt.x), Math.abs(tilt.z)) / TWIST_SECTION_STEP) + 1);
   const solidOf = (index: number) => {
     const wires: ShapeHandle[] = [];
     for (let step = 0; step < sections; step += 1) {
@@ -467,8 +468,23 @@ function twistedLoftSolid(cad: OcctKernel, profile: CadModifierProfilePart, tole
       // The lean shifts the whole section, so the turn goes around the section's own middle, shifted with it.
       const cx = center.x + lean.x * t;
       const cz = center.z + lean.z * t;
-      // Turned about the vertical through (cx, cz), then lifted: x' = cx + (x - cx)cos - (z - cz)sin, z' = cz + (x - cx)sin + (z - cz)cos.
-      const matrix = [cos, 0, -sin, cx - cx * cos + cz * sin, 0, 1, 0, profile.height * t, sin, 0, cos, cz - cx * sin - cz * cos];
+      // Turned about the vertical through (cx, cz): x' = (x - cx)cos - (z - cz)sin, z' = (x - cx)sin + (z - cz)cos;
+      // then tilted about x (y = z sin a, z = z cos a) and about z (x = x cos b - y sin b, y = x sin b + y cos b);
+      // then put back on (cx, cz) and lifted - as loftGeometry's placeTurned draws it.
+      const a = (tilt.x * t * Math.PI) / 180;
+      const b = (tilt.z * t * Math.PI) / 180;
+      const [ca, sa, cb, sb] = [Math.cos(a), Math.sin(a), Math.cos(b), Math.sin(b)];
+      // Rows of the 3x3 turn applied to (x - cx, y, z - cz); y is 0 on a section.
+      const r = [
+        [cb * cos - sb * sa * sin, -sb * ca, -cb * sin - sb * sa * cos],
+        [sb * cos + cb * sa * sin, cb * ca, -sb * sin + cb * sa * cos],
+        [ca * sin, -sa, ca * cos],
+      ];
+      const matrix = [
+        r[0][0], r[0][1], r[0][2], cx - r[0][0] * cx - r[0][2] * cz,
+        r[1][0], r[1][1], r[1][2], profile.height * t - r[1][0] * cx - r[1][2] * cz,
+        r[2][0], r[2][1], r[2][2], cz - r[2][0] * cx - r[2][2] * cz,
+      ];
       wires.push(cad.transform(loopWire(cad, loop, tolerance), matrix));
     }
     const lofted = cad.loft(wires, true, false);
@@ -487,7 +503,9 @@ function twistedLoftSolid(cad: OcctKernel, profile: CadModifierProfilePart, tole
 
 function loftSolid(cad: OcctKernel, profile: CadModifierProfilePart, tolerance: number) {
   const top = profile.topLoops ?? [];
-  if (Math.abs(profile.twist ?? 0) > 1e-9) return twistedLoftSolid(cad, profile, tolerance);
+  if (Math.abs(profile.twist ?? 0) > 1e-9 || Math.abs(profile.tilt?.x ?? 0) > 1e-9 || Math.abs(profile.tilt?.z ?? 0) > 1e-9) {
+    return twistedLoftSolid(cad, profile, tolerance);
+  }
   if ([...profile.loops, ...top].every((loop) => loop.segments.every((segment) => segment.kind === "line")) && sidesAreFlat(profile, tolerance)) {
     return flatLoftSolid(cad, profile, tolerance);
   }
