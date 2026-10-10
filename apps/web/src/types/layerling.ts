@@ -155,7 +155,7 @@ export type ShapeCustomization = {
   /** Hinge: gap in mm between the moving parts - around the pin, between knuckles and before the leaves. */
   hingeClearance?: number;
   /** Knurling: grooves straight along the axis, or crossed into diamonds. */
-  knurlPattern?: "straight" | "diamond";
+  knurlPattern?: "straight" | "diamond" | "round";
   /** Knurling: number of grooves around the grip. */
   knurlCount?: number;
   /** Knurling: how deep a groove goes, in mm. */
@@ -577,7 +577,7 @@ export type WorkplaneShape = {
   /** Hinge: gap in mm between the moving parts - around the pin, between knuckles and before the leaves. */
   hingeClearance?: number;
   /** Knurling: grooves straight along the axis, or crossed into diamonds. */
-  knurlPattern?: "straight" | "diamond";
+  knurlPattern?: "straight" | "diamond" | "round";
   /** Knurling: number of grooves around the grip. */
   knurlCount?: number;
   /** Knurling: how deep a groove goes, in mm. */

@@ -325,7 +325,7 @@ export function normalizeShapeCustomizations(value: unknown, fallback: ShapeCust
       entry.hingeClearance = optionalShapeNumber(source.hingeClearance, fallbackEntry?.hingeClearance, 0.1, 1);
     }
     if (kind === "knurl") {
-      entry.knurlPattern = source.knurlPattern === "straight" || source.knurlPattern === "diamond" ? source.knurlPattern : fallbackEntry?.knurlPattern;
+      entry.knurlPattern = source.knurlPattern === "straight" || source.knurlPattern === "diamond" || source.knurlPattern === "round" ? source.knurlPattern : fallbackEntry?.knurlPattern;
       entry.knurlCount = optionalShapeNumber(source.knurlCount, fallbackEntry?.knurlCount, 6, 180, true);
       entry.knurlDepth = optionalShapeNumber(source.knurlDepth, fallbackEntry?.knurlDepth, 0.1, MAX_CUSTOM_SHAPE_DIMENSION);
       entry.knurlAngle = optionalShapeNumber(source.knurlAngle, fallbackEntry?.knurlAngle, 10, 60);

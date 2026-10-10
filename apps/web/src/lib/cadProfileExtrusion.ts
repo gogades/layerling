@@ -24,8 +24,8 @@ import { textFont } from "@/lib/textFonts";
 import { buildCurvedText, curvedTextFitScale, curvedTextLayout } from "@/lib/textGeometry";
 import { threadBuildPlan, WHITWORTH_PROFILE_CONSTANTS } from "@/lib/threadGeometry";
 import { springBuildPlan, springRingSectionShare } from "@/lib/springGeometry";
-import { knurlCorners, knurlSettings } from "@/lib/knurlGeometry";
-import { BEVEL_GEAR_TOP_SCALE, gearHelixTwist, gearOutlineCorners, involuteFlankPoint, involuteGearMeasures, involuteOutlineStretch, involuteToothCentre, normalizeGearCenterHoleSize, normalizeGearProfile, normalizeGearToothSize, normalizeGearType, roundGearMeasures, roundToothArcs, type GearOutlineOptions, type InvoluteGearMeasures, type RoundGearMeasures } from "@/lib/gearGeometry";
+import { knurlCorners, knurlSettings, roundKnurlWave } from "@/lib/knurlGeometry";
+import { BEVEL_GEAR_TOP_SCALE, gearHelixTwist, gearOutlineCorners, involuteFlankPoint, involuteGearMeasures, involuteOutlineStretch, involuteToothCentre, normalizeGearCenterHoleSize, normalizeGearProfile, normalizeGearToothSize, normalizeGearType, roundGearMeasures, roundToothArcs, type GearOutlineOptions, type InvoluteGearMeasures, type RoundWave } from "@/lib/gearGeometry";
 
 /*
  * The outlines below follow the display geometry of each shape
@@ -541,10 +541,10 @@ export function involuteGearLoop(measures: InvoluteGearMeasures): CadModifierPro
 }
 
 /**
- * Round teeth (#201) as the kernel builds them: per tooth its convex arc over the tip and the
- * concave arc over the root of the gap after it, true circles touching each other smoothly.
+ * Round teeth and the round knurl (#201) as the kernel builds them: per tooth its convex arc over
+ * the tip and the concave arc over the root of the gap after it, true circles touching smoothly.
  */
-export function roundGearLoop(measures: RoundGearMeasures): CadModifierProfileLoop {
+export function roundGearLoop(measures: RoundWave): CadModifierProfileLoop {
   const segments: CadModifierProfileSegment[] = [];
   for (let tooth = 0; tooth < measures.teeth; tooth += 1) {
     const { tooth: crest, gap } = roundToothArcs(measures, tooth);
@@ -995,9 +995,12 @@ export function cadProfileForShapeKind(shape: WorkplaneShape, designedRound = fa
       // Crossed knurling stays a mesh: the kernel needs 40 s for what two
       // counter-turned rings of 30 grooves have in common, and fails at 60.
       const settings = knurlSettings({ ...shape, width });
-      if (settings.pattern !== "straight") return null;
+      if (settings.pattern === "diamond") return null;
       return {
-        loops: [polygonLoop(knurlCorners(settings.diameter, settings.count, settings.depth).map(({ angle, radius }) => ({ x: Math.cos(angle) * radius, z: Math.sin(angle) * radius })))],
+        // Round knurling (#201) as its true arcs.
+        loops: [settings.pattern === "round"
+          ? roundGearLoop(roundKnurlWave(settings.diameter, settings.count, settings.depth))
+          : polygonLoop(knurlCorners(settings.diameter, settings.count, settings.depth).map(({ angle, radius }) => ({ x: Math.cos(angle) * radius, z: Math.sin(angle) * radius })))],
         capChamfer: settings.chamfer > 0 ? { radius: settings.diameter / 2, size: settings.chamfer } : undefined,
       };
     }

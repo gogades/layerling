@@ -61,6 +61,22 @@ describe("exact knurling bodies", () => {
     expect(box.ymax - box.ymin).toBeCloseTo(12, 3);
   });
 
+  it("builds round knurling from true arcs, with and without its chamfer, close to the mesh (#201)", () => {
+    for (const knurlChamfer of [0, 1]) {
+      const shape = knurl({ knurlPattern: "round", knurlCount: 18, knurlDepth: 1, knurlChamfer });
+      const part = cadModifierProfileForShape(shape);
+      expect(part).not.toBeNull();
+      expect(part!.loops[0].segments.every((segment) => segment.kind === "arc")).toBe(true);
+      expect(part!.loops[0].segments).toHaveLength(36);
+      const solid = profileExtrusionSolid(cad, part!);
+      expect(cad.isValid(solid)).toBe(true);
+      const exact = Math.abs(cad.getVolume(solid));
+      expect(Math.abs(exact - meshVolume(shape)) / exact).toBeLessThan(0.005);
+      const box = cad.getBoundingBox(solid);
+      expect(Math.max(box.xmax - box.xmin, box.zmax - box.zmin)).toBeLessThanOrEqual(20 + 1e-6);
+    }
+  });
+
   it("leaves crossed knurling a mesh: the kernel's common of the two turned rings is far too slow", () => {
     expect(cadModifierHelicalGearForShape(knurl({ knurlPattern: "diamond" }))).toBeNull();
     expect(cadModifierProfileForShape(knurl({ knurlPattern: "diamond" }))).toBeNull();

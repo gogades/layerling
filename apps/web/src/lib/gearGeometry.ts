@@ -219,10 +219,13 @@ function involuteOutlineCorners(measures: InvoluteGearMeasures) {
  */
 const ROUND_ARC_STEP = (11 * Math.PI) / 180;
 
-export type RoundGearMeasures = {
+/**
+ * A round wave round a circle (#201): `teeth` convex arcs over the tips and as many concave arcs
+ * over the roots between them, each touching the next smoothly. Round gear teeth and the round
+ * knurl are both one.
+ */
+export type RoundWave = {
   teeth: number;
-  module: number;
-  pitchRadius: number;
   tipRadius: number;
   rootRadius: number;
   /** The tooth's arc: its centre's distance from the axis, on the tooth's centre line, and its radius. */
@@ -231,25 +234,23 @@ export type RoundGearMeasures = {
   /** The gap's arc, on the gap's centre line half a pitch further on. */
   gapCentre: number;
   gapRadius: number;
+  /** The angle of the first tooth's centre line, from +x towards +z. */
+  firstCentre: number;
+};
+
+export type RoundGearMeasures = RoundWave & {
+  module: number;
+  pitchRadius: number;
 };
 
 /**
- * Round teeth (#201, like Tinkercad's Useful gear): each tooth one convex arc, each gap one
- * concave arc, every arc running smoothly into the next. The tip sits ROUND_GEAR_ADDENDUM modules
- * above the pitch circle, the root ROUND_GEAR_DEDENDUM below it - a quarter module of room for the
- * other gear's tip - and the tooth is as thick on the pitch circle as half a pitch less half the
- * backlash, so round gears with the same module mesh. Forgiving to print small, and a smooth grip
- * on a knob.
+ * The round wave with its tips on `tipRadius`, its roots on `rootRadius`, and each tooth
+ * `halfThickness` (an angle from its centre line) wide on each side where it crosses `midRadius`.
+ * Two arcs per pitch cannot stand deeper than about half a pitch without bulging at the foot -
+ * the callers keep their teeth lower than that.
  */
-export function roundGearMeasures(width: number, depth: number, options: Pick<WorkplaneShape, "teeth" | "gearBacklash">): RoundGearMeasures {
-  const teeth = normalizeGearTeeth(options.teeth);
-  const module = involuteGearModule(width, depth, teeth, "round");
-  const backlash = normalizeGearBacklash(options.gearBacklash, module);
-  const pitchRadius = (module * teeth) / 2;
-  const tipRadius = pitchRadius + ROUND_GEAR_ADDENDUM * module;
-  const rootRadius = Math.max(pitchRadius * 0.2, pitchRadius - ROUND_GEAR_DEDENDUM * module);
+export function roundWave(teeth: number, tipRadius: number, rootRadius: number, midRadius: number, halfThickness: number, firstCentre: number): RoundWave {
   const half = Math.PI / teeth;
-  const target = half / 2 - backlash / (4 * pitchRadius);
   const gapCos = Math.cos(half);
   const gapSin = Math.sin(half);
   // For a tooth arc of radius rt: the gap arc that touches it, found by halving.
@@ -269,7 +270,7 @@ export function roundGearMeasures(width: number, depth: number, options: Pick<Wo
     }
     return { toothCentre, gapRadius: low, gapCentre: rootRadius + low };
   };
-  // How thick the tooth is on the pitch circle, as the angle from its centre line.
+  // How thick the tooth is on the middle circle, as the angle from its centre line.
   const thickness = (toothRadius: number) => {
     const gap = gapFor(toothRadius);
     if (!gap) return null;
@@ -277,19 +278,40 @@ export function roundGearMeasures(width: number, depth: number, options: Pick<Wo
     const towards = toothRadius / (toothRadius + gapRadius);
     const touchX = toothCentre + (gapCentre * gapCos - toothCentre) * towards;
     const touchZ = gapCentre * gapSin * towards;
-    const angleAt = (centre: number, radius: number) => Math.acos(clamp((pitchRadius ** 2 + centre ** 2 - radius ** 2) / (2 * pitchRadius * centre), -1, 1));
-    return Math.hypot(touchX, touchZ) <= pitchRadius ? angleAt(toothCentre, toothRadius) : half - angleAt(gapCentre, gapRadius);
+    const angleAt = (centre: number, radius: number) => Math.acos(clamp((midRadius ** 2 + centre ** 2 - radius ** 2) / (2 * midRadius * centre), -1, 1));
+    return Math.hypot(touchX, touchZ) <= midRadius ? angleAt(toothCentre, toothRadius) : half - angleAt(gapCentre, gapRadius);
   };
-  let low = module * 0.05;
-  let high = tipRadius - rootRadius;
+  const depth = Math.max(1e-6, tipRadius - rootRadius);
+  let low = depth * 0.02;
+  let high = depth;
   for (let step = 0; step < 60; step += 1) {
     const middle = (low + high) / 2;
     const at = thickness(middle);
-    if (at !== null && at < target) low = middle;
+    if (at !== null && at < halfThickness) low = middle;
     else high = middle;
   }
-  const gap = gapFor(low) ?? { toothCentre: tipRadius - low, gapRadius: module * 0.05, gapCentre: rootRadius + module * 0.05 };
-  return { teeth, module, pitchRadius, tipRadius, rootRadius, toothCentre: gap.toothCentre, toothRadius: low, gapCentre: gap.gapCentre, gapRadius: gap.gapRadius };
+  const gap = gapFor(low) ?? { toothCentre: tipRadius - low, gapRadius: depth * 0.02, gapCentre: rootRadius + depth * 0.02 };
+  return { teeth, tipRadius, rootRadius, toothCentre: gap.toothCentre, toothRadius: low, gapCentre: gap.gapCentre, gapRadius: gap.gapRadius, firstCentre };
+}
+
+/**
+ * Round teeth (#201, like Tinkercad's Useful gear): each tooth one convex arc, each gap one
+ * concave arc, every arc running smoothly into the next. The tip sits ROUND_GEAR_ADDENDUM modules
+ * above the pitch circle, the root ROUND_GEAR_DEDENDUM below it - a quarter module of room for the
+ * other gear's tip - and the tooth is as thick on the pitch circle as half a pitch less half the
+ * backlash, so round gears with the same module mesh. Forgiving to print small, and a smooth grip
+ * on a knob.
+ */
+export function roundGearMeasures(width: number, depth: number, options: Pick<WorkplaneShape, "teeth" | "gearBacklash">): RoundGearMeasures {
+  const teeth = normalizeGearTeeth(options.teeth);
+  const module = involuteGearModule(width, depth, teeth, "round");
+  const backlash = normalizeGearBacklash(options.gearBacklash, module);
+  const pitchRadius = (module * teeth) / 2;
+  const tipRadius = pitchRadius + ROUND_GEAR_ADDENDUM * module;
+  const rootRadius = Math.max(pitchRadius * 0.2, pitchRadius - ROUND_GEAR_DEDENDUM * module);
+  const halfThickness = Math.PI / teeth / 2 - backlash / (4 * pitchRadius);
+  const wave = roundWave(teeth, tipRadius, rootRadius, pitchRadius, halfThickness, involuteToothCentre(teeth, 0));
+  return { ...wave, module, pitchRadius };
 }
 
 /**
@@ -297,9 +319,9 @@ export function roundGearMeasures(width: number, depth: number, options: Pick<Wo
  * +z): the tooth arc from its left touch point over the tip to its right one, then the gap arc from
  * there over the root to the next tooth's left touch point.
  */
-export function roundToothArcs(measures: RoundGearMeasures, index: number) {
+export function roundToothArcs(measures: RoundWave, index: number) {
   const { teeth, toothCentre, toothRadius, gapCentre, gapRadius } = measures;
-  const centre = involuteToothCentre(teeth, index);
+  const centre = measures.firstCentre + (index / teeth) * Math.PI * 2;
   const half = Math.PI / teeth;
   const gapX = gapCentre * Math.cos(half);
   const gapZ = gapCentre * Math.sin(half);
@@ -321,7 +343,7 @@ export function roundToothArcs(measures: RoundGearMeasures, index: number) {
 }
 
 /** The round outline as corners on circles, for the display mesh and the helical body. */
-function roundOutlineCorners(measures: RoundGearMeasures) {
+export function roundWaveCorners(measures: RoundWave) {
   const corners: Array<{ angle: number; radiusX: number; radiusZ: number }> = [];
   const push = (x: number, z: number) => {
     const radius = Math.hypot(x, z);
@@ -455,7 +477,7 @@ export function gearOutlineCorners(width: number, depth: number, options: GearOu
     return involuteOutlineCorners(involuteGearMeasures(safeWidth, safeDepth, options));
   }
   if (normalizeGearProfile(options.gearProfile) === "round") {
-    return roundOutlineCorners(roundGearMeasures(safeWidth, safeDepth, options));
+    return roundWaveCorners(roundGearMeasures(safeWidth, safeDepth, options));
   }
   const teeth = normalizeGearTeeth(options.teeth);
   const toothSize = normalizeGearToothSize(options.toothSize, safeWidth, safeDepth);

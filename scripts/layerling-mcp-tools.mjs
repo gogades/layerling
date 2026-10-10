@@ -113,7 +113,7 @@ export const shapeSettingSchema = {
   honeycombCellSize: { type: "number", description: "Honeycomb only: cell diameter / distance across flats in mm (3 to 50)." },
   honeycombWallThickness: { type: "number", description: "Honeycomb only: wall thickness between cells in mm (0.4 to 10)." },
   honeycombFrameWidth: { type: "number", description: "Honeycomb only: solid frame border width around grid in mm (0 to 50)." },
-  knurlPattern: { type: "string", enum: ["straight", "diamond"], description: "Knurl only: \"straight\" grooves along the axis (default; an exact CAD body, so the edge tool works on it) or \"diamond\", two slanted rows crossing into small diamonds (a mesh). A knurl is a round grip: width is the diameter (depth follows), height the length." },
+  knurlPattern: { type: "string", enum: ["straight", "diamond", "round"], description: "Knurl only: \"straight\" grooves along the axis (default; an exact CAD body, so the edge tool works on it), \"diamond\", two slanted rows crossing into small diamonds (a mesh), or \"round\", straight grooves and ridges as a smooth wave of arcs, a pleasant grip for knobs (an exact body; its depth stays below 0.45 of the pitch round the grip). A knurl is a round grip: width is the diameter (depth follows), height the length." },
   knurlCount: { type: "number", description: "Knurl only: number of grooves around the grip, 6 up to what fits at a 0.8 mm pitch around the diameter, at most 180 (default 30)." },
   knurlDepth: { type: "number", description: "Knurl only: depth of a groove in mm, 0.1 up to a third of the radius (default 0.6)." },
   knurlAngle: { type: "number", description: "Diamond knurl only: angle of the grooves to the axis in degrees, 10 to 60 (default 30)." },

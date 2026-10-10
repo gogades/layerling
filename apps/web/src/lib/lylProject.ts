@@ -1378,8 +1378,8 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
       const value = finiteNumber(definition[key], `${label}.${key}`);
       if (value < 0 || value > 1e6) throw new Error(`${label}.${key} is outside the supported range`);
     }
-    if (definition.knurlPattern !== undefined && definition.knurlPattern !== "straight" && definition.knurlPattern !== "diamond") {
-      throw new Error(`${label}.knurlPattern must be straight or diamond`);
+    if (definition.knurlPattern !== undefined && definition.knurlPattern !== "straight" && definition.knurlPattern !== "diamond" && definition.knurlPattern !== "round") {
+      throw new Error(`${label}.knurlPattern must be straight, diamond or round`);
     }
   }
   if (kind === "hinge") {

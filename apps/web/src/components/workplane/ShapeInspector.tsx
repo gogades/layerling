@@ -143,7 +143,7 @@ import { MAX_DOVETAIL_CLEARANCE, normalizeDovetailClearance, normalizeDovetailNe
 import { DEFAULT_SKETCH_STROKE, MAX_SKETCH_STROKE_WIDTH, MIN_SKETCH_STROKE_WIDTH, normalizeSketchStroke, SKETCH_STROKE_JOINS } from "@/lib/sketchStroke";
 import { MIN_SLOT_END_RATIO, normalizeSlotEndRatio, taperedSlotOutline } from "@/lib/slotGeometry";
 import { loftMeasures, loftShapePatch, loftTiltLimit, maxLoftWall, MAX_LOFT_SIDES, MAX_LOFT_TWIST, MIN_LOFT_SIDES, MIN_LOFT_SIZE, normalizeLoftOutline, type LoftMeasures } from "@/lib/loftGeometry";
-import { MAX_KNURL_ANGLE, MIN_KNURL_ANGLE, MIN_KNURL_COUNT, MIN_KNURL_DEPTH, knurlSettings, maxKnurlChamfer, maxKnurlCount, maxKnurlDepth, normalizeKnurlAngle, normalizeKnurlChamfer, normalizeKnurlCount, normalizeKnurlDepth, normalizeKnurlPattern } from "@/lib/knurlGeometry";
+import { MAX_KNURL_ANGLE, MIN_KNURL_ANGLE, MIN_KNURL_COUNT, MIN_KNURL_DEPTH, knurlSettings, maxKnurlChamfer, maxKnurlCount, maxKnurlDepth, maxRoundKnurlDepth, normalizeKnurlAngle, normalizeKnurlChamfer, normalizeKnurlCount, normalizeKnurlDepth, normalizeKnurlPattern } from "@/lib/knurlGeometry";
 import { MAX_HINGE_CLEARANCE, MAX_HINGE_KNUCKLES, MIN_HINGE_CLEARANCE, MIN_HINGE_KNUCKLES, hingePlan, minimumHingeDepth, normalizeHingeClearance, normalizeHingeKnuckles, normalizeHingeLeafThickness, normalizeHingePinDiameter } from "@/lib/hingeGeometry";
 import { useLanguage } from "@/lib/useLanguage";
 import { useMovablePanel, type MovablePanelOptions } from "@/lib/useMovablePanel";
@@ -788,14 +788,23 @@ function getShapePropertiesWithAppLimits(shape: WorkplaneShape, onUpdate: ShapeI
         id: "knurlPattern",
         label: t("prop.knurlPattern"),
         value: knurl.pattern,
-        options: [{ value: "straight", label: t("knurl.straight") }, { value: "diamond", label: t("knurl.diamond") }],
-        hint: t(knurl.pattern === "diamond" ? "knurl.diamondHint" : "knurl.straightHint"),
+        options: [{ value: "straight", label: t("knurl.straight") }, { value: "diamond", label: t("knurl.diamond") }, { value: "round", label: t("knurl.round") }],
+        hint: t(knurl.pattern === "diamond" ? "knurl.diamondHint" : knurl.pattern === "round" ? "knurl.roundHint" : "knurl.straightHint"),
         onChange: (value) => onUpdate({ knurlPattern: normalizeKnurlPattern(value) }),
       },
       { id: "diameter", label: t("prop.diameter"), value: width, min: MIN_SHAPE_SIZE, max: 160, onChange: setCylinderDiameter },
       { id: "height", label: t("prop.height"), value: shape.height, min: MIN_SHAPE_SIZE, max: 160, onChange: setHeight },
       { id: "knurlCount", label: t("prop.knurlCount"), value: knurl.count, min: MIN_KNURL_COUNT, max: maxKnurlCount(width), step: 1, onChange: (value) => onUpdate({ knurlCount: normalizeKnurlCount(value, width) }) },
-      { id: "knurlDepth", label: t("prop.knurlDepth"), value: knurl.depth, min: MIN_KNURL_DEPTH, max: maxKnurlDepth(width), step: 0.05, onChange: (value) => onUpdate({ knurlDepth: normalizeKnurlDepth(value, width) }) },
+      {
+        id: "knurlDepth",
+        label: t("prop.knurlDepth"),
+        value: knurl.depth,
+        min: MIN_KNURL_DEPTH,
+        // Round grooves stay below half a pitch, or the ridges would bulge (#201).
+        max: knurl.pattern === "round" ? Math.min(maxKnurlDepth(width), maxRoundKnurlDepth(width, knurl.count)) : maxKnurlDepth(width),
+        step: 0.05,
+        onChange: (value) => onUpdate({ knurlDepth: normalizeKnurlDepth(value, width) }),
+      },
       { id: "knurlChamfer", label: t("prop.knurlChamfer"), value: knurl.chamfer, min: 0, max: Math.max(0.05, maxKnurlChamfer(width, shape.height)), step: 0.05, onChange: (value) => onUpdate({ knurlChamfer: normalizeKnurlChamfer(value, width, shape.height) }) },
     ];
     if (knurl.pattern === "diamond") {

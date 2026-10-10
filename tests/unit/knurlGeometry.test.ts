@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createKnurlGeometry, knurlCorners, knurlSettings, knurlTwist, maxKnurlDepth, normalizeKnurlCount } from "@/lib/knurlGeometry";
+import { createKnurlGeometry, knurlCorners, knurlSettings, knurlTwist, maxKnurlDepth, normalizeKnurlCount, normalizeKnurlPattern } from "@/lib/knurlGeometry";
 import { validateClosedSolidTriangleSoup } from "@/lib/svgImport";
 
 function soup(geometry: ReturnType<typeof createKnurlGeometry>) {
@@ -44,7 +44,7 @@ describe("knurling", () => {
     expect(knurlTwist(20, 10, 45)).toBeCloseTo(1, 9);
   });
 
-  for (const pattern of ["straight", "diamond"] as const) {
+  for (const pattern of ["straight", "diamond", "round"] as const) {
     it(`builds a closed, outward ${pattern} body inside its diameter and height`, () => {
       const positions = soup(createKnurlGeometry({ width: 20, height: 12, knurlPattern: pattern, knurlCount: 24, knurlDepth: 0.8, knurlAngle: 30 }));
       expect(() => validateClosedSolidTriangleSoup(positions, pattern)).not.toThrow();
@@ -61,6 +61,20 @@ describe("knurling", () => {
       expect(Math.max(...ys)).toBeCloseTo(12, 5);
     });
   }
+
+  it("draws round knurling as a wave of arcs: ridges and groove bottoms where set, no bulge, shallower than half a pitch (#201)", () => {
+    const corners = knurlCorners(20, 18, 1.2, "round");
+    const r = corners.map((corner) => corner.radius);
+    expect(Math.max(...r)).toBeCloseTo(10, 9);
+    expect(Math.min(...r)).toBeCloseTo(8.8, 9);
+    // Smooth: far more corners than the V's two per groove, the angle always rising.
+    expect(corners.length).toBeGreaterThan(18 * 10);
+    corners.slice(1).forEach((corner, index) => expect(corner.angle).toBeGreaterThan(corners[index].angle));
+    // Too deep for its pitch, the depth gives way: 0.45 of the 2.09 mm pitch of 30 grooves on 20 mm.
+    expect(knurlSettings({ width: 20, height: 10, knurlPattern: "round", knurlCount: 30, knurlDepth: 3 }).depth).toBeCloseTo((0.45 * Math.PI * 20) / 30, 9);
+    expect(knurlSettings({ width: 20, height: 10, knurlPattern: "straight", knurlCount: 30, knurlDepth: 3 }).depth).toBeCloseTo(3, 9);
+    expect(normalizeKnurlPattern("round")).toBe("round");
+  });
 
   it("cuts away more for crossed grooves than for straight ones", () => {
     const fields = { width: 20, height: 12, knurlCount: 24, knurlDepth: 0.8, knurlAngle: 30 };
@@ -80,7 +94,7 @@ describe("knurling mesh size", () => {
 });
 
 describe("knurling chamfer", () => {
-  for (const pattern of ["straight", "diamond"] as const) {
+  for (const pattern of ["straight", "diamond", "round"] as const) {
     it(`chamfers both ends of ${pattern} knurling at 45 degrees and stays closed`, () => {
       const positions = soup(createKnurlGeometry({ width: 20, height: 12, knurlPattern: pattern, knurlCount: 24, knurlDepth: 0.8, knurlChamfer: 1.5 }));
       expect(() => validateClosedSolidTriangleSoup(positions, pattern)).not.toThrow();

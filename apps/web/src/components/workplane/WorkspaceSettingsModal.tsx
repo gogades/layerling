@@ -308,7 +308,7 @@ function specialFieldsForShape(
   }
   if (kind === "knurl") {
     return [
-      { type: "select", key: "knurlPattern", label: t("prop.knurlPattern"), defaultValue: defaults.knurlPattern ?? "straight", options: [{ value: "straight", label: t("knurl.straight") }, { value: "diamond", label: t("knurl.diamond") }] },
+      { type: "select", key: "knurlPattern", label: t("prop.knurlPattern"), defaultValue: defaults.knurlPattern ?? "straight", options: [{ value: "straight", label: t("knurl.straight") }, { value: "diamond", label: t("knurl.diamond") }, { value: "round", label: t("knurl.round") }] },
       { type: "number", key: "knurlCount", label: t("prop.knurlCount"), defaultValue: defaults.knurlCount ?? 30, min: 6, max: 180, step: 1 },
       { type: "number", key: "knurlDepth", label: t("prop.knurlDepth"), defaultValue: defaults.knurlDepth ?? 0.6, min: 0.1, max: Math.max(0.2, dimensions.width / 6), step: 0.05, unit: "mm" },
       { type: "number", key: "knurlAngle", label: t("prop.knurlAngle"), defaultValue: defaults.knurlAngle ?? 30, min: 10, max: 60, step: 1, unit: "°" },
