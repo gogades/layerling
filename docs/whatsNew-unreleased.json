@@ -28,5 +28,15 @@
       "de": "Ein eingetippter Hex-Wert im Farbfeld der Einstellungen wird jetzt mit Enter übernommen und geht beim Schließen nicht mehr verloren.",
       "en": "A hex value typed into a colour field of the settings is now taken with Enter and no longer lost when the picker closes."
     }
+  },
+  {
+    "title": {
+      "de": "Punkt oder Komma überall",
+      "en": "Point or comma everywhere"
+    },
+    "body": {
+      "de": "Die Position der Schnittansicht und der Eckenradius in der Skizze nehmen jetzt Punkt und Komma, wie alle anderen Maßfelder.",
+      "en": "The section view's position and the corner radius in a sketch now take a point or a comma, like every other measure field."
+    }
   }
 ]

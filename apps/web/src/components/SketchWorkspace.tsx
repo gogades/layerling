@@ -738,7 +738,7 @@ export function SketchWorkspace({
 
   const handleApplyCorner = () => {
     if (!selectedPoint || !activeCornerDialog) return;
-    const val = parseFloat(cornerValue.replace(",", "."));
+    const val = parseMeasurementInput(cornerValue);
     if (!Number.isFinite(val) || val <= 0) return;
     if (activeCornerDialog === "fillet") {
       onApplyFillet?.(selectedPoint.id, val);
@@ -2215,10 +2215,11 @@ export function SketchWorkspace({
               <span className="sketch-corner-label">
                 {activeCornerDialog === "fillet" ? t("sketch.filletRadius") : t("sketch.chamferDistance")}
               </span>
+              {/* Text, not a number input: such a field reads the decimal mark by the browser's
+                  language, and a German one refused "2.5" (#210). Comma, point and sums all work. */}
               <input
-                type="number"
-                min="0.1"
-                step="0.5"
+                type="text"
+                inputMode="decimal"
                 className="sketch-corner-input"
                 value={cornerValue}
                 onChange={(e) => setCornerValue(e.target.value)}

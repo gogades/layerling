@@ -63,7 +63,7 @@ import { createBentTubeGeometry, createBentTubeSegmentGeometry } from "@/lib/ben
 import { createThreadGeometry } from "@/lib/threadGeometry";
 import { createSpringGeometry } from "@/lib/springGeometry";
 import { createTextGeometry } from "@/lib/textGeometry";
-import { displayStepFromMillimeters, displayToMillimeters, formatLengthMm, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseLengthMm, parseMeasurementInput, resolveLengthMm, setLengthUnit } from "@/lib/measurementUnits";
+import { displayToMillimeters, formatLengthMm, formatMeasurementNumber, lengthDisplayUnit, millimetersToDisplay, parseLengthMm, parseMeasurementInput, resolveLengthMm, setLengthUnit } from "@/lib/measurementUnits";
 import {
   computeCornerRulerRelativeCoordinates,
   cornerRulerDimensionMatchesFromCorner,
@@ -4462,6 +4462,9 @@ export function WorkplaneViewport({
   const sectionMeasureOverlayRef = useRef<SectionMeasureOverlayState | null>(null);
   // Mitte des Feinreglers: folgt jeder Aenderung, die nicht vom Feinregler selbst kommt.
   const [sectionFineAnchor, setSectionFineAnchor] = useState(DEFAULT_SECTION_SETTINGS.offset);
+  // The section position as typed, until Enter or leaving the field takes it (#210); Escape drops it.
+  const [sectionOffsetDraft, setSectionOffsetDraft] = useState<string | null>(null);
+  const sectionOffsetCancelRef = useRef(false);
   const sectionFineDraggingRef = useRef(false);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const threeRef = useRef<ThreeState | null>(null);
@@ -9469,14 +9472,31 @@ export function WorkplaneViewport({
                             <div className="section-slider-head">
                               <span className="section-label">{t("camera.sectionOffset")}</span>
                               <div className="section-number-wrap">
+                                {/* Text, not a number input: such a field reads the decimal mark by the
+                                    browser's language, and a German one refused "12.5" (#210). */}
                                 <input
-                                  type="number"
+                                  type="text"
+                                  inputMode="decimal"
                                   className="section-number-input"
-                                  step={displayStepFromMillimeters(fine.step * 10, workspace)}
-                                  value={shown}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    if (!Number.isNaN(val)) handleSectionOffsetChange(sign * displayToMillimeters(val, workspace));
+                                  value={sectionOffsetDraft ?? String(shown)}
+                                  onFocus={(e) => {
+                                    setSectionOffsetDraft(String(shown));
+                                    e.currentTarget.select();
+                                  }}
+                                  onChange={(e) => setSectionOffsetDraft(e.target.value)}
+                                  onBlur={() => {
+                                    const val = parseMeasurementInput(sectionOffsetDraft ?? "");
+                                    if (!sectionOffsetCancelRef.current && Number.isFinite(val)) handleSectionOffsetChange(sign * displayToMillimeters(val, workspace));
+                                    sectionOffsetCancelRef.current = false;
+                                    setSectionOffsetDraft(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") e.currentTarget.blur();
+                                    if (e.key === "Escape") {
+                                      e.stopPropagation();
+                                      sectionOffsetCancelRef.current = true;
+                                      e.currentTarget.blur();
+                                    }
                                   }}
                                   aria-label={t("camera.sectionOffset")}
                                 />
