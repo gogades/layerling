@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import type { ManifoldToplevel } from "manifold-3d";
 import { FilePlus2, LoaderCircle, Monitor, Trash2, Type, X } from "lucide-react";
 import { MovableToolPanel } from "@/components/workplane/MovableToolPanel";
@@ -8,7 +8,7 @@ import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { CustomFontError, typefaceFromFontFile, type CustomTypeface } from "@/lib/customFonts";
 import { deleteStoredCustomFont, onStoredCustomFontsChanged, storeCustomFont, storedCustomFonts } from "@/lib/customFontStore";
 import { t } from "@/lib/i18n";
-import { listSystemFonts, systemFontsSupported, SystemFontsDeniedError, type SystemFont } from "@/lib/systemFonts";
+import { listSystemFonts, systemFontsNeedHttps, systemFontsSupported, SystemFontsDeniedError, type SystemFont } from "@/lib/systemFonts";
 import { customFontList, onCustomFontsChanged } from "@/lib/textFonts";
 import { useLanguage } from "@/lib/useLanguage";
 
@@ -55,7 +55,25 @@ export function FontManagerPanel({
   const [systemFonts, setSystemFonts] = useState<SystemFont[] | null>(null);
   const [query, setQuery] = useState("");
   const systemSupported = systemFontsSupported();
+  const systemNeedsHttps = systemFontsNeedHttps();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dropping, setDropping] = useState(false);
+  // A font file dragged in - from the Fonts folder in Explorer, which file dialogs hide.
+  const dropProps = {
+    onDragOver: (event: DragEvent) => {
+      if (!event.dataTransfer.types.includes("Files")) return;
+      event.preventDefault();
+      setDropping(true);
+    },
+    onDragLeave: () => setDropping(false),
+    onDrop: (event: DragEvent) => {
+      if (!event.dataTransfer.files.length) return;
+      event.preventDefault();
+      setDropping(false);
+      const file = event.dataTransfer.files[0];
+      void add(async () => ({ bytes: await file.arrayBuffer(), name: file.name }));
+    },
+  };
 
   useEffect(() => {
     const refresh = () => {
@@ -142,8 +160,11 @@ export function FontManagerPanel({
             </button>
           ) : null}
         </div>
+        <div className={`font-manager-drop ${dropping ? "active" : ""}`} {...dropProps}>
+          {t("font.dropHint")}
+        </div>
         <small className="font-manager-note">{t("font.addFileHint")}</small>
-        {!systemSupported ? <small className="font-manager-note">{t("font.systemUnsupported")}</small> : null}
+        {!systemSupported ? <small className="font-manager-note">{t(systemNeedsHttps ? "font.systemNeedsHttps" : "font.systemUnsupported")}</small> : null}
         {busy ? <p className="font-manager-busy" role="status"><LoaderCircle size={16} className="edge-modifier-spinner" /> {t("font.reading")}</p> : null}
         {error ? <p className="font-manager-error" role="alert">{error}</p> : null}
 

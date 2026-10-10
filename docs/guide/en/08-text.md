@@ -20,7 +20,8 @@ The edges of text can be chamfered or filleted too, straight or curved, see [Bre
 
 Besides the seven built-in fonts you can use any font of your own: a font file from your computer or, in Chrome and Edge, a font installed on your computer. Choose {{ui:font.manage}} at the bottom of {{ui:prop.font}}. The {{ui:font.title}} window opens.
 
-- **{{ui:font.addFile}}** takes a TrueType file (`.ttf`), an OpenType file (`.otf`) or a WOFF file (`.woff`). On Windows the installed fonts live in `C:\Windows\Fonts`, on a Mac in `/Library/Fonts` and `~/Library/Fonts`.
+- **{{ui:font.addFile}}** takes a TrueType file (`.ttf`), an OpenType file (`.otf`) or a WOFF file (`.woff`). You can also simply drag the file into the window.
+- **On Windows** the installed fonts live in the Fonts folder (`C:\Windows\Fonts`). The browser's file dialog hides it. Open it in Explorer instead and drag the font into the {{ui:font.title}} window. Fonts installed for you alone live in `%LOCALAPPDATA%\Microsoft\Windows\Fonts`, which the file dialog shows too. On a Mac fonts live in `/Library/Fonts` and `~/Library/Fonts`.
 - **{{ui:font.fromSystem}}** lists the fonts installed on your computer. The first time, the browser asks whether layerling may read them. The search field finds a font quickly, a click takes it.
 
 If a text is selected, it gets the new font at once. Otherwise the font shows up under {{ui:prop.font}} in the {{ui:font.customGroup}} group, and {{ui:font.use}} in the window puts it on the selected texts. Fonts of your own work like the built-in ones: text on a circular arc, chamfers and fillets on the edges and the STEP export all work the same. Letters a font lacks are taken from Sans.
@@ -34,7 +35,7 @@ If a text is selected, it gets the new font at once. Otherwise the font shows up
 | Safari on a Mac | yes | no |
 | Tablet and phone | yes, from the device's files | no |
 
-Web pages may not simply read the installed fonts. Only Chrome and Edge have a permission for it. In the other browsers you choose the font file from the fonts folder, with the same result. If you declined the question in Chrome or Edge, allow it again in the site settings, behind the padlock to the left of the address.
+Web pages may not simply read the installed fonts. Only Chrome and Edge have a permission for it, and only on secure pages, over `https` as on layerling.com. When layerling runs over `http`, say on your own server or as a Docker install in your home network, {{ui:font.fromSystem}} is missing; drag the font over from Explorer then. In the other browsers you choose the font file from the fonts folder, with the same result. If you declined the question in Chrome or Edge, allow it again in the site settings, behind the padlock to the left of the address.
 
 layerling cannot read WOFF2 files (there is almost always a TTF or OTF version), font collections (`.ttc`, several fonts in one file) or colour emoji fonts. From very large fonts, such as Chinese ones, layerling takes the first 8000 characters. A variable font is read in its default setting, usually the regular weight.
 

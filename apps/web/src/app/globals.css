@@ -15068,3 +15068,18 @@ html[data-theme="dark"] .history-view-slider .range-control input[type="range"]:
 .font-manager-row small {
   opacity: 0.75;
 }
+
+.font-manager-drop {
+  padding: 12px;
+  text-align: center;
+  line-height: 1.35;
+  border: 1px dashed color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 8px;
+  opacity: 0.85;
+}
+
+.font-manager-drop.active {
+  opacity: 1;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-style: solid;
+}

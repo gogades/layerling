@@ -13,6 +13,17 @@ export function systemFontsSupported() {
   return typeof window !== "undefined" && typeof (window as LocalFontWindow).queryLocalFonts === "function";
 }
 
+/**
+ * Chrome and Edge offer installed fonts only on secure pages: layerling.com over https, or
+ * localhost. Served over plain http - a home server, a Docker install in the house - the
+ * function is simply missing. True when that is the reason it is missing here.
+ */
+export function systemFontsNeedHttps() {
+  if (typeof window === "undefined" || window.isSecureContext || systemFontsSupported()) return false;
+  // The user agent string, not userAgentData: that one is missing on http pages too.
+  return /\b(Chrome|Edg)\//.test(navigator.userAgent) && !/\b(Mobile|Android)\b/.test(navigator.userAgent);
+}
+
 /** Thrown when the browser was not allowed to read the installed fonts. */
 export class SystemFontsDeniedError extends Error {}
 

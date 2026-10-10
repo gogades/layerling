@@ -7097,6 +7097,14 @@ html[data-theme="dark"]:where([data-palette="graphite"]) .history-view-slider .r
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
+:where(html[data-theme="dark"][data-palette="graphite"]) .font-manager-drop {
+  border: 1px dashed color-mix(in srgb, currentColor 35%, transparent);
+}
+
+:where(html[data-theme="dark"][data-palette="graphite"]) .font-manager-drop.active {
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section-tools,
 :where(html[data-theme="dark"][data-palette="graphite"]) .toolbar-section .action-buttons {
   background: var(--toolbar-tile);

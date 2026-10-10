@@ -1,5 +1,6 @@
 import type { ManifoldToplevel } from "manifold-3d";
 import type { FontData } from "three/examples/jsm/loaders/FontLoader.js";
+import { sha256Hex } from "@/lib/projectAssets";
 
 /*
  * Fonts of one's own for the text shape: a TrueType or OpenType file chosen from disk, or a font
@@ -42,10 +43,13 @@ export function isCustomFontId(value: unknown): value is `custom:${string}` {
   return typeof value === "string" && value.startsWith(CUSTOM_FONT_PREFIX) && /^custom:[0-9a-f]{16}$/.test(value);
 }
 
-/** The id a font file gets: the same file has the same id on every computer. */
+/**
+ * The id a font file gets: the same file has the same id on every computer. The browser's own
+ * hashing exists only on https pages; the app's SHA-256 falls back to its own over http (a home
+ * server, a Docker install in the house), with the same result.
+ */
 export async function customFontId(bytes: ArrayBuffer) {
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-  return CUSTOM_FONT_PREFIX + [...digest.slice(0, 8)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return CUSTOM_FONT_PREFIX + (await sha256Hex(new Uint8Array(bytes))).slice(0, 16);
 }
 
 /** A clean display name: what the font calls itself, or the file's name. */

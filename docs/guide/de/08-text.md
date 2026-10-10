@@ -20,7 +20,8 @@ Auch die Kanten einer Schrift lassen sich fasen oder verrunden, gerade oder gebo
 
 Neben den sieben mitgelieferten Schriften kannst du jede eigene Schrift nehmen: eine Schriftdatei von deinem Rechner oder, in Chrome und Edge, eine Schrift, die auf deinem Computer installiert ist. Wähle dazu unter {{ui:prop.font}} ganz unten {{ui:font.manage}}. Es öffnet sich das Fenster {{ui:font.title}}.
 
-- **{{ui:font.addFile}}** nimmt eine TrueType-Datei (`.ttf`), eine OpenType-Datei (`.otf`) oder eine WOFF-Datei (`.woff`). Unter Windows liegen die installierten Schriften in `C:\Windows\Fonts`, am Mac in `/Library/Fonts` und `~/Library/Fonts`.
+- **{{ui:font.addFile}}** nimmt eine TrueType-Datei (`.ttf`), eine OpenType-Datei (`.otf`) oder eine WOFF-Datei (`.woff`). Du kannst die Datei auch einfach in das Fenster ziehen.
+- **Unter Windows** liegen die installierten Schriften im Ordner „Schriftarten“ (`C:\Windows\Fonts`). Den blendet der Dateidialog des Browsers aus. Öffne ihn stattdessen im Explorer und zieh die gewünschte Schrift in das Fenster {{ui:font.title}}. Schriften, die nur für dich installiert sind, liegen in `%LOCALAPPDATA%\Microsoft\Windows\Fonts`; diesen Ordner zeigt auch der Dateidialog. Am Mac liegen Schriften in `/Library/Fonts` und `~/Library/Fonts`.
 - **{{ui:font.fromSystem}}** listet die Schriften, die auf deinem Computer installiert sind. Beim ersten Mal fragt der Browser, ob layerling sie lesen darf. Über das Suchfeld findest du eine Schrift schnell, ein Klick übernimmt sie.
 
 Ist gerade ein Text ausgewählt, bekommt er die neue Schrift sofort. Sonst steht sie danach unter {{ui:prop.font}} in der Gruppe {{ui:font.customGroup}}, und mit {{ui:font.use}} im Fenster setzt du sie auf die ausgewählten Texte. Eigene Schriften verhalten sich wie die mitgelieferten: Text auf dem Kreisbogen, Fasen und Rundungen an den Kanten und der STEP-Export gehen genauso. Buchstaben, die eine Schrift nicht hat, nimmt layerling aus Sans.
@@ -34,7 +35,7 @@ Ist gerade ein Text ausgewählt, bekommt er die neue Schrift sofort. Sonst steht
 | Safari am Mac | ja | nein |
 | Tablet und Handy | ja, aus den Dateien des Geräts | nein |
 
-Webseiten dürfen die installierten Schriften nicht einfach lesen. Nur Chrome und Edge haben dafür eine eigene Erlaubnis. In den anderen Browsern wählst du die Schriftdatei aus dem Schriftenordner, das Ergebnis ist dasselbe. Hast du die Rückfrage in Chrome oder Edge abgelehnt, gibst du den Zugriff in den Einstellungen der Website wieder frei, über das Schloss links neben der Adresse.
+Webseiten dürfen die installierten Schriften nicht einfach lesen. Nur Chrome und Edge haben dafür eine eigene Erlaubnis, und auch die nur auf sicheren Seiten, also über `https` wie bei layerling.com. Läuft layerling über `http`, etwa auf einem eigenen Server oder als Docker-Installation im Heimnetz, fehlt {{ui:font.fromSystem}}; dann ziehst du die Schrift aus dem Explorer herüber. In den anderen Browsern wählst du die Schriftdatei aus dem Schriftenordner, das Ergebnis ist dasselbe. Hast du die Rückfrage in Chrome oder Edge abgelehnt, gibst du den Zugriff in den Einstellungen der Website wieder frei, über das Schloss links neben der Adresse.
 
 Nicht lesen kann layerling WOFF2-Dateien (dafür gibt es fast immer eine TTF- oder OTF-Fassung), Schriftsammlungen (`.ttc`, sie enthalten mehrere Schriften in einer Datei) und farbige Emoji-Schriften. Bei sehr großen Schriften, etwa für Chinesisch, nimmt layerling die ersten 8000 Zeichen. Bei variablen Schriften gilt die Grundeinstellung der Schrift, meist der normale Schnitt.
 
