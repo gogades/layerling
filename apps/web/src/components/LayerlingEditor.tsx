@@ -7892,6 +7892,9 @@ export function LayerlingEditor({
     setSketchMeasurement(null);
     setEditingSketchShapeId(null);
     setSketchRevolvePreview(null);
+    setSketchStrokePanelOpen(false);
+    // Back to the 3D editor tab, as finishing does; otherwise the toolbar stays on an empty sketch tab (#212).
+    setToolbarMode("geometry");
     setNotice(t("status.sketchCancelled"));
   }, []);
 
