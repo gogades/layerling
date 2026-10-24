@@ -89,7 +89,7 @@ Klik på den tomme plade i stedet, og arbejdsplanet ligger fladt på det sted du
 
 På en flade snapper arbejdsplanets nulpunkt ellers til gitteret. Klik tæt på et hjørne af fladen og det sidder præcis på det hjørne. Tæt på en kant ligger det på kanten, og gitteret flugter med det; det er sådan du med vilje vælger gitterets vinkel. Uden et hjørne eller en kant løber gitteret på en liggende flade parallelt med formen, så på en vendt kasse er det vendt med den.
 
-Et klik ved siden af pladen eller [[Esc]] returnerer arbejdsplanet til grundpladen. Hurtigere er {{ui:camera.resetWorkplane}}: knappen med nedad-pilen sidder i kamerabjælken under øjet mens arbejdsplanet ligger på en flade. [[Shift]]+[[W]] lægger det direkte på den aktuelt valgte flade. Holder du [[Shift]] mens du klikker, peger planet den anden vej.
+Et klik ved siden af pladen eller [[Esc]] returnerer arbejdsplanet til grundpladen. Hurtigere er {{ui:camera.resetWorkplane}}: knappen med nedad-pilen sidder i kamerabjælken under øjet mens arbejdsplanet ligger på en flade. [[Shift]]+[[W]] lægger det direkte på den aktuelt valgte flade. Er intet valgt, lægger [[Shift]]+[[W]] det tilbage på grundpladen. Holder du [[Shift]] mens du klikker, peger planet den anden vej.
 
 Mens et arbejdsplan ligger på en flade, dukker et øje op ved siden af {{ui:camera.placeWorkplane}}. Det skjuler arbejdsplanet uden at droppe det, for et klart blik på designet: nye former lander stadig på den flade, og rotation drejer stadig omkring det. Et klik på øjet viser det igen, og det samme gør et nyt arbejdsplan.
 

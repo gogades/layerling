@@ -1611,6 +1611,13 @@ export function WorkplaneViewport({
   const tapeWholeEdgesRef = useRef(true);
   const tapeDeleteModeRef = useRef(false);
   const tapeMoveModeRef = useRef(false);
+  // Only refs and state setters, so it is the same on every render.
+  const leaveTapeSubModes = () => {
+    tapeDeleteModeRef.current = false;
+    setTapeDeleteMode(false);
+    tapeMoveModeRef.current = false;
+    setTapeMoveMode(false);
+  };
   const tapePointDragRef = useRef<TapePointDragState | null>(null);
   const tapeModelRef = useRef(tapeModel);
   const notesRef = useRef(notes);
@@ -3184,10 +3191,7 @@ export function WorkplaneViewport({
   useEffect(() => {
     if (!cruiseAsset) return;
     setTapeActive(false);
-    tapeDeleteModeRef.current = false;
-    setTapeDeleteMode(false);
-    tapeMoveModeRef.current = false;
-    setTapeMoveMode(false);
+    leaveTapeSubModes();
     tapePointDragRef.current = null;
     cornerRulerModeRef.current = false;
     setCornerRulerMode(false);
@@ -6455,13 +6459,14 @@ export function WorkplaneViewport({
     if (splitActiveRef.current) return;
     setTapeToolsOpen(false);
     setTapeActive(false);
-    tapeDeleteModeRef.current = false;
-    setTapeDeleteMode(false);
-    tapeMoveModeRef.current = false;
-    setTapeMoveMode(false);
+    leaveTapeSubModes();
     onToggleWorkplaneTool();
   }, [onToggleWorkplaneTool, setTapeActive]);
 
+  const resetPlacementWorkplane = useCallback(() => {
+    onSetPlacementWorkplane(horizontalPlacementWorkplane(), "base");
+    if (workplaneModeRef.current) onWorkplaneModeChange(false);
+  }, [onSetPlacementWorkplane, onWorkplaneModeChange]);
   const setPlacementWorkplaneAtSelection = useCallback(() => {
     if (selectedIdsRef.current.length !== 1) return false;
     const shape = shapesRef.current.find((entry) => entry.id === selectedIdsRef.current[0] && !entry.hidden);
@@ -6490,10 +6495,7 @@ export function WorkplaneViewport({
       setSectionViewOpen(false);
     }
     setTapeActive(false);
-    tapeDeleteModeRef.current = false;
-    setTapeDeleteMode(false);
-    tapeMoveModeRef.current = false;
-    setTapeMoveMode(false);
+    leaveTapeSubModes();
     if (next) {
       onWorkplaneModeChange(false);
     }
@@ -6501,10 +6503,7 @@ export function WorkplaneViewport({
 
   const activateTapeAdd = useCallback(() => {
     if (splitActiveRef.current) return;
-    tapeDeleteModeRef.current = false;
-    setTapeDeleteMode(false);
-    tapeMoveModeRef.current = false;
-    setTapeMoveMode(false);
+    leaveTapeSubModes();
     setTapeActive(true);
     onWorkplaneModeChange(false);
     onCancelCruise?.();
@@ -6544,10 +6543,7 @@ export function WorkplaneViewport({
     setTapeToolsOpen(false);
     setSectionViewOpen(false);
     setTapeActive(false);
-    tapeDeleteModeRef.current = false;
-    setTapeDeleteMode(false);
-    tapeMoveModeRef.current = false;
-    setTapeMoveMode(false);
+    leaveTapeSubModes();
     tapePointDragRef.current = null;
   }, [setTapeActive]);
 
@@ -6886,15 +6882,11 @@ export function WorkplaneViewport({
       } else if (event.key === "Escape" && workplaneModeRef.current) {
         event.preventDefault();
         // Wie ein Klick ins Leere: zurueck auf die Grundplatte, so steht es in der Anleitung (#108).
-        onSetPlacementWorkplane(horizontalPlacementWorkplane(), "base");
-        onWorkplaneModeChange(false);
+        resetPlacementWorkplane();
       } else if (event.key === "Escape" && (tapeToolsOpen || tapeModeRef.current || tapeDeleteModeRef.current || tapeMoveModeRef.current)) {
         event.preventDefault();
         setTapeActive(false);
-        tapeDeleteModeRef.current = false;
-        setTapeDeleteMode(false);
-        tapeMoveModeRef.current = false;
-        setTapeMoveMode(false);
+        leaveTapeSubModes();
         tapePointDragRef.current = null;
         setTapeToolsOpen(false);
       } else if (event.key === "Escape" && cornerRulerModeRef.current) {
@@ -6919,9 +6911,9 @@ export function WorkplaneViewport({
         else showSavedView(savedView.slot);
       } else if (key === "w") {
         event.preventDefault();
-        if (!event.shiftKey || !setPlacementWorkplaneAtSelection()) {
-          togglePlacementWorkplane();
-        }
+        // Ctrl+W would close the tab, so Shift+W with nothing selected goes back to the base plate.
+        if (event.shiftKey && selectedIdsRef.current.length === 0) resetPlacementWorkplane();
+        else if (!event.shiftKey || !setPlacementWorkplaneAtSelection()) togglePlacementWorkplane();
       } else if (key === "f" && event.shiftKey) {
         event.preventDefault();
         focusSelection();
@@ -6947,7 +6939,7 @@ export function WorkplaneViewport({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusSelection, onSetPlacementWorkplane, onWorkplaneModeChange, resetView, tapeToolsOpen, sectionViewOpen, setPlacementWorkplaneAtSelection, setTapeActive, setViewCubeFace, togglePlacementWorkplane, toggleProjection, zoomCamera]);
+  }, [focusSelection, resetPlacementWorkplane, resetView, tapeToolsOpen, sectionViewOpen, setPlacementWorkplaneAtSelection, setTapeActive, setViewCubeFace, togglePlacementWorkplane, toggleProjection, zoomCamera]);
 
   return (
     <main className="workplane-stage">
@@ -7060,10 +7052,7 @@ export function WorkplaneViewport({
                   className="workplane-reset-button"
                   aria-label={t("camera.resetWorkplane")}
                   title={t("camera.resetWorkplane")}
-                  onClick={() => {
-                    onSetPlacementWorkplane(horizontalPlacementWorkplane(), "base");
-                    if (workplaneModeRef.current) onWorkplaneModeChange(false);
-                  }}
+                  onClick={resetPlacementWorkplane}
                 >
                   <ArrowDownToLine size={22} strokeWidth={2.1} aria-hidden="true" />
                 </button>

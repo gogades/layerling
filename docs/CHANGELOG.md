@@ -6,6 +6,8 @@ code still carries it - so a lower number further down is older, not newer.
 
 ## Unreleased
 
+- **Shift+W with nothing selected puts the workplane back on the base plate:** Going back to the base plate took Esc while placing, a click beside the plate or the arrow button below the eye; there was no key for it. Ctrl+W was asked for, but the browser closes the tab with it before the page sees it, so Shift+W does it when nothing is selected (with one body selected it still places the workplane on it). It does what the arrow button does, which now shares `resetPlacementWorkplane` with Esc and the key; leaving the tape's delete and move modes is in one place (`leaveTapeSubModes`), so the viewport is 11 lines shorter. The shortcuts list has its own row for it, and the guide (View and workplane, every guide language) and the in-app guide (every language) say so. Not tried in the editor yet.
+
 ## 1.107.0
 
 - **The browser is asked once to keep the designs (a mail from a user):** layerling never called `navigator.storage.persist()`, so every browser was free to clear the designs, thumbnails and fonts first when it ran short of room. With a design in the browser it now asks once (`persistentStorage.ts`, remembered in `layerling.persistentStorageAsked`): Chrome and Edge decide on their own, Firefox asks the person once, Safari grants it only to an installed web app. The designs work either way. The guide's chapter on installing now says why installing helps on Safari: Safari clears the data of a website that has not been visited for seven days, not that of an installed app. Found by a user who lost his designs that way.

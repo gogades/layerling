@@ -80,7 +80,7 @@ Ha ehelyett az üres tárgyasztalra kattintasz, a munkasík laposan oda kerül, 
 
 Egy lapon a munkasík origója egyébként a rácshoz illeszkedik. Ha a lap egyik sarka közelébe kattintasz, pontosan arra a sarokra kerül. Egy él közelében az élre fekszik, és a rács hozzá igazodik; így szándékosan választhatod meg a rács szögét. Sarok vagy él nélkül egy fekvő lapon a rács a testtel párhuzamosan fut, így egy elforgatott dobozon vele együtt el van forgatva.
 
-Egy kattintás a tárgyasztal mellé vagy az [[Esc]] visszateszi a munkasíkot az alaplapra. Még gyorsabb a {{ui:camera.resetWorkplane}}: a lefelé mutató nyilas gomb a kamerasávon a szem alatt van, amíg a munkasík egy lapon fekszik. A [[Shift]]+[[W]] közvetlenül az épp kijelölt lapra teszi. Ha kattintás közben a [[Shift]] billentyűt nyomva tartod, a sík a másik irányba néz.
+Egy kattintás a tárgyasztal mellé vagy az [[Esc]] visszateszi a munkasíkot az alaplapra. Még gyorsabb a {{ui:camera.resetWorkplane}}: a lefelé mutató nyilas gomb a kamerasávon a szem alatt van, amíg a munkasík egy lapon fekszik. A [[Shift]]+[[W]] közvetlenül az épp kijelölt lapra teszi. Ha semmi sincs kijelölve, a [[Shift]]+[[W]] visszateszi az alaplapra. Ha kattintás közben a [[Shift]] billentyűt nyomva tartod, a sík a másik irányba néz.
 
 Amíg a munkasík egy lapon van, a {{ui:camera.placeWorkplane}} mellett megjelenik egy szem. Elrejti a munkasíkot anélkül, hogy eldobná, hogy tisztán lásd a tervet: az új alakzatok továbbra is arra a lapra kerülnek, és a forgatás is körülötte történik. A szemre kattintva újra megjelenik, és egy új munkasík megadása is megjeleníti.
 

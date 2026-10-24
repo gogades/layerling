@@ -80,7 +80,7 @@ Nove oblike se ravnajo po delovni ravnini. Na začetku je to osnovna plošča z 
 
 Na ploskvi se izhodišče delovne ravnine sicer zaskoči na mrežo. Če klikneš blizu oglišča ploskve, sedi natanko na tem ogliščku. Blizu roba leži na robu, mreža pa se uskladi z njim; tako zavestno izbereš kot mreže. Brez oglišča ali roba mreža na ležeči ploskvi teče vzporedno s telesom, pri zavrtenem kvadru torej zavrtena z njim.
 
-Klik ob ploščo ali [[Esc]] vrne delovno ravnino na osnovno ploščo. Hitreje gre z {{ui:camera.resetWorkplane}}: gumb s puščico navzdol je v vrstici kamere pod očesom, dokler ravnina leži na ploskvi. S [[Shift]]+[[W]] jo položiš neposredno na trenutno izbrano ploskev. Če pri kliku držiš [[Shift]], ravnina kaže v drugo smer.
+Klik ob ploščo ali [[Esc]] vrne delovno ravnino na osnovno ploščo. Hitreje gre z {{ui:camera.resetWorkplane}}: gumb s puščico navzdol je v vrstici kamere pod očesom, dokler ravnina leži na ploskvi. S [[Shift]]+[[W]] jo položiš neposredno na trenutno izbrano ploskev. Če ni nič izbrano, jo [[Shift]]+[[W]] vrne na osnovno ploščo. Če pri kliku držiš [[Shift]], ravnina kaže v drugo smer.
 
 Dokler delovna ravnina leži na ploskvi, se ob {{ui:camera.placeWorkplane}} pokaže oko. Skrije ravnino, ne da bi jo odstranilo, da imaš prost pogled na načrt: nove oblike še naprej pristanejo na tej ploskvi, vrti pa se še naprej okoli nje. Klik na oko jo spet prikaže, prav tako postavitev nove delovne ravnine.
 

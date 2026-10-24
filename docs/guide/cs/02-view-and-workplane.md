@@ -80,7 +80,7 @@ Kliknete-li místo toho na prázdnou podložku, rovina se vodorovně položí do
 
 Na ploše se počátek roviny běžně přichytává k mřížce. Kliknutím poblíž rohu jej umístíte přesně do rohu. U hrany se přichytí na hranu a mřížka se s ní zarovná. Tak můžete záměrně zvolit její natočení. Mimo rohy a hrany je mřížka vodorovné plochy rovnoběžná s tělesem; natočení kvádru tedy přebírá.
 
-Kliknutí mimo podložku nebo [[Esc]] vrátí rovinu na základní podložku. Rychlejší je {{ui:camera.resetWorkplane}}, tlačítko se šipkou dolů pod okem, dostupné při umístění roviny na ploše. [[Shift]]+[[W]] ji položí přímo na právě vybranou plochu. Přidržení [[Shift]] při kliknutí obrátí směr roviny.
+Kliknutí mimo podložku nebo [[Esc]] vrátí rovinu na základní podložku. Rychlejší je {{ui:camera.resetWorkplane}}, tlačítko se šipkou dolů pod okem, dostupné při umístění roviny na ploše. [[Shift]]+[[W]] ji položí přímo na právě vybranou plochu. Když není nic vybráno, [[Shift]]+[[W]] ji vrátí na základní podložku. Přidržení [[Shift]] při kliknutí obrátí směr roviny.
 
 Při umístění na ploše se vedle {{ui:camera.placeWorkplane}} objeví oko. Skryje rovinu bez zrušení jejího umístění: nové tvary dál dopadají na příslušnou plochu a otáčení používá její orientaci. Znovu ji ukáže oko nebo nastavení nové roviny.
 

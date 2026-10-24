@@ -82,7 +82,7 @@ Jeśli zamiast tego klikniesz pustą płytę, płaszczyzna robocza położy się
 
 Na ścianie początek płaszczyzny roboczej przyciąga się zwykle do siatki. Kliknij blisko narożnika ściany, a usiądzie dokładnie na tym narożniku. Blisko krawędzi położy się na krawędzi, a siatka ustawi się wzdłuż niej. Tak celowo wybierasz kąt siatki. Bez narożnika i krawędzi siatka na leżącej ścianie biegnie równolegle do bryły, więc na obróconym prostopadłościanie jest obrócona razem z nim.
 
-Kliknięcie obok płyty albo [[Esc]] przywraca płaszczyznę roboczą na płytę bazową. Jeszcze szybciej działa {{ui:camera.resetWorkplane}}: przycisk ze strzałką w dół na pasku kamery pod okiem, widoczny, dopóki płaszczyzna robocza leży na ścianie. [[Shift]]+[[W]] kładzie ją od razu na zaznaczonej ścianie. Jeśli podczas klikania przytrzymasz [[Shift]], płaszczyzna będzie zwrócona w przeciwną stronę.
+Kliknięcie obok płyty albo [[Esc]] przywraca płaszczyznę roboczą na płytę bazową. Jeszcze szybciej działa {{ui:camera.resetWorkplane}}: przycisk ze strzałką w dół na pasku kamery pod okiem, widoczny, dopóki płaszczyzna robocza leży na ścianie. [[Shift]]+[[W]] kładzie ją od razu na zaznaczonej ścianie. Gdy nic nie jest zaznaczone, [[Shift]]+[[W]] przywraca ją na płytę bazową. Jeśli podczas klikania przytrzymasz [[Shift]], płaszczyzna będzie zwrócona w przeciwną stronę.
 
 Dopóki płaszczyzna robocza leży na ścianie, obok {{ui:camera.placeWorkplane}} pojawia się oko. Ukrywa ono płaszczyznę roboczą, nie zdejmując jej, żeby projekt był lepiej widoczny: nowe kształty dalej trafiają na tę ścianę, a obracanie dalej odbywa się wokół niej. Kliknięcie oka pokazuje ją z powrotem, podobnie jak położenie nowej płaszczyzny roboczej.
 
