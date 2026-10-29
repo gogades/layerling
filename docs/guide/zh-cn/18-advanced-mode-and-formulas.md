@@ -35,7 +35,7 @@ summary: 数值栏中的公式、变量、跟随其他实体的实体、变量�
 | 位置 X、Y、Z | `$name.position.x`、`.position.y`、`.position.z` |
 | 旋转 X、Y、Z | `$name.rotation.x`、`.rotation.y`、`.rotation.z` |
 | 旋转点 X、Y、Z | `$name.pivot.x`、`.pivot.y`、`.pivot.z` |
-| 其他任何数值栏 | 它自己的名称，例如 `$gear.teeth` 或 `$tube.thickness` |
+| 锥度、扭转和形状自身的设置 | 按所属分组，例如 `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth`；输入 `$name.` 后公式编辑器会列出全部 |
 
 重命名实体会在所有使用它的公式中同时改名。已命名实体的副本——粘贴、复制或插入的——不会保留名称，因为两个实体不能共用一个名称；会有一条简短消息说明。
 

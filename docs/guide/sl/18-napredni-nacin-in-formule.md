@@ -35,7 +35,7 @@ Formula lahko bere katerokoli polje telesa, ki ima ime spremenljivke. Dodelite g
 | Položaj X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Zasuk X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Vrtišče X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
-| Katerokoli drugo polje | njegovo lastno ime, na primer `$gear.teeth` ali `$tube.thickness` |
+| Zožitev, zasuk in lastne nastavitve oblike | razvrščene po tem, kamor spadajo, na primer `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth`; po `$name.` jih urejevalnik formul našteje vse |
 
 Če telo preimenujete, se ime spremeni v vsaki formuli, ki ga uporablja. Kopija poimenovanega telesa - prilepljena, podvojena ali vstavljena - imena ne obdrži, saj dve telesi ne moreta imeti istega; kratko sporočilo to pove.
 
