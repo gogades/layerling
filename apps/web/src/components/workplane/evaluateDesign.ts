@@ -1,7 +1,7 @@
 import { propertyUsesLengthUnit, shapeNumberFields, type RangePropertyConfig } from "@/components/workplane/ShapeInspector";
 import { SELF_VARIABLE_NAME, type DesignVariable } from "@/lib/designVariables";
 import { withFieldFormula } from "@/lib/fieldFormulas";
-import { evaluateFormula, formulaReferences, renameReference, shiftFormula, type FormulaError } from "@/lib/formula";
+import { evaluateFormula, formulaReferences, renameReference, shiftFormula, type FormulaError, type FormulaResult } from "@/lib/formula";
 import { t } from "@/lib/i18n";
 import { displayToMillimeters, evaluateArithmetic, millimetersToDisplay } from "@/lib/measurementUnits";
 import { shapeWithParametricSource } from "@/lib/workplaneShapes";
@@ -125,7 +125,7 @@ function designScope(shapes: WorkplaneShape[], variables: DesignVariable[], work
     // onChange set it through `capture`; TypeScript cannot see that and still thinks it null.
     return captured as Partial<WorkplaneShape> | null;
   };
-  return { working, rows, fieldsOf, resolve, reader, setField };
+  return { working, rows, shapeByName, fieldsOf, resolve, reader, setField };
 }
 
 // shortcut: only the design's top-level bodies take part; parts inside closed groups come with group editing.
@@ -339,4 +339,39 @@ export function formulaErrorText(error: DesignFormulaError) {
     case "conflict": return t("formula.errorConflict");
     default: return t("formula.errorSyntax");
   }
+}
+
+/** What a formula typed for a field of `ownerId` (none for the table) gives in the design as it stands: the live result. */
+export function formulaPreview(shapes: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings, ownerId: string | undefined, text: string): FormulaResult {
+  return evaluateFormula(text, designScope(shapes, variables, workspace).reader(ownerId));
+}
+
+export type FormulaSuggestion = { label: string; insert: string; detail: string };
+
+/**
+ * What can be typed at the end of `before` (the text up to the caret): after `$`, the table's rows, the named bodies and
+ * `self`; after `$name.`, that body's fields by the name formulas read them by. `start` is where the typed part begins.
+ */
+export function formulaSuggestions(shapes: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings, ownerId: string | undefined, before: string) {
+  const typed = /\$([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]*)*)?$/.exec(before);
+  if (!typed) return null;
+  const token = typed[1] ?? "";
+  const start = before.length - token.length;
+  const scope = designScope(shapes, variables, workspace);
+  const dot = token.indexOf(".");
+  const matching = (items: FormulaSuggestion[], prefix: string) => items.filter((item) => item.insert.toLowerCase().startsWith(prefix.toLowerCase()) && item.insert.toLowerCase() !== prefix.toLowerCase());
+  if (dot < 0) {
+    const names: FormulaSuggestion[] = [
+      ...scope.rows.map((row) => ({ label: `$${row.name}`, insert: row.name, detail: String(Number(row.value.toFixed(4))) })),
+      ...shapes.filter((shape) => shape.variableName).map((shape) => ({ label: `$${shape.variableName}`, insert: shape.variableName as string, detail: shape.name })),
+      ...(ownerId ? [{ label: `$${SELF_VARIABLE_NAME}`, insert: SELF_VARIABLE_NAME, detail: "" }] : []),
+    ];
+    return { start, items: matching(names, token) };
+  }
+  const name = token.slice(0, dot).toLowerCase();
+  const shapeId = name === SELF_VARIABLE_NAME ? ownerId : scope.shapeByName.get(name);
+  if (!shapeId) return { start, items: [] };
+  const prefix = token.slice(0, dot + 1);
+  const fields = scope.fieldsOf(shapeId).map((field) => ({ label: attributePath(field.id), insert: `${prefix}${attributePath(field.id)}`, detail: `${Number(shownValue(field, workspace).toFixed(4))}` }));
+  return { start, items: matching(fields, token) };
 }

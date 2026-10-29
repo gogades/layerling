@@ -188,3 +188,153 @@ html[data-theme="dark"] {
   color: var(--formula-mark);
   font-weight: 700;
 }
+
+/* The fx button at the end of a focused field (advanced mode) and the formula editor it opens. */
+.formula-open {
+  flex: none;
+  margin-left: 4px;
+  padding: 2px 6px;
+  color: var(--formula-mark);
+  background: var(--formula-tint);
+  border: 0;
+  border-radius: 5px;
+  font: italic 700 12px/1.2 var(--font-ui);
+  cursor: pointer;
+}
+
+.formula-editor {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  color: #584027;
+  background: rgba(254, 252, 250, 0.99);
+  border: 1px solid #dacbbb;
+  border-radius: 12px;
+  box-shadow: 0 14px 38px rgba(74, 53, 30, 0.22);
+}
+
+.formula-editor-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+
+.formula-editor-title button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.formula-editor textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: 8px;
+  color: inherit;
+  background: var(--formula-tint);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: 600 14px/1.4 var(--font-mono, ui-monospace, monospace);
+  resize: vertical;
+}
+
+.formula-editor textarea:focus {
+  border-color: var(--formula-mark);
+  outline: 0;
+}
+
+.formula-editor-suggestions {
+  display: grid;
+  max-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.formula-editor-suggestions button {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 5px 8px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.formula-editor-suggestions [aria-selected="true"] button {
+  background: var(--formula-tint);
+}
+
+.formula-editor-suggestions code {
+  color: var(--formula-mark);
+  font-weight: 700;
+}
+
+.formula-editor-suggestions span {
+  color: var(--muted-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.formula-editor-result {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: 13px;
+}
+
+.formula-editor-result.error {
+  color: var(--formula-error);
+}
+
+.formula-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.formula-editor-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 7px;
+  font: 700 13px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.formula-editor-actions .primary {
+  color: #fff;
+  background: var(--formula-mark);
+}
+
+.formula-editor-actions .primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.formula-editor-actions .secondary {
+  color: inherit;
+  background: var(--formula-tint);
+}
+
+html[data-theme="dark"] .formula-editor {
+  color: #f3ede3;
+  background: rgba(37, 27, 17, 0.99);
+  border-color: #4a3a28;
+}
