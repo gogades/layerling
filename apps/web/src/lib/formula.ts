@@ -111,3 +111,13 @@ export function evaluateFormula(text: string, references?: FormulaReferences): F
   if (error) return { ok: false, error };
   return Number.isFinite(value) ? { ok: true, value } : { ok: false, error: { kind: "math" } };
 }
+
+/** The `$` references a formula reads, as `box.position.x`, in the order they stand; the evaluator asks for each one. */
+export function formulaReferences(text: string): string[] {
+  const found: string[] = [];
+  evaluateFormula(text, (reference) => {
+    found.push(reference);
+    return 1;
+  });
+  return found;
+}
