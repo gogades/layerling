@@ -145,6 +145,10 @@ import { cloneWorkplaneShapeSnapshot, compactEdgeTreatmentHistory, edgeTreatment
 import { describeHistoryStep, historyStepsAround } from "@/lib/historyStepDescription";
 import { historyStepText } from "@/lib/historyStepText";
 import { historyViewMcpCommand } from "./workplane/historyViewMcp";
+import { designUsesFormulas } from "./workplane/evaluateDesign";
+import { DesignFormulasContext } from "./workplane/designFormulasContext";
+import { useDesignFormulas } from "./workplane/useDesignFormulas";
+import { getAdvancedMode, setAdvancedMode } from "@/lib/simpleMode";
 import { attachmentsFingerprint } from "@/lib/projectAttachments";
 import { ATTACHMENT_MCP_READ_ACTIONS, attachmentMcpCommand, attachmentMcpList } from "@/lib/projectAttachmentsMcp";
 import { appendEditorHistorySnapshot, boundedEditorHistoryState, continuesKeyRun, type KeyRun, editorHistoryBranch, editorHistoryEntry, editorHistoryForExport, historyStateAt, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, variablesForHistoryIndex, projectShapesFingerprint, workplaneForHistoryIndex, type EditorHistoryEntry, type EditorHistoryState } from "@/lib/editorHistory";
@@ -205,7 +209,7 @@ import { findShapeInHistoryState } from "@/lib/historyRestore";
 import { noteAnchorFromWorld, notesAfterShapeChange, notesPinnedTo, notesPutBack } from "@/lib/noteAnchoring";
 import { noticeReportsLastChange } from "@/lib/noticeTiming";
 import { referencePointsForBox, unionReferenceBoxes, type ReferencePointSpot, type ReferencePosition } from "@/lib/referencePoints";
-import { normalizePlacementWorkplane, placementPatchForNewShape, placementWorkplaneCoordinates, placementWorkplaneFingerprint, placementWorkplaneFromSurface, placementWorkplaneIsBase, placementWorkplanePoint, horizontalPlacementWorkplane, translationToWorkplane, type PlacementPoint, REVOLVE_REFERENCE_WORKPLANE, revolveBodyStandsUpright, type PlacementWorkplane } from "@/lib/placementWorkplane";
+import { normalizePlacementWorkplane, placementPatchForNewShape, placementWorkplaneCoordinates, placementWorkplaneFingerprint, placementWorkplaneFromSurface, placementWorkplaneIsBase, placementWorkplanePoint, placementElevationOf, horizontalPlacementWorkplane, translationToWorkplane, type PlacementPoint, REVOLVE_REFERENCE_WORKPLANE, revolveBodyStandsUpright, type PlacementWorkplane } from "@/lib/placementWorkplane";
 import { localizedError } from "@/lib/userErrors";
 import { alignNaturalCenter, type AlignPoint } from "@/lib/alignCenter";
 import { cylinderToEllipsePatch } from "@/lib/cylinderToEllipse";
@@ -1215,6 +1219,13 @@ function rebuiltParametricShape(shape: WorkplaneShape, patch: Partial<WorkplaneS
     z: targetZ,
     elevation: targetElevation,
   });
+}
+
+/** A point or direction an MCP command passes as [x, y, z], or null when it is not three finite numbers. */
+function mcpVector3(value: unknown) {
+  return Array.isArray(value) && value.length === 3 && value.every((entry) => typeof entry === "number" && Number.isFinite(entry))
+    ? new THREE.Vector3(value[0] as number, value[1] as number, value[2] as number)
+    : null;
 }
 
 /** A change from the settings panel on one shape, as `updateShape` makes it - and the two gears of "Fit module" (#645). */
@@ -3109,11 +3120,7 @@ export function LayerlingEditor({
   }, [placementWorkplaneKey]);
   const [placementElevation, setPlacementElevation] = useState(() => {
     const resolved = workplaneForHistoryIndex(initialHistory, initialHistoryIndex, initialNormalizedWorkplane) ?? initialNormalizedWorkplane;
-    return Math.abs(resolved.normal.x) < 1e-6
-      && Math.abs(resolved.normal.y - 1) < 1e-6
-      && Math.abs(resolved.normal.z) < 1e-6
-      ? resolved.origin.y
-      : Number.isFinite(initialPlacementElevation) ? initialPlacementElevation : 0;
+    return placementElevationOf(resolved, Number.isFinite(initialPlacementElevation) ? initialPlacementElevation : 0);
   });
   const [workspaceSettings, setWorkspaceSettings] = useState<WorkplaneWorkspaceSettings>(() => normalizeWorkspaceSettings(initialWorkspace));
   const bedPrinter = printerPresetById(workspaceSettings.printer);
@@ -3422,6 +3429,7 @@ export function LayerlingEditor({
   const workspaceSettingsRef = useRef(workspaceSettings);
   /** Moves the bodies on the later build plates when the plates change size; set where the plates are kept (#456). */
   const plateResizeRef = useRef<((before: WorkplaneWorkspaceSettings, after: WorkplaneWorkspaceSettings) => void) | null>(null);
+  const designFormulas = useDesignFormulas(shapesRef, selectedIdsRef, variablesRef, workspaceSettingsRef, shapeWithInspectorPatch);
 
   // "Ask before closing the tab" (a setting, off): the browser's own "Leave site?" question while a design is open. The design is saved
   // after every change anyway, so this is only a reminder; the wording is the browser's.
@@ -4899,6 +4907,9 @@ export function LayerlingEditor({
     if (!hadChanges) {
       return;
     }
+    // A drag is one edit for the formulas too: settled once it ends (see commitShapes).
+    const settled = designFormulas.settle(interactionStartShapesRef.current ?? shapesRef.current, shapesRef.current);
+    if (settled !== shapesRef.current) setShapes((shapesRef.current = settled.map(canonicalizeShape)));
 
     const entry = editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current, variablesRef.current);
     if (!startFingerprint || startFingerprint === entry.fingerprint) {
@@ -4906,7 +4917,7 @@ export function LayerlingEditor({
     }
 
     appendHistoryEntry(entry);
-  }, [appendHistoryEntry]);
+  }, [appendHistoryEntry, designFormulas]);
 
   useEffect(() => {
     if (projectInteractionActive || !pendingProjectShapesRef.current) {
@@ -5022,7 +5033,8 @@ export function LayerlingEditor({
         setNotice(t("status.historyViewBlocksEdits"));
         return;
       }
-      const canonicalNext = next.map(canonicalizeShape);
+      // The advanced mode's formulas follow the edit; outside the mode, a formula whose value it moved is dropped.
+      const canonicalNext = designFormulas.settle(shapesRef.current, next).map(canonicalizeShape);
       // Lock shape (#1277): whatever tool got this far, a part of locked shape keeps its size, name and parts.
       if (!openGroupTransitionRef.current) {
         const held = shapeLockBroken(shapesRef.current, canonicalNext);
@@ -5069,8 +5081,9 @@ export function LayerlingEditor({
         syncProjectShapes(canonicalNext);
       }
     },
-    [appendHistorySnapshot, notes, selectedIds, setOpenGroupLevels, syncProjectShapes],
+    [appendHistorySnapshot, designFormulas, notes, selectedIds, setOpenGroupLevels, syncProjectShapes],
   );
+  designFormulas.commitRef.current = commitShapes;
 
   // Several build plates side by side (Discussion #456): the bar, the active plate and what its buttons do.
   const buildPlates = useBuildPlates({
@@ -6414,7 +6427,7 @@ export function LayerlingEditor({
     if (projectId && incoming.length > 0 && hiddenNoticedProjectRef.current !== projectId) {
       hiddenNoticedProjectRef.current = projectId;
       // Said a moment later (below): a language that settles after a reload clears every standing message.
-      if (incoming.some((shape) => shape.hidden)) hiddenNoticePendingRef.current = true;
+      hiddenNoticePendingRef.current = true;
     }
   }, [initialAssets, initialAttachments, initialHistory, initialHistoryIndex, initialPlacementElevation, initialPlacementWorkplane, initialShapes, projectId, projectRevision]);
 
@@ -6425,6 +6438,12 @@ export function LayerlingEditor({
     const timer = window.setTimeout(() => {
       hiddenNoticePendingRef.current = false;
       const hidden = shapesRef.current.filter((shape) => shape.hidden).length;
+      // A design with formulas opened outside the advanced mode says so, with a way into it, unless hidden shapes need
+      // saying (one notice at a time); in the mode, the formulas are worked out.
+      if (designUsesFormulas(shapesRef.current, variablesRef.current)) {
+        if (getAdvancedMode()) designFormulas.recalculate();
+        else if (hidden === 0) return setNotice(t("advanced.formulasOnOpen"), true, { label: t("advanced.switchOn"), run: () => setAdvancedMode(true) });
+      }
       if (hidden === 0) return;
       setNotice(
         hidden === 1 ? t("status.hiddenOnOpenOne") : t("status.hiddenOnOpenMany", { count: hidden }),
@@ -6433,7 +6452,7 @@ export function LayerlingEditor({
       );
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [editorLanguage, projectId, setNotice, shapes]);
+  }, [designFormulas, editorLanguage, projectId, setNotice, shapes]);
 
   useEffect(() => {
     if (!projectId || !onProjectShapesChange) {
@@ -6952,20 +6971,11 @@ export function LayerlingEditor({
       return;
     }
     const modifierCancelled = undoing ? cancelledFirst : invalidateCadModifierSession();
-    const entry = currentHistory[nextIndex];
+    const { entry, shapes: nextShapes, selectedIds: nextSelection, notes: nextNotes, placementWorkplane: nextWorkplane, placementElevation: nextElevation } = historyStateAt(currentHistory, nextIndex)!;
     const current = currentHistory[historyIndexRef.current];
     const takenBack = modifierCancelled ? null : undoing ? describeHistoryStep(entry, current, openGroupCount) : describeHistoryStep(current, entry, openGroupCount);
-    const nextShapes = (entry?.shapes ?? []).map(canonicalizeShape);
-    const nextSelection = (entry?.selectedIds ?? []).filter((id) => nextShapes.some((shape) => shape.id === id));
-    const nextNotes = normalizeNotes(entry?.notes);
-    const nextWorkplane = normalizePlacementWorkplane(entry?.placementWorkplane);
     // A workplane that comes back or goes away is a step of its own - say so (#246).
     const workplaneChanged = placementWorkplaneFingerprint(nextWorkplane) !== placementWorkplaneFingerprint(placementWorkplaneRef.current);
-    const nextElevation = Math.abs(nextWorkplane.normal.x) < 1e-6
-      && Math.abs(nextWorkplane.normal.y - 1) < 1e-6
-      && Math.abs(nextWorkplane.normal.z) < 1e-6
-      ? nextWorkplane.origin.y
-      : 0;
     historyIndexRef.current = nextIndex;
     shapesRef.current = nextShapes;
     selectedIdsRef.current = nextSelection;
@@ -10628,11 +10638,7 @@ export function LayerlingEditor({
     const normalizedNext = normalizePlacementWorkplane(next);
     placementWorkplaneRef.current = normalizedNext;
     setPlacementWorkplane(normalizedNext);
-    const horizontalElevation = Math.abs(normalizedNext.normal.x) < 1e-6
-      && Math.abs(normalizedNext.normal.y - 1) < 1e-6
-      && Math.abs(normalizedNext.normal.z) < 1e-6
-      ? normalizedNext.origin.y
-      : 0;
+    const horizontalElevation = placementElevationOf(normalizedNext);
     placementElevationRef.current = horizontalElevation;
     setPlacementElevation(horizontalElevation);
     if (placementWorkplaneFingerprint(normalizedNext) !== placementWorkplaneFingerprint(previous)) {
@@ -13216,11 +13222,8 @@ export function LayerlingEditor({
         const movable = all.filter((shape) => ids.has(shape.id));
         if (movable.length === 0) throw new Error("place_on_face needs ids or a selection");
         if (movable.some((shape) => shape.locked)) throw new Error("Unlock the objects before moving them");
-        const vec3 = (value: unknown) => (Array.isArray(value) && value.length === 3 && value.every((entry) => typeof entry === "number" && Number.isFinite(entry))
-          ? new THREE.Vector3(value[0] as number, value[1] as number, value[2] as number)
-          : null);
-        let point = vec3(params.point);
-        let normal = vec3(params.normal);
+        let point = mcpVector3(params.point);
+        let normal = mcpVector3(params.normal);
         if (!point || !normal || normal.lengthSq() < 1e-12) {
           const target = all.find((shape) => shape.id === params.targetId);
           if (!target) throw new Error("place_on_face needs targetId (with targetFace) or point and normal");
@@ -13259,11 +13262,8 @@ export function LayerlingEditor({
         if (!target) throw new Error("perforate_face needs targetId (or exactly one selected object)");
         if (bodyLocked(target)) throw new Error("Unlock the object before perforating it");
         if (target.hole || isNonSolidShape(target)) throw new Error("perforate_face needs a solid body, not a hole");
-        const vec3 = (value: unknown) => (Array.isArray(value) && value.length === 3 && value.every((entry) => typeof entry === "number" && Number.isFinite(entry))
-          ? new THREE.Vector3(value[0] as number, value[1] as number, value[2] as number)
-          : null);
-        let point = vec3(params.point);
-        let normal = vec3(params.normal);
+        let point = mcpVector3(params.point);
+        let normal = mcpVector3(params.normal);
         if (!point || !normal || normal.lengthSq() < 1e-12) {
           const side = typeof params.targetFace === "string" && params.targetFace in LAY_FLAT_SIDES ? params.targetFace as LayFlatSide : "top";
           const [x, y, z] = LAY_FLAT_SIDES[side];
@@ -13584,11 +13584,8 @@ export function LayerlingEditor({
         if (!target) throw new Error("push_face needs targetId (or exactly one selected object)");
         if (bodyLocked(target)) throw new Error("Unlock the object before pushing its face");
         if (target.hole || isNonSolidShape(target)) throw new Error("push_face needs a solid body, not a hole");
-        const vec3 = (value: unknown) => (Array.isArray(value) && value.length === 3 && value.every((entry) => typeof entry === "number" && Number.isFinite(entry))
-          ? new THREE.Vector3(value[0] as number, value[1] as number, value[2] as number)
-          : null);
-        let point = vec3(params.point);
-        let normal = vec3(params.normal);
+        let point = mcpVector3(params.point);
+        let normal = mcpVector3(params.normal);
         if (!point || !normal || normal.lengthSq() < 1e-12) {
           const side = typeof params.targetFace === "string" && params.targetFace in LAY_FLAT_SIDES ? params.targetFace as LayFlatSide : "top";
           const [x, y, z] = LAY_FLAT_SIDES[side];
@@ -18131,6 +18128,7 @@ export function LayerlingEditor({
             strokePreview={sketchStrokePreview}
           />
         ) : (
+          <DesignFormulasContext.Provider value={designFormulas.context}>
           <WorkplaneViewport
           projectName={projectName}
           projectId={editorOpen ? projectId ?? null : null}
@@ -18293,6 +18291,7 @@ export function LayerlingEditor({
           onSectionContours={sectionContours}
           onSectionBodies={sectionBodies}
           />
+          </DesignFormulasContext.Provider>
         )}
       </div>
       {shapeContextMenu && toolbarMode === "geometry" ? (
