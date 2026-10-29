@@ -30,7 +30,7 @@ function history(): { entries: EditorHistoryEntry[]; shapes: WorkplaneShape[] } 
   let shapes: WorkplaneShape[] = [];
   for (let step = 0; step < 6; step += 1) {
     shapes = [...shapes, box(`box-${step}`, step * 25, step === 3 ? { cadBrep: "BREP-TEXT-OF-A-BODY\nsecond line" } : {})];
-    entries.push(editorHistoryEntry(shapes, [shapes[shapes.length - 1].id], [], undefined, 1_700_000_000_000 + step));
+    entries.push(editorHistoryEntry(shapes, [shapes[shapes.length - 1].id], [], undefined, [], 1_700_000_000_000 + step));
   }
   return { entries, shapes };
 }
@@ -93,7 +93,7 @@ describe("exporting a project again", () => {
     const { entries, shapes } = history();
     await exportLylProject(exportInput(entries, shapes));
     const grown = [...shapes, box("box-late", 400)];
-    const moreEntries = [...entries, editorHistoryEntry(grown, ["box-late"], [], undefined, 1_700_000_000_099)];
+    const moreEntries = [...entries, editorHistoryEntry(grown, ["box-late"], [], undefined, [], 1_700_000_000_099)];
     const exported = await exportLylProject(exportInput(moreEntries, grown));
     const restored = await importLylProject(exported);
     expect(restored.history).toHaveLength(7);

@@ -147,7 +147,7 @@ import { historyStepText } from "@/lib/historyStepText";
 import { historyViewMcpCommand } from "./workplane/historyViewMcp";
 import { attachmentsFingerprint } from "@/lib/projectAttachments";
 import { ATTACHMENT_MCP_READ_ACTIONS, attachmentMcpCommand, attachmentMcpList } from "@/lib/projectAttachmentsMcp";
-import { appendEditorHistorySnapshot, boundedEditorHistoryState, continuesKeyRun, type KeyRun, editorHistoryBranch, editorHistoryEntry, editorHistoryForExport, historyStateAt, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, projectShapesFingerprint, workplaneForHistoryIndex, type EditorHistoryEntry, type EditorHistoryState } from "@/lib/editorHistory";
+import { appendEditorHistorySnapshot, boundedEditorHistoryState, continuesKeyRun, type KeyRun, editorHistoryBranch, editorHistoryEntry, editorHistoryForExport, historyStateAt, hydrateEditorHistoryState, notesForHistoryIndex, projectSceneFingerprint, variablesForHistoryIndex, projectShapesFingerprint, workplaneForHistoryIndex, type EditorHistoryEntry, type EditorHistoryState } from "@/lib/editorHistory";
 import { snapShapeFootprintToVisibleGrid, visibleGridStep } from "@/lib/gridSnap";
 import { composedShapeRotation, geometryRotationDegreesForShortcut, geometryRotationDelta, rotatedGeometryShapePatch } from "@/lib/geometryRotation";
 import { carryShapePivot, heightPatchKeepingBase, pivotAfterJoin, shapePivotFromWorld, shapePivotWorld, type PivotPoint } from "@/lib/rotationPivot";
@@ -3414,6 +3414,8 @@ export function LayerlingEditor({
   /** Builds an SBC board from the library (#1098); set once the commit is known, read by the library's clicks and drops. */
   const placeSbcBoardRef = useRef<((point?: PlacementPoint, onFace?: PlacementWorkplane) => Promise<void>) | null>(null);
   const notesRef = useRef(notes);
+  // The advanced mode's variables table, from the history like the notes; nothing shows it yet.
+  const variablesRef = useRef(variablesForHistoryIndex(initialHistory, initialHistoryIndex));
   const projectAssetsRef = useRef(projectAssets);
   const projectAttachmentsRef = useRef(projectAttachments);
   const selectedIdsRef = useRef(selectedIds);
@@ -4885,7 +4887,7 @@ export function LayerlingEditor({
       nextWorkplane: PlacementWorkplane = placementWorkplaneRef.current,
       replaceCurrent = false,
     ) =>
-      appendHistoryEntry(editorHistoryEntry(nextShapes, nextSelection, nextNotes, nextWorkplane), replaceCurrent),
+      appendHistoryEntry(editorHistoryEntry(nextShapes, nextSelection, nextNotes, nextWorkplane, variablesRef.current), replaceCurrent),
     [appendHistoryEntry],
   );
 
@@ -4898,7 +4900,7 @@ export function LayerlingEditor({
       return;
     }
 
-    const entry = editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current);
+    const entry = editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current, variablesRef.current);
     if (!startFingerprint || startFingerprint === entry.fingerprint) {
       return;
     }
@@ -4941,7 +4943,7 @@ export function LayerlingEditor({
           finalizeInteractionHistory();
         }
         if (!projectInteractionActiveRef.current) {
-          interactionHistoryStartRef.current = projectSceneFingerprint(shapesRef.current, notesRef.current, placementWorkplaneRef.current);
+          interactionHistoryStartRef.current = projectSceneFingerprint(shapesRef.current, notesRef.current, placementWorkplaneRef.current, variablesRef.current);
           interactionHistoryChangedRef.current = false;
           interactionStartShapesRef.current = shapesRef.current;
         }
@@ -5101,7 +5103,7 @@ export function LayerlingEditor({
       const normalized = normalizeNotes(next);
       notesRef.current = normalized;
       setNotes(normalized);
-      const changed = appendHistoryEntry(editorHistoryEntry(shapesRef.current, selectedIdsRef.current, normalized, placementWorkplaneRef.current));
+      const changed = appendHistoryEntry(editorHistoryEntry(shapesRef.current, selectedIdsRef.current, normalized, placementWorkplaneRef.current, variablesRef.current));
       if (message) setNotice(message);
       // Der Abgleich mit dem Projektspeicher vergleicht Koerper. Eine Notiz
       // aendert daran nichts, also muss er hier ausdruecklich laufen.
@@ -6394,6 +6396,7 @@ export function LayerlingEditor({
     shapesRef.current = incoming;
     selectedIdsRef.current = [];
     notesRef.current = incomingNotes;
+    variablesRef.current = variablesForHistoryIndex(hydratedHistory.entries, hydratedHistory.index);
     historyRef.current = hydratedHistory.entries;
     historyIndexRef.current = hydratedHistory.index;
     setShapes(incoming);
@@ -6402,7 +6405,7 @@ export function LayerlingEditor({
     setHistory(hydratedHistory.entries);
     setHistoryIndex(hydratedHistory.index);
     // Was aus der Datei kam, ist der Stand, der auch auf dem Server liegt.
-    serverSavedFingerprintRef.current = { projectId: projectId ?? null, fingerprint: projectSceneFingerprint(incoming, incomingNotes) + attachmentsFingerprint(projectAttachmentsRef.current) };
+    serverSavedFingerprintRef.current = { projectId: projectId ?? null, fingerprint: projectSceneFingerprint(incoming, incomingNotes, undefined, variablesRef.current) + attachmentsFingerprint(projectAttachmentsRef.current) };
     // Ein geoeffneter Entwurf ist keine Meldung wert: Dass er da ist, sieht man.
     setNotice("");
     // Anders, was man nicht sieht: A design that is opened with hidden shapes says so once, with a button to show them (#489).
@@ -6933,21 +6936,25 @@ export function LayerlingEditor({
     commitShapes([...shapesRef.current, ...pasted], pasted.map((shape) => shape.id), pasted.length === 1 ? t("status.pastedOne") : t("status.pastedMany", { count: pasted.length }));
   }, [clipboard, commitShapes, workspaceSettings.pasteCentered]);
 
-  const undo = useCallback(() => {
+  /** Undo (-1) and redo (+1): the same step through the history, told apart by their messages. */
+  const stepHistory = useCallback((step: -1 | 1) => {
+    const undoing = step < 0;
     if (projectInteractionActiveRef.current) {
-      setNotice(t("status.finishBeforeUndo"));
+      setNotice(t(undoing ? "status.finishBeforeUndo" : "status.finishBeforeRedo"));
       return;
     }
-    const modifierCancelled = invalidateCadModifierSession();
+    // Undo drops a half-made edge treatment even with nothing to undo; redo leaves it then.
+    const cancelledFirst = undoing && invalidateCadModifierSession();
     const currentHistory = historyRef.current;
-    const currentIndex = historyIndexRef.current;
-    if (currentIndex <= 0) {
-      setNotice(modifierCancelled ? t("status.edgeCancelled") : t("status.nothingToUndo"));
+    const nextIndex = historyIndexRef.current + step;
+    if (nextIndex < 0 || nextIndex >= currentHistory.length) {
+      setNotice(cancelledFirst ? t("status.edgeCancelled") : t(undoing ? "status.nothingToUndo" : "status.nothingToRedo"));
       return;
     }
-    const nextIndex = currentIndex - 1;
+    const modifierCancelled = undoing ? cancelledFirst : invalidateCadModifierSession();
     const entry = currentHistory[nextIndex];
-    const undoneStep = modifierCancelled ? null : describeHistoryStep(entry, currentHistory[currentIndex], openGroupCount);
+    const current = currentHistory[historyIndexRef.current];
+    const takenBack = modifierCancelled ? null : undoing ? describeHistoryStep(entry, current, openGroupCount) : describeHistoryStep(current, entry, openGroupCount);
     const nextShapes = (entry?.shapes ?? []).map(canonicalizeShape);
     const nextSelection = (entry?.selectedIds ?? []).filter((id) => nextShapes.some((shape) => shape.id === id));
     const nextNotes = normalizeNotes(entry?.notes);
@@ -6963,6 +6970,7 @@ export function LayerlingEditor({
     shapesRef.current = nextShapes;
     selectedIdsRef.current = nextSelection;
     notesRef.current = nextNotes;
+    variablesRef.current = variablesForHistoryIndex(currentHistory, nextIndex);
     placementWorkplaneRef.current = nextWorkplane;
     placementElevationRef.current = nextElevation;
     setHistoryIndex(nextIndex);
@@ -6973,57 +6981,16 @@ export function LayerlingEditor({
     setPlacementWorkplane(nextWorkplane);
     setPlacementElevation(nextElevation);
     syncProjectShapes(nextShapes);
+    const base = placementWorkplaneIsBase(nextWorkplane);
     setNotice(modifierCancelled
-      ? t("status.edgeCancelledUndo")
-      : workplaneChanged ? t(placementWorkplaneIsBase(nextWorkplane) ? "status.undoWorkplaneBase" : "status.undoWorkplaneFace")
-        : undoneStep ? t("status.undoneStep", { step: historyStepText(undoneStep, workspaceSettingsRef.current.accuracy) }) : t("status.undo"));
+      ? t(undoing ? "status.edgeCancelledUndo" : "status.edgeCancelledRedo")
+      : workplaneChanged
+        ? t(undoing ? (base ? "status.undoWorkplaneBase" : "status.undoWorkplaneFace") : (base ? "status.redoWorkplaneBase" : "status.redoWorkplaneFace"))
+        : takenBack ? t(undoing ? "status.undoneStep" : "status.redoneStep", { step: historyStepText(takenBack, workspaceSettingsRef.current.accuracy) })
+          : t(undoing ? "status.undo" : "status.redo"));
   }, [invalidateCadModifierSession, openGroupCount, setOpenGroupLevels, syncProjectShapes]);
-
-  const redo = useCallback(() => {
-    if (projectInteractionActiveRef.current) {
-      setNotice(t("status.finishBeforeRedo"));
-      return;
-    }
-    const currentHistory = historyRef.current;
-    const currentIndex = historyIndexRef.current;
-    if (currentIndex >= currentHistory.length - 1) {
-      setNotice(t("status.nothingToRedo"));
-      return;
-    }
-    const modifierCancelled = invalidateCadModifierSession();
-    const nextIndex = currentIndex + 1;
-    const entry = currentHistory[nextIndex];
-    const redoneStep = modifierCancelled ? null : describeHistoryStep(currentHistory[currentIndex], entry, openGroupCount);
-    const nextShapes = (entry?.shapes ?? []).map(canonicalizeShape);
-    const nextSelection = (entry?.selectedIds ?? []).filter((id) => nextShapes.some((shape) => shape.id === id));
-    const nextNotes = normalizeNotes(entry?.notes);
-    const nextWorkplane = normalizePlacementWorkplane(entry?.placementWorkplane);
-    // A workplane that comes back or goes away is a step of its own - say so (#246).
-    const workplaneChanged = placementWorkplaneFingerprint(nextWorkplane) !== placementWorkplaneFingerprint(placementWorkplaneRef.current);
-    const nextElevation = Math.abs(nextWorkplane.normal.x) < 1e-6
-      && Math.abs(nextWorkplane.normal.y - 1) < 1e-6
-      && Math.abs(nextWorkplane.normal.z) < 1e-6
-      ? nextWorkplane.origin.y
-      : 0;
-    historyIndexRef.current = nextIndex;
-    shapesRef.current = nextShapes;
-    selectedIdsRef.current = nextSelection;
-    notesRef.current = nextNotes;
-    placementWorkplaneRef.current = nextWorkplane;
-    placementElevationRef.current = nextElevation;
-    setHistoryIndex(nextIndex);
-    setShapes(nextShapes);
-    setOpenGroupLevels((entry && openGroupHistoryRef.current.get(entry.fingerprint)) ?? []);
-    setNotes(nextNotes);
-    setSelectedIds(nextSelection);
-    setPlacementWorkplane(nextWorkplane);
-    setPlacementElevation(nextElevation);
-    syncProjectShapes(nextShapes);
-    setNotice(modifierCancelled
-      ? t("status.edgeCancelledRedo")
-      : workplaneChanged ? t(placementWorkplaneIsBase(nextWorkplane) ? "status.redoWorkplaneBase" : "status.redoWorkplaneFace")
-        : redoneStep ? t("status.redoneStep", { step: historyStepText(redoneStep, workspaceSettingsRef.current.accuracy) }) : t("status.redo"));
-  }, [invalidateCadModifierSession, openGroupCount, setOpenGroupLevels, syncProjectShapes]);
+  const undo = useCallback(() => stepHistory(-1), [stepHistory]);
+  const redo = useCallback(() => stepHistory(1), [stepHistory]);
 
   /**
    * Der Verlaufsblick oeffnet beim aktuellen Stand; von dort fuehrt der Schieber
@@ -8942,8 +8909,8 @@ export function LayerlingEditor({
     const current = shapesRef.current;
     if (!current.some((shape) => shape.id === staleId && projectShapesFingerprint([shape]) === fingerprint)) return false;
     const next = current.map((shape) => shape.id === staleId ? canonicalizeShape(rebuilt) : shape);
-    const scene = editorHistoryEntry(current, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current);
-    const entryNow = editorHistoryEntry(next, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current);
+    const scene = editorHistoryEntry(current, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current, variablesRef.current);
+    const entryNow = editorHistoryEntry(next, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current, variablesRef.current);
     const index = historyIndexRef.current;
     shapesRef.current = next;
     setShapes(next);
@@ -10669,7 +10636,7 @@ export function LayerlingEditor({
     placementElevationRef.current = horizontalElevation;
     setPlacementElevation(horizontalElevation);
     if (placementWorkplaneFingerprint(normalizedNext) !== placementWorkplaneFingerprint(previous)) {
-      appendHistoryEntry(editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current, normalizedNext));
+      appendHistoryEntry(editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current, normalizedNext, variablesRef.current));
       syncProjectShapes(shapesRef.current, true);
     }
     setNotice(source === "shape"
@@ -12537,7 +12504,7 @@ export function LayerlingEditor({
       return 0;
     }
     const removed = historyRef.current.length - 1;
-    const entry = editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current);
+    const entry = editorHistoryEntry(shapesRef.current, selectedIdsRef.current, notesRef.current, placementWorkplaneRef.current, variablesRef.current);
     openGroupHistoryRef.current = new Map([[entry.fingerprint, openGroupsRef.current]]);
     historyRef.current = [entry];
     historyIndexRef.current = 0;
@@ -16768,7 +16735,7 @@ export function LayerlingEditor({
     // mit demselben Inhalt. Das galt frueher als Aenderung und liess einen
     // Entwurf, den niemand angefasst hatte, kurz darauf hochladen.
     // The files of the design count as content too: one added or removed is saved to the server like a shape.
-    const fingerprint = projectSceneFingerprint(shapes, notes) + attachmentsFingerprint(projectAttachments);
+    const fingerprint = projectSceneFingerprint(shapes, notes, undefined, variablesRef.current) + attachmentsFingerprint(projectAttachments);
     if (serverSaveProjectRef.current !== (projectId ?? null)) {
       serverSaveProjectRef.current = projectId ?? null;
       serverSaveStoppedRef.current = false;
