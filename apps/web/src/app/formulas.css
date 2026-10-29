@@ -1,0 +1,70 @@
+/* The advanced mode's formulas (see the design doc "Advanced mode and variables"): a field a formula drives is tinted and
+   marked fx; one whose formula failed is tinted red, its tooltip says why. The variable name field leads the panel. */
+:root {
+  --formula-tint: rgba(221, 121, 6, 0.12);
+  --formula-mark: var(--primary);
+  --formula-error-tint: rgba(180, 35, 24, 0.12);
+  --formula-error: #b42318;
+}
+
+html[data-theme="dark"] {
+  --formula-tint: rgba(255, 170, 60, 0.16);
+  --formula-error-tint: rgba(255, 110, 100, 0.18);
+  --formula-error: #ff8a80;
+}
+
+.range-value-control:has(input[data-formula="driven"]),
+.range-value-control:has(input[data-formula="error"]) {
+  position: relative;
+  border-radius: 6px;
+  background: var(--formula-tint);
+}
+
+.range-value-control:has(input[data-formula="error"]) {
+  background: var(--formula-error-tint);
+}
+
+.range-value-control:has(input[data-formula="driven"])::before,
+.range-value-control:has(input[data-formula="error"])::before {
+  content: "fx";
+  padding-left: 5px;
+  color: var(--formula-mark);
+  font: italic 700 11px/1 var(--font-ui);
+}
+
+.range-value-control:has(input[data-formula="error"])::before {
+  color: var(--formula-error);
+}
+
+.variable-name-field {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 10px;
+  color: #867563;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.variable-name-field input {
+  height: 30px;
+  padding: 0 8px;
+  color: inherit;
+  background: var(--formula-tint);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: 650 14px/1 var(--font-mono, ui-monospace, monospace);
+}
+
+.variable-name-field[data-invalid="true"] input {
+  border-color: var(--formula-error);
+}
+
+.variable-name-field small {
+  color: var(--muted-strong);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.variable-name-field small[role="alert"] {
+  color: var(--formula-error);
+}

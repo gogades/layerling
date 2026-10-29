@@ -358,7 +358,12 @@ import { printerPresetById } from "@/lib/printBed";
 import { narrowCrossWidth, narrowEndWidth, normalizeNarrowStart, normalizeSlopeCurve, normalizeSlopeSide, shapeSupportsNarrow, shapeSupportsSlope, SLOPE_MIN_END, slopeAlongWidth, slopeEndHeight, slopeSidesFor } from "@/lib/slopeAlong";
 import type { BentTubeInnerProfile, BentTubeProfile, CustomSnapGrid, GearType, GridfinityCompartmentLabel, GridfinityType, GridSize, MeasurementAccuracy, ShapeCustomization, SketchProfile, SketchStroke, SketchStrokeAlign, SketchStrokeJoin, ThreadDrive, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
-import { formulaMatchesValue, formulaToRemember, withFieldFormula, type FieldFormulas } from "@/lib/fieldFormulas";
+import { MAX_FIELD_FORMULA_LENGTH, formulaMatchesValue, formulaToRemember, withFieldFormula, type FieldFormulas } from "@/lib/fieldFormulas";
+import { evaluateFormula } from "@/lib/formula";
+import { useAdvancedMode } from "@/lib/useSimpleMode";
+import { DesignFormulasContext } from "@/components/workplane/designFormulasContext";
+import { formulaErrorText, isDesignFormula } from "@/components/workplane/evaluateDesign";
+import { VariableNameField } from "@/components/workplane/VariableNameField";
 import { useKeptColors, useRecentColors } from "@/lib/recentColors";
 import { ColorKeepRows } from "@/components/workplane/ColorKeepRows";
 import { canToggleGroupColors, groupShowsPartColors } from "@/lib/groupColors";
@@ -4365,6 +4370,8 @@ export function shapeNumberFields(shape: WorkplaneShape, onUpdate: ShapeInspecto
  * height comes out in whole millimetres instead of 0.81 steps of one pixel; typing and the arrow keys stay exact.
  */
 const SliderSnapContext = createContext(0);
+/** The body the panel shows, so a field finds its formula's error (`<body id>/<field id>`) in DesignFormulasContext. */
+const InspectedShapeContext = createContext("");
 
 export function ShapeInspector({
   shape,
@@ -4478,6 +4485,8 @@ export function ShapeInspector({
   // Lock shape (#1277): where the part stands and how it turns stay free; its size, settings and name do not.
   const shapeLocked = Boolean(shape.shapeLocked);
   const frozen = locked || holdsShapeLock(shape);
+  const advanced = useAdvancedMode();
+  const designFormulas = useContext(DesignFormulasContext);
   // A calculation typed into a field (#180) is noted just before the field's change and rides
   // along in that one change, so undo takes value and formula back together. A note nobody
   // picks up is dropped again right after.
@@ -4618,6 +4627,7 @@ export function ShapeInspector({
 
   return (
     <SliderSnapContext.Provider value={snapGridStep(snap)}>
+    <InspectedShapeContext.Provider value={shape.id}>
     <aside
       ref={inspectorRef}
       className={`shape-inspector ${isSketchRevolve ? "sketch-revolve-inspector" : ""} ${shape.kind === "gear" ? "gear-inspector" : ""} ${minimized ? "minimized" : ""} ${movable.moved ? "floating" : ""} ${movable.dragging ? "moving" : ""}`}
@@ -4681,6 +4691,8 @@ export function ShapeInspector({
 
       {!minimized ? (
         <>
+      {/* The advanced mode's name for formulas ($name.size.width) leads the panel, right under the body's own name. */}
+      {advanced ? <VariableNameField key={shape.id} value={shape.variableName} disabled={locked} isTaken={(name) => designFormulas.nameTaken(name, shape.id)} onCommit={(variableName) => onUpdate({ variableName })} /> : null}
       {/* A name tag (#215): its card first and open; for a plain text the way there first. */}
       {nameTagStack && onLayerText && onTextTags ? (
         <NameTagCard
@@ -5361,6 +5373,7 @@ export function ShapeInspector({
         </>
       ) : null}
     </aside>
+    </InspectedShapeContext.Provider>
     </SliderSnapContext.Provider>
   );
 }
@@ -7805,6 +7818,11 @@ function RangeProperty({
 }: RangePropertyConfig & { workspace: WorkplaneWorkspaceSettings; disabled?: boolean; onReset?: () => void; onDefault?: () => void; formula?: string; onFormula?: (text: string | null | undefined) => void; onInteractionActiveChange?: (active: boolean) => void }) {
   const holdInteraction = useInteractionHold(onInteractionActiveChange);
   const snapStepMm = useContext(SliderSnapContext);
+  // The advanced mode's formula (names, functions) is shown whenever the field is entered, with its error if it failed.
+  const advanced = useAdvancedMode();
+  const designFormula = advanced && isDesignFormula(formula) ? formula : undefined;
+  const inspectedShapeId = useContext(InspectedShapeContext);
+  const formulaError = useContext(DesignFormulasContext).errors.get(`${inspectedShapeId}/${id}`);
   const draggingSliderRef = useRef(false);
   // Where a drag of the slider started, for the side a value inside the gap goes to.
   const sliderFromRef = useRef(0);
@@ -7843,7 +7861,7 @@ function RangeProperty({
   const toModelValue = (nextValue: number) => isLength ? displayToMillimeters(nextValue, workspace) : nextValue;
   // The calculation the field was last set from comes back when it is entered (#180), as long as
   // the value still equals it; a value changed by a handle or the slider shows the number again.
-  const shownFormula = formulaMatchesValue(formula, controlValue) ? formula : undefined;
+  const shownFormula = designFormula ?? (formulaMatchesValue(formula, controlValue) ? formula : undefined);
   const openingDraft = () => shownFormula ?? formatShown(controlValue);
   const openedWithRef = useRef<string | null>(null);
   const commitDraft = () => {
@@ -7858,8 +7876,11 @@ function RangeProperty({
       : parseMeasurementInput(draft);
     const finiteNext = Number.isFinite(next) ? acrossGap(next, controlValue) : controlValue;
     const nextModelValue = toModelValue(finiteNext);
+    // In the advanced mode a formula with names rides along with the value as it stands; the editor then works it out.
+    const syntax = advanced && !Number.isFinite(next) ? evaluateFormula(draft, () => 1) : null;
+    const typedDesignFormula = syntax && (syntax.ok || syntax.error.kind !== "syntax") && draft.trim().length <= MAX_FIELD_FORMULA_LENGTH ? draft.trim() : null;
     // The formula rides along with the value it set, in the same change; a plain number clears it.
-    onFormula?.(Number.isFinite(next) ? formulaToRemember(draft) : null);
+    onFormula?.(typedDesignFormula ?? (Number.isFinite(next) ? formulaToRemember(draft) : null));
     onChange(freePosition ? clamp(nextModelValue, -POSITION_TYPED_LIMIT, POSITION_TYPED_LIMIT) : allowsAboveSliderMax ? Math.max(min, nextModelValue) : clamp(nextModelValue, min, max));
     onFormula?.(undefined);
     setEditing(false);
@@ -8016,8 +8037,8 @@ function RangeProperty({
             disabled={disabled}
             // The decimal pad of an iPhone or iPad has no minus key (#686): a field that takes negative values asks for the keyboard with signs.
             inputMode={unit === "in" || freePosition || controlMin < 0 ? "text" : "decimal"}
-            title={shownFormula ? `= ${shownFormula}` : undefined}
-            data-formula={shownFormula ? "" : undefined}
+            title={shownFormula ? `= ${shownFormula}${formulaError && designFormula ? `\n${formulaErrorText(formulaError)}` : ""}` : undefined}
+            data-formula={designFormula ? (formulaError ? "error" : "driven") : shownFormula ? "" : undefined}
             onFocus={(event) => {
               holdInteraction(true);
               const opening = openingDraft();
