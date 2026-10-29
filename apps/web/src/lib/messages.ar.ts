@@ -4804,6 +4804,8 @@ export const MESSAGES_AR: Partial<Record<MessageKey, string>> = {
   "workspace.simpleMode": "الوضع المبسّط",
   "workspace.simpleModeHint": "للأطفال والمبتدئين: أدوات أقل، وقائمة قصيرة من الأشكال، وأزرار أكبر، وصفحة بداية دون روابط إلى خارج layerling.",
   "workspace.simpleModeOff": "اضغط مطولًا لإيقاف الوضع المبسّط",
+  "workspace.advancedMode": "الوضع المتقدم",
+  "workspace.advancedModeHint": "صيغ ومتغيرات في حقول الأرقام لمن يريدها. تظل التصاميم المصنوعة به تُفتح في الوضع العادي بآخر قيمها.",
   "workspace.shapeColors": "الأشكال بالألوان",
   "workspace.shapeColorsHint": "تُظهر صور مكتبة الأشكال اللون الذي يبدأ به الشكل الجديد. أوقفه للحصول على صور رمادية.",
   "workspace.viewCubePosition": "موضع مكعب العرض",

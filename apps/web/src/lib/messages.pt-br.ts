@@ -2040,6 +2040,8 @@ export const MESSAGES_PT_BR: Partial<Record<MessageKey, string>> = {
   "workspace.simpleMode": "Modo simplificado",
   "workspace.simpleModeHint": "Para crianças e iniciantes: menos ferramentas, uma lista curta de formas, botões maiores e uma página inicial sem links para fora do layerling.",
   "workspace.simpleModeOff": "Segure para desligar o modo simplificado",
+  "workspace.advancedMode": "Modo avançado",
+  "workspace.advancedModeHint": "Fórmulas e variáveis nos campos numéricos, para quem quiser. Os projetos feitos com ele continuam abrindo no modo normal, com os últimos valores.",
   "workspace.shapeColors": "Cor das formas",
   "workspace.shapeColorsHint": "As imagens da biblioteca de formas mostram a cor com que uma nova forma começa. Desligue para imagens em cinza.",
   "workspace.viewCubePosition": "Posição do cubo de visualização",

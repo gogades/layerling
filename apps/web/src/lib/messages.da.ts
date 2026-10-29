@@ -4585,6 +4585,8 @@ export const MESSAGES_DA: Partial<Record<MessageKey, string>> = {
   "workspace.simpleMode": "Enkel tilstand",
   "workspace.simpleModeHint": "For børn og begyndere: færre værktøjer, en kort liste af former, større knapper og en startside uden links ud af layerling.",
   "workspace.simpleModeOff": "Hold for at slå enkel tilstand fra",
+  "workspace.advancedMode": "Avanceret tilstand",
+  "workspace.advancedModeHint": "Formler og variabler i talfelter, for dem der vil have dem. Designs lavet med den åbner stadig i normal tilstand med deres seneste værdier.",
   "workspace.shapeColors": "Former i farve",
   "workspace.shapeColorsHint": "Billederne i formbiblioteket viser den farve, en ny form starter med. Slå fra for grå billeder.",
   "workspace.viewCubePosition": "Placering af orienteringskuben",

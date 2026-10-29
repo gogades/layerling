@@ -4786,6 +4786,8 @@ export const MESSAGES_CS: Record<MessageKey, string> = {
   "workspace.simpleMode": "Jednoduchý režim",
   "workspace.simpleModeHint": "Pro děti a začátečníky: méně nástrojů, krátký seznam tvarů, větší tlačítka a úvodní stránka bez odkazů mimo layerling.",
   "workspace.simpleModeOff": "Podržte pro vypnutí jednoduchého režimu",
+  "workspace.advancedMode": "Pokročilý režim",
+  "workspace.advancedModeHint": "Vzorce a proměnné v číselných polích pro ty, kdo je chtějí. Návrhy vytvořené s ním se dál otevřou i v běžném režimu, s posledními hodnotami.",
   "workspace.shapeColors": "Tvary v barvě",
   "workspace.shapeColorsHint": "Obrázky v knihovně tvarů ukazují barvu, kterou nový tvar dostane. Vypněte pro šedé obrázky.",
   "workspace.viewCubePosition": "Umístění orientační krychle",

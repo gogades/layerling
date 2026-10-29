@@ -4787,6 +4787,8 @@ export const MESSAGES_ZH_CN: Partial<Record<MessageKey, string>> = {
   "workspace.simpleModeOff": "按住以关闭简易模式",
   "workspace.shapeColors": "彩色形状",
   "workspace.shapeColorsHint": "形状库的图片会显示新形状的初始颜色。关闭后显示灰色图片。",
+  "workspace.advancedMode": "高级模式",
+  "workspace.advancedModeHint": "在数值栏中使用公式和变量，供需要的人使用。用它制作的设计在普通模式下仍可打开，并显示最后的数值。",
   "workspace.viewCubePosition": "视图立方体位置",
   "workspace.viewCubePositionTopLeft": "左上",
   "workspace.viewCubePositionTopRight": "右上",
