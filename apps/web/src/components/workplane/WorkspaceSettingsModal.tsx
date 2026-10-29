@@ -16,10 +16,10 @@ import { HexColorInput, HexColorPicker } from "react-colorful";
 import { APP_THEME_OPTIONS, type AppThemePreference } from "@/lib/appTheme";
 import { setToolbarSize, TOOLBAR_SIZE_OPTIONS, type ToolbarSize } from "@/lib/toolbarSize";
 import { useToolbarSize } from "@/lib/useToolbarSize";
-import { useSimpleMode } from "@/lib/useSimpleMode";
+import { useAdvancedMode, useSimpleMode } from "@/lib/useSimpleMode";
 import { useShapeColors } from "@/lib/useShapeColors";
 import { setShapeColors } from "@/lib/shapeColors";
-import { isSimpleModeFixedByServer, setSimpleMode } from "@/lib/simpleMode";
+import { isSimpleModeFixedByServer, setAdvancedMode, setSimpleMode } from "@/lib/simpleMode";
 import { useViewCubePosition } from "@/lib/useViewCubePosition";
 import { setViewCubePosition, VIEW_CUBE_POSITION_OPTIONS, type ViewCubePosition } from "@/lib/viewCubePosition";
 import { gearCenterHoleLimits, gearToothPitch, gearTypeHasHelix, MAX_GEAR_TEETH, MIN_GEAR_TEETH } from "@/lib/gearGeometry";
@@ -2033,10 +2033,12 @@ const SIMPLE_MODE_HOLD_MS = 2000;
 
 /**
  * The simple mode switch (#695). Switching it on is a tap; switching it off is a press held for two seconds. A server that
- * fixes the mode (`LAYERLING_SIMPLE_MODE=always`) takes the switch away.
+ * fixes the mode (`LAYERLING_SIMPLE_MODE=always`) takes the switch away. Outside the simple mode the advanced mode's switch
+ * stands under it; the simple mode hides it, so a child never meets it.
  */
 function SimpleModeSetting() {
   const simple = useSimpleMode();
+  const advanced = useAdvancedMode();
   const [holding, setHolding] = useState(false);
   const timerRef = useRef<number | null>(null);
   const cancel = () => {
@@ -2056,7 +2058,12 @@ function SimpleModeSetting() {
   useEffect(() => cancel, []);
   if (isSimpleModeFixedByServer()) return null;
   if (!simple) {
-    return <WorkspaceToggle label={t("workspace.simpleMode")} description={t("workspace.simpleModeHint")} checked={false} onChange={() => setSimpleMode(true)} />;
+    return (
+      <>
+        <WorkspaceToggle label={t("workspace.simpleMode")} description={t("workspace.simpleModeHint")} checked={false} onChange={() => setSimpleMode(true)} />
+        <WorkspaceToggle label={t("workspace.advancedMode")} description={t("workspace.advancedModeHint")} checked={advanced} onChange={setAdvancedMode} />
+      </>
+    );
   }
   return (
     <div className="workspace-toggle simple-mode-setting" data-help={t("workspace.simpleMode")}>

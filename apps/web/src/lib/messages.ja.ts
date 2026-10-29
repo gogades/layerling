@@ -3000,6 +3000,8 @@ export const MESSAGES_JA: Partial<Record<MessageKey, string>> = {
   "workspace.simpleMode": "かんたんモード",
   "workspace.simpleModeHint": "子どもやはじめての人向けです。ツールが少なく、シェイプの一覧が短く、ボタンが大きくなり、スタートページにlayerlingの外へのリンクがなくなります。",
   "workspace.simpleModeOff": "長押しでかんたんモードをオフにする",
+  "workspace.advancedMode": "上級モード",
+  "workspace.advancedModeHint": "数値欄で数式と変数を使えます（使いたい人向け）。このモードで作ったデザインも、通常モードで最後の値のまま開けます。",
   "workspace.shapeColors": "シェイプをカラーで表示",
   "workspace.shapeColorsHint": "シェイプライブラリの絵に、新しいシェイプの最初の色を使います。オフにすると灰色の絵になります。",
   "workspace.viewCubePosition": "ビュー方向キューブの位置",

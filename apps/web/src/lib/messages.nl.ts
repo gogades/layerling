@@ -4495,6 +4495,8 @@ export const MESSAGES_NL: Record<MessageKey, string> = {
   "workspace.simpleMode": "Eenvoudige modus",
   "workspace.simpleModeHint": "Voor kinderen en beginners: minder gereedschap, een korte lijst met vormen, grotere knoppen en een startpagina zonder links buiten layerling.",
   "workspace.simpleModeOff": "Ingedrukt houden om de eenvoudige modus uit te zetten",
+  "workspace.advancedMode": "Geavanceerde modus",
+  "workspace.advancedModeHint": "Formules en variabelen in getalvelden, voor wie ze wil. Ontwerpen die ermee gemaakt zijn, openen nog steeds in de normale modus, met hun laatste waarden.",
   "workspace.shapeColors": "Vormen in kleur",
   "workspace.shapeColorsHint": "De plaatjes van de vormenbibliotheek tonen de kleur waarmee een nieuwe vorm begint. Zet uit voor grijze plaatjes.",
   "workspace.viewCubePosition": "Positie van de richtingskubus",

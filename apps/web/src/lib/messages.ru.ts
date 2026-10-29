@@ -4486,6 +4486,8 @@ export const MESSAGES_RU: Partial<Record<MessageKey, string>> = {
   "workspace.simpleMode": "Простой режим",
   "workspace.simpleModeHint": "Для детей и начинающих: меньше инструментов, короткий список фигур, крупные кнопки и стартовая страница без ссылок за пределы layerling.",
   "workspace.simpleModeOff": "Удерживайте, чтобы выключить простой режим",
+  "workspace.advancedMode": "Расширенный режим",
+  "workspace.advancedModeHint": "Формулы и переменные в числовых полях — для тех, кому они нужны. Проекты, созданные с ними, по-прежнему открываются в обычном режиме с последними значениями.",
   "workspace.shapeColors": "Цветные фигуры",
   "workspace.shapeColorsHint": "Картинки в библиотеке фигур показывают цвет, с которым появится новая фигура. Выключите, чтобы картинки были серыми.",
   "workspace.viewCubePosition": "Положение куба ориентации",

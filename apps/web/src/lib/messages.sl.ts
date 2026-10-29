@@ -4840,6 +4840,8 @@ export const MESSAGES_SL: Partial<Record<MessageKey, string>> = {
   "workspace.simpleMode": "Preprosti način",
   "workspace.simpleModeHint": "Za otroke in začetnike: manj orodij, kratek seznam oblik, večji gumbi in začetna stran brez povezav ven iz layerlinga.",
   "workspace.simpleModeOff": "Pridržite za izklop preprostega načina",
+  "workspace.advancedMode": "Napredni način",
+  "workspace.advancedModeHint": "Formule in spremenljivke v številskih poljih, za tiste, ki jih želijo. Modeli, narejeni z njim, se še vedno odprejo v običajnem načinu, z zadnjimi vrednostmi.",
   "workspace.shapeColors": "Oblike v barvi",
   "workspace.shapeColorsHint": "Slike v knjižnici oblik kažejo barvo, v kateri se nova oblika začne. Izklopite za sive slike.",
   "workspace.viewCubePosition": "Položaj kocke za usmerjanje",

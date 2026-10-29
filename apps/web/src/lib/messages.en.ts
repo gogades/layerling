@@ -4495,6 +4495,8 @@ export const MESSAGES_EN = {
   "workspace.simpleMode": "Simple mode",
   "workspace.simpleModeHint": "For children and beginners: fewer tools, a short list of shapes, larger buttons, and a start page without links out of layerling.",
   "workspace.simpleModeOff": "Hold to switch off simple mode",
+  "workspace.advancedMode": "Advanced mode",
+  "workspace.advancedModeHint": "Formulas and variables in number fields, for people who want them. Designs made with it still open in the normal mode, with their last values.",
   "workspace.shapeColors": "Shapes in colour",
   "workspace.shapeColorsHint": "The pictures of the shape library show the colour a new shape starts with. Switch off for grey pictures.",
   "workspace.viewCubePosition": "View cube position",
