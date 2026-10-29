@@ -139,3 +139,9 @@ export function shiftFormula(formula: string, delta: number): string {
   if (magnitude === "0") return base;
   return `${base} ${offset < 0 ? "-" : "+"} ${magnitude}`;
 }
+
+/** The formula with every `$from` (in any case, a whole name) read as `$to`, so a renamed row or body keeps its formulas. */
+export function renameReference(text: string, from: string, to: string): string {
+  // Names are letters, digits and `_` only, so `from` needs no escaping; `$$` in the replacement is a plain `$`.
+  return text.replace(new RegExp(`\\$${from}(?![A-Za-z0-9_])`, "gi"), `$$${to}`);
+}

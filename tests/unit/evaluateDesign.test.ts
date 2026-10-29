@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { attributePath, designAfterEdit, designUsesFormulas, evaluateDesign, formulasAfterEdit, variableKey } from "@/components/workplane/evaluateDesign";
+import { attributePath, designAfterEdit, designUsesFormulas, evaluateDesign, formulasAfterEdit, variableKey, withRenamedReference } from "@/components/workplane/evaluateDesign";
 import type { DesignVariable } from "@/lib/designVariables";
-import { formulaReferences, shiftFormula } from "@/lib/formula";
+import { formulaReferences, renameReference, shiftFormula } from "@/lib/formula";
 import { DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
 import type { WorkplaneShape } from "@/types/layerling";
 
@@ -141,5 +141,35 @@ describe("recalculating a design (advanced mode)", () => {
     expect(designUsesFormulas([box("a", { formulas: { width: "$w" } })], [])).toBe(true);
     expect(designUsesFormulas([box("a", { variableName: "a" })], [])).toBe(true);
     expect(designUsesFormulas([box("a")], [row("w", "1")])).toBe(true);
+  });
+
+  it("renames a reference as a whole name, in any case", () => {
+    expect(renameReference("$Lid.size.width + $lid_gap + $LID", "lid", "cap")).toBe("$cap.size.width + $lid_gap + $cap");
+    expect(renameReference("$wall * 2", "lid", "cap")).toBe("$wall * 2");
+  });
+
+  it("takes formulas along when a body or a row is renamed", () => {
+    const apply = (shape: WorkplaneShape, patch: Partial<WorkplaneShape>) => ({ ...shape, ...patch });
+    const lid = box("lid", { variableName: "lid" });
+    const follower = box("follower", { formulas: { positionX: "$lid.size.width + $gap" } });
+    const table = [row("gap", "$lid.size.height / 4", 5)];
+    const settled = designAfterEdit([lid, follower], [{ ...lid, variableName: "cap" }, follower], table, DEFAULT_WORKPLANE_WORKSPACE, true, apply);
+    expect(settled.shapes[1].formulas?.positionX).toBe("$cap.size.width + $gap");
+    expect(settled.variables[0].formula).toBe("$cap.size.height / 4");
+    expect(settled.errors.size).toBe(0);
+    const renamedRow = withRenamedReference([follower], [row("spacing", "5")], "gap", "spacing");
+    expect(renamedRow.shapes[0].formulas?.positionX).toBe("$lid.size.width + $spacing");
+  });
+
+  it("takes a taken variable name away from a copy, and lets a replaced body hand its name on", () => {
+    const apply = (shape: WorkplaneShape, patch: Partial<WorkplaneShape>) => ({ ...shape, ...patch });
+    const lid = box("lid", { variableName: "lid" });
+    const pasted = designAfterEdit([lid], [lid, box("copy", { variableName: "LID" }), box("free", { variableName: "free" })], [row("gap", "1")], DEFAULT_WORKPLANE_WORKSPACE, false, apply);
+    expect(pasted.blanked).toEqual(["LID"]);
+    expect(pasted.shapes.map((shape) => shape.variableName)).toEqual(["lid", undefined, "free"]);
+    expect(designAfterEdit([lid], [lid, box("row", { variableName: "gap" })], [row("gap", "1")], DEFAULT_WORKPLANE_WORKSPACE, false, apply).blanked).toEqual(["gap"]);
+    const rebuilt = designAfterEdit([lid], [box("lid-2", { variableName: "lid" })], [], DEFAULT_WORKPLANE_WORKSPACE, false, apply);
+    expect(rebuilt.blanked).toEqual([]);
+    expect(rebuilt.shapes[0].variableName).toBe("lid");
   });
 });
