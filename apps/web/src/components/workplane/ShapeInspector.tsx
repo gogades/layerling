@@ -365,6 +365,7 @@ import { useAdvancedMode } from "@/lib/useSimpleMode";
 import { DesignFormulasContext } from "@/components/workplane/designFormulasContext";
 import { formulaErrorText, isDesignFormula } from "@/components/workplane/evaluateDesign";
 import { VariableNameField } from "@/components/workplane/VariableNameField";
+import { FormulaEditor } from "@/components/workplane/FormulaEditor";
 import { useKeptColors, useRecentColors } from "@/lib/recentColors";
 import { ColorKeepRows } from "@/components/workplane/ColorKeepRows";
 import { canToggleGroupColors, groupShowsPartColors } from "@/lib/groupColors";
@@ -7827,7 +7828,8 @@ function RangeProperty({
   const advanced = useAdvancedMode();
   const designFormula = advanced && isDesignFormula(formula) ? formula : undefined;
   const inspectedShapeId = useContext(InspectedShapeContext);
-  const formulaError = useContext(DesignFormulasContext).errors.get(`${inspectedShapeId}/${id}`);
+  const designFormulas = useContext(DesignFormulasContext);
+  const formulaError = designFormulas.errors.get(`${inspectedShapeId}/${id}`);
   const draggingSliderRef = useRef(false);
   // Where a drag of the slider started, for the side a value inside the gap goes to.
   const sliderFromRef = useRef(0);
@@ -7869,25 +7871,36 @@ function RangeProperty({
   const shownFormula = designFormula ?? (formulaMatchesValue(formula, controlValue) ? formula : undefined);
   const openingDraft = () => shownFormula ?? formatShown(controlValue);
   const openedWithRef = useRef<string | null>(null);
-  const commitDraft = () => {
+  const commitDraft = (text = draft) => {
     // Leaving the field untouched keeps the exact value, not its rounded reading - and its formula.
-    if (draft === (openedWithRef.current ?? formatShown(controlValue))) {
+    if (text === (openedWithRef.current ?? formatShown(controlValue))) {
       setEditing(false);
       holdInteraction(false);
       return;
     }
     const next = RELATIVE_SIZE_PROPERTY_IDS.has(id)
-      ? resolveMeasurementInput(draft, controlValue)
-      : parseMeasurementInput(draft);
+      ? resolveMeasurementInput(text, controlValue)
+      : parseMeasurementInput(text);
     const finiteNext = Number.isFinite(next) ? acrossGap(next, controlValue) : controlValue;
     const nextModelValue = toModelValue(finiteNext);
     // In the advanced mode a formula with names rides along with the value as it stands; the editor then works it out.
-    const syntax = advanced && !Number.isFinite(next) ? evaluateFormula(draft, () => 1) : null;
-    const typedDesignFormula = syntax && (syntax.ok || syntax.error.kind !== "syntax") && draft.trim().length <= MAX_FIELD_FORMULA_LENGTH ? draft.trim() : null;
+    const syntax = advanced && !Number.isFinite(next) ? evaluateFormula(text, () => 1) : null;
+    const typedDesignFormula = syntax && (syntax.ok || syntax.error.kind !== "syntax") && text.trim().length <= MAX_FIELD_FORMULA_LENGTH ? text.trim() : null;
     // The formula rides along with the value it set, in the same change; a plain number clears it.
-    onFormula?.(typedDesignFormula ?? (Number.isFinite(next) ? formulaToRemember(draft) : null));
+    onFormula?.(typedDesignFormula ?? (Number.isFinite(next) ? formulaToRemember(text) : null));
     onChange(freePosition ? clamp(nextModelValue, -POSITION_TYPED_LIMIT, POSITION_TYPED_LIMIT) : allowsAboveSliderMax ? Math.max(min, nextModelValue) : clamp(nextModelValue, min, max));
     onFormula?.(undefined);
+    setEditing(false);
+    holdInteraction(false);
+  };
+  // The fx button's formula editor (advanced mode). While it is open the field keeps its focus state; it commits what
+  // the editor applies, or nothing.
+  const [formulaEditorOpen, setFormulaEditorOpen] = useState(false);
+  const formulaEditorOpenRef = useRef(false);
+  const closeFormulaEditor = (applied?: string) => {
+    formulaEditorOpenRef.current = false;
+    setFormulaEditorOpen(false);
+    if (applied !== undefined) return commitDraft(applied);
     setEditing(false);
     holdInteraction(false);
   };
@@ -8058,7 +8071,7 @@ function RangeProperty({
             }}
             onBlur={() => {
               keepSelectedRef.current = false;
-              commitDraft();
+              if (!formulaEditorOpenRef.current) commitDraft();
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
@@ -8073,6 +8086,23 @@ function RangeProperty({
             }}
           />
           {unit ? <span className={`range-value-unit${unit === "°" ? " degree" : ""}`}>{unit}</span> : null}
+          {/* Only where the field can keep a formula: not at the Position card's edges, nor on a name tag's keyring. */}
+          {advanced && editing && !disabled && onFormula ? (
+            <button
+              type="button"
+              className="formula-open"
+              aria-label={t("formula.open")}
+              title={t("formula.open")}
+              // Pressed without taking the focus, so the field does not commit half a formula on the way.
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                formulaEditorOpenRef.current = true;
+                setFormulaEditorOpen(true);
+              }}
+            >
+              fx
+            </button>
+          ) : null}
         </span>
       </span>
       <div className="range-control">
@@ -8107,8 +8137,20 @@ function RangeProperty({
       </div>
     </label>
   );
+  const formulaEditor = formulaEditorOpen && numberInputRef.current ? (
+    <FormulaEditor
+      anchor={numberInputRef.current}
+      title={t("formula.editorTitle", { field: label })}
+      unit={unit}
+      initial={draft}
+      preview={(text) => designFormulas.preview(text, inspectedShapeId)}
+      suggest={(before) => designFormulas.suggest(before, inspectedShapeId)}
+      onApply={closeFormulaEditor}
+      onCancel={() => closeFormulaEditor()}
+    />
+  ) : null;
   // Outside the label, so a click on the words does not jump into the field.
-  return hint || note ? <>{row}{note ? <p className="property-hint">{note}</p> : null}{hint ? <p className="property-hint">{hint}</p> : null}</> : row;
+  return <>{row}{note ? <p className="property-hint">{note}</p> : null}{hint ? <p className="property-hint">{hint}</p> : null}{formulaEditor}</>;
 }
 
 /**
