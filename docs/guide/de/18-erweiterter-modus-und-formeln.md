@@ -35,7 +35,7 @@ Eine Formel kann jedes Feld eines Körpers lesen, der einen Variablennamen hat. 
 | Position X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Drehung X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Drehpunkt X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
-| Jedes andere Feld | sein eigener Name, zum Beispiel `$gear.teeth` oder `$tube.thickness` |
+| Verjüngung, Verdrehung und die eigenen Einstellungen der Form | nach Zugehörigkeit gruppiert, zum Beispiel `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth`; nach `$name.` listet der Formeleditor alle auf |
 
 Wird der Körper umbenannt, ändert sich der Name in jeder Formel, die ihn verwendet. Eine Kopie eines benannten Körpers - eingefügt, dupliziert oder importiert - behält den Namen nicht, da zwei Körper keinen gemeinsamen haben können; eine kurze Meldung sagt das.
 

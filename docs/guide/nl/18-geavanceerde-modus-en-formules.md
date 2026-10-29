@@ -35,7 +35,7 @@ Een formule kan elk veld lezen van een lichaam dat een variabelenaam heeft. Geef
 | Positie X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotatie X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Draaipunt X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
-| Elk ander veld | zijn eigen naam, bijvoorbeeld `$gear.teeth` of `$tube.thickness` |
+| Taps, draaiing en de eigen instellingen van de vorm | gegroepeerd naar waar ze bij horen, bijvoorbeeld `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth`; na `$name.` toont de formule-editor ze allemaal |
 
 Als je het lichaam hernoemt, verandert de naam in elke formule die hem gebruikt. Een kopie van een lichaam met een naam - geplakt, gedupliceerd of ingevoegd - houdt de naam niet, want twee lichamen kunnen er geen delen; een korte melding zegt dat.
 

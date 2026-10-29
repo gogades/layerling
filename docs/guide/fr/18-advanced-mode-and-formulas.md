@@ -35,7 +35,7 @@ Une formule peut lire n'importe quel champ d'un corps qui a un nom de variable. 
 | Position X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotation X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Pivot X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
-| Tout autre champ | son propre nom, par exemple `$gear.teeth` ou `$tube.thickness` |
+| Effilement, torsion et réglages propres à la forme | groupés selon ce à quoi ils appartiennent, par exemple `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth` ; après `$name.`, l'éditeur de formule les propose tous |
 
 Renommer le corps le renomme dans toutes les formules qui l'utilisent. Une copie d'un corps nommé - collée, dupliquée ou insérée - ne garde pas le nom, car deux corps ne peuvent pas le partager ; un court message le signale.
 

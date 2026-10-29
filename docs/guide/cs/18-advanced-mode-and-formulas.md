@@ -35,7 +35,7 @@ Vzorec může číst libovolné pole tělesa, které má název proměnné. Zade
 | Poloha X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Otočení X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Bod otáčení X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
-| Jakékoli jiné pole | jeho vlastní název, například `$gear.teeth` nebo `$tube.thickness` |
+| Zúžení, zkroucení a vlastní nastavení tvaru | seskupená podle toho, k čemu patří, například `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth`; po `$name.` je editor vzorců vypíše všechna |
 
 Přejmenováním tělesa se název změní ve všech vzorcích, které ho používají. Kopie pojmenovaného tělesa - vložená, duplikovaná nebo importovaná - název neponechá, protože dvě tělesa nemohou mít stejný; krátká zpráva to oznámí.
 
