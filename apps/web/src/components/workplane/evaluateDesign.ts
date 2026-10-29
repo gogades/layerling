@@ -447,3 +447,9 @@ export function formulaSuggestions(shapes: WorkplaneShape[], variables: DesignVa
   };
   return { start, items: matching(fields, token).sort((a, b) => rank(a.label) - rank(b.label)) };
 }
+
+/** Every field of a body by the name formulas read it by, with its id and its value as the inspector shows it. */
+export function objectAttributes(shape: WorkplaneShape, workspace: WorkplaneWorkspaceSettings) {
+  return shapeNumberFields(shapeWithParametricSource(shape), () => undefined, workspace)
+    .map((field) => ({ field: attributePath(field.id), id: field.id, value: shownValue(field, workspace) }));
+}
