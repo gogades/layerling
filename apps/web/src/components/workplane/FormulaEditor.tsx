@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Check, X } from "lucide-react";
 import { formulaErrorText, type FormulaSuggestion } from "@/components/workplane/evaluateDesign";
@@ -52,8 +52,13 @@ export function FormulaEditor({ anchor, title, unit, initial, preview, suggest, 
   const syntax = evaluateFormula(formula, () => 1);
   const applicable = formula.length > 0 && formula.length <= MAX_FIELD_FORMULA_LENGTH && (syntax.ok || syntax.error.kind !== "syntax");
   const suggestions = dismissed ? null : suggest(text.slice(0, caret));
-  const items = suggestions?.items.slice(0, 8) ?? [];
+  const items = suggestions?.items ?? [];
   const markedIndex = Math.min(marked, Math.max(0, items.length - 1));
+  // The list scrolls; the entry the arrow keys mark is kept in view.
+  const listRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    listRef.current?.children[markedIndex]?.scrollIntoView({ block: "nearest" });
+  }, [markedIndex, items.length]);
 
   const update = (next: string, at: number) => {
     setText(next);
@@ -121,7 +126,7 @@ export function FormulaEditor({ anchor, title, unit, initial, preview, suggest, 
         onKeyDown={onKeyDown}
       />
       {items.length ? (
-        <ul className="formula-editor-suggestions" role="listbox">
+        <ul ref={listRef} className="formula-editor-suggestions" role="listbox">
           {items.map((item, index) => (
             <li key={item.insert} role="option" aria-selected={index === markedIndex}>
               {/* Taken on the press, before the text box loses its focus. */}

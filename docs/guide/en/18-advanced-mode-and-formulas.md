@@ -35,7 +35,7 @@ A formula can read any field of a body that has a variable name. Give it one in 
 | Position X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotation X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Pivot X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
-| Any other field | its own name, for example `$gear.teeth` or `$tube.thickness` |
+| Taper, twist and the shape's own settings | grouped by what they belong to, for example `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth`; after `$name.` the formula editor lists them all |
 
 Renaming the body renames it in every formula that uses it. A copy of a named body - pasted, duplicated or inserted - does not keep the name, as two bodies cannot share one; a short message says so.
 

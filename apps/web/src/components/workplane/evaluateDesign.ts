@@ -14,16 +14,81 @@ import type { WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerli
  * See the design doc "Advanced mode and variables".
  */
 
-const GROUPED_PATHS: Record<string, string> = {
+/**
+ * The readable name a formula reads each inspector field by after `$name.`, grouped by what the field belongs to:
+ * `size.width`, `rotation.z`, `taper.top_length`, `twist.angle`, `gear.teeth`, `detail.sides`. Every number field gets one
+ * (a test checks every shape kind); a field left out falls back to its id in snake case, never to a raw camel-case id.
+ */
+const ATTRIBUTE_PATHS: Record<string, string> = {
+  // Shared by every body
+  length: "size.length", width: "size.width", height: "size.height", diameter: "size.diameter",
   positionX: "position.x", positionY: "position.y", positionZ: "position.z",
   rotateX: "rotation.x", rotateY: "rotation.y", rotateZ: "rotation.z",
   pivotX: "pivot.x", pivotY: "pivot.y", pivotZ: "pivot.z",
-  width: "size.width", length: "size.length", height: "size.height", diameter: "size.diameter",
+  // The Taper and Twist cards (a pyramid's flat top uses the taper's top fields)
+  topLength: "taper.top_length", topWidth: "taper.top_width", bottomLength: "taper.bottom_length", bottomWidth: "taper.bottom_width",
+  extrudeTwist: "twist.angle", extrudeTopOffsetX: "twist.offset_width", extrudeTopOffsetZ: "twist.offset_length",
+  // How finely a body is drawn
+  sides: "detail.sides", steps: "detail.steps", quality: "detail.quality", segments: "detail.segments", loftSegments: "detail.segments",
+  roundedBoxQuality: "detail.quality", starQuality: "detail.quality", heartQuality: "detail.quality", crescentQuality: "detail.quality", bentTubeQuality: "detail.quality",
+  // Each kind's own settings
+  cornerFillet: "round.corner", topBottomFillet: "round.top_bottom",
+  topRadius: "cone.top_radius", baseRadius: "cone.base_radius",
+  slotSmallEnd: "slot.small_end", slotCentreDistance: "slot.centre_distance",
+  torusTube: "torus.tube",
+  outerDiameter: "tube.outer_diameter", innerDiameter: "tube.inner_diameter", thickness: "tube.wall",
+  loftBottomWidth: "loft.bottom_width", loftBottomDepth: "loft.bottom_length", loftBottomCorner: "loft.bottom_corner",
+  loftTopWidth: "loft.top_width", loftTopDepth: "loft.top_length", loftTopCorner: "loft.top_corner",
+  loftOffsetX: "loft.offset_width", loftOffsetZ: "loft.offset_length", loftWall: "loft.wall", loftTwist: "loft.twist",
+  loftSmooth: "loft.smooth", loftTiltX: "loft.tilt_x", loftTiltZ: "loft.tilt_y",
+  bentTubeSize: "bent_tube.size", bentTubeWall: "bent_tube.wall", bentTubeSegmentLength: "bent_tube.segment_length",
+  bentTubeBendRadius: "bent_tube.bend_radius", bentTubeBendAngle: "bent_tube.bend_angle", bentTubeRoll: "bent_tube.roll",
+  screwHoleShaft: "hole.shaft", screwHoleHeadDepth: "hole.head_depth", screwHoleAngle: "hole.angle",
+  teardropTipAngle: "teardrop.tip_angle",
+  pitch: "thread.pitch", threadsPerInch: "thread.per_inch", threadLength: "thread.length", threadDepth: "thread.depth",
+  threadCoreDiameter: "thread.core_diameter", threadFlankAngle: "thread.flank_angle", clearance: "thread.clearance",
+  axialClearance: "thread.axial_clearance", boltClearance: "thread.bolt_clearance", chamfer: "thread.chamfer",
+  chamferBottom: "thread.chamfer_bottom", headHeight: "thread.head_height", headChamfer: "thread.head_chamfer",
+  turns: "spring.turns", wire: "spring.wire",
+  teeth: "gear.teeth", gearModule: "gear.module", gearPressureAngle: "gear.pressure_angle", gearBacklash: "gear.backlash",
+  centerHole: "gear.center_hole", gearRim: "gear.rim", toothSize: "gear.tooth_size", toothWidth: "gear.tooth_width", helixAngle: "gear.helix_angle",
+  gridfinityUnitsX: "gridfinity.units_across", gridfinityUnitsZ: "gridfinity.units_deep", gridfinityUnitsY: "gridfinity.units_high",
+  gridfinityLipChamfer: "gridfinity.lip_chamfer", gridfinityBinCornerRadius: "gridfinity.corner_radius", gridfinityCornerRadius: "gridfinity.corner_radius",
+  gridfinityWallThickness: "gridfinity.wall", gridfinityFloorHeight: "gridfinity.floor_height", gridfinityDividerThickness: "gridfinity.divider_thickness",
+  gridfinityScoopRadius: "gridfinity.scoop_radius", gridfinityLabelCornerSize: "gridfinity.label_corner_size",
+  gridfinityOpeningCornerSize: "gridfinity.opening_corner_size", gridfinityDrawerWidth: "gridfinity.drawer_width", gridfinityDrawerDepth: "gridfinity.drawer_length",
+  gridfinityCompartmentColumn: "gridfinity.compartment_column", gridfinityCompartmentRow: "gridfinity.compartment_row",
+  gridfinityCompartmentLabelLength: "gridfinity.label_length", gridfinityCompartmentLabelWidth: "gridfinity.label_width",
+  knurlCount: "knurl.count", knurlDepth: "knurl.depth", knurlChamfer: "knurl.chamfer", knurlAngle: "knurl.angle",
+  hingeKnuckles: "hinge.knuckles", hingeKnuckleWidth: "hinge.knuckle_width", hingePinDiameter: "hinge.pin_diameter",
+  hingeLeafThickness: "hinge.leaf_thickness", hingeCornerRadius: "hinge.corner_radius", hingeScrewHoles: "hinge.screw_holes",
+  hingeAngle: "hinge.angle", hingeClearance: "hinge.clearance", hingeConeSize: "hinge.cone_size",
+  hingeScrewDiameter: "hinge.screw_diameter", hingeScrewSpacing: "hinge.screw_spacing", hingeScrewAcross: "hinge.screws_across",
+  dovetailNeckWidth: "dovetail.neck_width", dovetailClearance: "dovetail.clearance",
+  starPoints: "star.points", starOuterSize: "star.outer_size", starInnerSize: "star.inner_size", starOuterFillet: "star.outer_fillet", starInnerFillet: "star.inner_fillet",
+  heartTipFillet: "heart.tip_fillet",
+  crescentThickness: "crescent.thickness", crescentTipFillet: "crescent.tip_fillet",
+  honeycombCellSize: "honeycomb.cell_size", honeycombWallThickness: "honeycomb.wall", honeycombFrameWidth: "honeycomb.frame_width",
+  letterSize: "text.letter_size", textLineWidth: "text.line_width", textEdgeSize: "text.edge_size", textRadius: "text.radius",
+  textSpacing: "text.spacing", bevel: "text.rounding", iconWidth: "text.icon_width", iconTagCount: "text.icon_count",
+  sketchLineWidth: "sketch.line_width", startAngle: "sketch.start_angle",
 };
 
-/** The name a formula reads a field by after `$name.`: `size.width`, `position.x`, or the field's own id (`teeth`). */
+const snakeCase = (text: string) => text.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+
+// A field the table does not name yet still gets its kind's group from the start of its id: gridfinityPaddingBack reads
+// `gridfinity.padding_back`.
+const GROUP_PREFIXES = ["bentTube", "crescent", "dovetail", "gear", "gridfinity", "heart", "hinge", "honeycomb", "knurl", "loft", "screwHole", "slot", "sketch", "star", "teardrop", "text", "thread", "torus"];
+
+/** The name a formula reads a field by after `$name.`: see ATTRIBUTE_PATHS. A vase's settings read `vase.floor.rubber_feet`. */
 export function attributePath(fieldId: string) {
-  return GROUPED_PATHS[fieldId] ?? fieldId;
+  const known = ATTRIBUTE_PATHS[fieldId];
+  if (known) return known;
+  // The vase's settings come by their setting's name, under vase, vaseFloor, vasePrint and vaseParts.
+  const vase = /^vase(Floor|Print|Parts)?\.(.+)$/.exec(fieldId);
+  if (vase) return ["vase", vase[1] ? snakeCase(vase[1]) : null, snakeCase(vase[2])].filter(Boolean).join(".");
+  const prefix = GROUP_PREFIXES.find((start) => fieldId.startsWith(start) && /[A-Z]/.test(fieldId[start.length] ?? ""));
+  return prefix ? `${snakeCase(prefix)}.${snakeCase(fieldId.slice(prefix.length).replace(/^./, (first) => first.toLowerCase()))}` : snakeCase(fieldId);
 }
 
 /** Beside the formula's own errors: a loop, a field the body no longer has, a locked body, two formulas fighting over one value. */
@@ -348,6 +413,8 @@ export function formulaPreview(shapes: WorkplaneShape[], variables: DesignVariab
 
 export type FormulaSuggestion = { label: string; insert: string; detail: string };
 
+const SUGGESTED_FIRST = ["size.", "position.", "rotation.", "pivot."];
+
 /**
  * What can be typed at the end of `before` (the text up to the caret): after `$`, the table's rows, the named bodies and
  * `self`; after `$name.`, that body's fields by the name formulas read them by. `start` is where the typed part begins.
@@ -373,5 +440,10 @@ export function formulaSuggestions(shapes: WorkplaneShape[], variables: DesignVa
   if (!shapeId) return { start, items: [] };
   const prefix = token.slice(0, dot + 1);
   const fields = scope.fieldsOf(shapeId).map((field) => ({ label: attributePath(field.id), insert: `${prefix}${attributePath(field.id)}`, detail: `${Number(shownValue(field, workspace).toFixed(4))}` }));
-  return { start, items: matching(fields, token) };
+  // Size, position, rotation and pivot first, the shape's own settings (taper, twist, teeth...) after them.
+  const rank = (path: string) => {
+    const group = SUGGESTED_FIRST.findIndex((start) => path.startsWith(start));
+    return group < 0 ? SUGGESTED_FIRST.length : group;
+  };
+  return { start, items: matching(fields, token).sort((a, b) => rank(a.label) - rank(b.label)) };
 }

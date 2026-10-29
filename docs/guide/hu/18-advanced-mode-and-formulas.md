@@ -35,7 +35,7 @@ Egy képlet bármelyik mezőt olvashatja egy olyan testből, amelynek változón
 | Pozíció X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Elforgatás X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Forgáspont X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
-| Bármely más mező | a saját neve, például `$gear.teeth` vagy `$tube.thickness` |
+| Elvékonyodás, csavarás és az alakzat saját beállításai | aszerint csoportosítva, amihez tartoznak, például `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth`; a `$name.` után a képletszerkesztő mindet felsorolja |
 
 A test átnevezése minden olyan képletben átnevezi, amely használja. Egy elnevezett test másolata - beillesztve, duplikálva vagy importálva - nem tartja meg a nevet, mert két test nem osztozhat rajta; egy rövid üzenet jelzi ezt.
 
