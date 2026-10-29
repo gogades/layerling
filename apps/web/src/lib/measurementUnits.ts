@@ -1,3 +1,4 @@
+import { evaluateFormula } from "@/lib/formula";
 import { t, type MessageKey } from "@/lib/i18n";
 import type { MeasurementAccuracy, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
@@ -112,60 +113,12 @@ export function formatFractionalInches(inches: number) {
 
 /**
  * A little arithmetic in a measure field (#180): `15*3`, `120-2*4`, `(40+2)/2`, with `x`, `\u00d7`
- * and `\u00f7` too. A decimal comma counts like a point. Read by hand - no eval - and NaN for
- * anything that is not a plain sum of numbers.
+ * and `\u00f7` too. A decimal comma counts like a point. NaN for anything that is not a plain sum
+ * of numbers; lib/formula reads it.
  */
 export function evaluateArithmetic(text: string) {
-  const source = text.replace(/[\s\u00a0]/g, "").replace(/,/g, ".").replace(/[\u00d7xX]/g, "*").replace(/\u00f7/g, "/").replace(/[\u2212\u2013]/g, "-");
-  let index = 0;
-  const peek = () => source[index];
-  const number = (): number => {
-    const match = /^(\d+\.?\d*|\.\d+)/.exec(source.slice(index));
-    if (!match) return Number.NaN;
-    index += match[0].length;
-    return Number(match[0]);
-  };
-  const factor = (): number => {
-    if (peek() === "-") {
-      index += 1;
-      return -factor();
-    }
-    if (peek() === "+") {
-      index += 1;
-      return factor();
-    }
-    if (peek() === "(") {
-      index += 1;
-      const value = sum();
-      if (peek() !== ")") return Number.NaN;
-      index += 1;
-      return value;
-    }
-    return number();
-  };
-  const product = (): number => {
-    let value = factor();
-    while (peek() === "*" || peek() === "/") {
-      const operator = source[index];
-      index += 1;
-      const right = factor();
-      value = operator === "*" ? value * right : value / right;
-    }
-    return value;
-  };
-  const sum = (): number => {
-    let value = product();
-    while (peek() === "+" || peek() === "-") {
-      const operator = source[index];
-      index += 1;
-      const right = product();
-      value = operator === "+" ? value + right : value - right;
-    }
-    return value;
-  };
-  if (!source) return Number.NaN;
-  const result = sum();
-  return index === source.length && Number.isFinite(result) ? result : Number.NaN;
+  const result = evaluateFormula(text);
+  return result.ok ? result.value : Number.NaN;
 }
 
 /** Whether a field's text is a calculation rather than one number (a leading minus does not count). */
