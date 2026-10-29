@@ -867,7 +867,7 @@ describe("layerling .lyl project packages", () => {
 describe("history timestamps", () => {
   it("round-trips the time a state was recorded and tolerates states without one", async () => {
     const before = editorHistoryEntry([shape("box")], []);
-    const after = editorHistoryEntry([shape("box", "box-1", { x: 40 })], [], [], undefined, Date.UTC(2026, 9, 7, 12, 30));
+    const after = editorHistoryEntry([shape("box", "box-1", { x: 40 })], [], [], undefined, [], Date.UTC(2026, 9, 7, 12, 30));
     const exported = await exportLylProject(input([shape("box", "box-1", { x: 40 })], { history: [before, after], historyIndex: 1 }));
     const document = JSON.parse(strFromU8(unzipSync(exported)["project.json"])) as LylProjectDocumentV1;
 
