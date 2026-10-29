@@ -338,3 +338,18 @@ html[data-theme="dark"] .formula-editor {
   background: rgba(37, 27, 17, 0.99);
   border-color: #4a3a28;
 }
+
+/* A formula cell of the variables table, with the fx button that opens the formula editor. */
+.variables-formula-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.variables-table .formula-open {
+  width: auto;
+  height: auto;
+  padding: 2px 6px;
+  color: var(--formula-mark);
+  background: var(--formula-tint);
+}
