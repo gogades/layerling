@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { Plus, Trash2, X } from "lucide-react";
+import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { MovableToolPanel } from "@/components/workplane/MovableToolPanel";
 import { formulaErrorText, variableKey, type DesignFormulaError } from "@/components/workplane/evaluateDesign";
 import { isVariableName, type DesignVariable } from "@/lib/designVariables";
@@ -105,6 +106,7 @@ export function VariablesPanel({ rows, shapes, errors, onChange }: {
             <span>{t("variables.subtitle")}</span>
           </div>
           <div className="panel-header-actions">
+            <GuideHelpLink chapter="advanced" />
             <button type="button" aria-label={t("variables.close")} onClick={toggleVariablesPanel}><X size={20} /></button>
           </div>
         </div>
