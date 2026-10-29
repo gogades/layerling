@@ -510,7 +510,7 @@ const THREAD_PROFILE_OPTIONS: Array<{ value: ThreadProfile; label: MessageKey }>
   { value: "custom", label: "thread.profileCustom" },
 ];
 
-type RangePropertyConfig = {
+export type RangePropertyConfig = {
   type?: "range";
   /** Bleibt englisch und unveraendert: Einheiten und Filter haengen daran. */
   id: string;
@@ -618,7 +618,7 @@ function scrollingAncestor(element: HTMLElement): HTMLElement | null {
   return null;
 }
 
-function propertyUsesLengthUnit(key: string) {
+export function propertyUsesLengthUnit(key: string) {
   return ["textLineWidth", "textBlockGap", "textEdgeSize", "letterSize", "iconWidth", "keyringDiameter", "keyringAlong", "positionX", "positionY", "positionZ", "pivotX", "pivotY", "pivotZ", "radius", "length", "width", "height", "bevel", "topRadius", "baseRadius", "curvedConeTop", "thickness", "outerDiameter", "innerDiameter", "textRadius", "extrudeTopOffsetX", "extrudeTopOffsetZ", "toothSize", "toothWidth", "gearBacklash", "centerHole", "slotSmallEnd", "slotCentreDistance", "torusTube", "sketchLineWidth", "sketchCuttingEdge", "topLength", "topWidth", "bottomLength", "bottomWidth", "diameter", "pitch", "clearance", "axialClearance", "boltClearance", "threadDepth", "threadCoreDiameter", "threadLength", "headHeight", "headDiameter", "collarHeight", "collarDiameter", "driveSize", "driveDepth", "chamfer", "chamferBottom", "headChamfer", "wire", "starOuterSize", "starInnerSize", "starOuterFillet", "starInnerFillet", "heartTipFillet", "crescentThickness", "crescentTipFillet", "honeycombCellSize", "honeycombWallThickness", "honeycombFrameWidth", "cornerFillet", "topBottomFillet", "bentTubeSize", "bentTubeWall", "bentTubeSegmentLength", "bentTubeBendRadius", "dovetailNeckWidth", "dovetailClearance", "screwBossHole", "screwBossHoleDepth", "screwBossDiameter", "screwBossGussetHeight", "screwBossGussetThickness", "screwBossReach", "snapFitThickness", "snapFitUndercut", "snapFitClearance", "snapFitFoot", "ribLength", "ribThickness", "ribFootThickness", "portClearance", "hingePinDiameter", "hingeLeafThickness", "hingeClearance", "hingeCornerRadius", "hingeScrewDiameter", "hingeScrewSpacing", "hingeScrewAcross", "hingeNutWidth", "screwHoleShaft", "screwHoleHeadDepth", "knurlDepth", "knurlChamfer", "loftBottomWidth", "loftBottomDepth", "loftTopWidth", "loftTopDepth", "loftBottomCorner", "loftTopCorner", "loftOffsetX", "loftOffsetZ", "loftWall", "loftSectionHeight", "loftSectionWidth", "loftSectionDepth", "loftSectionCorner", "loftSectionOffsetX", "loftSectionOffsetZ", "gridfinityLabelBackLength", "gridfinityLabelBackOffset", "gridfinityLabelBackWidth", "gridfinityLabelCornerSize", "gridfinityLabelTextSize", "gridfinityLabelFrontLength", "gridfinityLabelFrontOffset", "gridfinityLabelFrontWidth", "gridfinityLabelLeftLength", "gridfinityLabelLeftOffset", "gridfinityLabelLeftWidth", "gridfinityLabelRightLength", "gridfinityLabelRightOffset", "gridfinityLabelRightWidth", "gridfinityScoopRadius", "gridfinityFloorHeight", "gridfinityLipChamfer", "gridfinityWallThickness", "gridfinityDrawerWidth", "gridfinityDrawerDepth", "gridfinityPaddingBack", "gridfinityPaddingFront", "gridfinityPaddingLeft", "gridfinityPaddingRight", "gridfinityCornerRadius", "gridfinityBinCornerRadius", "gridfinitySwallowtailClearance", "gridfinityDividerThickness", "gridfinityDividerPositionX", "gridfinityDividerPositionZ", "gridfinityCompartmentLabelWidth", "gridfinityOpeningCornerSize", "gridfinityOpeningDepthBack", "gridfinityOpeningDepthFront", "gridfinityOpeningDepthLeft", "gridfinityOpeningDepthRight", "gridfinityOpeningWidthBack", "gridfinityOpeningWidthFront", "gridfinityOpeningWidthLeft", "gridfinityOpeningWidthRight", "gridfinityOpeningDistanceBack", "gridfinityOpeningDistanceFront", "gridfinityOpeningDistanceLeft", "gridfinityOpeningDistanceRight", "surfaceSpacing", "surfaceDepth", "surfaceFade", "surfaceCrackWidth", "surfaceCrackRecess", "surfaceTextSize", "surfaceCarbonCross", "surfaceBrickHeight", "surfaceBrickJoint", "surfaceTimberHeight", "surfaceTimberBeam", "surfaceStoneJoint", "surfaceTileGap", "surfaceRingWidth", "surfaceTileHeight", "vase.wall", "vase.bottom", "vase.ribDepth", "vase.stripeDepth", "vase.voronoiCell", "vase.voronoiGap", "vase.voronoiDepth", "vase.waveAmplitude", "vaseFloor.drainDiameter", "vaseFloor.floorSlope", "vaseFloor.footHeight", "vaseFloor.rubberFootDiameter", "vaseFloor.rubberFootDepth", "vaseFloor.cutoutSize", "vaseFloor.cutoutWeb", "vaseFloor.lampHole", "vaseFloor.puckDiameter", "vaseFloor.lampNotch", "vaseFloor.lampNotchHeight", "vaseFloor.reinforceDepth", "vaseFloor.slitWidth", "vaseFloor.lineWidth", "vasePrint.lineWidth", "vaseParts.legHeight", "vaseParts.legDiameter", "vaseParts.saucerHeight", "vaseParts.saucerGap", "vaseParts.saucerWall", "vaseParts.insertWall", "vaseParts.insertStandoff", "vaseParts.reservoirHeight", "vaseParts.frogHole", "vaseParts.tubeDiameter", "vaseParts.lidClearance", "vaseParts.lidThickness", "vaseParts.lidDepth", "vaseParts.lidHeight", "vaseParts.lidJoint", "vaseParts.threadPitch", "vaseParts.fitClearance"].includes(key);
 }
 
@@ -4094,185 +4094,11 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
 }
 
 /**
- * The snap step in mm (0 when the grid is off). A length slider dragged with the mouse snaps to it, so a
- * height comes out in whole millimetres instead of 0.81 steps of one pixel; typing and the arrow keys stay exact.
+ * The number fields of the taper, twist, position, rotation and pivot cards. Outside the component so that
+ * shapeNumberFields (the advanced mode's formulas) reads and sets exactly the fields the inspector shows.
  */
-const SliderSnapContext = createContext(0);
-
-export function ShapeInspector({
-  shape,
-  snap,
-  snapOpen,
-  workspace,
-  onUpdate: onUpdateShape,
-  onSnapChange,
-  onSnapOpenChange,
-  onUnitsChange,
-  onObjectSnapChange,
-  onEditSketch,
-  onOpenGroup,
-  canSeparateParts = false,
-  onSeparateParts,
-  onWrapAroundCylinder,
-  onSurfaceTexture,
-  onRemoveSurfaceTexture,
-  surfaceTextureOpen,
-  onSurfaceTextureOpenChange,
-  surfaceFacePicking,
-  surfacePickedFaces,
-  onSurfaceFacePick,
-  onVaseAccessories,
-  onGridfinityKeys,
-  onLayerText,
-  onTextTags,
-  onTextBlock,
-  onFixKeyringTab,
-  onPortPresetWithScrewHoles,
-  textLayerStack: nameTagStack,
-  iconTag,
-  qrCode,
-  sbcBoard,
-  referenceImage,
-  onInteractionActiveChange,
-  onSnapGridAwayChange,
-  proportionLock = false,
-  onProportionLockChange,
-  onBentTubeSegmentChange,
-  onShapeDefaultsChange,
-}: {
-  shape: WorkplaneShape;
-  snap: GridSize;
-  snapOpen: boolean;
-  workspace: WorkplaneWorkspaceSettings;
-  onUpdate: ShapeInspectorUpdate;
-  onSnapChange: Dispatch<SetStateAction<GridSize>>;
-  onSnapOpenChange: Dispatch<SetStateAction<boolean>>;
-  onUnitsChange?: (units: string) => void;
-  onObjectSnapChange?: (enabled: boolean) => void;
-  onEditSketch?: () => void;
-  /** Opens a group so its parts can be changed one by one. */
-  onOpenGroup?: () => void;
-  canSeparateParts?: boolean;
-  onSeparateParts?: () => void;
-  /** Wraps this body around a cylinder of the given diameter (#106). */
-  onWrapAroundCylinder?: (diameter: number, inward: boolean) => void;
-  /** Lays a surface texture onto this body; resolves when it is on (or could not be made). */
-  onSurfaceTexture?: (settings: SurfaceTextureSettings) => Promise<void> | void;
-  onRemoveSurfaceTexture?: () => void;
-  /** Whether the surface texture card is open, when the editor holds it (the toolbar opens it too). */
-  surfaceTextureOpen?: boolean;
-  onSurfaceTextureOpenChange?: (open: boolean) => void;
-  /** Whether faces of this body are being picked for its texture with clicks in the view, and the faces picked so far. */
-  surfaceFacePicking?: boolean;
-  surfacePickedFaces?: SurfaceTextureFace[] | null;
-  /** Starts picking faces from these (null: stops), on the faces as the given edge angle bounds them. */
-  onSurfaceFacePick?: (faces: SurfaceTextureFace[] | null, edgeAngle: number) => void;
-  /** Lays this vase's accessories out beside it, ready to print. */
-  onVaseAccessories?: () => void;
-  /** Lays this Swallowtail baseplate's keys out in front of it, ready to print (#1061). */
-  onGridfinityKeys?: () => void;
-  /** Splits a text into layers, or builds a layered text again with new words, font or layers (#215). */
-  onLayerText?: (patch: TextLayerPatch) => void;
-  /** One tag like this text or stack per name, laid out in rows (#215). */
-  onTextTags?: (names: string[], gap: number) => void;
-  /** Several lines of text under one another, one text each, left, centred or right (#1207). */
-  onTextBlock?: (lines: string[], options: TextBlockOptions) => void;
-  /** Fixes a key ring tab of its own to the nearest tag in one click, where it was put (#598). */
-  onFixKeyringTab?: () => void;
-  /** Puts a D-Sub opening's two screw holes beside it, as holes of their own. */
-  onPortPresetWithScrewHoles?: (patch: Partial<WorkplaneShape>) => void;
-  /** The selected name tag's words, font and layers, read from its layers as they stand (#215). */
-  textLayerStack?: NameTagStack | null;
-  /** The icon tag card's wiring, for a sketch body or an icon tag; null for anything else. */
-  iconTag?: IconTagControls | null;
-  /** The QR code card's wiring (#553), for a QR code; null for anything else. */
-  qrCode?: QrCodeControls | null;
-  /** The SBC board card's wiring (#1098), for an SBC board; null for anything else. */
-  sbcBoard?: SbcBoardControls | null;
-  /** The reference image card's wiring (#680), for a reference image; null for anything else. */
-  referenceImage?: ReferenceImageControls | null;
-  onInteractionActiveChange?: (active: boolean) => void;
-  /** The snap control lives in the expanded panel; collapsed, the workplane shows its own. */
-  /** Called with true while the inspector does not carry the snap grid control (collapsed, or floating), so the workplane shows it. */
-  onSnapGridAwayChange?: (away: boolean) => void;
-  /** With the lock on, changing one of width, depth and height scales the other two by the same factor. */
-  proportionLock?: boolean;
-  onProportionLockChange?: (locked: boolean) => void;
-  /** The segment the bent tube's settings are about, or null when none is shown; the workplane lights it up on the tube. */
-  onBentTubeSegmentChange?: (shapeId: string, segment: number | null) => void;
-  /** Saves the shape's values as the defaults of its kind, or removes them (null): the same "Shape defaults" the settings hold. */
-  onShapeDefaultsChange?: (kind: WorkplaneShape["kind"], entry: ShapeCustomization | null) => void;
-}) {
-  useLanguage();
-  const solidColor = shape.color;
-  // Picking one colour for a group means one colour for all of it, as in similar tools.
-  const singleColorPatch: Partial<WorkplaneShape> = canToggleGroupColors(shape) ? { multicolor: false } : {};
-  const locked = Boolean(shape.locked);
-  // Lock shape (#1277): where the part stands and how it turns stay free; its size, settings and name do not.
-  const shapeLocked = Boolean(shape.shapeLocked);
-  const frozen = locked || holdsShapeLock(shape);
-  // A calculation typed into a field (#180) is noted just before the field's change and rides
-  // along in that one change, so undo takes value and formula back together. A note nobody
-  // picks up is dropped again right after.
-  const pendingFormulaRef = useRef<{ id: string; text: string | null } | null>(null);
-  const noteFormula = (id: string, text: string | null | undefined) => {
-    pendingFormulaRef.current = text === undefined ? null : { id, text };
-  };
-  const onUpdate: ShapeInspectorUpdate = (patch, options) => {
-    const pending = pendingFormulaRef.current;
-    pendingFormulaRef.current = null;
-    onUpdateShape(pending ? { ...patch, formulas: withFieldFormula(shape.formulas, pending.id, pending.text) } : patch, options);
-  };
-  // The section of a loft the rows are about (#1034), back to the first for another body.
-  const [loftSection, setLoftSection] = useState(0);
-  useEffect(() => setLoftSection(0), [shape.id]);
-  const printerPlay = usePrinterPlay();
-  const properties = withFitTestNotes(getShapeProperties(shape, onUpdate, workspace, { loftSection, setLoftSection, portPresetWithScrewHoles: onPortPresetWithScrewHoles }), shape.kind, printerPlay);
-  const tiltedMeasures = orientedMeasures(shape).kind === "tilted";
-  // What each value would be on a shape of this kind made new, with the saved defaults: the
-  // small arrow next to a changed value takes it back there.
-  const propertyDefaults = useMemo(() => shapePropertyDefaults(shape.kind, workspace, shape.kind === "gridfinity" ? normalizeGridfinityType(shape.gridfinityType) : undefined, printerPlay), [shape.kind, workspace, shape.gridfinityType, printerPlay]);
-  const savedDefaults = workspace.shapeCustomizations[shape.kind];
-  const defaultsToSave = shapeDefaultsFromShape(shape, workspace.shapeCustomizations, printerPlay);
-  const sameDefaults = JSON.stringify(defaultsToSave ?? null) === JSON.stringify(savedDefaults && Object.keys(savedDefaults).length > 0 ? savedDefaults : null);
-  const gearType = shape.kind === "gear" ? normalizeGearType(shape.gearType) : null;
-  const isThread = shape.kind === "thread";
-  /*
-   * Wo die Verjuengung nichts ausrichtet, steht auch keine Karte dafuer. Welche
-   * Arten das sind, steht in `shapeSupportsTaper` - dieselbe Antwort bekommt
-   * die MCP-Bruecke, damit nicht eine Stelle anbietet, was die andere wegwirft.
-   */
+function placementAndDeformProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate, workspace: WorkplaneWorkspaceSettings) {
   const shapeIgnoresTaper = !shapeSupportsTaper(shape.kind);
-  // A name tag only gets distorted by taper, twist and lean: its cards stay away (#225). A plain text keeps them (#238).
-  const showTaperCards = !shapeIgnoresTaper && !shape.layeredText;
-  const threadRoleProperty = isThread ? findSelectProperty(properties, "threadRole") : null;
-  const threadHeadProperty = isThread ? findSelectProperty(properties, "threadHead") : null;
-  const threadNutShapeProperty = isThread ? findSelectProperty(properties, "threadNutShape") : null;
-  const threadDriveProperty = isThread ? findSelectProperty(properties, "threadDrive") : null;
-  // A vase: its measures here, its form and pattern and its bottom and wall on cards of their own.
-  const vaseFormProperties = shape.kind === "vase" ? properties.filter((property) => property.id.startsWith("vase.")) : [];
-  const vaseFloorProperties = shape.kind === "vase" ? properties.filter((property) => property.id.startsWith("vaseFloor.")) : [];
-  const vasePrintProperties = shape.kind === "vase" ? properties.filter((property) => property.id.startsWith("vasePrint.")) : [];
-  const vasePartProperties = shape.kind === "vase" ? properties.filter((property) => property.id.startsWith("vaseParts.")) : [];
-  const primaryProperties = shape.kind === "vase"
-    ? properties.filter((property) => !property.id.startsWith("vase"))
-    : shape.kind === "gear"
-    ? properties.filter((property) => ["centerHole", "length", "width", "height"].includes(property.id))
-    : isThread
-      ? properties.filter((property) => ["threadSize", "diameter", "threadLength", "headHeight", "headDiameter", "collarHeight", "collarDiameter", "driveSize", "driveDepth", "headChamfer"].includes(property.id))
-      : properties.filter((property) => shape.kind !== "text" || !TEXT_FILL_MORE_IDS.has(property.id));
-  // A text's fill (#215): the list and the line width in view, the rest under "More" right below them.
-  const textFillMore = shape.kind === "text" ? properties.filter((property) => TEXT_FILL_MORE_IDS.has(property.id)) : [];
-  const textFillEnd = primaryProperties.reduce((end, property, index) => (TEXT_FILL_IN_VIEW_IDS.has(property.id) ? index + 1 : end), 0);
-  const threadProperties = isThread
-    ? properties.filter((property) => ["pitch", "threadsPerInch", "threadStarts", "threadHand", "threadProfile", "threadTaper", "threadFlankAngle", "threadDepth", "threadCoreDiameter", "clearance", "axialClearance", "boltClearance", "chamfer", "chamferBottom", "quality"].includes(property.id))
-    : [];
-  const gearTeethProperties = shape.kind === "gear"
-    ? properties.filter((property) => ["gearProfile", "teeth", "gearModule", "gearPressureAngle", "gearBacklash", "gearRim", "toothSize", "toothWidth"].includes(property.id))
-    : [];
-  const gearHelixProperties = shape.kind === "gear"
-    ? properties.filter((property) => ["helixAngle", "bevelHelixAngle", "quality"].includes(property.id))
-    : [];
   const taper = shapeTaperDimensions(shape);
   const taperDimensionMax = shapeDimensionLimit(workspace, shape.kind, DEFAULT_TAPER_DIMENSION_MAX);
   // Keep proportions (#1229): length and width of one end change together, in the ratio they have now.
@@ -4472,8 +4298,8 @@ export function ShapeInspector({
    * Arbeitsflaeche), Z als Hoehe seiner Unterkante. Die Regler reichen so weit
    * wie das Ziehen, eine Plattengroesse ueber jeden Rand.
    */
-  const undersideBelow = useMemo(() => undersideOffset(shape), [shape]);
-  const plateOffsetX = useMemo(() => plateOffsetOfShape(workspace, shape), [shape, workspace]);
+  const undersideBelow = undersideOffset(shape);
+  const plateOffsetX = plateOffsetOfShape(workspace, shape);
   const reachX = workspace.width * 1.5;
   const reachY = workspace.depth * 1.5;
   // Up, the slider reaches as far as the plate does and the printer is high; any number can be typed (#425).
@@ -4521,6 +4347,200 @@ export function ShapeInspector({
       { id: "pivotZ", label: t("prop.pivotZ"), value: pivot.y, min: -Math.max(180, reachZ), max: reachZ, step: 0.5, onChange: (y) => movePivot({ y }) },
     ]
     : [];
+  return { taperProperties, twistProperties, slopeProperties, slopeDefaults, narrowProperties, narrowDefaults, positionProperties, rotationProperties, pivotProperties };
+}
+
+/**
+ * Every number field of a body as the inspector shows it, by id: its own measures, then taper, twist, slope, narrow, position,
+ * rotation and pivot. A field's onChange hands its patch to onUpdate. See workplane/evaluateDesign.
+ */
+export function shapeNumberFields(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate, workspace: WorkplaneWorkspaceSettings): RangePropertyConfig[] {
+  const extra = placementAndDeformProperties(shape, onUpdate, workspace);
+  return [...getShapeProperties(shape, onUpdate, workspace), ...extra.taperProperties, ...extra.twistProperties, ...extra.slopeProperties, ...extra.narrowProperties, ...extra.positionProperties, ...extra.rotationProperties, ...extra.pivotProperties]
+    .filter((property): property is RangePropertyConfig => property.type === undefined || property.type === "range");
+}
+
+/**
+ * The snap step in mm (0 when the grid is off). A length slider dragged with the mouse snaps to it, so a
+ * height comes out in whole millimetres instead of 0.81 steps of one pixel; typing and the arrow keys stay exact.
+ */
+const SliderSnapContext = createContext(0);
+
+export function ShapeInspector({
+  shape,
+  snap,
+  snapOpen,
+  workspace,
+  onUpdate: onUpdateShape,
+  onSnapChange,
+  onSnapOpenChange,
+  onUnitsChange,
+  onObjectSnapChange,
+  onEditSketch,
+  onOpenGroup,
+  canSeparateParts = false,
+  onSeparateParts,
+  onWrapAroundCylinder,
+  onSurfaceTexture,
+  onRemoveSurfaceTexture,
+  surfaceTextureOpen,
+  onSurfaceTextureOpenChange,
+  surfaceFacePicking,
+  surfacePickedFaces,
+  onSurfaceFacePick,
+  onVaseAccessories,
+  onGridfinityKeys,
+  onLayerText,
+  onTextTags,
+  onTextBlock,
+  onFixKeyringTab,
+  onPortPresetWithScrewHoles,
+  textLayerStack: nameTagStack,
+  iconTag,
+  qrCode,
+  sbcBoard,
+  referenceImage,
+  onInteractionActiveChange,
+  onSnapGridAwayChange,
+  proportionLock = false,
+  onProportionLockChange,
+  onBentTubeSegmentChange,
+  onShapeDefaultsChange,
+}: {
+  shape: WorkplaneShape;
+  snap: GridSize;
+  snapOpen: boolean;
+  workspace: WorkplaneWorkspaceSettings;
+  onUpdate: ShapeInspectorUpdate;
+  onSnapChange: Dispatch<SetStateAction<GridSize>>;
+  onSnapOpenChange: Dispatch<SetStateAction<boolean>>;
+  onUnitsChange?: (units: string) => void;
+  onObjectSnapChange?: (enabled: boolean) => void;
+  onEditSketch?: () => void;
+  /** Opens a group so its parts can be changed one by one. */
+  onOpenGroup?: () => void;
+  canSeparateParts?: boolean;
+  onSeparateParts?: () => void;
+  /** Wraps this body around a cylinder of the given diameter (#106). */
+  onWrapAroundCylinder?: (diameter: number, inward: boolean) => void;
+  /** Lays a surface texture onto this body; resolves when it is on (or could not be made). */
+  onSurfaceTexture?: (settings: SurfaceTextureSettings) => Promise<void> | void;
+  onRemoveSurfaceTexture?: () => void;
+  /** Whether the surface texture card is open, when the editor holds it (the toolbar opens it too). */
+  surfaceTextureOpen?: boolean;
+  onSurfaceTextureOpenChange?: (open: boolean) => void;
+  /** Whether faces of this body are being picked for its texture with clicks in the view, and the faces picked so far. */
+  surfaceFacePicking?: boolean;
+  surfacePickedFaces?: SurfaceTextureFace[] | null;
+  /** Starts picking faces from these (null: stops), on the faces as the given edge angle bounds them. */
+  onSurfaceFacePick?: (faces: SurfaceTextureFace[] | null, edgeAngle: number) => void;
+  /** Lays this vase's accessories out beside it, ready to print. */
+  onVaseAccessories?: () => void;
+  /** Lays this Swallowtail baseplate's keys out in front of it, ready to print (#1061). */
+  onGridfinityKeys?: () => void;
+  /** Splits a text into layers, or builds a layered text again with new words, font or layers (#215). */
+  onLayerText?: (patch: TextLayerPatch) => void;
+  /** One tag like this text or stack per name, laid out in rows (#215). */
+  onTextTags?: (names: string[], gap: number) => void;
+  /** Several lines of text under one another, one text each, left, centred or right (#1207). */
+  onTextBlock?: (lines: string[], options: TextBlockOptions) => void;
+  /** Fixes a key ring tab of its own to the nearest tag in one click, where it was put (#598). */
+  onFixKeyringTab?: () => void;
+  /** Puts a D-Sub opening's two screw holes beside it, as holes of their own. */
+  onPortPresetWithScrewHoles?: (patch: Partial<WorkplaneShape>) => void;
+  /** The selected name tag's words, font and layers, read from its layers as they stand (#215). */
+  textLayerStack?: NameTagStack | null;
+  /** The icon tag card's wiring, for a sketch body or an icon tag; null for anything else. */
+  iconTag?: IconTagControls | null;
+  /** The QR code card's wiring (#553), for a QR code; null for anything else. */
+  qrCode?: QrCodeControls | null;
+  /** The SBC board card's wiring (#1098), for an SBC board; null for anything else. */
+  sbcBoard?: SbcBoardControls | null;
+  /** The reference image card's wiring (#680), for a reference image; null for anything else. */
+  referenceImage?: ReferenceImageControls | null;
+  onInteractionActiveChange?: (active: boolean) => void;
+  /** The snap control lives in the expanded panel; collapsed, the workplane shows its own. */
+  /** Called with true while the inspector does not carry the snap grid control (collapsed, or floating), so the workplane shows it. */
+  onSnapGridAwayChange?: (away: boolean) => void;
+  /** With the lock on, changing one of width, depth and height scales the other two by the same factor. */
+  proportionLock?: boolean;
+  onProportionLockChange?: (locked: boolean) => void;
+  /** The segment the bent tube's settings are about, or null when none is shown; the workplane lights it up on the tube. */
+  onBentTubeSegmentChange?: (shapeId: string, segment: number | null) => void;
+  /** Saves the shape's values as the defaults of its kind, or removes them (null): the same "Shape defaults" the settings hold. */
+  onShapeDefaultsChange?: (kind: WorkplaneShape["kind"], entry: ShapeCustomization | null) => void;
+}) {
+  useLanguage();
+  const solidColor = shape.color;
+  // Picking one colour for a group means one colour for all of it, as in similar tools.
+  const singleColorPatch: Partial<WorkplaneShape> = canToggleGroupColors(shape) ? { multicolor: false } : {};
+  const locked = Boolean(shape.locked);
+  // Lock shape (#1277): where the part stands and how it turns stay free; its size, settings and name do not.
+  const shapeLocked = Boolean(shape.shapeLocked);
+  const frozen = locked || holdsShapeLock(shape);
+  // A calculation typed into a field (#180) is noted just before the field's change and rides
+  // along in that one change, so undo takes value and formula back together. A note nobody
+  // picks up is dropped again right after.
+  const pendingFormulaRef = useRef<{ id: string; text: string | null } | null>(null);
+  const noteFormula = (id: string, text: string | null | undefined) => {
+    pendingFormulaRef.current = text === undefined ? null : { id, text };
+  };
+  const onUpdate: ShapeInspectorUpdate = (patch, options) => {
+    const pending = pendingFormulaRef.current;
+    pendingFormulaRef.current = null;
+    onUpdateShape(pending ? { ...patch, formulas: withFieldFormula(shape.formulas, pending.id, pending.text) } : patch, options);
+  };
+  // The section of a loft the rows are about (#1034), back to the first for another body.
+  const [loftSection, setLoftSection] = useState(0);
+  useEffect(() => setLoftSection(0), [shape.id]);
+  const printerPlay = usePrinterPlay();
+  const properties = withFitTestNotes(getShapeProperties(shape, onUpdate, workspace, { loftSection, setLoftSection, portPresetWithScrewHoles: onPortPresetWithScrewHoles }), shape.kind, printerPlay);
+  const tiltedMeasures = orientedMeasures(shape).kind === "tilted";
+  // What each value would be on a shape of this kind made new, with the saved defaults: the
+  // small arrow next to a changed value takes it back there.
+  const propertyDefaults = useMemo(() => shapePropertyDefaults(shape.kind, workspace, shape.kind === "gridfinity" ? normalizeGridfinityType(shape.gridfinityType) : undefined, printerPlay), [shape.kind, workspace, shape.gridfinityType, printerPlay]);
+  const savedDefaults = workspace.shapeCustomizations[shape.kind];
+  const defaultsToSave = shapeDefaultsFromShape(shape, workspace.shapeCustomizations, printerPlay);
+  const sameDefaults = JSON.stringify(defaultsToSave ?? null) === JSON.stringify(savedDefaults && Object.keys(savedDefaults).length > 0 ? savedDefaults : null);
+  const gearType = shape.kind === "gear" ? normalizeGearType(shape.gearType) : null;
+  const isThread = shape.kind === "thread";
+  /*
+   * Wo die Verjuengung nichts ausrichtet, steht auch keine Karte dafuer. Welche
+   * Arten das sind, steht in `shapeSupportsTaper` - dieselbe Antwort bekommt
+   * die MCP-Bruecke, damit nicht eine Stelle anbietet, was die andere wegwirft.
+   */
+  const shapeIgnoresTaper = !shapeSupportsTaper(shape.kind);
+  // A name tag only gets distorted by taper, twist and lean: its cards stay away (#225). A plain text keeps them (#238).
+  const showTaperCards = !shapeIgnoresTaper && !shape.layeredText;
+  const threadRoleProperty = isThread ? findSelectProperty(properties, "threadRole") : null;
+  const threadHeadProperty = isThread ? findSelectProperty(properties, "threadHead") : null;
+  const threadNutShapeProperty = isThread ? findSelectProperty(properties, "threadNutShape") : null;
+  const threadDriveProperty = isThread ? findSelectProperty(properties, "threadDrive") : null;
+  // A vase: its measures here, its form and pattern and its bottom and wall on cards of their own.
+  const vaseFormProperties = shape.kind === "vase" ? properties.filter((property) => property.id.startsWith("vase.")) : [];
+  const vaseFloorProperties = shape.kind === "vase" ? properties.filter((property) => property.id.startsWith("vaseFloor.")) : [];
+  const vasePrintProperties = shape.kind === "vase" ? properties.filter((property) => property.id.startsWith("vasePrint.")) : [];
+  const vasePartProperties = shape.kind === "vase" ? properties.filter((property) => property.id.startsWith("vaseParts.")) : [];
+  const primaryProperties = shape.kind === "vase"
+    ? properties.filter((property) => !property.id.startsWith("vase"))
+    : shape.kind === "gear"
+    ? properties.filter((property) => ["centerHole", "length", "width", "height"].includes(property.id))
+    : isThread
+      ? properties.filter((property) => ["threadSize", "diameter", "threadLength", "headHeight", "headDiameter", "collarHeight", "collarDiameter", "driveSize", "driveDepth", "headChamfer"].includes(property.id))
+      : properties.filter((property) => shape.kind !== "text" || !TEXT_FILL_MORE_IDS.has(property.id));
+  // A text's fill (#215): the list and the line width in view, the rest under "More" right below them.
+  const textFillMore = shape.kind === "text" ? properties.filter((property) => TEXT_FILL_MORE_IDS.has(property.id)) : [];
+  const textFillEnd = primaryProperties.reduce((end, property, index) => (TEXT_FILL_IN_VIEW_IDS.has(property.id) ? index + 1 : end), 0);
+  const threadProperties = isThread
+    ? properties.filter((property) => ["pitch", "threadsPerInch", "threadStarts", "threadHand", "threadProfile", "threadTaper", "threadFlankAngle", "threadDepth", "threadCoreDiameter", "clearance", "axialClearance", "boltClearance", "chamfer", "chamferBottom", "quality"].includes(property.id))
+    : [];
+  const gearTeethProperties = shape.kind === "gear"
+    ? properties.filter((property) => ["gearProfile", "teeth", "gearModule", "gearPressureAngle", "gearBacklash", "gearRim", "toothSize", "toothWidth"].includes(property.id))
+    : [];
+  const gearHelixProperties = shape.kind === "gear"
+    ? properties.filter((property) => ["helixAngle", "bevelHelixAngle", "quality"].includes(property.id))
+    : [];
+  const { taperProperties, twistProperties, slopeProperties, slopeDefaults, narrowProperties, narrowDefaults, positionProperties, rotationProperties, pivotProperties } = placementAndDeformProperties(shape, onUpdate, workspace);
   const isSketchRevolve = shape.sketchOperation === "revolve" || Boolean(shape.sketchRevolve);
   // Docked at the right edge until its title bar is dragged; then it floats where it was dropped.
   const movable = useMovablePanel<HTMLElement>("layerling.editor.inspectorPosition", INSPECTOR_PANEL);
@@ -4532,6 +4552,7 @@ export function ShapeInspector({
   // corner does. Z is its bottom either way. Kept in this browser with the cards.
   const [positionAtEdge, setPositionAtEdge] = useInspectorCard("positionAtEdge", false);
   const edges = positionAtEdge && positionOpen ? meshAabb(shape) : null;
+  const plateOffsetX = plateOffsetOfShape(workspace, shape);
   const shownPositionProperties = edges
     ? positionProperties.map((property): RangePropertyConfig => {
         if (property.id === "positionX") {
@@ -5100,7 +5121,7 @@ export function ShapeInspector({
             </div>
             {/* A formula is written for the middle; at the edges the fields take plain numbers. */}
             <ShapePropertyRows formulas={edges ? undefined : shape.formulas} onFormula={edges ? undefined : noteFormula} properties={shownPositionProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
-            {pivot ? (
+            {pivotProperties.length ? (
               <>
                 <div className="property-subheading">
                   <span>{t("inspector.pivot")}</span>
@@ -5179,7 +5200,7 @@ export function ShapeInspector({
           ) : null}
         </div>
       ) : null}
-      {slopeShown ? (
+      {slopeProperties.length > 0 ? (
         <div className={`property-card ${slopeOpen ? "" : "collapsed"}`} data-help-section-all="shapeSettings">
           <button
             className="property-card-header"
@@ -5198,7 +5219,7 @@ export function ShapeInspector({
           ) : null}
         </div>
       ) : null}
-      {narrowShown ? (
+      {narrowProperties.length > 0 ? (
         <div className={`property-card ${narrowOpen ? "" : "collapsed"}`} data-help-section-all="shapeSettings">
           <button
             className="property-card-header"
