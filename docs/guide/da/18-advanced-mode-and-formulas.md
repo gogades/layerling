@@ -35,7 +35,7 @@ En formel kan læse ethvert felt fra et legeme med et variabelnavn. Giv det et i
 | Position X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotation X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Drejepunkt X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
-| Ethvert andet felt | dets eget navn, for eksempel `$gear.teeth` eller `$tube.thickness` |
+| Tilspidsning, vridning og formens egne indstillinger | grupperet efter, hvad de hører til, for eksempel `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth`; efter `$name.` viser formeleditoren dem alle |
 
 Omdøber du legemet, ændres navnet i hver formel, der bruger det. En kopi af et navngivet legeme - indsat, duplikeret eller importeret - beholder ikke navnet, da to legemer ikke kan dele det; en kort besked siger det.
 

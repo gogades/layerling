@@ -35,7 +35,7 @@ Formuła może czytać każde pole bryły, która ma nazwę zmiennej. Nadaj ją 
 | Położenie X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Obrót X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Punkt obrotu X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
-| Każde inne pole | jego własna nazwa, na przykład `$gear.teeth` albo `$tube.thickness` |
+| Zwężenie, skręcenie i własne ustawienia kształtu | pogrupowane według tego, do czego należą, na przykład `$name.taper.top_length`, `$name.twist.angle`, `$name.gear.teeth`; po `$name.` edytor formuł wymienia je wszystkie |
 
 Zmiana nazwy bryły zmienia ją w każdej formule, która jej używa. Kopia nazwanej bryły - wklejona, zduplikowana albo wstawiona - nie zachowuje nazwy, bo dwie bryły nie mogą mieć wspólnej; mówi o tym krótki komunikat.
 

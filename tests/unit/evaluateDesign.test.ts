@@ -18,7 +18,7 @@ describe("recalculating a design (advanced mode)", () => {
     expect(formulaReferences("$a * 2 + sqrt($box.size.width) - $a")).toEqual(["a", "box.size.width", "a"]);
     expect(attributePath("positionX")).toBe("position.x");
     expect(attributePath("width")).toBe("size.width");
-    expect(attributePath("teeth")).toBe("teeth");
+    expect(attributePath("teeth")).toBe("gear.teeth");
   });
 
   it("works a chain out in dependency order, whatever order it stands in", () => {
@@ -192,5 +192,21 @@ describe("recalculating a design (advanced mode)", () => {
     expect(formulaPreview(shapes, [row("wall", "2", 2)], DEFAULT_WORKPLANE_WORKSPACE, undefined, "$lid.size.width + $wall")).toEqual({ ok: true, value: 32 });
     expect(formulaPreview(shapes, [], DEFAULT_WORKPLANE_WORKSPACE, "lid", "$self.size.width / 2")).toEqual({ ok: true, value: 15 });
     expect(formulaPreview(shapes, [], DEFAULT_WORKPLANE_WORKSPACE, undefined, "$missing")).toEqual({ ok: false, error: { kind: "unknown", name: "missing" } });
+  });
+
+  it("reads and sets a body's rotation as rotation.x, .y and .z, as the inspector shows it", () => {
+    const lid = box("lid", { variableName: "lid", rotationX: 10, rotationZ: 20, rotation: 30 });
+    const turned = box("turned", { formulas: { rotateX: "$lid.rotation.x", rotateY: "$lid.rotation.y", rotateZ: "$lid.rotation.z + 5" } });
+    const result = run([lid, turned]);
+    expect(result.errors.size).toBe(0);
+    // The inspector shows the turn about Y with the stored sign flipped; formulas read what it shows.
+    expect(formulaPreview([lid], [], DEFAULT_WORKPLANE_WORKSPACE, undefined, "$lid.rotation.y")).toEqual({ ok: true, value: -20 });
+    expect(result.patches.get("turned")).toMatchObject({ rotationX: 10, rotationZ: 20, rotation: 35 });
+    expect(formulaSuggestions([lid], [], DEFAULT_WORKPLANE_WORKSPACE, undefined, "$lid.rot")?.items.map((item) => item.label)).toEqual(["rotation.x", "rotation.y", "rotation.z"]);
+    // Every field is offered, size, position and rotation first, the taper and twist settings after them.
+    const all = formulaSuggestions([lid], [], DEFAULT_WORKPLANE_WORKSPACE, undefined, "$lid.")?.items.map((item) => item.label) ?? [];
+    expect(all.slice(0, 9)).toEqual(["size.length", "size.width", "size.height", "position.x", "position.y", "position.z", "rotation.x", "rotation.y", "rotation.z"]);
+    expect(all).toContain("taper.top_length");
+    expect(all).toContain("twist.angle");
   });
 });
