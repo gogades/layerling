@@ -1,0 +1,176 @@
+import { propertyUsesLengthUnit, shapeNumberFields, type RangePropertyConfig } from "@/components/workplane/ShapeInspector";
+import { SELF_VARIABLE_NAME, type DesignVariable } from "@/lib/designVariables";
+import { evaluateFormula, formulaReferences, type FormulaError } from "@/lib/formula";
+import { displayToMillimeters, evaluateArithmetic, millimetersToDisplay } from "@/lib/measurementUnits";
+import { shapeWithParametricSource } from "@/lib/workplaneShapes";
+import type { WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
+
+/*
+ * The advanced mode's recalculation: every formula of the design - the variables table's and the bodies' fields' -
+ * worked out in the order they depend on each other. Fields are read and set through shapeNumberFields, so a value
+ * means here what it means in the Properties panel: same field, same unit, same limits, same linked values.
+ * See the design doc "Advanced mode and variables".
+ */
+
+const GROUPED_PATHS: Record<string, string> = {
+  positionX: "position.x", positionY: "position.y", positionZ: "position.z",
+  rotateX: "rotation.x", rotateY: "rotation.y", rotateZ: "rotation.z",
+  pivotX: "pivot.x", pivotY: "pivot.y", pivotZ: "pivot.z",
+  width: "size.width", length: "size.length", height: "size.height", diameter: "size.diameter",
+};
+
+/** The name a formula reads a field by after `$name.`: `size.width`, `position.x`, or the field's own id (`teeth`). */
+export function attributePath(fieldId: string) {
+  return GROUPED_PATHS[fieldId] ?? fieldId;
+}
+
+/** Beside the formula's own errors: a loop, a field the body no longer has, a locked body, two formulas fighting over one value. */
+export type DesignFormulaError = FormulaError | { kind: "cycle" } | { kind: "field" } | { kind: "locked" } | { kind: "conflict" };
+
+export type DesignEvaluation = {
+  /** What changed on each body, by id, as the inspector would have handed it over. */
+  patches: Map<string, Partial<WorkplaneShape>>;
+  /** The table with each row's value worked out again. */
+  variables: DesignVariable[];
+  /** What failed, by `variable:<name in lower case>` or `<body id>/<field id>`; those keep their last value. */
+  errors: Map<string, DesignFormulaError>;
+};
+
+/** The key of a table row in the order and in `errors`. */
+export function variableKey(name: string) {
+  return `variable:${name.toLowerCase()}`;
+}
+
+const MAX_PASSES = 4;
+
+/** The part of `patch` that changes `shape`, or null when none does. */
+function changedFields(shape: WorkplaneShape, patch: Partial<WorkplaneShape> | null): Partial<WorkplaneShape> | null {
+  if (!patch) return null;
+  const changed = Object.entries(patch).filter(([key, value]) => JSON.stringify(shape[key as keyof WorkplaneShape]) !== JSON.stringify(value));
+  return changed.length ? Object.fromEntries(changed) : null;
+}
+
+type FormulaNode = { formula: string; row?: DesignVariable; shapeId?: string; fieldId?: string };
+
+// shortcut: only the design's top-level bodies take part; parts inside closed groups come with group editing.
+export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings): DesignEvaluation {
+  const working = new Map(shapes.map((shape) => [shape.id, shape]));
+  const rows = variables.map((row) => ({ ...row }));
+  const rowByName = new Map(rows.map((row) => [row.name.toLowerCase(), row]));
+  const shapeByName = new Map<string, string>();
+  for (const shape of shapes) {
+    const name = shape.variableName?.toLowerCase();
+    if (name && !shapeByName.has(name)) shapeByName.set(name, shape.id);
+  }
+
+  // A field's onChange hands its patch here; the field list is built again only for a body that changed.
+  let captured: Partial<WorkplaneShape> | null = null;
+  const capture = (patch: Partial<WorkplaneShape>) => {
+    captured = patch;
+  };
+  const fieldCache = new Map<string, { shape: WorkplaneShape; fields: RangePropertyConfig[] }>();
+  const fieldsOf = (shapeId: string) => {
+    const shape = working.get(shapeId) as WorkplaneShape;
+    const cached = fieldCache.get(shapeId);
+    if (cached?.shape === shape) return cached.fields;
+    const fields = shapeNumberFields(shapeWithParametricSource(shape), capture, workspace);
+    fieldCache.set(shapeId, { shape, fields });
+    return fields;
+  };
+  const shown = (field: RangePropertyConfig) => (propertyUsesLengthUnit(field.id) ? millimetersToDisplay(field.value, workspace) : field.value);
+
+  /** What a reference in a formula of `ownerId` (none for the table) points at: a row's key, or a body's field. */
+  const resolve = (reference: string, ownerId?: string): { key: string; field?: RangePropertyConfig } | null => {
+    const [name, ...rest] = reference.toLowerCase().split(".");
+    if (!rest.length) return rowByName.has(name) ? { key: variableKey(name) } : null;
+    const shapeId = name === SELF_VARIABLE_NAME ? ownerId : shapeByName.get(name);
+    const path = rest.join(".");
+    const field = shapeId ? fieldsOf(shapeId).find((candidate) => attributePath(candidate.id).toLowerCase() === path) : undefined;
+    return field ? { key: `${shapeId}/${field.id}`, field } : null;
+  };
+  const reader = (ownerId?: string) => (reference: string) => {
+    const target = resolve(reference, ownerId);
+    if (!target) return undefined;
+    return target.field ? shown(target.field) : rowByName.get(reference.toLowerCase())?.value;
+  };
+
+  const nodes = new Map<string, FormulaNode>();
+  for (const row of rows) if (row.formula.trim()) nodes.set(variableKey(row.name), { formula: row.formula, row });
+  for (const shape of shapes) {
+    for (const [fieldId, formula] of Object.entries(shape.formulas ?? {})) {
+      // Plain arithmetic (#180) is a remembered calculation, not a formula to keep true: a drag may have left it behind.
+      if (!Number.isFinite(evaluateArithmetic(formula))) nodes.set(`${shape.id}/${fieldId}`, { formula, shapeId: shape.id, fieldId });
+    }
+  }
+
+  // Dependency order (Kahn): a node is worked out once every formula it reads is. What is left over is a loop.
+  const waiting = new Map<string, Set<string>>();
+  const readers = new Map<string, string[]>();
+  for (const [key, node] of nodes) {
+    const reads = new Set(formulaReferences(node.formula).map((reference) => resolve(reference, node.shapeId)?.key).filter((dependency): dependency is string => Boolean(dependency && nodes.has(dependency))));
+    waiting.set(key, reads);
+    for (const dependency of reads) readers.set(dependency, [...(readers.get(dependency) ?? []), key]);
+  }
+  const order = [...waiting].filter(([, reads]) => reads.size === 0).map(([key]) => key);
+  for (let index = 0; index < order.length; index += 1) {
+    for (const reader of readers.get(order[index]) ?? []) {
+      const reads = waiting.get(reader) as Set<string>;
+      reads.delete(order[index]);
+      if (reads.size === 0) order.push(reader);
+    }
+  }
+  const errors = new Map<string, DesignFormulaError>();
+  const ordered = new Set(order);
+  for (const key of nodes.keys()) if (!ordered.has(key)) errors.set(key, { kind: "cycle" });
+
+  // Setting one field can move another of the same body (a turn about a pivot moves its position), so the ordered
+  // pass runs again while it still changes something. A field still changing in the last pass is fighting another.
+  const patches = new Map<string, Partial<WorkplaneShape>>();
+  for (let pass = 0; pass < MAX_PASSES; pass += 1) {
+    let changed = false;
+    for (const key of order) {
+      errors.delete(key);
+      const node = nodes.get(key) as FormulaNode;
+      const result = evaluateFormula(node.formula, reader(node.shapeId));
+      if (!result.ok) {
+        errors.set(key, result.error);
+        continue;
+      }
+      if (node.row) {
+        node.row.value = result.value;
+        continue;
+      }
+      const shapeId = node.shapeId as string;
+      const shape = working.get(shapeId) as WorkplaneShape;
+      // A locked body holds still, as it does for every other change; the field says why.
+      if (shape.locked) {
+        errors.set(key, { kind: "locked" });
+        continue;
+      }
+      const field = fieldsOf(shapeId).find((candidate) => candidate.id === node.fieldId);
+      if (!field) {
+        errors.set(key, { kind: "field" });
+        continue;
+      }
+      if (Math.abs(shown(field) - result.value) <= 1e-9 * Math.max(1, Math.abs(result.value))) continue;
+      captured = null;
+      field.onChange(Math.max(field.min, propertyUsesLengthUnit(field.id) ? displayToMillimeters(result.value, workspace) : result.value));
+      // onChange set it through `capture`; TypeScript cannot see that and still thinks it null.
+      const patch = changedFields(shape, captured as Partial<WorkplaneShape> | null);
+      // A value held at the field's limit gives the same patch every time: nothing to do.
+      if (!patch) continue;
+      changed = true;
+      if (pass === MAX_PASSES - 1) errors.set(key, { kind: "conflict" });
+      working.set(shapeId, { ...shape, ...patch });
+      patches.set(shapeId, { ...patches.get(shapeId), ...patch });
+    }
+    if (!changed) break;
+  }
+  // Fields that went round and came back where they started are no change.
+  for (const [shapeId, patch] of patches) {
+    const left = changedFields(shapes.find((shape) => shape.id === shapeId) as WorkplaneShape, patch);
+    if (left) patches.set(shapeId, left);
+    else patches.delete(shapeId);
+  }
+  return { patches, variables: rows, errors };
+}

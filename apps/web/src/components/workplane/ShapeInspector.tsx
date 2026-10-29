@@ -546,7 +546,7 @@ const THREAD_PROFILE_OPTIONS: Array<{ value: ThreadProfile; label: MessageKey }>
   { value: "custom", label: "thread.profileCustom" },
 ];
 
-type RangePropertyConfig = {
+export type RangePropertyConfig = {
   type?: "range";
   /** Bleibt englisch und unveraendert: Einheiten und Filter haengen daran. */
   id: string;
@@ -4576,6 +4576,305 @@ function getShapeProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdat
 }
 
 /**
+ * The number fields of the taper, twist, position, rotation and pivot cards. Outside the component so that
+ * shapeNumberFields (the advanced mode's formulas) reads and sets exactly the fields the inspector shows.
+ */
+function placementAndDeformProperties(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate, workspace: WorkplaneWorkspaceSettings) {
+  const shapeIgnoresTaper = !shapeSupportsTaper(shape.kind);
+  const taper = shapeTaperDimensions(shape);
+  const taperDimensionMax = shapeDimensionLimit(workspace, shape.kind, DEFAULT_TAPER_DIMENSION_MAX);
+  // Keep proportions (#1229): length and width of one end change together, in the ratio they have now.
+  // Top and bottom stay apart, or there would be nothing left to taper.
+  const taperKeepsProportions = shape.taperKeepProportions === true;
+  const taperPartner = (changed: number, before: number, partner: number) =>
+    taperKeepsProportions ? Math.min(taperDimensionMax, Math.max(MIN_SHAPE_SIZE, partner * (changed / Math.max(MIN_SHAPE_SIZE, before)))) : partner;
+  const taperProperties: ShapePropertyConfig[] = shapeIgnoresTaper ? [] : [
+    {
+      id: "topLength",
+      label: t("prop.topLength"),
+      value: taper.topDepth,
+      min: MIN_SHAPE_SIZE,
+      max: taperDimensionMax,
+      onChange: (taperTopDepth) => onUpdate({ taperTopDepth, taperTopWidth: taperPartner(taperTopDepth, taper.topDepth, taper.topWidth), taperTopScale: undefined }),
+    },
+    {
+      id: "topWidth",
+      label: t("prop.topWidth"),
+      value: taper.topWidth,
+      min: MIN_SHAPE_SIZE,
+      max: taperDimensionMax,
+      onChange: (taperTopWidth) => onUpdate({ taperTopWidth, taperTopDepth: taperPartner(taperTopWidth, taper.topWidth, taper.topDepth), taperTopScale: undefined }),
+    },
+    {
+      id: "bottomLength",
+      label: t("prop.bottomLength"),
+      value: taper.bottomDepth,
+      min: MIN_SHAPE_SIZE,
+      max: taperDimensionMax,
+      onChange: (taperBottomDepth) => onUpdate({ taperBottomDepth, taperBottomWidth: taperPartner(taperBottomDepth, taper.bottomDepth, taper.bottomWidth), taperBottomScale: undefined }),
+    },
+    {
+      id: "bottomWidth",
+      label: t("prop.bottomWidth"),
+      value: taper.bottomWidth,
+      min: MIN_SHAPE_SIZE,
+      max: taperDimensionMax,
+      onChange: (taperBottomWidth) => onUpdate({ taperBottomWidth, taperBottomDepth: taperPartner(taperBottomWidth, taper.bottomWidth, taper.bottomDepth), taperBottomScale: undefined }),
+    },
+    {
+      type: "toggle",
+      id: "taperKeepProportions",
+      label: t("inspector.keepProportions"),
+      value: taperKeepsProportions,
+      onChange: (keep) => onUpdate({ taperKeepProportions: keep || undefined }),
+    },
+  ];
+  /*
+   * Twist and lean take the same shapes taper does - shapeIgnoresTaper
+   * already answers that question, so this reuses it rather than asking
+   * shapeSupportsExtrudeDeform a second time for the same shape.
+   */
+  const twistProperties: ShapePropertyConfig[] = shapeIgnoresTaper ? [] : [
+    {
+      id: "extrudeTwist",
+      label: t("prop.twist"),
+      value: shape.extrudeTwist ?? 0,
+      min: -720,
+      max: 720,
+      step: 1,
+      onChange: (extrudeTwist) => onUpdate({ extrudeTwist }),
+    },
+    {
+      id: "extrudeTopOffsetX",
+      label: t("prop.widthOffset"),
+      value: shape.extrudeTopOffsetX ?? 0,
+      min: -80,
+      max: 80,
+      step: 0.5,
+      onChange: (extrudeTopOffsetX) => onUpdate({ extrudeTopOffsetX }),
+    },
+    {
+      id: "extrudeTopOffsetZ",
+      label: t("prop.lengthOffset"),
+      value: shape.extrudeTopOffsetZ ?? 0,
+      min: -80,
+      max: 80,
+      step: 0.5,
+      onChange: (extrudeTopOffsetZ) => onUpdate({ extrudeTopOffsetZ }),
+    },
+  ];
+  /*
+   * Slope along (slopeAlong.ts): the far end's height in millimetres and as an
+   * angle, the side it goes down to and how much the top curves. The angle is
+   * the straight line's from end to end, so it stays the same when only the
+   * curve changes.
+   */
+  const slopeShown = shapeSupportsSlope(shape);
+  const slopeSide = normalizeSlopeSide(shape.kind, shape.slopeSide);
+  const slopeLength = slopeAlongWidth(slopeSide) ? shapeWidth(shape) : shapeDepth(shape);
+  const slopeEndValue = slopeEndHeight(shape);
+  const slopeFrom = normalizeSlopeFrom(shape.slopeFrom);
+  // From the middle the angle is the line's from the middle to an end: over half the length.
+  const slopeRun = slopeFrom === "middle" ? slopeLength / 2 : slopeLength;
+  const slopeAngle = (Math.atan2(shape.height - slopeEndValue, Math.max(1e-6, slopeRun)) * 180) / Math.PI;
+  const slopeMaxAngle = (Math.atan2(shape.height - Math.min(SLOPE_MIN_END, shape.height), Math.max(1e-6, slopeRun)) * 180) / Math.PI;
+  const slopeProperties: ShapePropertyConfig[] = !slopeShown ? [] : [
+    {
+      type: "select",
+      id: "slopeSide",
+      label: t("prop.slopeSide"),
+      value: slopeSide,
+      options: slopeSidesFor(shape.kind).map((side) => ({ value: side, label: t(`slope.side.${side}`) })),
+      onChange: (value) => onUpdate({ slopeSide: normalizeSlopeSide(shape.kind, value), slopeEnd: shape.slopeEnd ?? shape.height }),
+    },
+    {
+      id: "slopeEnd",
+      label: t("prop.slopeEnd"),
+      value: slopeEndValue,
+      min: Math.min(SLOPE_MIN_END, shape.height),
+      max: shape.height,
+      step: 0.1,
+      hint: t("slope.endHint"),
+      onChange: (slopeEnd) => onUpdate({ slopeEnd: Math.min(shape.height, Math.max(Math.min(SLOPE_MIN_END, shape.height), slopeEnd)), slopeSide: shape.slopeSide ?? slopeSide }),
+    },
+    {
+      id: "slopeAngle",
+      label: t("prop.slopeAngle"),
+      value: Math.round(slopeAngle * 100) / 100,
+      min: 0,
+      max: Math.floor(slopeMaxAngle * 100) / 100,
+      step: 0.5,
+      onChange: (angle) => {
+        const drop = Math.tan((Math.min(89.9, Math.max(0, angle)) * Math.PI) / 180) * slopeRun;
+        onUpdate({ slopeEnd: Math.max(Math.min(SLOPE_MIN_END, shape.height), shape.height - drop), slopeSide: shape.slopeSide ?? slopeSide });
+      },
+    },
+    {
+      id: "slopeCurve",
+      label: t("prop.slopeCurve"),
+      value: Math.round(normalizeSlopeCurve(shape.slopeCurve) * 100),
+      min: -100,
+      max: 100,
+      step: 1,
+      hint: t("slope.curveHint"),
+      onChange: (percent) => onUpdate({ slopeCurve: normalizeSlopeCurve(percent / 100), slopeEnd: shape.slopeEnd ?? shape.height, slopeSide: shape.slopeSide ?? slopeSide }),
+    },
+    {
+      type: "select",
+      id: "slopeFrom",
+      label: t("prop.slopeFrom"),
+      value: slopeFrom,
+      hint: slopeFrom === "arch" ? t("slope.fromArchHint") : t("slope.fromHint"),
+      options: [{ value: "end", label: t("slope.from.end") }, { value: "middle", label: t("slope.from.middle") }, { value: "arch", label: t("slope.from.arch") }],
+      onChange: (value) => onUpdate({ slopeFrom: normalizeSlopeFrom(value), slopeEnd: shape.slopeEnd ?? shape.height, slopeSide: shape.slopeSide ?? slopeSide }),
+    },
+    {
+      id: "sideDrop",
+      label: t("prop.sideDrop"),
+      value: Math.min(maxSideDrop(shape.height), Math.max(0, shape.sideDrop ?? 0)),
+      min: 0,
+      max: Math.floor(maxSideDrop(shape.height) * 100) / 100,
+      step: 0.1,
+      hint: t("slope.sideDropHint"),
+      onChange: (sideDrop) => onUpdate({ sideDrop: Math.min(maxSideDrop(shape.height), Math.max(0, sideDrop)) }),
+    },
+    {
+      id: "sideCurve",
+      label: t("prop.sideCurve"),
+      value: Math.round(normalizeSlopeCurve(shape.sideCurve) * 100),
+      min: -100,
+      max: 100,
+      step: 1,
+      hint: t("slope.sideCurveHint"),
+      onChange: (percent) => onUpdate({ sideCurve: normalizeSlopeCurve(percent / 100) }),
+    },
+  ];
+  const slopeDefaults: PropertyDefaultValues = new Map<string, number | string | boolean>([["slopeEnd", shape.height], ["slopeAngle", 0], ["slopeCurve", 0], ["sideDrop", 0], ["sideCurve", 0], ["slopeFrom", "end"]]);
+  /*
+   * Narrow along (slopeAlong.ts): seen from above, both long sides run in towards one
+   * end - its width, where along the length it starts and how much the sides curve.
+   */
+  const narrowSide = normalizeSlopeSide(shape.kind, shape.narrowSide);
+  const narrowFull = narrowCrossWidth({ ...shape, narrowSide });
+  const narrowKeep = { narrowEnd: shape.narrowEnd ?? narrowFull, narrowSide: shape.narrowSide ?? narrowSide };
+  const narrowShown = shapeSupportsNarrow(shape);
+  const narrowProperties: ShapePropertyConfig[] = !narrowShown ? [] : [
+    {
+      type: "select",
+      id: "narrowSide",
+      label: t("prop.narrowSide"),
+      value: narrowSide,
+      options: slopeSidesFor(shape.kind).map((side) => ({ value: side, label: t(`slope.side.${side}`) })),
+      onChange: (value) => {
+        const side = normalizeSlopeSide(shape.kind, value);
+        // The other axis has another full width: a narrowing that was set keeps its share of it.
+        const full = narrowCrossWidth({ ...shape, narrowSide: side });
+        const share = shape.narrowEnd === undefined ? 1 : narrowEndWidth({ ...shape, narrowSide }) / Math.max(1e-9, narrowFull);
+        onUpdate({ narrowSide: side, narrowEnd: Math.round(full * share * 100) / 100 });
+      },
+    },
+    {
+      id: "narrowEnd",
+      label: t("prop.narrowEnd"),
+      // The body keeps a sliver of 0.01 mm at a point; the field shows the 0 that was typed.
+      value: Math.min(narrowFull, Math.max(0, shape.narrowEnd ?? narrowFull)),
+      min: 0,
+      max: narrowFull,
+      step: 0.1,
+      hint: t("narrow.endHint"),
+      onChange: (narrowEnd) => onUpdate({ ...narrowKeep, narrowEnd: Math.min(narrowFull, Math.max(0, narrowEnd)) }),
+    },
+    {
+      id: "narrowStart",
+      label: t("prop.narrowStart"),
+      value: Math.round(normalizeNarrowStart(shape.narrowStart) * 100),
+      min: 0,
+      max: 95,
+      step: 1,
+      hint: t("narrow.startHint"),
+      onChange: (percent) => onUpdate({ ...narrowKeep, narrowStart: normalizeNarrowStart(percent / 100) }),
+    },
+    {
+      id: "narrowCurve",
+      label: t("prop.slopeCurve"),
+      value: Math.round(normalizeSlopeCurve(shape.narrowCurve) * 100),
+      min: -100,
+      max: 100,
+      step: 1,
+      hint: t("narrow.curveHint"),
+      onChange: (percent) => onUpdate({ ...narrowKeep, narrowCurve: normalizeSlopeCurve(percent / 100) }),
+    },
+  ];
+  const narrowDefaults: PropertyDefaultValues = new Map<string, number | string | boolean>([["narrowEnd", narrowFull], ["narrowStart", 0], ["narrowCurve", 0]]);
+  /*
+   * Wo der Koerper steht, zum Eintippen: X und Y auf der Platte (die Mitte
+   * seines Rahmens, mit denselben Vorzeichen wie die Masse auf der
+   * Arbeitsflaeche), Z als Hoehe seiner Unterkante. Die Regler reichen so weit
+   * wie das Ziehen, eine Plattengroesse ueber jeden Rand.
+   */
+  const undersideBelow = undersideOffset(shape);
+  const plateOffsetX = plateOffsetOfShape(workspace, shape);
+  const reachX = workspace.width * 1.5;
+  const reachY = workspace.depth * 1.5;
+  // Up, the slider reaches as far as the plate does and the printer is high; any number can be typed (#425).
+  const reachZ = positionReach(workspace, printerPresetById(workspace.printer)?.height);
+  const positionProperties: RangePropertyConfig[] = [
+    // X counts from the middle of the body's own build plate (Discussion #456); on the first plate, as always.
+    { id: "positionX", label: t("prop.positionX"), value: shape.x - plateOffsetX, min: -reachX, max: reachX, step: 0.5, onChange: (x) => onUpdate({ x: x + plateOffsetX }) },
+    // Y counts towards the back, right-handed (#182); inside, z runs towards the viewer.
+    { id: "positionY", label: t("prop.positionY"), value: displayY(shape.z), min: -reachY, max: reachY, step: 0.5, onChange: (y) => onUpdate({ z: insideZ(y) }) },
+    // Z is the height of the underside as the body stands, also tilted (Discussion #1303).
+    { id: "positionZ", label: t("prop.positionZ"), value: (shape.elevation ?? 0) + undersideBelow, min: -Math.max(180, reachZ), max: reachZ, step: 0.5, onChange: (z) => onUpdate({ elevation: z - undersideBelow }) },
+  ];
+  // The body's turn about X, Y and Z, as it is drawn. A new angle turns it
+  // about its centre, or about its own pivot if it has one.
+  const turnTo = (patch: Pick<Partial<WorkplaneShape>, "rotation" | "rotationX" | "rotationZ">) => {
+    const before = shapePivotWorld(shape);
+    const turned = { ...shape, ...patch };
+    const after = shapePivotWorld(turned);
+    if (!before || !after) {
+      onUpdate(patch);
+      return;
+    }
+    onUpdate({
+      ...patch,
+      x: shape.x + before.x - after.x,
+      z: shape.z + before.z - after.z,
+      elevation: (shape.elevation ?? 0) + before.y - after.y,
+    });
+  };
+  const rotationProperties: ShapePropertyConfig[] = [
+    { id: "rotateX", label: t("prop.rotateX"), value: signedDegrees(shape.rotationX ?? 0), min: -180, max: 180, step: 1, onChange: (rotationX) => turnTo({ rotationX }) },
+    // Named like the position: Y runs across the plate (depth), Z is up.
+    { id: "rotateY", label: t("prop.rotateY"), value: signedDegrees(displayYTurn(shape.rotationZ ?? 0)), min: -180, max: 180, step: 1, onChange: (yTurn) => turnTo({ rotationZ: insideZTurn(yTurn) }) },
+    { id: "rotateZ", label: t("prop.rotateZ"), value: signedDegrees(shape.rotation ?? 0), min: -180, max: 180, step: 1, onChange: (rotation) => turnTo({ rotation }) },
+  ];
+  // The pivot this body carries, in the same coordinates as its position.
+  const pivot = shapePivotWorld(shape);
+  const movePivot = (change: Partial<{ x: number; y: number; z: number }>) => {
+    if (pivot) onUpdate({ rotationPivot: shapePivotFromWorld(shape, { ...pivot, ...change }) });
+  };
+  const pivotProperties: ShapePropertyConfig[] = pivot
+    ? [
+      { id: "pivotX", label: t("prop.pivotX"), value: pivot.x, min: -reachX, max: reachX, step: 0.5, onChange: (x) => movePivot({ x }) },
+      { id: "pivotY", label: t("prop.pivotY"), value: displayY(pivot.z), min: -reachY, max: reachY, step: 0.5, onChange: (y) => movePivot({ z: insideZ(y) }) },
+      { id: "pivotZ", label: t("prop.pivotZ"), value: pivot.y, min: -Math.max(180, reachZ), max: reachZ, step: 0.5, onChange: (y) => movePivot({ y }) },
+    ]
+    : [];
+  return { taperProperties, twistProperties, slopeProperties, slopeDefaults, narrowProperties, narrowDefaults, positionProperties, rotationProperties, pivotProperties };
+}
+
+/**
+ * Every number field of a body as the inspector shows it, by id: its own measures, then taper, twist, slope, narrow, position,
+ * rotation and pivot. A field's onChange hands its patch to onUpdate. See workplane/evaluateDesign.
+ */
+export function shapeNumberFields(shape: WorkplaneShape, onUpdate: ShapeInspectorUpdate, workspace: WorkplaneWorkspaceSettings): RangePropertyConfig[] {
+  const extra = placementAndDeformProperties(shape, onUpdate, workspace);
+  return [...getShapeProperties(shape, onUpdate, workspace), ...extra.taperProperties, ...extra.twistProperties, ...extra.slopeProperties, ...extra.narrowProperties, ...extra.positionProperties, ...extra.rotationProperties, ...extra.pivotProperties]
+    .filter((property): property is RangePropertyConfig => property.type === undefined || property.type === "range");
+}
+
+/**
  * The snap step in mm (0 when the grid is off). A length slider dragged with the mouse snaps to it, so a
  * height comes out in whole millimetres instead of 0.81 steps of one pixel; typing and the arrow keys stay exact.
  */
@@ -4839,286 +5138,7 @@ export function ShapeInspector({
   const gearHelixProperties = shape.kind === "gear"
     ? properties.filter((property) => ["helixAngle", "bevelHelixAngle", "ringRackHelixAngle", "ringRackHerringbone", "quality"].includes(property.id))
     : [];
-  const taper = shapeTaperDimensions(shape);
-  const taperDimensionMax = shapeDimensionLimit(workspace, shape.kind, DEFAULT_TAPER_DIMENSION_MAX);
-  // Keep proportions (#1229): length and width of one end change together, in the ratio they have now.
-  // Top and bottom stay apart, or there would be nothing left to taper.
-  const taperKeepsProportions = shape.taperKeepProportions === true;
-  const taperPartner = (changed: number, before: number, partner: number) =>
-    taperKeepsProportions ? Math.min(taperDimensionMax, Math.max(MIN_SHAPE_SIZE, partner * (changed / Math.max(MIN_SHAPE_SIZE, before)))) : partner;
-  const taperProperties: ShapePropertyConfig[] = shapeIgnoresTaper ? [] : [
-    {
-      id: "topLength",
-      label: t("prop.topLength"),
-      value: taper.topDepth,
-      min: MIN_SHAPE_SIZE,
-      max: taperDimensionMax,
-      onChange: (taperTopDepth) => onUpdate({ taperTopDepth, taperTopWidth: taperPartner(taperTopDepth, taper.topDepth, taper.topWidth), taperTopScale: undefined }),
-    },
-    {
-      id: "topWidth",
-      label: t("prop.topWidth"),
-      value: taper.topWidth,
-      min: MIN_SHAPE_SIZE,
-      max: taperDimensionMax,
-      onChange: (taperTopWidth) => onUpdate({ taperTopWidth, taperTopDepth: taperPartner(taperTopWidth, taper.topWidth, taper.topDepth), taperTopScale: undefined }),
-    },
-    {
-      id: "bottomLength",
-      label: t("prop.bottomLength"),
-      value: taper.bottomDepth,
-      min: MIN_SHAPE_SIZE,
-      max: taperDimensionMax,
-      onChange: (taperBottomDepth) => onUpdate({ taperBottomDepth, taperBottomWidth: taperPartner(taperBottomDepth, taper.bottomDepth, taper.bottomWidth), taperBottomScale: undefined }),
-    },
-    {
-      id: "bottomWidth",
-      label: t("prop.bottomWidth"),
-      value: taper.bottomWidth,
-      min: MIN_SHAPE_SIZE,
-      max: taperDimensionMax,
-      onChange: (taperBottomWidth) => onUpdate({ taperBottomWidth, taperBottomDepth: taperPartner(taperBottomWidth, taper.bottomWidth, taper.bottomDepth), taperBottomScale: undefined }),
-    },
-    {
-      type: "toggle",
-      id: "taperKeepProportions",
-      label: t("inspector.keepProportions"),
-      value: taperKeepsProportions,
-      onChange: (keep) => onUpdate({ taperKeepProportions: keep || undefined }),
-    },
-  ];
-  /*
-   * Twist and lean take the same shapes taper does - shapeIgnoresTaper
-   * already answers that question, so this reuses it rather than asking
-   * shapeSupportsExtrudeDeform a second time for the same shape.
-   */
-  const twistProperties: ShapePropertyConfig[] = shapeIgnoresTaper ? [] : [
-    {
-      id: "extrudeTwist",
-      label: t("prop.twist"),
-      value: shape.extrudeTwist ?? 0,
-      min: -720,
-      max: 720,
-      step: 1,
-      onChange: (extrudeTwist) => onUpdate({ extrudeTwist }),
-    },
-    {
-      id: "extrudeTopOffsetX",
-      label: t("prop.widthOffset"),
-      value: shape.extrudeTopOffsetX ?? 0,
-      min: -80,
-      max: 80,
-      step: 0.5,
-      onChange: (extrudeTopOffsetX) => onUpdate({ extrudeTopOffsetX }),
-    },
-    {
-      id: "extrudeTopOffsetZ",
-      label: t("prop.lengthOffset"),
-      value: shape.extrudeTopOffsetZ ?? 0,
-      min: -80,
-      max: 80,
-      step: 0.5,
-      onChange: (extrudeTopOffsetZ) => onUpdate({ extrudeTopOffsetZ }),
-    },
-  ];
-  /*
-   * Slope along (slopeAlong.ts): the far end's height in millimetres and as an
-   * angle, the side it goes down to and how much the top curves. The angle is
-   * the straight line's from end to end, so it stays the same when only the
-   * curve changes.
-   */
-  const slopeShown = shapeSupportsSlope(shape);
-  const slopeSide = normalizeSlopeSide(shape.kind, shape.slopeSide);
-  const slopeLength = slopeAlongWidth(slopeSide) ? shapeWidth(shape) : shapeDepth(shape);
-  const slopeEndValue = slopeEndHeight(shape);
-  const slopeFrom = normalizeSlopeFrom(shape.slopeFrom);
-  // From the middle the angle is the line's from the middle to an end: over half the length.
-  const slopeRun = slopeFrom === "middle" ? slopeLength / 2 : slopeLength;
-  const slopeAngle = (Math.atan2(shape.height - slopeEndValue, Math.max(1e-6, slopeRun)) * 180) / Math.PI;
-  const slopeMaxAngle = (Math.atan2(shape.height - Math.min(SLOPE_MIN_END, shape.height), Math.max(1e-6, slopeRun)) * 180) / Math.PI;
-  const slopeProperties: ShapePropertyConfig[] = !slopeShown ? [] : [
-    {
-      type: "select",
-      id: "slopeSide",
-      label: t("prop.slopeSide"),
-      value: slopeSide,
-      options: slopeSidesFor(shape.kind).map((side) => ({ value: side, label: t(`slope.side.${side}`) })),
-      onChange: (value) => onUpdate({ slopeSide: normalizeSlopeSide(shape.kind, value), slopeEnd: shape.slopeEnd ?? shape.height }),
-    },
-    {
-      id: "slopeEnd",
-      label: t("prop.slopeEnd"),
-      value: slopeEndValue,
-      min: Math.min(SLOPE_MIN_END, shape.height),
-      max: shape.height,
-      step: 0.1,
-      hint: t("slope.endHint"),
-      onChange: (slopeEnd) => onUpdate({ slopeEnd: Math.min(shape.height, Math.max(Math.min(SLOPE_MIN_END, shape.height), slopeEnd)), slopeSide: shape.slopeSide ?? slopeSide }),
-    },
-    {
-      id: "slopeAngle",
-      label: t("prop.slopeAngle"),
-      value: Math.round(slopeAngle * 100) / 100,
-      min: 0,
-      max: Math.floor(slopeMaxAngle * 100) / 100,
-      step: 0.5,
-      onChange: (angle) => {
-        const drop = Math.tan((Math.min(89.9, Math.max(0, angle)) * Math.PI) / 180) * slopeRun;
-        onUpdate({ slopeEnd: Math.max(Math.min(SLOPE_MIN_END, shape.height), shape.height - drop), slopeSide: shape.slopeSide ?? slopeSide });
-      },
-    },
-    {
-      id: "slopeCurve",
-      label: t("prop.slopeCurve"),
-      value: Math.round(normalizeSlopeCurve(shape.slopeCurve) * 100),
-      min: -100,
-      max: 100,
-      step: 1,
-      hint: t("slope.curveHint"),
-      onChange: (percent) => onUpdate({ slopeCurve: normalizeSlopeCurve(percent / 100), slopeEnd: shape.slopeEnd ?? shape.height, slopeSide: shape.slopeSide ?? slopeSide }),
-    },
-    {
-      type: "select",
-      id: "slopeFrom",
-      label: t("prop.slopeFrom"),
-      value: slopeFrom,
-      hint: slopeFrom === "arch" ? t("slope.fromArchHint") : t("slope.fromHint"),
-      options: [{ value: "end", label: t("slope.from.end") }, { value: "middle", label: t("slope.from.middle") }, { value: "arch", label: t("slope.from.arch") }],
-      onChange: (value) => onUpdate({ slopeFrom: normalizeSlopeFrom(value), slopeEnd: shape.slopeEnd ?? shape.height, slopeSide: shape.slopeSide ?? slopeSide }),
-    },
-    {
-      id: "sideDrop",
-      label: t("prop.sideDrop"),
-      value: Math.min(maxSideDrop(shape.height), Math.max(0, shape.sideDrop ?? 0)),
-      min: 0,
-      max: Math.floor(maxSideDrop(shape.height) * 100) / 100,
-      step: 0.1,
-      hint: t("slope.sideDropHint"),
-      onChange: (sideDrop) => onUpdate({ sideDrop: Math.min(maxSideDrop(shape.height), Math.max(0, sideDrop)) }),
-    },
-    {
-      id: "sideCurve",
-      label: t("prop.sideCurve"),
-      value: Math.round(normalizeSlopeCurve(shape.sideCurve) * 100),
-      min: -100,
-      max: 100,
-      step: 1,
-      hint: t("slope.sideCurveHint"),
-      onChange: (percent) => onUpdate({ sideCurve: normalizeSlopeCurve(percent / 100) }),
-    },
-  ];
-  const slopeDefaults: PropertyDefaultValues = new Map<string, number | string | boolean>([["slopeEnd", shape.height], ["slopeAngle", 0], ["slopeCurve", 0], ["sideDrop", 0], ["sideCurve", 0], ["slopeFrom", "end"]]);
-  /*
-   * Narrow along (slopeAlong.ts): seen from above, both long sides run in towards one
-   * end - its width, where along the length it starts and how much the sides curve.
-   */
-  const narrowSide = normalizeSlopeSide(shape.kind, shape.narrowSide);
-  const narrowFull = narrowCrossWidth({ ...shape, narrowSide });
-  const narrowKeep = { narrowEnd: shape.narrowEnd ?? narrowFull, narrowSide: shape.narrowSide ?? narrowSide };
-  const narrowShown = shapeSupportsNarrow(shape);
-  const narrowProperties: ShapePropertyConfig[] = !narrowShown ? [] : [
-    {
-      type: "select",
-      id: "narrowSide",
-      label: t("prop.narrowSide"),
-      value: narrowSide,
-      options: slopeSidesFor(shape.kind).map((side) => ({ value: side, label: t(`slope.side.${side}`) })),
-      onChange: (value) => {
-        const side = normalizeSlopeSide(shape.kind, value);
-        // The other axis has another full width: a narrowing that was set keeps its share of it.
-        const full = narrowCrossWidth({ ...shape, narrowSide: side });
-        const share = shape.narrowEnd === undefined ? 1 : narrowEndWidth({ ...shape, narrowSide }) / Math.max(1e-9, narrowFull);
-        onUpdate({ narrowSide: side, narrowEnd: Math.round(full * share * 100) / 100 });
-      },
-    },
-    {
-      id: "narrowEnd",
-      label: t("prop.narrowEnd"),
-      // The body keeps a sliver of 0.01 mm at a point; the field shows the 0 that was typed.
-      value: Math.min(narrowFull, Math.max(0, shape.narrowEnd ?? narrowFull)),
-      min: 0,
-      max: narrowFull,
-      step: 0.1,
-      hint: t("narrow.endHint"),
-      onChange: (narrowEnd) => onUpdate({ ...narrowKeep, narrowEnd: Math.min(narrowFull, Math.max(0, narrowEnd)) }),
-    },
-    {
-      id: "narrowStart",
-      label: t("prop.narrowStart"),
-      value: Math.round(normalizeNarrowStart(shape.narrowStart) * 100),
-      min: 0,
-      max: 95,
-      step: 1,
-      hint: t("narrow.startHint"),
-      onChange: (percent) => onUpdate({ ...narrowKeep, narrowStart: normalizeNarrowStart(percent / 100) }),
-    },
-    {
-      id: "narrowCurve",
-      label: t("prop.slopeCurve"),
-      value: Math.round(normalizeSlopeCurve(shape.narrowCurve) * 100),
-      min: -100,
-      max: 100,
-      step: 1,
-      hint: t("narrow.curveHint"),
-      onChange: (percent) => onUpdate({ ...narrowKeep, narrowCurve: normalizeSlopeCurve(percent / 100) }),
-    },
-  ];
-  const narrowDefaults: PropertyDefaultValues = new Map<string, number | string | boolean>([["narrowEnd", narrowFull], ["narrowStart", 0], ["narrowCurve", 0]]);
-  /*
-   * Wo der Koerper steht, zum Eintippen: X und Y auf der Platte (die Mitte
-   * seines Rahmens, mit denselben Vorzeichen wie die Masse auf der
-   * Arbeitsflaeche), Z als Hoehe seiner Unterkante. Die Regler reichen so weit
-   * wie das Ziehen, eine Plattengroesse ueber jeden Rand.
-   */
-  const undersideBelow = useMemo(() => undersideOffset(shape), [shape]);
-  const plateOffsetX = useMemo(() => plateOffsetOfShape(workspace, shape), [shape, workspace]);
-  const reachX = workspace.width * 1.5;
-  const reachY = workspace.depth * 1.5;
-  // Up, the slider reaches as far as the plate does and the printer is high; any number can be typed (#425).
-  const reachZ = positionReach(workspace, printerPresetById(workspace.printer)?.height);
-  const positionProperties: RangePropertyConfig[] = [
-    // X counts from the middle of the body's own build plate (Discussion #456); on the first plate, as always.
-    { id: "positionX", label: t("prop.positionX"), value: shape.x - plateOffsetX, min: -reachX, max: reachX, step: 0.5, onChange: (x) => onUpdate({ x: x + plateOffsetX }) },
-    // Y counts towards the back, right-handed (#182); inside, z runs towards the viewer.
-    { id: "positionY", label: t("prop.positionY"), value: displayY(shape.z), min: -reachY, max: reachY, step: 0.5, onChange: (y) => onUpdate({ z: insideZ(y) }) },
-    // Z is the height of the underside as the body stands, also tilted (Discussion #1303).
-    { id: "positionZ", label: t("prop.positionZ"), value: (shape.elevation ?? 0) + undersideBelow, min: -Math.max(180, reachZ), max: reachZ, step: 0.5, onChange: (z) => onUpdate({ elevation: z - undersideBelow }) },
-  ];
-  // The body's turn about X, Y and Z, as it is drawn. A new angle turns it
-  // about its centre, or about its own pivot if it has one.
-  const turnTo = (patch: Pick<Partial<WorkplaneShape>, "rotation" | "rotationX" | "rotationZ">) => {
-    const before = shapePivotWorld(shape);
-    const turned = { ...shape, ...patch };
-    const after = shapePivotWorld(turned);
-    if (!before || !after) {
-      onUpdate(patch);
-      return;
-    }
-    onUpdate({
-      ...patch,
-      x: shape.x + before.x - after.x,
-      z: shape.z + before.z - after.z,
-      elevation: (shape.elevation ?? 0) + before.y - after.y,
-    });
-  };
-  const rotationProperties: ShapePropertyConfig[] = [
-    { id: "rotateX", label: t("prop.rotateX"), value: signedDegrees(shape.rotationX ?? 0), min: -180, max: 180, step: 1, onChange: (rotationX) => turnTo({ rotationX }) },
-    // Named like the position: Y runs across the plate (depth), Z is up.
-    { id: "rotateY", label: t("prop.rotateY"), value: signedDegrees(displayYTurn(shape.rotationZ ?? 0)), min: -180, max: 180, step: 1, onChange: (yTurn) => turnTo({ rotationZ: insideZTurn(yTurn) }) },
-    { id: "rotateZ", label: t("prop.rotateZ"), value: signedDegrees(shape.rotation ?? 0), min: -180, max: 180, step: 1, onChange: (rotation) => turnTo({ rotation }) },
-  ];
-  // The pivot this body carries, in the same coordinates as its position.
-  const pivot = shapePivotWorld(shape);
-  const movePivot = (change: Partial<{ x: number; y: number; z: number }>) => {
-    if (pivot) onUpdate({ rotationPivot: shapePivotFromWorld(shape, { ...pivot, ...change }) });
-  };
-  const pivotProperties: ShapePropertyConfig[] = pivot
-    ? [
-      { id: "pivotX", label: t("prop.pivotX"), value: pivot.x, min: -reachX, max: reachX, step: 0.5, onChange: (x) => movePivot({ x }) },
-      { id: "pivotY", label: t("prop.pivotY"), value: displayY(pivot.z), min: -reachY, max: reachY, step: 0.5, onChange: (y) => movePivot({ z: insideZ(y) }) },
-      { id: "pivotZ", label: t("prop.pivotZ"), value: pivot.y, min: -Math.max(180, reachZ), max: reachZ, step: 0.5, onChange: (y) => movePivot({ y }) },
-    ]
-    : [];
+  const { taperProperties, twistProperties, slopeProperties, slopeDefaults, narrowProperties, narrowDefaults, positionProperties, rotationProperties, pivotProperties } = placementAndDeformProperties(shape, onUpdate, workspace);
   const isSketchRevolve = shape.sketchOperation === "revolve" || Boolean(shape.sketchRevolve);
   // Docked at the right edge until its title bar is dragged; then it floats where it was dropped.
   const movable = useMovablePanel<HTMLElement>("layerling.editor.inspectorPosition", INSPECTOR_PANEL);
@@ -5130,6 +5150,7 @@ export function ShapeInspector({
   // corner does. Z is its bottom either way. Kept in this browser with the cards.
   const [positionAtEdge, setPositionAtEdge] = useInspectorCard("positionAtEdge", false);
   const edges = positionAtEdge && positionOpen ? meshAabb(shape) : null;
+  const plateOffsetX = plateOffsetOfShape(workspace, shape);
   const shownPositionProperties = edges
     ? positionProperties.map((property): RangePropertyConfig => {
         if (property.id === "positionX") {
@@ -5761,7 +5782,7 @@ export function ShapeInspector({
             </div>
             {/* A formula is written for the middle; at the edges the fields take plain numbers. */}
             <ShapePropertyRows formulas={edges ? undefined : shape.formulas} onFormula={edges ? undefined : noteFormula} properties={shownPositionProperties} workspace={workspace} disabled={locked} onInteractionActiveChange={onInteractionActiveChange} />
-            {pivot ? (
+            {pivotProperties.length ? (
               <>
                 <div className="property-subheading">
                   <span>{t("inspector.pivot")}</span>
@@ -5840,7 +5861,7 @@ export function ShapeInspector({
           ) : null}
         </div>
       ) : null}
-      {slopeShown ? (
+      {slopeProperties.length > 0 ? (
         <div className={`property-card ${slopeOpen ? "" : "collapsed"}`} data-help-section-all="shapeSettings">
           <button
             className="property-card-header"
@@ -5859,7 +5880,7 @@ export function ShapeInspector({
           ) : null}
         </div>
       ) : null}
-      {narrowShown ? (
+      {narrowProperties.length > 0 ? (
         <div className={`property-card ${narrowOpen ? "" : "collapsed"}`} data-help-section-all="shapeSettings">
           <button
             className="property-card-header"
