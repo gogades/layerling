@@ -4955,7 +4955,11 @@ export function ShapeInspector({
       {!minimized ? (
         <>
       {/* The advanced mode's name for formulas ($name.size.width) leads the panel, right under the body's own name. */}
-      {advanced ? <VariableNameField key={shape.id} value={shape.variableName} disabled={locked} isTaken={(name) => designFormulas.nameTaken(name, shape.id)} onCommit={(variableName) => onUpdate({ variableName })} /> : null}
+      {advanced ? (
+        <div className="property-card variable-name-card">
+          <VariableNameField key={shape.id} value={shape.variableName} disabled={locked} isTaken={(name) => designFormulas.nameTaken(name, shape.id)} onCommit={(variableName) => onUpdate({ variableName })} />
+        </div>
+      ) : null}
       {/* A name tag (#215): its card first and open; for a plain text the way there first. */}
       {nameTagStack && onLayerText && onTextTags ? (
         <NameTagCard

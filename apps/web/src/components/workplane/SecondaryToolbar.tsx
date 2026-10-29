@@ -6,7 +6,7 @@ import { ProjectNameField } from "@/components/workplane/ProjectNameField";
 import { FOCUS_MODE_CHANGE_EVENT, FOCUS_MODE_SHORTCUT } from "@/lib/focusMode";
 import { ShapeMenuPanel } from "@/components/workplane/ShapeMenuPanel";
 import { ShapeLibraryList } from "@/components/workplane/ShapeLibraryList";
-import { AlertTriangle, ArchiveRestore, ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, Check, CircleHelp, Percent, Circle as CircleIcon, Eye, EyeOff, Hexagon as HexagonIcon, ListTree, Maximize2, Minimize2, Pentagon as PentagonIcon, Pin, PinOff, Rotate3d, Route as RouteIcon, ScanEye, Search, Sparkles, Square as SquareIcon, Star as StarIcon, Triangle as TriangleIcon, X } from "lucide-react";
+import { AlertTriangle, ArchiveRestore, ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, Check, CircleHelp, Percent, Circle as CircleIcon, Eye, EyeOff, Hexagon as HexagonIcon, ListTree, Maximize2, Minimize2, Pentagon as PentagonIcon, Pin, PinOff, Rotate3d, Route as RouteIcon, ScanEye, Search, Sparkles, Variable, Square as SquareIcon, Star as StarIcon, Triangle as TriangleIcon, X } from "lucide-react";
 import { OPEN_FILE_BACKUPS_EVENT } from "@/lib/fileBackups";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
@@ -15,7 +15,8 @@ import { wheelNextValue } from "@/lib/wheelValueStep";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { t, type MessageKey } from "@/lib/i18n";
 import { useLanguage } from "@/lib/useLanguage";
-import { useSimpleMode } from "@/lib/useSimpleMode";
+import { useAdvancedMode, useSimpleMode } from "@/lib/useSimpleMode";
+import { toggleVariablesPanel, useVariablesPanelOpen } from "@/components/workplane/VariablesPanel";
 import { simpleModeKeepsShape, simpleModeKeepsTool } from "@/lib/simpleMode";
 import { getEditorProfile, profileToolVisible } from "@/lib/editorProfile";
 import { ribbonGroupShown, setRibbonLayout, shownInRibbon, useRibbonHidden } from "@/lib/ribbonHidden";
@@ -820,6 +821,8 @@ export function SecondaryToolbar({
       )}
     </div>
   );
+  const advancedMode = useAdvancedMode();
+  const variablesOpen = useVariablesPanelOpen();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const openPalette = () => {
     // The command search lists everything, also what the simple mode keeps away (#695).
@@ -1269,6 +1272,7 @@ export function SecondaryToolbar({
       plain("scalePercent", t("scalePercent.title"), t("editor.group.modify"), canModifySelection, onScalePercent, { icon: Percent, active: scalePercentActive }),
       ...arrangeTools.map((tool) => fromTool(tool, t("editor.group.arrange"))),
       plain("note", t("editor.tool.note"), visibilityGroup, true, onNoteTool, { icon: ToolbarNoteIcon, active: noteMode }),
+      ...(advancedMode ? [plain("variables", t("variables.title"), fileGroup, true, toggleVariablesPanel, { icon: Variable, active: variablesOpen, keywords: ["variable", "formula", "parameter", "formel"] })] : []),
       plain("import", t("editor.import"), fileGroup, true, () => onTopPanel("import"), { icon: ToolbarImportIcon }),
       plain("export", t("editor.export"), fileGroup, true, () => onTopPanel("export"), { icon: ToolbarVectorExportIcon }),
       plain("file-backups", t("backups.title"), fileGroup, true, () => window.dispatchEvent(new Event(OPEN_FILE_BACKUPS_EVENT)), { icon: ArchiveRestore, keywords: ["backup", "backups", "version", "versions", "restore", "sicherung", "fassung", "wiederherstellen"] }),

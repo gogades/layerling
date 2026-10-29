@@ -162,6 +162,7 @@ export const COMMAND_SHORTCUTS: Readonly<Record<string, string>> = {
   note: "N",
   "look-onto-workplane": "P",
   "focus-mode": "Ctrl+Shift+F",
+  variables: "Ctrl+Shift+V",
   import: "Ctrl+I",
   "interactive-help": "Shift+F1",
   export: "Ctrl+E",
