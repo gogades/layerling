@@ -1,6 +1,7 @@
 import type { WorkplaneNote, WorkplaneShape } from "@/types/layerling";
 import { canonicalizeShape } from "@/lib/workplaneShapes";
 import { normalizeNotes, notesSignature } from "@/lib/workplaneNotes";
+import { normalizeDesignVariables, type DesignVariable } from "@/lib/designVariables";
 import {
   normalizePlacementWorkplane,
   placementWorkplaneFingerprint,
@@ -20,6 +21,8 @@ export type EditorHistoryEntry = {
    * traegt - Projektspeicher, Paketformat -, sie ohne Zutun mittraegt.
    */
   notes?: WorkplaneNote[];
+  /** The advanced mode's variables table of this state, carried like the notes. See lib/designVariables. */
+  variables?: DesignVariable[];
   /**
    * Die Arbeitsebene dieses Standes, damit auch das Setzen oder Zuruecksetzen
    * einer Arbeitsebene rueckgaengig gemacht werden kann.
@@ -263,9 +266,11 @@ export function projectShapesFingerprint(shapes: WorkplaneShape[]) {
 }
 
 /** Koerper, Notizen und Arbeitsebene in einem Fingerabdruck - ein Stand ist alles zusammen. */
-function sceneFingerprint(shapeFingerprint: string, notes: WorkplaneNote[], workplane?: PlacementWorkplane) {
+function sceneFingerprint(shapeFingerprint: string, notes: WorkplaneNote[], workplane?: PlacementWorkplane, variables: DesignVariable[] = []) {
   const text = notesSignature(notes);
-  const base = text ? `${shapeFingerprint}#${signatureFromSerialized(text).fingerprint}` : shapeFingerprint;
+  const withNotes = text ? `${shapeFingerprint}#${signatureFromSerialized(text).fingerprint}` : shapeFingerprint;
+  // The table counts like a note: a state that differs only in it is a state of its own.
+  const base = variables.length ? `${withNotes}$${signatureFromSerialized(JSON.stringify(variables)).fingerprint}` : withNotes;
   if (!workplane || placementWorkplaneIsBase(workplane)) {
     return base;
   }
@@ -278,11 +283,12 @@ function sceneFingerprint(shapeFingerprint: string, notes: WorkplaneNote[], work
  * entscheidet, **ob gespeichert werden muss**, nimmt diesen hier - eine getippte
  * Notiz oder gewechselte Arbeitsebene ist eine Aenderung.
  */
-export function projectSceneFingerprint(shapes: WorkplaneShape[], notes: WorkplaneNote[] = [], workplane?: PlacementWorkplane) {
+export function projectSceneFingerprint(shapes: WorkplaneShape[], notes: WorkplaneNote[] = [], workplane?: PlacementWorkplane, variables: DesignVariable[] = []) {
   return sceneFingerprint(
     projectShapesFingerprint(shapes),
     normalizeNotes(notes),
     workplane ? normalizePlacementWorkplane(workplane) : undefined,
+    normalizeDesignVariables(variables),
   );
 }
 
@@ -291,6 +297,7 @@ export function editorHistoryEntry(
   selectedIds: string[],
   notes: WorkplaneNote[] = [],
   workplane?: PlacementWorkplane,
+  variables: DesignVariable[] = [],
   at?: number,
 ): EditorHistoryEntry {
   const canonicalShapes = shapes.map(canonicalizeShape);
@@ -302,13 +309,15 @@ export function editorHistoryEntry(
   // zwei Staende, die sich nur in einer Notiz unterscheiden, fuer denselben und
   // legt sie zusammen - die Notiz waere dann beim naechsten Oeffnen weg.
   const noteText = notesSignature(canonicalNotes);
+  const canonicalVariables = normalizeDesignVariables(variables);
   const entry: EditorHistoryEntry = {
     shapes: canonicalShapes,
     selectedIds: validSelection,
-    fingerprint: sceneFingerprint(signature.fingerprint, canonicalNotes, normalizedWorkplane),
-    estimatedBytes: signature.estimatedBytes + noteText.length * 2 + (normalizedWorkplane ? 96 : 0),
+    fingerprint: sceneFingerprint(signature.fingerprint, canonicalNotes, normalizedWorkplane, canonicalVariables),
+    estimatedBytes: signature.estimatedBytes + noteText.length * 2 + (normalizedWorkplane ? 96 : 0) + canonicalVariables.length * 160,
   };
   if (canonicalNotes.length > 0) entry.notes = canonicalNotes;
+  if (canonicalVariables.length > 0) entry.variables = canonicalVariables;
   if (normalizedWorkplane && !placementWorkplaneIsBase(normalizedWorkplane)) {
     entry.placementWorkplane = normalizedWorkplane;
   }
@@ -367,6 +376,12 @@ export function editorHistoryBranch(
   return editorHistoryForExport(entries.slice(0, index + 1), index, limit);
 }
 
+/** The entry a history points at: the one at `index`, kept in range, or the newest without one. */
+function entryAtHistoryIndex(entries: EditorHistoryEntry[] | undefined, index: number | undefined): EditorHistoryEntry | undefined {
+  if (!Array.isArray(entries) || entries.length === 0) return undefined;
+  return entries[Number.isInteger(index) ? Math.min(Math.max(0, index as number), entries.length - 1) : entries.length - 1];
+}
+
 /**
  * Die Notizen des Standes, auf den ein Verlauf gerade zeigt. Sie sind die
  * Antwort auf „welche Notizen gehoeren zu diesen Koerpern" - ein gespeicherter
@@ -375,9 +390,12 @@ export function editorHistoryBranch(
  * ganzen Verlauf weg.
  */
 export function notesForHistoryIndex(entries: EditorHistoryEntry[] | undefined, index: number | undefined): WorkplaneNote[] {
-  if (!Array.isArray(entries) || entries.length === 0) return [];
-  const bounded = Number.isInteger(index) ? Math.min(Math.max(0, index as number), entries.length - 1) : entries.length - 1;
-  return normalizeNotes(entries[bounded]?.notes);
+  return normalizeNotes(entryAtHistoryIndex(entries, index)?.notes);
+}
+
+/** The variables table of the state a history points at; like the notes, it lives only in the history. */
+export function variablesForHistoryIndex(entries: EditorHistoryEntry[] | undefined, index: number | undefined): DesignVariable[] {
+  return normalizeDesignVariables(entryAtHistoryIndex(entries, index)?.variables);
 }
 
 /**
@@ -388,9 +406,7 @@ export function workplaneForHistoryIndex(
   index: number | undefined,
   fallback?: PlacementWorkplane,
 ): PlacementWorkplane | undefined {
-  if (!Array.isArray(entries) || entries.length === 0) return fallback;
-  const bounded = Number.isInteger(index) ? Math.min(Math.max(0, index as number), entries.length - 1) : entries.length - 1;
-  const found = entries[bounded]?.placementWorkplane;
+  const found = entryAtHistoryIndex(entries, index)?.placementWorkplane;
   return found ? normalizePlacementWorkplane(found) : fallback;
 }
 
@@ -481,6 +497,7 @@ const hydratedEntryCache = new WeakMap<object, {
   shapes: unknown;
   selectedIds: unknown;
   notes: unknown;
+  variables: unknown;
   placementWorkplane: unknown;
   at: unknown;
   /** Only matters for an entry without a workplane of its own, which takes the current one. */
@@ -496,7 +513,9 @@ export function hydrateEditorHistoryState(
   currentNotes: WorkplaneNote[] = [],
   currentWorkplane?: PlacementWorkplane,
 ): EditorHistoryState {
-  const fallback = editorHistoryEntry(currentShapes, [], currentNotes, currentWorkplane);
+  // The table comes from the stored state itself: no caller has to hand it in, so none can lose it.
+  const currentVariables = variablesForHistoryIndex(storedEntries, requestedIndex);
+  const fallback = editorHistoryEntry(currentShapes, [], currentNotes, currentWorkplane, currentVariables);
   if (!Array.isArray(storedEntries) || storedEntries.length === 0) {
     return { entries: [fallback], index: 0 };
   }
@@ -512,6 +531,7 @@ export function hydrateEditorHistoryState(
         && cached.shapes === entry.shapes
         && cached.selectedIds === entry.selectedIds
         && cached.notes === entry.notes
+        && cached.variables === entry.variables
         && cached.placementWorkplane === entry.placementWorkplane
         && cached.at === entry.at
         && cached.inheritedWorkplane === inherited
@@ -523,6 +543,7 @@ export function hydrateEditorHistoryState(
         Array.isArray(entry?.selectedIds) ? entry.selectedIds.filter((id): id is string => typeof id === "string") : [],
         normalizeNotes(entry?.notes),
         entry?.placementWorkplane ?? currentWorkplane,
+        normalizeDesignVariables(entry?.variables),
         typeof entry?.at === "number" && Number.isFinite(entry.at) ? entry.at : undefined,
       );
       if (cacheable) {
@@ -530,6 +551,7 @@ export function hydrateEditorHistoryState(
           shapes: entry.shapes,
           selectedIds: entry.selectedIds,
           notes: entry.notes,
+          variables: entry.variables,
           placementWorkplane: entry.placementWorkplane,
           at: entry.at,
           inheritedWorkplane: inherited,
@@ -546,7 +568,7 @@ export function hydrateEditorHistoryState(
     // design whose last step was made on a face workplane (#390).
     const stored = normalized[index];
     const expected = currentWorkplane === undefined && stored?.placementWorkplane
-      ? editorHistoryEntry(currentShapes, [], currentNotes, stored.placementWorkplane)
+      ? editorHistoryEntry(currentShapes, [], currentNotes, stored.placementWorkplane, currentVariables)
       : fallback;
     if (stored?.fingerprint !== expected.fingerprint) {
       return { entries: [fallback], index: 0 };

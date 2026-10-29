@@ -1015,6 +1015,7 @@ export function workplaneShapesEqual(a: WorkplaneShape, b: WorkplaneShape) {
     Boolean(a.breakawayBase) === Boolean(b.breakawayBase) &&
     a.rotationPivot === b.rotationPivot &&
     fieldFormulasEqual(a.formulas, b.formulas) &&
+    a.variableName === b.variableName &&
     a.locked === b.locked &&
     Boolean(a.shapeLocked) === Boolean(b.shapeLocked) &&
     a.hidden === b.hidden &&

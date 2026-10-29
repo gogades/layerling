@@ -11,6 +11,8 @@ import { normalizeSketchStroke, SKETCH_STROKE_JOINS } from "@/lib/sketchStroke";
 import { normalizeTextEdge } from "@/lib/textEdge";
 import { isTextKeyring } from "@/lib/textGeometry";
 import { normalizeNotes } from "@/lib/workplaneNotes";
+import { isVariableName, normalizeDesignVariables, type DesignVariable } from "@/lib/designVariables";
+import { MAX_FIELD_FORMULA_LENGTH } from "@/lib/fieldFormulas";
 import {
   attachmentListProblem,
   attachmentProblemText,
@@ -150,6 +152,8 @@ export type LylStateV1 = {
    * auch nicht zurueck.
    */
   notes?: WorkplaneNote[];
+  /** The advanced mode's variables table of this state, beside the nodes like the notes (lib/designVariables). */
+  variables?: DesignVariable[];
 };
 
 export type LylFeatureV1 = {
@@ -920,6 +924,7 @@ async function serializeState(
   builder: LylArchiveBuilder,
   sourceAssetsByArchiveId: Map<string, LylAssetRecordV1>,
   notes: WorkplaneNote[] = [],
+  variables: DesignVariable[] = [],
 ): Promise<LylStateV1> {
   assertUniqueRuntimeObjectIds(shapes, id);
   const nodes: LylShapeNodeV1[] = [];
@@ -931,6 +936,7 @@ async function serializeState(
   nodes.sort((a, b) => a.nodeId.localeCompare(b.nodeId));
   const state: LylStateV1 = { id, rootNodeIds, nodes };
   if (notes.length > 0) state.notes = notes;
+  if (variables.length > 0) state.variables = variables;
   return state;
 }
 
@@ -1098,7 +1104,7 @@ export async function exportLylProject(input: LylProjectExportInput) {
     // `hydrated` entries are already canonical and fingerprinted; only a state that
     // needed an ID repair has to be measured again.
     const idsWereRepaired = repaired.some((shape, index) => shape !== entry.shapes[index]);
-    return idsWereRepaired ? editorHistoryEntry(repaired, entry.selectedIds, normalizeNotes(entry.notes), entry.placementWorkplane) : entry;
+    return idsWereRepaired ? editorHistoryEntry(repaired, entry.selectedIds, normalizeNotes(entry.notes), entry.placementWorkplane, entry.variables) : entry;
   });
   const builder = new LylArchiveBuilder();
   const stateShapes = exportEntries.map((entry) => entry.shapes);
@@ -1133,7 +1139,7 @@ export async function exportLylProject(input: LylProjectExportInput) {
         stateTexts.push(cached.json);
         reusedStates.set(stateId, cached);
       } else {
-        const { result: state, used } = await builder.recording(() => serializeState(stateId as string, entry.shapes, builder, sourceAssetsByArchiveId, normalizeNotes(entry.notes)));
+        const { result: state, used } = await builder.recording(() => serializeState(stateId as string, entry.shapes, builder, sourceAssetsByArchiveId, normalizeNotes(entry.notes), entry.variables));
         const json = JSON.stringify(state);
         serializedStateCache.set(entry, { stateId, sourceKey, json, used });
         freshStates.set(stateId, state);
@@ -1404,7 +1410,7 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
     // The calculations typed into number fields (#180): short texts by field id, nothing else.
     const formulas = objectRecord(definition.formulas, `${label}.formulas`);
     for (const [field, text] of Object.entries(formulas)) {
-      if (typeof text !== "string" || text.length > 80) throw new Error(`${label}.formulas.${field} must be a short text`);
+      if (typeof text !== "string" || text.length > MAX_FIELD_FORMULA_LENGTH) throw new Error(`${label}.formulas.${field} must be a short text`);
     }
   }
   // Paint on the body (paint.ts): strokes, each of which must be one.
@@ -1421,6 +1427,9 @@ function validateShapeDefinition(definition: Record<string, unknown>, label: str
   // What a group does with its parts when it is resized (Discussion #526).
   if (definition.groupResize !== undefined && definition.groupResize !== "stretch" && definition.groupResize !== "keepParts") {
     throw new Error(`${label}.groupResize must be stretch or keepParts`);
+  }
+  if (definition.variableName !== undefined && !isVariableName(definition.variableName)) {
+    throw new Error(`${label}.variableName must be a name of letters, digits and _`);
   }
   // A text's fill mode (#215): a stroke like a sketch's, and the silhouette switch.
   if (definition.textStroke !== undefined && !normalizeSketchStroke(definition.textStroke)) {
@@ -2384,6 +2393,7 @@ async function restoreV1(document: LylProjectDocumentV1, assetById: Map<string, 
   const sourceImporter = options.sourceImporter ?? defaultSourceImporter;
   const restoredStates = new Map<string, WorkplaneShape[]>();
   const restoredNotes = new Map<string, WorkplaneNote[]>();
+  const restoredVariables = new Map<string, DesignVariable[]>();
   for (const state of document.states) {
     const nodeById = new Map(state.nodes.map((node) => [node.nodeId, node]));
     const shapes = await Promise.all(state.rootNodeIds.map((nodeId) => restoreShapeFromNode(
@@ -2399,12 +2409,14 @@ async function restoreV1(document: LylProjectDocumentV1, assetById: Map<string, 
     )));
     restoredStates.set(state.id, shapes);
     restoredNotes.set(state.id, normalizeNotes(state.notes));
+    restoredVariables.set(state.id, normalizeDesignVariables(state.variables));
   }
   const history = document.history.entries.map((entry) => editorHistoryEntry(
     restoredStates.get(entry.stateId) ?? [],
     entry.selectedObjectIds,
     restoredNotes.get(entry.stateId) ?? [],
     entry.workplane,
+    restoredVariables.get(entry.stateId) ?? [],
     historyRecordedAt(entry.recordedAt),
   ));
   const shapes = restoredStates.get(document.sceneStateId) ?? [];

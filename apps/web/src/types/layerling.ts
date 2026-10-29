@@ -1665,6 +1665,11 @@ export type WorkplaneShape = {
    */
   formulas?: Record<string, string>;
   /**
+   * The advanced mode's name for the body, so a formula can read its fields as `$name.size.width`.
+   * Unique in the design, in any case. See lib/designVariables.
+   */
+  variableName?: string;
+  /**
    * A group shows each part in its own colour, like the usual "Multicolor".
    * Left out, see groupShowsPartColors() for what a group shows.
    */
