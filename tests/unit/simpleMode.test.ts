@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { libraryShapeAssets } from "@/lib/shapeCatalog";
-import { SIMPLE_MODE_SHAPES, resolveSimpleMode, simpleModeFromParameter, simpleModeKeepsShape, simpleModeKeepsTool } from "@/lib/simpleMode";
+import { SIMPLE_MODE_SHAPES, resolveEditorMode, resolveSimpleMode, simpleModeFromParameter, simpleModeKeepsShape, simpleModeKeepsTool } from "@/lib/simpleMode";
 
 describe("the simple mode (#695)", () => {
   it("is on when chosen, off when chosen off, and follows the server when nothing is chosen", () => {
@@ -19,8 +19,19 @@ describe("the simple mode (#695)", () => {
   it("reads the mode parameter of a link", () => {
     expect(simpleModeFromParameter("simple")).toBe("on");
     expect(simpleModeFromParameter(" FULL ")).toBe("off");
+    expect(simpleModeFromParameter("Advanced")).toBe("advanced");
     expect(simpleModeFromParameter("kids")).toBe(null);
     expect(simpleModeFromParameter(null)).toBe(null);
+  });
+
+  it("runs the advanced mode only when chosen, and never over a simple mode the server asks for", () => {
+    expect(resolveEditorMode("advanced", null)).toBe("advanced");
+    expect(resolveEditorMode("advanced", "on")).toBe("advanced");
+    expect(resolveEditorMode("advanced", "always")).toBe("simple");
+    expect(resolveEditorMode("off", null)).toBe("normal");
+    expect(resolveEditorMode(null, null)).toBe("normal");
+    expect(resolveEditorMode(null, "on")).toBe("simple");
+    expect(resolveSimpleMode("advanced", "on")).toBe(false);
   });
 
   it("keeps the tools of the workshop and drops the advanced ones", () => {
