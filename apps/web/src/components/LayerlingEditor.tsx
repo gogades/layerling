@@ -140,6 +140,7 @@ import { historyViewMcpCommand } from "./workplane/historyViewMcp";
 import { designUsesFormulas } from "./workplane/evaluateDesign";
 import { DesignFormulasContext } from "./workplane/designFormulasContext";
 import { useDesignFormulas } from "./workplane/useDesignFormulas";
+import { formulasMcpCommand } from "./workplane/formulasMcp";
 import { VariablesPanel, toggleVariablesPanel } from "./workplane/VariablesPanel";
 import { getAdvancedMode, setAdvancedMode } from "@/lib/simpleMode";
 import { attachmentsFingerprint } from "@/lib/projectAttachments";
@@ -7939,11 +7940,7 @@ export function LayerlingEditor({
       return null;
     }
     const currentTarget = shapesRef.current.find((candidate) => candidate.id === shape.id);
-    if (
-      projectInfoRef.current.projectId !== sourceProjectId ||
-      !currentTarget ||
-      projectShapesFingerprint([currentTarget]) !== sourceFingerprint
-    ) {
+    if (projectInfoRef.current.projectId !== sourceProjectId || !currentTarget || projectShapesFingerprint([currentTarget]) !== sourceFingerprint) {
       throw new Error("The target object or project changed while the edge treatment was running; try again");
     }
     commitShapes(
@@ -8056,11 +8053,7 @@ export function LayerlingEditor({
     const modifiedShape = groupedShapeWithComponentEdgeTreatment(shape, preview, sourceParts, session, feature, createdAt)
       ?? shapeWithEdgeTreatmentRecord(bakedEdgeTreatmentPreview(preview, shape), shape, feature, true, createdAt);
     const currentTarget = shapesRef.current.find((candidate) => candidate.id === watched.id);
-    if (
-      projectInfoRef.current.projectId !== sourceProjectId ||
-      !currentTarget ||
-      projectShapesFingerprint([currentTarget]) !== sourceFingerprint
-    ) {
+    if (projectInfoRef.current.projectId !== sourceProjectId || !currentTarget || projectShapesFingerprint([currentTarget]) !== sourceFingerprint) {
       throw new Error("The object or project changed while it was being hollowed; try again");
     }
     return modifiedShape;
@@ -8208,11 +8201,7 @@ export function LayerlingEditor({
     const modifiedShape = groupedShapeWithComponentEdgeTreatment(shape, preview, sourceParts, session, feature, createdAt)
       ?? shapeWithEdgeTreatmentRecord(bakedEdgeTreatmentPreview(preview, shape), shape, feature, preserveEdgeSize, createdAt);
     const currentTarget = shapesRef.current.find((candidate) => candidate.id === shape.id);
-    if (
-      projectInfoRef.current.projectId !== sourceProjectId ||
-      !currentTarget ||
-      projectShapesFingerprint([currentTarget]) !== sourceFingerprint
-    ) {
+    if (projectInfoRef.current.projectId !== sourceProjectId || !currentTarget || projectShapesFingerprint([currentTarget]) !== sourceFingerprint) {
       throw new Error("The object or project changed while the faces were being deleted; try again");
     }
     return { shape: modifiedShape, deletedIds };
@@ -12048,6 +12037,9 @@ export function LayerlingEditor({
         setAttachments: updateProjectAttachments,
       });
       if (attachmentResult !== undefined) return attachmentResult;
+      // The advanced mode's formulas and variables (formulasMcp.ts), through the same commit as an edit by hand.
+      const formulaResult = formulasMcpCommand(command.action, params, { shapes: currentShapes, variables: () => variablesRef.current, workspace: () => workspaceSettingsRef.current, commit: (next) => commitShapes(next, selectedIdsRef.current), setTable: designFormulas.setTable });
+      if (formulaResult !== undefined) return formulaResult;
 
       if (command.action === "list_objects") {
         // sort "name" gives the object list's A to Z order: named shapes first, the rest as added (#1046).

@@ -1924,6 +1924,74 @@ export const tools = [
     },
   },
   {
+    name: "layerling_advanced_mode",
+    description: "The editor's mode: \"simple\" (for children and classes), \"normal\" or \"advanced\". The advanced mode adds formulas in number fields, variable names for bodies and the variables table (layerling_variables, layerling_object_formulas, layerling_evaluate_formula); formulas are only worked out in it, and changing them needs it. Call with nothing to read the mode. enabled true switches the advanced mode on, false back to the normal mode, like the switch under Settings > Appearance; it is a setting of the browser, not of the design. The simple mode is not left this way (only the settings window leaves it). Returns mode.",
+    inputSchema: {
+      ...editorTargetSchema,
+      properties: {
+        ...editorTargetSchema.properties,
+        enabled: { type: "boolean", description: "true switches the advanced mode on, false back to the normal mode. Left out, the mode is only read." },
+      },
+    },
+  },
+  {
+    name: "layerling_variables",
+    description: "The design's variables table (advanced mode): named values a formula reads as $name. Call with nothing to read it: variables, each with name, formula (a number or a formula such as \"$wall * 2\"), description, its worked-out value and, if it fails, error { kind, message }. set adds rows or changes the formula and description of existing ones (by name, in any case); rename renames one row and every formula that uses it; remove deletes rows (formulas using them then show an unknown-name error). All of it is one step of the undo history, and the whole design is worked out again, as in the table window (Ctrl+Shift+V). Names: letters, digits and _, not starting with a digit, not \"self\", unique among rows and bodies in any case. Formulas: + - * /, brackets, round(), sqrt(), sin() and cos() in degrees, pi, $row, $body.field, in the unit the design shows its fields in; at most 500 characters. Changing needs the advanced mode.",
+    inputSchema: {
+      ...editorTargetSchema,
+      properties: {
+        ...editorTargetSchema.properties,
+        set: {
+          type: "array",
+          description: "Rows to add or change, by name.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "The variable's name, used as $name." },
+              formula: { type: "string", description: "A number (\"3.2\") or a formula (\"$wall * 2\")." },
+              description: { type: "string", description: "A short note on what it is for (up to 200 characters)." },
+            },
+            required: ["name", "formula"],
+          },
+        },
+        rename: {
+          type: "object",
+          description: "Renames one row; every formula that uses it is rewritten.",
+          properties: { from: { type: "string" }, to: { type: "string" } },
+          required: ["from", "to"],
+        },
+        remove: { type: "array", items: { type: "string" }, description: "Names of the rows to delete." },
+      },
+    },
+  },
+  {
+    name: "layerling_object_formulas",
+    description: "One body's variable name and formulas (advanced mode). Call with id alone to read: variableName, formulas (each field with a formula: field, formula, value and, if it fails, error { kind, message }) and attributes, every field of the body by the name formulas read it by, with its value as the editor's panel shows it: size.width, size.length, size.height, size.diameter, position.x/y/z, rotation.x/y/z, pivot.x/y/z, taper.top_length, twist.angle, detail.sides and the body's own settings grouped by kind (gear.teeth, thread.pitch, hinge.pin_diameter...). variableName gives the body a name other formulas read it by ($name.size.width); null takes it away, and renaming rewrites every formula that uses it. formulas maps field names to a formula, or to null to remove it (the field keeps its value): { \"size.width\": \"$wall * 2\", \"position.x\": \"$lid.position.x + 30\" }. $self reads the body's own fields. All of it is one step of the undo history and the design is worked out again at once, as when typed into the panel. Only bodies on the workplane itself, not parts inside a group; not a locked body. Changing needs the advanced mode.",
+    inputSchema: {
+      ...editorTargetSchema,
+      properties: {
+        ...editorTargetSchema.properties,
+        id: { type: "string", description: "The body, as layerling_list_objects gives it." },
+        variableName: { type: ["string", "null"], description: "The body's variable name, or null to take it away." },
+        formulas: { type: "object", additionalProperties: { type: ["string", "null"] }, description: "Field name (as listed under attributes) to formula, or to null to remove that field's formula." },
+      },
+      required: ["id"],
+    },
+  },
+  {
+    name: "layerling_evaluate_formula",
+    description: "Works a formula out in the design as it stands, without changing anything - the live result of the editor's formula editor. Returns ok and value, or ok false with error { kind, message } (kind: syntax, unknown with the name, math, ...). id makes $self read that body's fields. Useful to try a formula before setting it with layerling_object_formulas or layerling_variables.",
+    inputSchema: {
+      ...editorTargetSchema,
+      properties: {
+        ...editorTargetSchema.properties,
+        formula: { type: "string", description: "The formula, for example \"$lid.size.width - 0.4\"." },
+        id: { type: "string", description: "The body $self stands for. Left out, $self is unknown." },
+      },
+      required: ["formula"],
+    },
+  },
+  {
     name: "layerling_set_section_view",
     description: "Cut the view open along a plane to look inside: walls, cavities, threads in their nuts, parts fitting into each other. Only the view is cut; the design and every export stay whole. Call with no settings to read the current state. axis uses the editor's own coordinates, the same as an object's x, z and elevation: \"x\" cuts across left-right (offset is an x position), \"z\" across front-back (a z position), \"y\" horizontally (offset is a height above the plate, like elevation). The editor's panel names them like its position fields instead: X, Y for the depth (z here) and Z for the height (y here). Switching on, changing the axis or center: true puts the plane in the middle of the design unless offset is given. By default the part on the far side of the plane (greater x, z or height) stays visible; flipped shows the other side. Returns the settings and the plane's useful range (min, max, center). Combine with layerling_capture_image to see the cut.",
     inputSchema: {

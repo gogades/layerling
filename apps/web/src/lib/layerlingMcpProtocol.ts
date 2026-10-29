@@ -187,6 +187,10 @@ export type LayerlingMcpCommandName =
   | "add_font"
   | "list_fonts"
   | "set_workplane"
+  | "advanced_mode"
+  | "variables"
+  | "object_formulas"
+  | "evaluate_formula"
   | "capture_image";
 
 export type LayerlingMcpCommand = {
