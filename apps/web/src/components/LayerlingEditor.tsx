@@ -19344,7 +19344,7 @@ export function LayerlingEditor({
           </button>
         </div>
       ) : null}
-      {historyViewState ? null : <VariablesPanel rows={variablesRef.current} shapes={shapes} errors={designFormulas.context.errors} onChange={designFormulas.setTable} />}
+      {historyViewState ? null : <VariablesPanel rows={variablesRef.current} shapes={shapes} formulas={designFormulas.context} onChange={designFormulas.setTable} />}
       {arrayTool && selectedShapes.length > 0 ? (
         <ArrayPanel
           targetName={selectedShapes.length === 1 ? selectedShapes[0].name : t("array.targetMany", { count: selectedShapes.length })}

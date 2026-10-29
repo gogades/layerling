@@ -3,8 +3,10 @@
 import { useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
+import { FormulaEditor } from "@/components/workplane/FormulaEditor";
 import { MovableToolPanel } from "@/components/workplane/MovableToolPanel";
-import { formulaErrorText, variableKey, type DesignFormulaError } from "@/components/workplane/evaluateDesign";
+import type { DesignFormulas } from "@/components/workplane/designFormulasContext";
+import { formulaErrorText, variableKey } from "@/components/workplane/evaluateDesign";
 import { isVariableName, type DesignVariable } from "@/lib/designVariables";
 import { MAX_FIELD_FORMULA_LENGTH } from "@/lib/fieldFormulas";
 import { evaluateFormula } from "@/lib/formula";
@@ -45,19 +47,24 @@ const leaveOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
 /**
  * The advanced mode's variables table: a name, a value or formula, its result and a short description per row, and below
  * it the bodies that have a variable name. Every committed cell is one step of the history (the editor's onChange); a
- * renamed row takes the formulas that use it along. See the design doc "Advanced mode and variables".
+ * renamed row takes the formulas that use it along. A formula cell's fx button opens the formula editor, as a field's does.
+ * See the design doc "Advanced mode and variables".
  */
-export function VariablesPanel({ rows, shapes, errors, onChange }: {
+export function VariablesPanel({ rows, shapes, formulas, onChange }: {
   rows: DesignVariable[];
   shapes: WorkplaneShape[];
-  errors: ReadonlyMap<string, DesignFormulaError>;
+  /** The editor's formulas: what failed, and the formula editor's live result and suggestions. */
+  formulas: DesignFormulas;
   onChange: (rows: DesignVariable[], rename?: { from: string; to: string }) => void;
 }) {
   useLanguage();
   const open = useVariablesPanelOpen();
   const advanced = useAdvancedMode();
   const [problem, setProblem] = useState<string | null>(null);
+  // The row whose formula the formula editor has open, by name (a row deleted above it does not move it), and its cell.
+  const [editing, setEditing] = useState<{ name: string; anchor: HTMLElement } | null>(null);
   if (!open || !advanced) return null;
+  const { errors } = formulas;
 
   const taken = (name: string, except: number) => rows.some((row, index) => index !== except && row.name.toLowerCase() === name.toLowerCase())
     || shapes.some((shape) => shape.variableName?.toLowerCase() === name.toLowerCase());
@@ -76,15 +83,20 @@ export function VariablesPanel({ rows, shapes, errors, onChange }: {
     }
     replace(index, { ...row, name }, { from: row.name, to: name });
   };
-  const commitFormula = (index: number, input: HTMLInputElement) => {
-    const formula = input.value.trim();
-    if (formula === rows[index].formula) return;
+  /** Takes a row's new formula, or says why not and returns false. */
+  const setFormula = (index: number, formula: string) => {
+    if (formula === rows[index].formula) return true;
     if (!readableFormula(formula)) {
-      input.value = rows[index].formula;
-      return setProblem(t("variables.formulaInvalid"));
+      setProblem(t("variables.formulaInvalid"));
+      return false;
     }
     replace(index, { ...rows[index], formula });
+    return true;
   };
+  const commitFormula = (index: number, input: HTMLInputElement) => {
+    if (!setFormula(index, input.value.trim())) input.value = rows[index].formula;
+  };
+  const editingIndex = editing ? rows.findIndex((row) => row.name === editing.name) : -1;
   const commitDescription = (index: number, input: HTMLInputElement) => {
     const description = input.value.trim().slice(0, 200);
     if (description !== (rows[index].description ?? "")) replace(index, { ...rows[index], description: description || undefined });
@@ -128,7 +140,12 @@ export function VariablesPanel({ rows, shapes, errors, onChange }: {
               return (
                 <tr key={`${index}:${row.name}`}>
                   <td><input key={row.name} defaultValue={row.name} spellCheck={false} aria-label={t("variables.name")} onBlur={(event) => commitName(index, event.currentTarget)} onKeyDown={leaveOnEnter} /></td>
-                  <td><input key={row.formula} defaultValue={row.formula} spellCheck={false} aria-label={t("variables.formula")} onBlur={(event) => commitFormula(index, event.currentTarget)} onKeyDown={leaveOnEnter} /></td>
+                  <td>
+                    <div className="variables-formula-cell">
+                      <input key={row.formula} defaultValue={row.formula} spellCheck={false} aria-label={t("variables.formula")} onBlur={(event) => commitFormula(index, event.currentTarget)} onKeyDown={leaveOnEnter} />
+                      <button type="button" className="formula-open" aria-label={t("formula.open")} title={t("formula.open")} onClick={(event) => setEditing({ name: row.name, anchor: event.currentTarget.parentElement as HTMLElement })}>fx</button>
+                    </div>
+                  </td>
                   <td className={error ? "variables-result error" : "variables-result"} title={error ? formulaErrorText(error) : undefined}>
                     {error ? "!" : Number(row.value.toFixed(4))}
                   </td>
@@ -152,6 +169,21 @@ export function VariablesPanel({ rows, shapes, errors, onChange }: {
             : <span>{t("variables.noObjects")}</span>}
         </div>
         </div>
+        {editing && editingIndex >= 0 ? (
+          <FormulaEditor
+            anchor={editing.anchor}
+            title={t("formula.editorTitle", { field: `$${rows[editingIndex].name}` })}
+            unit={null}
+            initial={rows[editingIndex].formula}
+            // A row is no body: "" leaves `$self` out of the suggestions and unknown to the result.
+            preview={(text) => formulas.preview(text, "")}
+            suggest={(before) => formulas.suggest(before, "")}
+            onApply={(formula) => {
+              if (setFormula(editingIndex, formula)) setEditing(null);
+            }}
+            onCancel={() => setEditing(null)}
+          />
+        ) : null}
       </>)}
     </MovableToolPanel>
   );
