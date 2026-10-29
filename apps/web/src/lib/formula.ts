@@ -121,3 +121,21 @@ export function formulaReferences(text: string): string[] {
   });
   return found;
 }
+
+/**
+ * The formula after an edit moved its field by `delta` (a drag, a nudge, an alignment): the change is added to a trailing
+ * `+ n` or `- n`, or written on as a new one - `$a * 2` becomes `$a * 2 + 5`, `$a + 1` moved by 4 becomes `$a + 5`.
+ */
+export function shiftFormula(formula: string, delta: number): string {
+  const trailing = /^(.*?)\s*([+-])\s*(\d+(?:\.\d+)?)\s*$/.exec(formula);
+  let base = formula.trim();
+  let offset = delta;
+  // Only a constant added at the top level: what stands before its sign must end in a value, not an operator or `(`.
+  if (trailing && /[A-Za-z0-9_)]$/.test(trailing[1].trim())) {
+    base = trailing[1].trim();
+    offset += (trailing[2] === "-" ? -1 : 1) * Number(trailing[3]);
+  }
+  const magnitude = Math.abs(offset).toFixed(6).replace(/\.?0+$/, "");
+  if (magnitude === "0") return base;
+  return `${base} ${offset < 0 ? "-" : "+"} ${magnitude}`;
+}
