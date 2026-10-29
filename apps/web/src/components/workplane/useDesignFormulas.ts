@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
-import { designAfterEdit, withRenamedReference, type DesignFormulaError } from "@/components/workplane/evaluateDesign";
+import { designAfterEdit, formulaPreview, formulaSuggestions, withRenamedReference, type DesignFormulaError } from "@/components/workplane/evaluateDesign";
 import type { DesignFormulas } from "@/components/workplane/designFormulasContext";
 import type { DesignVariable } from "@/lib/designVariables";
 import { t } from "@/lib/i18n";
@@ -67,7 +67,9 @@ export function useDesignFormulas(
       return shapesRef.current.some((shape) => shape.id !== shapeId && shape.variableName?.toLowerCase() === wanted)
         || variablesRef.current.some((row) => row.name.toLowerCase() === wanted);
     },
-  }), [errors, shapesRef, variablesRef]);
+    preview: (text, shapeId) => formulaPreview(shapesRef.current, variablesRef.current, workspaceRef.current, shapeId, text),
+    suggest: (before, shapeId) => formulaSuggestions(shapesRef.current, variablesRef.current, workspaceRef.current, shapeId, before),
+  }), [errors, shapesRef, variablesRef, workspaceRef]);
 
   return { settle, recalculate, setTable, context, commitRef };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attributePath, designAfterEdit, designUsesFormulas, evaluateDesign, formulasAfterEdit, variableKey, withRenamedReference } from "@/components/workplane/evaluateDesign";
+import { attributePath, designAfterEdit, designUsesFormulas, evaluateDesign, formulaPreview, formulaSuggestions, formulasAfterEdit, variableKey, withRenamedReference } from "@/components/workplane/evaluateDesign";
 import type { DesignVariable } from "@/lib/designVariables";
 import { formulaReferences, renameReference, shiftFormula } from "@/lib/formula";
 import { DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
@@ -171,5 +171,26 @@ describe("recalculating a design (advanced mode)", () => {
     const rebuilt = designAfterEdit([lid], [box("lid-2", { variableName: "lid" })], [], DEFAULT_WORKPLANE_WORKSPACE, false, apply);
     expect(rebuilt.blanked).toEqual([]);
     expect(rebuilt.shapes[0].variableName).toBe("lid");
+  });
+
+  it("suggests rows, named bodies and self after $, and a body's fields after $name.", () => {
+    const shapes = [box("lid", { variableName: "lid", width: 30 }), box("other", { variableName: "leg" })];
+    const table = [row("length", "5", 5), row("wall", "2", 2)];
+    const suggest = (before: string, owner?: string) => formulaSuggestions(shapes, table, DEFAULT_WORKPLANE_WORKSPACE, owner, before);
+    expect(suggest("2 * $l")?.items.map((item) => item.label)).toEqual(["$length", "$lid", "$leg"]);
+    expect(suggest("2 * $l")?.start).toBe(5);
+    expect(suggest("$", "lid")?.items.map((item) => item.insert)).toEqual(["length", "wall", "lid", "leg", "self"]);
+    expect(suggest("$LID.size.w")?.items).toEqual([{ label: "size.width", insert: "LID.size.width", detail: "30" }]);
+    expect(suggest("$self.position.", "lid")?.items.map((item) => item.label)).toEqual(["position.x", "position.y", "position.z"]);
+    expect(suggest("$wall")?.items).toEqual([]);
+    expect(suggest("2 * 3")).toBeNull();
+    expect(suggest("$nobody.size")?.items).toEqual([]);
+  });
+
+  it("previews a formula in the design as it stands", () => {
+    const shapes = [box("lid", { variableName: "lid", width: 30 })];
+    expect(formulaPreview(shapes, [row("wall", "2", 2)], DEFAULT_WORKPLANE_WORKSPACE, undefined, "$lid.size.width + $wall")).toEqual({ ok: true, value: 32 });
+    expect(formulaPreview(shapes, [], DEFAULT_WORKPLANE_WORKSPACE, "lid", "$self.size.width / 2")).toEqual({ ok: true, value: 15 });
+    expect(formulaPreview(shapes, [], DEFAULT_WORKPLANE_WORKSPACE, undefined, "$missing")).toEqual({ ok: false, error: { kind: "unknown", name: "missing" } });
   });
 });
