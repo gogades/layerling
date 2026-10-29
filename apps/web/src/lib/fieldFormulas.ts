@@ -9,8 +9,8 @@ import { isArithmeticInput, parseMeasurementInput } from "@/lib/measurementUnits
  */
 export type FieldFormulas = Record<string, string>;
 
-/** The longest text a field remembers; anything longer is a value, not a formula to come back to. */
-export const MAX_FIELD_FORMULA_LENGTH = 80;
+/** The longest text a field remembers; anything longer is a value, not a formula to come back to. Room for the advanced mode's `$` formulas. */
+export const MAX_FIELD_FORMULA_LENGTH = 500;
 
 /** The text to remember for a field set from `text`: the calculation, or nothing for a plain number or a percentage. */
 export function formulaToRemember(text: string): string | null {

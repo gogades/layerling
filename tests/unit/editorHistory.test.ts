@@ -278,7 +278,7 @@ describe("history view", () => {
 
     expect(again.changed).toBe(false);
     expect(again.entries[0].at).toBeUndefined();
-    expect(editorHistoryEntry([box()], [], [], undefined, 42).fingerprint).toBe(first.fingerprint);
+    expect(editorHistoryEntry([box()], [], [], undefined, [], 42).fingerprint).toBe(first.fingerprint);
   });
 
   it("resolves a state with its bodies, notes and workplane elevation", () => {
