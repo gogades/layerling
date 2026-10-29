@@ -274,6 +274,12 @@ export function placementWorkplanePlateShift(workplane: PlacementWorkplane): num
   return Math.abs(workplane.origin.x) < 1e-6 ? 0 : workplane.origin.x;
 }
 
+/** The height a level workplane lies at, or `fallback` for a tilted one: the editor's placement elevation. */
+export function placementElevationOf(workplane: PlacementWorkplane, fallback = 0) {
+  const level = Math.abs(workplane.normal.x) < 1e-6 && Math.abs(workplane.normal.y - 1) < 1e-6 && Math.abs(workplane.normal.z) < 1e-6;
+  return level ? workplane.origin.y : fallback;
+}
+
 // A workplane moved or turned on the plate but still lying in its plane. Its grid
 // and the plate's then share one plane, slightly offset, and the two make a
 // moiré (#178), so the plate keeps only its outline.

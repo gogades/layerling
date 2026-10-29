@@ -6,6 +6,7 @@ import {
   normalizePlacementWorkplane,
   placementWorkplaneFingerprint,
   placementWorkplaneIsBase,
+  placementElevationOf,
   type PlacementWorkplane,
 } from "@/lib/placementWorkplane";
 
@@ -347,9 +348,6 @@ export function historyStateAt(entries: EditorHistoryEntry[], requestedIndex: nu
   const shapes = (entry?.shapes ?? []).map(canonicalizeShape);
   const selectedIds = (entry?.selectedIds ?? []).filter((id) => shapes.some((shape) => shape.id === id));
   const placementWorkplane = normalizePlacementWorkplane(entry?.placementWorkplane);
-  const horizontal = Math.abs(placementWorkplane.normal.x) < 1e-6
-    && Math.abs(placementWorkplane.normal.y - 1) < 1e-6
-    && Math.abs(placementWorkplane.normal.z) < 1e-6;
   return {
     entry,
     index,
@@ -357,7 +355,7 @@ export function historyStateAt(entries: EditorHistoryEntry[], requestedIndex: nu
     selectedIds,
     notes: normalizeNotes(entry?.notes),
     placementWorkplane,
-    placementElevation: horizontal ? placementWorkplane.origin.y : 0,
+    placementElevation: placementElevationOf(placementWorkplane),
   };
 }
 

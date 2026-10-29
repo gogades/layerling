@@ -1,6 +1,8 @@
 import { propertyUsesLengthUnit, shapeNumberFields, type RangePropertyConfig } from "@/components/workplane/ShapeInspector";
 import { SELF_VARIABLE_NAME, type DesignVariable } from "@/lib/designVariables";
-import { evaluateFormula, formulaReferences, type FormulaError } from "@/lib/formula";
+import { withFieldFormula } from "@/lib/fieldFormulas";
+import { evaluateFormula, formulaReferences, shiftFormula, type FormulaError } from "@/lib/formula";
+import { t } from "@/lib/i18n";
 import { displayToMillimeters, evaluateArithmetic, millimetersToDisplay } from "@/lib/measurementUnits";
 import { shapeWithParametricSource } from "@/lib/workplaneShapes";
 import type { WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
@@ -43,6 +45,28 @@ export function variableKey(name: string) {
 
 const MAX_PASSES = 4;
 
+/** A field's value as the Properties panel shows it: in the editor's unit for a length. */
+function shownValue(field: RangePropertyConfig, workspace: WorkplaneWorkspaceSettings) {
+  return propertyUsesLengthUnit(field.id) ? millimetersToDisplay(field.value, workspace) : field.value;
+}
+
+/**
+ * Whether a field's formula is the advanced mode's (names or functions). Plain arithmetic (#180) is a remembered
+ * calculation, not a formula to keep true: a drag may have left it behind, and it never moves anything.
+ */
+export function isDesignFormula(text: string | undefined): text is string {
+  return Boolean(text) && !Number.isFinite(evaluateArithmetic(text as string));
+}
+
+/** Whether a design has anything of the advanced mode: a variables table, a variable name or a formula. */
+export function designUsesFormulas(shapes: WorkplaneShape[], variables: DesignVariable[]) {
+  return variables.length > 0 || shapes.some((shape) => shape.variableName || Object.values(shape.formulas ?? {}).some(isDesignFormula));
+}
+
+function sameValue(a: number, b: number) {
+  return Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
+}
+
 /** The part of `patch` that changes `shape`, or null when none does. */
 function changedFields(shape: WorkplaneShape, patch: Partial<WorkplaneShape> | null): Partial<WorkplaneShape> | null {
   if (!patch) return null;
@@ -52,8 +76,11 @@ function changedFields(shape: WorkplaneShape, patch: Partial<WorkplaneShape> | n
 
 type FormulaNode = { formula: string; row?: DesignVariable; shapeId?: string; fieldId?: string };
 
-// shortcut: only the design's top-level bodies take part; parts inside closed groups come with group editing.
-export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings): DesignEvaluation {
+/**
+ * The design as formulas see it: the table's rows, the named bodies, each body's fields as the inspector shows them,
+ * and what a reference reads. `working` is the design being worked out; setField changes a field the way typing would.
+ */
+function designScope(shapes: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings) {
   const working = new Map(shapes.map((shape) => [shape.id, shape]));
   const rows = variables.map((row) => ({ ...row }));
   const rowByName = new Map(rows.map((row) => [row.name.toLowerCase(), row]));
@@ -77,7 +104,6 @@ export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariab
     fieldCache.set(shapeId, { shape, fields });
     return fields;
   };
-  const shown = (field: RangePropertyConfig) => (propertyUsesLengthUnit(field.id) ? millimetersToDisplay(field.value, workspace) : field.value);
 
   /** What a reference in a formula of `ownerId` (none for the table) points at: a row's key, or a body's field. */
   const resolve = (reference: string, ownerId?: string): { key: string; field?: RangePropertyConfig } | null => {
@@ -91,15 +117,27 @@ export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariab
   const reader = (ownerId?: string) => (reference: string) => {
     const target = resolve(reference, ownerId);
     if (!target) return undefined;
-    return target.field ? shown(target.field) : rowByName.get(reference.toLowerCase())?.value;
+    return target.field ? shownValue(target.field, workspace) : rowByName.get(reference.toLowerCase())?.value;
   };
+  const setField = (field: RangePropertyConfig, value: number) => {
+    captured = null;
+    field.onChange(Math.max(field.min, propertyUsesLengthUnit(field.id) ? displayToMillimeters(value, workspace) : value));
+    // onChange set it through `capture`; TypeScript cannot see that and still thinks it null.
+    return captured as Partial<WorkplaneShape> | null;
+  };
+  return { working, rows, fieldsOf, resolve, reader, setField };
+}
+
+// shortcut: only the design's top-level bodies take part; parts inside closed groups come with group editing.
+export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings): DesignEvaluation {
+  const { working, rows, fieldsOf, resolve, reader, setField } = designScope(shapes, variables, workspace);
+  const shown = (field: RangePropertyConfig) => shownValue(field, workspace);
 
   const nodes = new Map<string, FormulaNode>();
   for (const row of rows) if (row.formula.trim()) nodes.set(variableKey(row.name), { formula: row.formula, row });
   for (const shape of shapes) {
     for (const [fieldId, formula] of Object.entries(shape.formulas ?? {})) {
-      // Plain arithmetic (#180) is a remembered calculation, not a formula to keep true: a drag may have left it behind.
-      if (!Number.isFinite(evaluateArithmetic(formula))) nodes.set(`${shape.id}/${fieldId}`, { formula, shapeId: shape.id, fieldId });
+      if (isDesignFormula(formula)) nodes.set(`${shape.id}/${fieldId}`, { formula, shapeId: shape.id, fieldId });
     }
   }
 
@@ -142,21 +180,18 @@ export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariab
       }
       const shapeId = node.shapeId as string;
       const shape = working.get(shapeId) as WorkplaneShape;
-      // A locked body holds still, as it does for every other change; the field says why.
-      if (shape.locked) {
-        errors.set(key, { kind: "locked" });
-        continue;
-      }
       const field = fieldsOf(shapeId).find((candidate) => candidate.id === node.fieldId);
       if (!field) {
         errors.set(key, { kind: "field" });
         continue;
       }
-      if (Math.abs(shown(field) - result.value) <= 1e-9 * Math.max(1, Math.abs(result.value))) continue;
-      captured = null;
-      field.onChange(Math.max(field.min, propertyUsesLengthUnit(field.id) ? displayToMillimeters(result.value, workspace) : result.value));
-      // onChange set it through `capture`; TypeScript cannot see that and still thinks it null.
-      const patch = changedFields(shape, captured as Partial<WorkplaneShape> | null);
+      if (sameValue(shown(field), result.value)) continue;
+      // A locked body holds still, as it does for every other change; the field says why.
+      if (shape.locked) {
+        errors.set(key, { kind: "locked" });
+        continue;
+      }
+      const patch = changedFields(shape, setField(field, result.value));
       // A value held at the field's limit gives the same patch every time: nothing to do.
       if (!patch) continue;
       changed = true;
@@ -173,4 +208,87 @@ export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariab
     else patches.delete(shapeId);
   }
   return { patches, variables: rows, errors };
+}
+
+/**
+ * The bodies after an edit that did not type the formula itself (a drag, a nudge, an alignment, a linked field). Outside the
+ * advanced mode a field whose value the edit moved loses its formula. In it, such a field keeps its formula when the formula
+ * still gives the new value (a body moved together with the one it follows), and otherwise gets the difference written on:
+ * `$a * 2` becomes `$a * 2 + 5`. The same array when nothing changes.
+ */
+export function formulasAfterEdit(before: WorkplaneShape[], after: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings, advanced: boolean): WorkplaneShape[] {
+  const previous = new Map(before.map((shape) => [shape.id, shape]));
+  const valueIn = (shape: WorkplaneShape, id: string) => {
+    const field = shapeNumberFields(shapeWithParametricSource(shape), () => undefined, workspace).find((candidate) => candidate.id === id);
+    return field ? shownValue(field, workspace) : Number.NaN;
+  };
+  // What each formula gives in the edited design, read lazily: most edits move nothing that has one.
+  let scope: ReturnType<typeof designScope> | null = null;
+  const formulaGives = (shapeId: string, formula: string) => {
+    scope ??= designScope(after, variables, workspace);
+    const result = evaluateFormula(formula, scope.reader(shapeId));
+    return result.ok ? result.value : Number.NaN;
+  };
+  let changed = false;
+  const next = after.map((shape) => {
+    const old = previous.get(shape.id);
+    if (!old || old === shape) return shape;
+    const ids = Object.keys(shape.formulas ?? {}).filter((id) => isDesignFormula(shape.formulas?.[id]) && old.formulas?.[id] === shape.formulas?.[id]);
+    let formulas = shape.formulas;
+    for (const id of ids) {
+      const now = valueIn(shape, id);
+      if (!Number.isFinite(now) || sameValue(valueIn(old, id), now)) continue;
+      if (!advanced) {
+        formulas = withFieldFormula(formulas, id, null);
+        continue;
+      }
+      const gives = formulaGives(shape.id, formulas?.[id] as string);
+      if (Number.isFinite(gives) && !sameValue(gives, now)) formulas = withFieldFormula(formulas, id, shiftFormula(formulas?.[id] as string, now - gives));
+    }
+    if (formulas === shape.formulas) return shape;
+    changed = true;
+    return { ...shape, formulas };
+  });
+  return changed ? next : after;
+}
+
+export type SettledDesign = { shapes: WorkplaneShape[]; variables: DesignVariable[]; errors: Map<string, DesignFormulaError> };
+
+/**
+ * An edit of the design, settled: the formulas it moved shifted or dropped (formulasAfterEdit), then in the advanced mode
+ * every formula worked out again, each change applied with `apply` the way the inspector applies a typed value.
+ * `variables` comes back as the same array when no value of the table changed.
+ */
+export function designAfterEdit(
+  before: WorkplaneShape[],
+  after: WorkplaneShape[],
+  variables: DesignVariable[],
+  workspace: WorkplaneWorkspaceSettings,
+  advanced: boolean,
+  apply: (shape: WorkplaneShape, patch: Partial<WorkplaneShape>) => WorkplaneShape,
+): SettledDesign {
+  const edited = formulasAfterEdit(before, after, variables, workspace, advanced);
+  if (!advanced) return { shapes: edited, variables, errors: new Map() };
+  const result = evaluateDesign(edited, variables, workspace);
+  const shapes = result.patches.size
+    ? edited.map((shape) => {
+      const patch = result.patches.get(shape.id);
+      return patch ? apply(shape, patch) : shape;
+    })
+    : edited;
+  const sameTable = JSON.stringify(result.variables) === JSON.stringify(variables);
+  return { shapes, variables: sameTable ? variables : result.variables, errors: result.errors };
+}
+
+/** What a field with a failed formula says when the pointer rests on it. */
+export function formulaErrorText(error: DesignFormulaError) {
+  switch (error.kind) {
+    case "unknown": return t("formula.errorUnknown", { name: `$${error.name}` });
+    case "math": return t("formula.errorMath");
+    case "cycle": return t("formula.errorCycle");
+    case "field": return t("formula.errorField");
+    case "locked": return t("formula.errorLocked");
+    case "conflict": return t("formula.errorConflict");
+    default: return t("formula.errorSyntax");
+  }
 }
