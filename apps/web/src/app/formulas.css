@@ -39,10 +39,15 @@ html[data-theme="dark"] {
 .variable-name-field {
   display: grid;
   gap: 5px;
-  margin-bottom: 10px;
   color: #867563;
   font-size: 13px;
   font-weight: 650;
+}
+
+/* A card like the inspector's others, without a header: the field's label is its title. */
+.variable-name-card {
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .variable-name-field input {
@@ -67,4 +72,119 @@ html[data-theme="dark"] {
 
 .variable-name-field small[role="alert"] {
   color: var(--formula-error);
+}
+
+/* The variables table (Ctrl+Shift+V): a small spreadsheet in a tool panel, resized by its lower right corner like the
+   vase drawing window; the title bar stays and the rows scroll. */
+.edge-modifier-panel.variables-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100vw - 32px));
+  min-width: min(380px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  min-height: 220px;
+  overflow: hidden;
+  resize: both;
+}
+
+.variables-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.variables-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.variables-table th {
+  padding: 4px 4px 6px;
+  color: var(--muted-strong);
+  font-weight: 650;
+  text-align: left;
+}
+
+.variables-table td {
+  padding: 2px 4px;
+}
+
+.variables-table input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  color: inherit;
+  background: var(--formula-tint);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: 600 13px/1 var(--font-ui);
+}
+
+.variables-table td:nth-child(1) input,
+.variables-table td:nth-child(2) input {
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.variables-table input:focus {
+  border-color: var(--formula-mark);
+  outline: 0;
+}
+
+.variables-result {
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.variables-result.error {
+  color: var(--formula-error);
+  font-weight: 800;
+  cursor: help;
+}
+
+.variables-table button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--muted-strong);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.variables-problem {
+  margin: 8px 4px 0;
+  color: var(--formula-error);
+  font-size: 13px;
+}
+
+.variables-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 4px 0;
+  padding: 6px 10px;
+  color: var(--formula-mark);
+  background: var(--formula-tint);
+  border: 0;
+  border-radius: 6px;
+  font: 700 13px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.variables-objects {
+  display: grid;
+  gap: 4px;
+  margin: 14px 4px 4px;
+  color: var(--muted-strong);
+  font-size: 13px;
+}
+
+.variables-objects code {
+  color: var(--formula-mark);
+  font-weight: 700;
 }
