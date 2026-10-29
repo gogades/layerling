@@ -19,7 +19,8 @@ describe("field formulas (#180)", () => {
     expect(isArithmeticInput("(40+2")).toBe(false);
     expect(formulaToRemember("  (140+2)/2 ")).toBe("(140+2)/2");
     expect(formulaToRemember("71")).toBeNull();
-    expect(formulaToRemember(`(${"1+".repeat(50)}1)`)).toBeNull();
+    expect(formulaToRemember(`(${"1+".repeat(50)}1)`)).toBe(`(${"1+".repeat(50)}1)`);
+    expect(formulaToRemember(`(${"1+".repeat(260)}1)`)).toBeNull();
   });
 
   it("shows the formula again only while the value still equals it", () => {
