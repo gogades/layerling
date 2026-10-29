@@ -162,6 +162,10 @@ Umetna inteligenca dela z istimi funkcijami kot ti, teče po isti poti kot tvoje
 | `layerling_measure_angle` | izmeri kot, kakor kotomer: v oglišču treh točk ali med dvema ravnima ploskvama, in ga pokaže v pogledu |
 | `layerling_saved_view` | shrani trenutni pogled pod tipko 7, 8, 9 ali 0 in se vrne nanj, kot Shift+tipka in tipka (samo pogled); nastavi tudi začetni pogled novih osnutkov |
 | `layerling_build_plates` | našteje, doda, poimenuje, razvrsti in odstrani tiskalne plošče, premakne predmete na ploščo in jih razporedi po ploščah, kot vrstica plošč |
+| `layerling_advanced_mode` | vklopi ali izklopi napredni način in prebere način (preprost, običajen, napreden) |
+| `layerling_variables` | prebere tabelo spremenljivk z vrednostmi in napakami ter doda, spremeni, preimenuje ali odstrani vrstice kot okno tabele |
+| `layerling_object_formulas` | telesu da ime spremenljivke in formule po berljivih imenih polj (`size.width`, `rotation.z`, `taper.top_length`...) in našteje vsa polja z vrednostmi |
+| `layerling_evaluate_formula` | izračuna formulo v modelu, kakršen je, ne da bi kaj spremenil, kot rezultat v urejevalniku formul |
 | `layerling_clear_history` | za vedno izbriše vse korake razveljavitve, kot gumb »Izbriši zgodovino« v pogledu zgodovine; potrebuje `confirm: true` |
 | `layerling_set_history_view` | pogleda nazaj na prejšnje stanje projekta, kot pogled zgodovine (pravi načrt ostane nedotaknjen; orodja, ki spreminjajo, počakajo, da se zapre) |
 | `layerling_restore_from_history` | vrne objekte (tudi dele v skupinah) iz prejšnjega stanja v načrt kot kopije, kot »Vrni v načrt« v pogledu zgodovine - en korak, ki ga razveljavitev vzame nazaj |

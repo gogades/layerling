@@ -166,6 +166,10 @@ The AI works with the same functions as you, through the same path as your opera
 | `layerling_measure_angle` | measures an angle like the protractor: at the corner of three points or between two flat faces, and shows it in the view |
 | `layerling_saved_view` | saves the current view under the key 7, 8, 9 or 0 and goes back to it, like Shift+key and the key (only the view); also sets the start view of new designs |
 | `layerling_build_plates` | lists, adds, names, orders and removes the build plates, moves objects onto a plate and arranges them on the plates, like the plate bar |
+| `layerling_advanced_mode` | switches the advanced mode on or off and reads the mode (simple, normal, advanced) |
+| `layerling_variables` | reads the variables table with values and errors, and adds, changes, renames or removes rows, like the table window |
+| `layerling_object_formulas` | gives a body a variable name and formulas by readable field names (`size.width`, `rotation.z`, `taper.top_length`...) and lists every field with its value |
+| `layerling_evaluate_formula` | works a formula out in the design as it stands, without changing anything, like the formula editor's result |
 | `layerling_clear_history` | deletes every undo step for good, as the History view's "Delete history" button does; needs `confirm: true` |
 | `layerling_set_history_view` | looks back at an earlier state of the project, like the History view (the real design stays untouched; changing tools wait until it is closed) |
 | `layerling_restore_from_history` | brings objects (also parts inside groups) back from an earlier state into the design as copies, as the History view's Bring into design does - one step that undo takes back |
