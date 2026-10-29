@@ -140,6 +140,7 @@ import { historyViewMcpCommand } from "./workplane/historyViewMcp";
 import { designUsesFormulas } from "./workplane/evaluateDesign";
 import { DesignFormulasContext } from "./workplane/designFormulasContext";
 import { useDesignFormulas } from "./workplane/useDesignFormulas";
+import { VariablesPanel, toggleVariablesPanel } from "./workplane/VariablesPanel";
 import { getAdvancedMode, setAdvancedMode } from "@/lib/simpleMode";
 import { attachmentsFingerprint } from "@/lib/projectAttachments";
 import { ATTACHMENT_MCP_READ_ACTIONS, attachmentMcpCommand, attachmentMcpList } from "@/lib/projectAttachmentsMcp";
@@ -3398,7 +3399,7 @@ export function LayerlingEditor({
   const workspaceSettingsRef = useRef(workspaceSettings);
   /** Moves the bodies on the later build plates when the plates change size; set where the plates are kept (#456). */
   const plateResizeRef = useRef<((before: WorkplaneWorkspaceSettings, after: WorkplaneWorkspaceSettings) => void) | null>(null);
-  const designFormulas = useDesignFormulas(shapesRef, selectedIdsRef, variablesRef, workspaceSettingsRef, shapeWithInspectorPatch);
+  const designFormulas = useDesignFormulas(shapesRef, selectedIdsRef, variablesRef, workspaceSettingsRef, shapeWithInspectorPatch, setNotice);
 
   // "Ask before closing the tab" (a setting, off): the browser's own "Leave site?" question while a design is open. The design is saved
   // after every change anyway, so this is only a reminder; the wording is the browser's.
@@ -3528,6 +3529,13 @@ export function LayerlingEditor({
   const cadModifierBaseShapeRef = useRef<WorkplaneShape | null>(null);
   const cadModifierBaseFingerprintRef = useRef("");
   const cadModifierSourcePartsRef = useRef<WorkplaneShape[]>([]);
+  /** Forgets the edge treatment being set up, with the body it started from. Refs and a state setter: stable. */
+  const dropEdgeModifierSession = () => {
+    cadModifierBaseShapeRef.current = null;
+    cadModifierBaseFingerprintRef.current = "";
+    cadModifierSourcePartsRef.current = [];
+    setEdgeModifier(null);
+  };
   const cadModifierWatchdogRef = useRef<{ requestId: number; phase: CadModifierRequestPhase; timer: number } | null>(null);
   const cadPreviewSendRef = useRef<(payload: CadPreviewPayload) => number | null>(() => null);
   const cadPreviewQueueRef = useRef(createCadPreviewQueue<CadPreviewPayload>((payload) => cadPreviewSendRef.current(payload)));
@@ -3714,10 +3722,7 @@ export function LayerlingEditor({
           cadModifierRequestRef.current = requestId;
           cadModifierLatestPreviewRef.current = requestId;
           cadModifierPrepareRef.current = requestId;
-          cadModifierBaseShapeRef.current = null;
-          cadModifierBaseFingerprintRef.current = "";
-          cadModifierSourcePartsRef.current = [];
-          setEdgeModifier(null);
+          dropEdgeModifierSession();
           setNotice(cadModifierUserErrorMessage(message.message) ?? message.message);
           return;
         }
@@ -3763,10 +3768,7 @@ export function LayerlingEditor({
     } else {
       cadModifierWorkerRef.current?.postMessage({ type: "dispose", requestId } satisfies CadModifierWorkerRequest);
     }
-    cadModifierBaseShapeRef.current = null;
-    cadModifierBaseFingerprintRef.current = "";
-    cadModifierSourcePartsRef.current = [];
-    setEdgeModifier(null);
+    dropEdgeModifierSession();
     return true;
   }, [clearCadModifierWatchdog]);
 
@@ -5963,22 +5965,23 @@ export function LayerlingEditor({
     sketchImageInputRef.current?.click();
   }, [chooseSketchTool, sketchTool]);
 
-  const copySketchSelectionToClipboard = useCallback(() => {
+  /** The selected sketch geometry as a clipboard copy, or null after saying there is nothing selected. */
+  const sketchSelectionCopy = () => {
     const copied = copySketchSelection(sketchProfile, sketchSelection);
-    if (!copied) {
-      setNotice(t("status.selectSketchGeometry"));
-      return;
-    }
+    if (!copied) setNotice(t("status.selectSketchGeometry"));
+    return copied;
+  };
+
+  const copySketchSelectionToClipboard = useCallback(() => {
+    const copied = sketchSelectionCopy();
+    if (!copied) return;
     setSketchClipboard(copied);
     setNotice(t("status.sketchCopied"));
   }, [sketchProfile, sketchSelection]);
 
   const cutSketchSelection = useCallback(() => {
-    const copied = copySketchSelection(sketchProfile, sketchSelection);
-    if (!copied) {
-      setNotice(t("status.selectSketchGeometry"));
-      return;
-    }
+    const copied = sketchSelectionCopy();
+    if (!copied) return;
     // A locked image refuses to be deleted; cutting it would only copy it.
     if (copied.images.some((image) => image.locked)) {
       setNotice(t("status.unlockImageDelete"));
@@ -6010,11 +6013,8 @@ export function LayerlingEditor({
   // Like the 3D editor's duplicate, but moved clear of the original: a copy on
   // top of it would be invisible and welded to it where their lines cross.
   const duplicateSketchSelection = useCallback(() => {
-    const copied = copySketchSelection(sketchProfile, sketchSelection);
-    if (!copied) {
-      setNotice(t("status.selectSketchGeometry"));
-      return;
-    }
+    const copied = sketchSelectionCopy();
+    if (!copied) return;
     insertSketchCopy(copied, t("status.sketchDuplicated"));
   }, [insertSketchCopy, sketchProfile, sketchSelection]);
 
@@ -7507,10 +7507,7 @@ export function LayerlingEditor({
         cadModifierRequestRef.current = invalidationId;
         cadModifierLatestPreviewRef.current = invalidationId;
         cadModifierPrepareRef.current = invalidationId;
-        cadModifierBaseShapeRef.current = null;
-        cadModifierBaseFingerprintRef.current = "";
-        cadModifierSourcePartsRef.current = [];
-        setEdgeModifier(null);
+        dropEdgeModifierSession();
         cadModifierWorkerRestartRef.current();
         pendingRequests.forEach((pending) => pending.reject(new Error("Timed out waiting for the CAD worker; the worker was restarted")));
       }, timeoutMs);
@@ -16545,7 +16542,8 @@ export function LayerlingEditor({
 
       if (shortcut && key === "v") {
         event.preventDefault();
-        pasteShape();
+        if (event.shiftKey && getAdvancedMode()) toggleVariablesPanel();
+        else pasteShape();
         return;
       }
 
@@ -17545,6 +17543,7 @@ export function LayerlingEditor({
           </button>
         </div>
       ) : null}
+      {historyViewState ? null : <VariablesPanel rows={variablesRef.current} shapes={shapes} errors={designFormulas.context.errors} onChange={designFormulas.setTable} />}
       {arrayTool && selectedShapes.length > 0 ? (
         <ArrayPanel
           targetName={selectedShapes.length === 1 ? selectedShapes[0].name : t("array.targetMany", { count: selectedShapes.length })}

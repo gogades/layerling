@@ -1,7 +1,7 @@
 import { propertyUsesLengthUnit, shapeNumberFields, type RangePropertyConfig } from "@/components/workplane/ShapeInspector";
 import { SELF_VARIABLE_NAME, type DesignVariable } from "@/lib/designVariables";
 import { withFieldFormula } from "@/lib/fieldFormulas";
-import { evaluateFormula, formulaReferences, shiftFormula, type FormulaError } from "@/lib/formula";
+import { evaluateFormula, formulaReferences, renameReference, shiftFormula, type FormulaError } from "@/lib/formula";
 import { t } from "@/lib/i18n";
 import { displayToMillimeters, evaluateArithmetic, millimetersToDisplay } from "@/lib/measurementUnits";
 import { shapeWithParametricSource } from "@/lib/workplaneShapes";
@@ -252,7 +252,46 @@ export function formulasAfterEdit(before: WorkplaneShape[], after: WorkplaneShap
   return changed ? next : after;
 }
 
-export type SettledDesign = { shapes: WorkplaneShape[]; variables: DesignVariable[]; errors: Map<string, DesignFormulaError> };
+/** Every formula of the design with `$from` read as `$to` (any case): a renamed body or row keeps the formulas that use it. */
+export function withRenamedReference(shapes: WorkplaneShape[], rows: DesignVariable[], from: string, to: string) {
+  const rewrite = (text: string) => renameReference(text, from, to);
+  return {
+    shapes: shapes.map((shape) => {
+      const entries = Object.entries(shape.formulas ?? {});
+      const rewritten = entries.map(([id, text]) => [id, rewrite(text)] as const);
+      return rewritten.some(([, text], index) => text !== entries[index][1]) ? { ...shape, formulas: Object.fromEntries(rewritten) } : shape;
+    }),
+    rows: rows.map((row) => {
+      const formula = rewrite(row.formula);
+      return formula === row.formula ? row : { ...row, formula };
+    }),
+  };
+}
+
+/**
+ * The bodies an edit brought in (a paste, a copy, an inserted design) with their variable name taken away where another
+ * body or a row already goes by it, in any case; and which names went.
+ */
+function withoutTakenNames(before: WorkplaneShape[], after: WorkplaneShape[], rows: DesignVariable[]) {
+  const existing = new Set(before.map((shape) => shape.id));
+  const staying = new Set(after.map((shape) => shape.id));
+  // Only bodies still there hold their name: one replaced in the same edit (a cut, a rebuild) hands it on.
+  const taken = new Set([...before.filter((shape) => staying.has(shape.id)).map((shape) => shape.variableName?.toLowerCase()), ...rows.map((row) => row.name.toLowerCase())]);
+  const blanked: string[] = [];
+  const shapes = after.map((shape) => {
+    const name = shape.variableName?.toLowerCase();
+    if (!name || existing.has(shape.id)) return shape;
+    if (!taken.has(name)) {
+      taken.add(name);
+      return shape;
+    }
+    blanked.push(shape.variableName as string);
+    return { ...shape, variableName: undefined };
+  });
+  return { shapes: blanked.length ? shapes : after, blanked };
+}
+
+export type SettledDesign = { shapes: WorkplaneShape[]; variables: DesignVariable[]; errors: Map<string, DesignFormulaError>; blanked: string[] };
 
 /**
  * An edit of the design, settled: the formulas it moved shifted or dropped (formulasAfterEdit), then in the advanced mode
@@ -267,8 +306,17 @@ export function designAfterEdit(
   advanced: boolean,
   apply: (shape: WorkplaneShape, patch: Partial<WorkplaneShape>) => WorkplaneShape,
 ): SettledDesign {
-  const edited = formulasAfterEdit(before, after, variables, workspace, advanced);
-  if (!advanced) return { shapes: edited, variables, errors: new Map() };
+  // Names first: a copy never shares one, and a renamed body takes its formulas' references along.
+  const { shapes: named, blanked } = withoutTakenNames(before, after, variables);
+  let renamed = { shapes: named, rows: variables };
+  const previous = new Map(before.map((shape) => [shape.id, shape]));
+  for (const shape of named) {
+    const from = previous.get(shape.id)?.variableName;
+    if (from && shape.variableName && from !== shape.variableName) renamed = withRenamedReference(renamed.shapes, renamed.rows, from, shape.variableName);
+  }
+  variables = renamed.rows;
+  const edited = formulasAfterEdit(before, renamed.shapes, variables, workspace, advanced);
+  if (!advanced) return { shapes: edited, variables, errors: new Map(), blanked };
   const result = evaluateDesign(edited, variables, workspace);
   const shapes = result.patches.size
     ? edited.map((shape) => {
@@ -277,7 +325,7 @@ export function designAfterEdit(
     })
     : edited;
   const sameTable = JSON.stringify(result.variables) === JSON.stringify(variables);
-  return { shapes, variables: sameTable ? variables : result.variables, errors: result.errors };
+  return { shapes, variables: sameTable ? variables : result.variables, errors: result.errors, blanked };
 }
 
 /** What a field with a failed formula says when the pointer rests on it. */

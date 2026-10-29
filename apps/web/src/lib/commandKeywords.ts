@@ -153,6 +153,7 @@ export const COMMAND_SHORTCUTS: Readonly<Record<string, string>> = {
   drop: "D",
   note: "N",
   "look-onto-workplane": "P",
+  variables: "Ctrl+Shift+V",
   import: "Ctrl+I",
   "interactive-help": "Shift+F1",
   export: "Ctrl+E",
