@@ -4317,6 +4317,8 @@ export const MESSAGES_PL: Partial<Record<MessageKey, string>> = {
   "workspace.simpleMode": "Tryb prosty",
   "workspace.simpleModeHint": "Dla dzieci i początkujących: mniej narzędzi, krótka lista kształtów, większe przyciski i strona startowa bez odnośników poza layerling.",
   "workspace.simpleModeOff": "Przytrzymaj, aby wyłączyć tryb prosty",
+  "workspace.advancedMode": "Tryb zaawansowany",
+  "workspace.advancedModeHint": "Formuły i zmienne w polach liczbowych, dla tych, którzy ich chcą. Projekty utworzone w tym trybie nadal otwierają się w trybie normalnym, z ostatnimi wartościami.",
   "workspace.shapeColors": "Kształty w kolorze",
   "workspace.shapeColorsHint": "Obrazki w bibliotece kształtów pokazują kolor, z jakim startuje nowy kształt. Wyłącz, aby obrazki były szare.",
   "workspace.viewCubePosition": "Położenie kostki orientacji",
