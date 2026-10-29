@@ -278,6 +278,14 @@ async function callTool(name, args) {
       return bridgeCommand("saved_view", args);
     case "layerling_build_plates":
       return bridgeCommand("build_plates", args);
+    case "layerling_advanced_mode":
+      return bridgeCommand("advanced_mode", args);
+    case "layerling_variables":
+      return bridgeCommand("variables", args, 30000);
+    case "layerling_object_formulas":
+      return bridgeCommand("object_formulas", args, 30000);
+    case "layerling_evaluate_formula":
+      return bridgeCommand("evaluate_formula", args);
     case "layerling_export_section_svg":
       return bridgeCommand("export_section_svg", args);
     case "layerling_sketch_from_section":

@@ -169,6 +169,10 @@ Die KI arbeitet mit denselben Funktionen wie du, sie läuft über denselben Weg 
 | `layerling_measure_angle` | misst einen Winkel wie der Winkelmesser: an der Ecke von drei Punkten oder zwischen zwei ebenen Flächen, und zeigt ihn in der Ansicht |
 | `layerling_saved_view` | speichert die aktuelle Ansicht unter der Taste 7, 8, 9 oder 0 und holt sie zurück, wie Umschalt+Taste und die Taste (nur die Ansicht); setzt auch die Startansicht neuer Entwürfe |
 | `layerling_build_plates` | listet, fügt hinzu, benennt, sortiert und entfernt die Druckplatten, setzt Objekte auf eine Platte und verteilt sie auf die Platten, wie die Plattenleiste |
+| `layerling_advanced_mode` | schaltet den erweiterten Modus ein oder aus und liest den Modus (einfach, normal, erweitert) |
+| `layerling_variables` | liest die Variablentabelle mit Werten und Fehlern und fügt Zeilen hinzu, ändert, benennt oder löscht sie, wie das Tabellenfenster |
+| `layerling_object_formulas` | gibt einem Körper einen Variablennamen und Formeln über lesbare Feldnamen (`size.width`, `rotation.z`, `taper.top_length`...) und listet jedes Feld mit seinem Wert |
+| `layerling_evaluate_formula` | rechnet eine Formel im Design aus, wie es steht, ohne etwas zu ändern, wie das Ergebnis im Formeleditor |
 | `layerling_clear_history` | löscht jeden Rückgängig-Schritt endgültig, wie der Knopf „Verlauf löschen“ im Verlaufsblick; verlangt `confirm: true` |
 | `layerling_list_backups` | listet die automatischen Sicherungen (Frühere Fassungen) des offenen Entwurfs, mit `all: true` aller Entwürfe in diesem Browser |
 | `layerling_open_backup` | öffnet eine Sicherung über ihre `id` als neuen Entwurf, nie an die ursprüngliche Datei gebunden |

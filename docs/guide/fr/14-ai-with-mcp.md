@@ -165,6 +165,10 @@ L'IA fonctionne avec les mêmes fonctions que vous, via le même chemin que votr
 | `layerling_measure_angle` | mesure un angle comme le rapporteur : au sommet de trois points ou entre deux faces planes, et l'affiche dans la vue |
 | `layerling_saved_view` | enregistre la vue actuelle sous la touche 7, 8, 9 ou 0 et y revient, comme Maj+touche et la touche (seulement la vue); règle aussi la vue de départ des nouveaux designs |
 | `layerling_build_plates` | liste, ajoute, nomme, ordonne et retire les plateaux d'impression, déplace des objets sur un plateau et les répartit sur les plateaux, comme la barre des plateaux |
+| `layerling_advanced_mode` | active ou désactive le mode avancé et lit le mode (simple, normal, avancé) |
+| `layerling_variables` | lit le tableau des variables avec valeurs et erreurs, et ajoute, modifie, renomme ou supprime des lignes, comme la fenêtre du tableau |
+| `layerling_object_formulas` | donne à un corps un nom de variable et des formules par des noms de champ lisibles (`size.width`, `rotation.z`, `taper.top_length`...) et liste chaque champ avec sa valeur |
+| `layerling_evaluate_formula` | calcule une formule dans la création telle qu'elle est, sans rien changer, comme le résultat de l'éditeur de formule |
 | `layerling_clear_history` | supprime définitivement chaque étape d'annulation, comme le fait le bouton "Supprimer l'historique" de la vue Historique ; besoins `confirm: true` |
 | `layerling_list_backups` | liste les sauvegardes automatiques (Versions précédentes) du dessin ouvert, ou avec `all: true` de tous les dessins de ce navigateur |
 | `layerling_open_backup` | ouvre une sauvegarde par son `id` comme nouveau dessin, jamais lié au fichier d'origine |

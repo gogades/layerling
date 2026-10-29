@@ -165,6 +165,10 @@ De AI werkt met dezelfde functies als jij, via dezelfde weg als jouw bediening i
 | `layerling_measure_angle` | meet een hoek zoals de gradenboog: in het hoekpunt van drie punten of tussen twee platte vlakken, en toont hem in de weergave |
 | `layerling_saved_view` | slaat de huidige weergave op onder de toets 7, 8, 9 of 0 en gaat ernaar terug, zoals Shift+toets en de toets (alleen de weergave); stelt ook de startweergave van nieuwe ontwerpen in |
 | `layerling_build_plates` | toont, voegt toe, benoemt, ordent en verwijdert de bouwplaten, zet objecten op een plaat en verdeelt ze over de platen, zoals de platenbalk |
+| `layerling_advanced_mode` | zet de geavanceerde modus aan of uit en leest de modus (eenvoudig, normaal, geavanceerd) |
+| `layerling_variables` | leest de variabelentabel met waarden en fouten en voegt rijen toe, wijzigt, hernoemt of verwijdert ze, zoals het tabelvenster |
+| `layerling_object_formulas` | geeft een lichaam een variabelenaam en formules via leesbare veldnamen (`size.width`, `rotation.z`, `taper.top_length`...) en toont elk veld met zijn waarde |
+| `layerling_evaluate_formula` | rekent een formule uit in het ontwerp zoals het is, zonder iets te veranderen, zoals het resultaat in de formule-editor |
 | `layerling_clear_history` | verwijdert definitief elke stap voor ongedaan maken, zoals de knop "Geschiedenis verwijderen" van de geschiedenisweergave; vereist `confirm: true` |
 | `layerling_list_backups` | toont de automatische back-ups (Eerdere versies) van het geopende ontwerp, of met `all: true` van alle ontwerpen in deze browser |
 | `layerling_open_backup` | opent een back-up via zijn `id` als nieuw ontwerp, nooit gekoppeld aan het oorspronkelijke bestand |

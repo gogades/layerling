@@ -169,6 +169,10 @@ AI pracuje tymi samymi funkcjami co Ty, tą samą drogą co Twoja praca w edytor
 | `layerling_measure_angle` | mierzy kąt jak kątomierz: w wierzchołku z trzech punktów lub między dwiema płaskimi ścianami, i pokazuje go w widoku |
 | `layerling_saved_view` | zapisuje bieżący widok pod klawiszem 7, 8, 9 lub 0 i do niego wraca, jak Shift+klawisz i sam klawisz (tylko widok); ustawia też widok startowy nowych projektów |
 | `layerling_build_plates` | wyświetla, dodaje, nazywa, porządkuje i usuwa stoły robocze, przenosi obiekty na stół i rozkłada je na stołach, jak pasek stołów |
+| `layerling_advanced_mode` | włącza lub wyłącza tryb zaawansowany i odczytuje tryb (prosty, normalny, zaawansowany) |
+| `layerling_variables` | odczytuje tabelę zmiennych z wartościami i błędami oraz dodaje, zmienia, przemianowuje lub usuwa wiersze, jak okno tabeli |
+| `layerling_object_formulas` | nadaje bryle nazwę zmiennej i formuły przez czytelne nazwy pól (`size.width`, `rotation.z`, `taper.top_length`...) i wymienia każde pole z wartością |
+| `layerling_evaluate_formula` | oblicza formułę w projekcie takim, jaki jest, niczego nie zmieniając, jak wynik w edytorze formuł |
 | `layerling_clear_history` | usuwa na dobre wszystkie kroki cofania, tak jak przycisk „Usuń historię” w widoku historii. Wymaga `confirm: true` |
 | `layerling_list_backups` | wyświetla automatyczne kopie (Wcześniejsze wersje) otwartego projektu, a z `all: true` wszystkich projektów w tej przeglądarce |
 | `layerling_open_backup` | otwiera kopię po jej `id` jako nowy projekt, nigdy niepowiązany z oryginalnym plikiem |

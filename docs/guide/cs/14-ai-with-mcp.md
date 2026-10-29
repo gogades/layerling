@@ -165,6 +165,10 @@ AI používá stejné funkce a stejné zpracování příkazů jako ruční ovl�
 | `layerling_measure_angle` | měří úhel jako úhloměr: ve vrcholu ze tří bodů nebo mezi dvěma rovnými plochami, a ukáže ho v pohledu |
 | `layerling_saved_view` | uloží aktuální pohled pod klávesu 7, 8, 9 nebo 0 a vrátí se k němu, jako Shift+klávesa a klávesa (jen pohled); nastaví také úvodní pohled nových návrhů |
 | `layerling_build_plates` | vypíše, přidá, pojmenuje, seřadí a odebere tiskové podložky, přesune objekty na podložku a rozmístí je na podložky, jako lišta podložek |
+| `layerling_advanced_mode` | zapíná a vypíná pokročilý režim a čte režim (jednoduchý, běžný, pokročilý) |
+| `layerling_variables` | čte tabulku proměnných s hodnotami a chybami a přidává, mění, přejmenovává či maže řádky jako okno tabulky |
+| `layerling_object_formulas` | dává tělesu název proměnné a vzorce podle čitelných názvů polí (`size.width`, `rotation.z`, `taper.top_length`...) a vypíše všechna pole s hodnotami |
+| `layerling_evaluate_formula` | spočítá vzorec v návrhu tak, jak je, nic nemění, jako výsledek v editoru vzorců |
 | `layerling_clear_history` | trvale vymaže historii kroků zpět, vyžaduje `confirm: true` |
 | `layerling_list_backups` | vypíše automatické zálohy (Dřívější verze) otevřeného návrhu, s `all: true` všech návrhů v tomto prohlížeči |
 | `layerling_open_backup` | otevře zálohu podle jejího `id` jako nový návrh, nikdy nesvázaný s původním souborem |

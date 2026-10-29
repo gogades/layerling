@@ -165,6 +165,10 @@ Az MI ugyanazokkal a funkciókkal dolgozik, mint te, ugyanazon az úton, mint a 
 | `layerling_measure_angle` | szöget mér, mint a szögmérő: három pont csúcsánál vagy két sík lap között, és megmutatja a nézetben |
 | `layerling_saved_view` | elmenti az aktuális nézetet a 7, 8, 9 vagy 0 billentyű alá, és visszaállítja, mint a Shift+billentyű és a billentyű (csak a nézet); az új tervek indulási nézetét is beállítja |
 | `layerling_build_plates` | listázza, hozzáadja, elnevezi, sorba rendezi és eltávolítja a nyomtatótálcákat, objektumokat tesz egy tálcára és elrendezi őket a tálcákon, mint a tálcasáv |
+| `layerling_advanced_mode` | be- vagy kikapcsolja a haladó módot, és kiolvassa a módot (egyszerű, normál, haladó) |
+| `layerling_variables` | kiolvassa a változótáblát értékekkel és hibákkal, és sorokat ad hozzá, módosít, átnevez vagy töröl, mint a tábla ablaka |
+| `layerling_object_formulas` | változónevet és képleteket ad egy testnek olvasható mezőnevekkel (`size.width`, `rotation.z`, `taper.top_length`...), és minden mezőt felsorol az értékével |
+| `layerling_evaluate_formula` | kiszámít egy képletet a tervben, ahogy van, anélkül hogy bármit változtatna, mint a képletszerkesztő eredménye |
 | `layerling_clear_history` | véglegesen töröl minden visszavonási lépést, ahogy az előzménynézet „Előzmények törlése” gombja; `confirm: true` kell hozzá |
 | `layerling_list_backups` | felsorolja a megnyitott terv automatikus mentéseit (Korábbi változatok), `all: true` esetén a böngésző összes tervéét |
 | `layerling_open_backup` | egy mentést az `id`-ja alapján új tervként nyit meg, sosem kötve az eredeti fájlhoz |

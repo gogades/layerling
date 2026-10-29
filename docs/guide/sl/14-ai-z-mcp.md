@@ -165,6 +165,10 @@ Umetna inteligenca dela z istimi funkcijami kot ti, teče po isti poti kot tvoje
 | `layerling_measure_angle` | izmeri kot, kakor kotomer: v oglišču treh točk ali med dvema ravnima ploskvama, in ga pokaže v pogledu |
 | `layerling_saved_view` | shrani trenutni pogled pod tipko 7, 8, 9 ali 0 in se vrne nanj, kot Shift+tipka in tipka (samo pogled); nastavi tudi začetni pogled novih osnutkov |
 | `layerling_build_plates` | našteje, doda, poimenuje, razvrsti in odstrani tiskalne plošče, premakne predmete na ploščo in jih razporedi po ploščah, kot vrstica plošč |
+| `layerling_advanced_mode` | vklopi ali izklopi napredni način in prebere način (preprost, običajen, napreden) |
+| `layerling_variables` | prebere tabelo spremenljivk z vrednostmi in napakami ter doda, spremeni, preimenuje ali odstrani vrstice kot okno tabele |
+| `layerling_object_formulas` | telesu da ime spremenljivke in formule po berljivih imenih polj (`size.width`, `rotation.z`, `taper.top_length`...) in našteje vsa polja z vrednostmi |
+| `layerling_evaluate_formula` | izračuna formulo v modelu, kakršen je, ne da bi kaj spremenil, kot rezultat v urejevalniku formul |
 | `layerling_clear_history` | za vedno izbriše vse korake razveljavitve, kot gumb »Izbriši zgodovino« v pogledu zgodovine; potrebuje `confirm: true` |
 | `layerling_list_backups` | navede samodejne varnostne kopije (Prejšnje različice) odprtega projekta, z `all: true` pa vseh projektov v tem brskalniku |
 | `layerling_open_backup` | odpre varnostno kopijo po njenem `id` kot nov projekt, nikoli vezan na izvirno datoteko |
