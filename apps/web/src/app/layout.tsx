@@ -4,6 +4,7 @@ import "./dashboard.css";
 import "./historyView.css";
 import "./notes.css";
 import "./tape.css";
+import "./formulas.css";
 import "./myShapes.css";
 import "./shapeLibrary.css";
 import "./attachments.css";
