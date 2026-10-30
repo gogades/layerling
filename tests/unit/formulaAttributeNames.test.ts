@@ -39,6 +39,9 @@ describe("the names formulas read fields by", () => {
     expect(["topLength", "bottomWidth", "extrudeTwist", "extrudeTopOffsetX", "sides", "teeth", "vaseFloor.rubberFeet", "vase.swayAngle"].map(attributePath))
       .toEqual(["taper.top_length", "taper.bottom_width", "twist.angle", "twist.offset_width", "detail.sides", "gear.teeth", "vase.floor.rubber_feet", "vase.sway_angle"]);
     expect(["slopeEnd", "slopeAngle", "narrowEnd", "narrowStart"].map(attributePath)).toEqual(["slope.end_height", "slope.angle", "narrow.end_width", "narrow.start"]);
+    expect(["headDiameter", "driveSize", "driveDepth", "portCorner"].map(attributePath)).toEqual(["thread.head_diameter", "thread.drive_size", "thread.drive_depth", "port.corner"]);
+    expect(["collarHeight", "collarDiameter", "portClearance"].map(attributePath)).toEqual(["thread.collar_height", "thread.collar_diameter", "port.clearance"]);
+    expect(["loftSectionCount", "loftSectionDepth", "loftSectionOffsetZ"].map(attributePath)).toEqual(["loft.sections", "loft.section_length", "loft.section_offset_length"]);
     // A field the table does not know yet takes its kind's group from its id.
     expect(attributePath("gridfinityPaddingBack")).toBe("gridfinity.padding_back");
     expect(attributePath("hingeSomethingNew")).toBe("hinge.something_new");

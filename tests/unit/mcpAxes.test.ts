@@ -42,6 +42,8 @@ describe("MCP names as the inspector shows them", () => {
   it("turns points, normals and mesh positions both ways", () => {
     // Up is [0, 0, 1] for the tools and [0, 1, 0] inside; the back is +Y outside and -z inside.
     expect(mcpCommandParamsIn("lay_flat", { normal: [0, 0, -1] }, noSection)).toEqual({ normal: [0, -1, 0] });
+    expect(mcpCommandParamsIn("create_sbc_board", { x: 1, y: 2 }, noSection)).toEqual({ x: 1, z: -2 });
+    expect(mcpCommandParamsIn("add_note", { text: "a", at: { x: 1, y: 2, z: 3 } }, noSection).at).toEqual({ x: 1, z: -2, elevation: 3 });
     expect(mcpCommandParamsIn("place_on_face", { point: [1, 2, 3], normal: [0, 1, 0] }, noSection)).toEqual({ point: [1, 3, -2], normal: [0, 0, -1] });
     expect(mcpCommandParamsIn("import_mesh", { positions: [1, 2, 3, 4, 5, 6, 7, 8, 9] }, noSection).positions).toEqual([1, 3, -2, 4, 6, -5, 7, 9, -8]);
     expect(mcpCommandParamsIn("mate_faces", { facePoint: { x: 1, y: 2, z: 3 } }, noSection).facePoint).toEqual({ x: 1, z: -2, elevation: 3 });
@@ -50,6 +52,7 @@ describe("MCP names as the inspector shows them", () => {
       object: { position: { x: 0, y: 0, z: 0 } }, faces: [{ id: 1, center: [1, 2, 3], normal: [0, 0, 1] }],
     });
     expect(mcpAnswerOut("list_reference_points", { points: [{ id: "a", x: 1, z: -2, elevation: 3 }] }, {})).toEqual({ points: [{ id: "a", x: 1, y: 2, z: 3 }] });
+    expect(mcpAnswerOut("list_notes", { notes: [{ id: "n", object: null, x: 1, z: -2, elevation: 3 }] }, {})).toEqual({ notes: [{ id: "n", object: null, x: 1, y: 2, z: 3 }] });
     expect(mcpAnswerOut("list_edges", { edges: [{ id: 1, points: [1, 3, -2, 4, 6, -5] }] }, {})).toEqual({ edges: [{ id: 1, points: [1, 2, 3, 4, 5, 6] }] });
   });
 

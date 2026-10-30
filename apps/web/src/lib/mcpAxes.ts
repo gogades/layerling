@@ -139,7 +139,7 @@ export type McpAxesContext = { sectionAxis: () => string | undefined };
  */
 export function mcpCommandParamsIn(action: string, params: Params, context: McpAxesContext): Params {
   switch (action) {
-    case "create_shape": case "update_object": case "insert_custom_shape": case "reference_image":
+    case "create_shape": case "update_object": case "insert_custom_shape": case "reference_image": case "create_sbc_board":
       return mcpParamsIn(params);
     case "import_mesh":
       return {
@@ -157,6 +157,8 @@ export function mcpCommandParamsIn(action: string, params: Params, context: McpA
       return { ...params, facePoint: pointIn(params.facePoint), targetFacePoint: pointIn(params.targetFacePoint) };
     case "add_reference_points":
       return Array.isArray(params.points) ? { ...params, points: params.points.map(pointIn) } : params;
+    case "add_note":
+      return params.at ? { ...params, at: pointIn(params.at) } : params;
     case "sweep_sketch":
       return Array.isArray(params.path)
         ? { ...params, path: params.path.map((point) => (Array.isArray(point) && point.length === 2 ? [point[0], flipped(point[1])] : point && typeof point === "object" && "y" in point ? { x: (point as Params).x, z: flipped((point as Params).y) } : point)) }
@@ -255,7 +257,7 @@ export function mcpAnswerOut(action: string, answer: unknown, params: Params): u
       };
     }
     case "lay_flat": case "place_on_face": case "perforate_face": case "push_face": case "mate_faces": case "list_faces": case "list_edges":
-    case "add_reference_points": case "list_reference_points": case "set_workplane":
+    case "add_reference_points": case "list_reference_points": case "set_workplane": case "list_notes": case "add_note": case "update_note":
       return pointsOut(result);
     default:
       return answer;
