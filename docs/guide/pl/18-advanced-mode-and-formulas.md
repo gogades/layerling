@@ -45,7 +45,7 @@ Zmiana nazwy bryły zmienia ją w każdej formule, która jej używa. Kopia nazw
 
 ## Edytor formuł
 
-Dłuższą formułę łatwiej napisać w edytorze formuł: kliknij w pole, a potem w mały przycisk *fx* na jego końcu. Pokazuje wynik w trakcie pisania albo powód, dla którego go nie ma. Po `$` wymienia zmienne i nazwane bryły, po `$name.` pola tej bryły, każde z jego wartością; strzałki i [[Enter]] lub [[Tab]] wybierają jedno. [[Enter]] stosuje potem formułę, [[Shift]]+[[Enter]] zaczyna nowy wiersz, by długa formuła była czytelna, a [[Esc]] zamyka edytor bez zmian. Można go przesuwać za tytuł.
+Dłuższą formułę łatwiej napisać w edytorze formuł: kliknij *fx* na początku pola sterowanego formułą albo kliknij w dowolne pole, a potem w *fx*, które pojawi się na jego początku. Pokazuje wynik w trakcie pisania albo powód, dla którego go nie ma. Po `$` wymienia zmienne i nazwane bryły, po `$name.` pola tej bryły, każde z jego wartością; strzałki i [[Enter]] lub [[Tab]] wybierają jedno. [[Enter]] stosuje potem formułę, [[Shift]]+[[Enter]] zaczyna nowy wiersz, by długa formuła była czytelna, a [[Esc]] zamyka edytor bez zmian. Można go przesuwać za tytuł.
 
 ## Gdy wartości się zmieniają
 

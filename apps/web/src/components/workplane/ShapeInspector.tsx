@@ -7,7 +7,7 @@ import { useInspectorCard } from "@/lib/inspectorCards";
 import { AlignCenter, ChevronDown, ChevronUp, Cylinder, Eraser, Eye, EyeOff, FolderOpen, Grid3x3, ImageUp, Layers, Link2, Lock, Minus, MousePointerClick, Pencil, Plus, RefreshCw, RotateCcw, Ruler, Shield, ShieldCheck, Split, Tags, Trash2, Unlock, Waves } from "lucide-react";
 import { holdsShapeLock } from "@/lib/shapeLock";
 import { createPortal } from "react-dom";
-import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import {
   DEFAULT_GEAR_HELIX_ANGLE,
   DEFAULT_GEAR_HELIX_QUALITY,
@@ -7822,6 +7822,8 @@ function RangeProperty({
   onInteractionActiveChange,
 }: RangePropertyConfig & { workspace: WorkplaneWorkspaceSettings; disabled?: boolean; onReset?: () => void; onDefault?: () => void; formula?: string; onFormula?: (text: string | null | undefined) => void; onInteractionActiveChange?: (active: boolean) => void }) {
   const holdInteraction = useInteractionHold(onInteractionActiveChange);
+  // The label belongs to the number field: without it, its first button - the reset arrow - took the label's clicks.
+  const fieldId = useId();
   const snapStepMm = useContext(SliderSnapContext);
   // The advanced mode's formula (names, functions) is shown whenever the field is entered, with its error if it failed.
   const advanced = useAdvancedMode();
@@ -8014,7 +8016,7 @@ function RangeProperty({
     setDraft(formatShown(next));
   };
   const row = (
-    <label className="range-property" style={{ "--slider-pos": `${position}%` } as CSSProperties}>
+    <label className="range-property" htmlFor={fieldId} style={{ "--slider-pos": `${position}%` } as CSSProperties}>
       <span className="range-property-header">
         <span
           className={`range-property-name${scrubbable ? " scrubbable" : ""}`}
@@ -8047,8 +8049,37 @@ function RangeProperty({
           }}
         >{label}{onReset ? <PropertyResetButton onClick={onReset} /> : null}</span>
         <span className="range-value-control">
+          {/* The fx mark of a field a formula drives, and of a field being typed into, opens the formula editor. It sits at
+              the start: the field stands at the row's end, so the mark coming with the focus does not push it aside. Only
+              where the field can keep a formula: not at the Position card's edges, nor on a name tag's keyring. */}
+          {advanced && (designFormula || (editing && onFormula)) ? (
+            <button
+              type="button"
+              className="formula-open"
+              tabIndex={-1}
+              disabled={disabled || !onFormula}
+              aria-label={t("formula.open")}
+              title={t("formula.open")}
+              // Pressed without taking the focus, so the field does not commit half a formula on the way.
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                // From outside the field: the editor starts from the formula, as entering the field would.
+                if (!editing) {
+                  holdInteraction(true);
+                  openedWithRef.current = openingDraft();
+                  setDraft(openingDraft());
+                  setEditing(true);
+                }
+                formulaEditorOpenRef.current = true;
+                setFormulaEditorOpen(true);
+              }}
+            >
+              fx
+            </button>
+          ) : null}
           <input
             ref={numberInputRef}
+            id={fieldId}
             type="text"
             value={editing ? draft : formatShown(controlValue)}
             disabled={disabled}
@@ -8085,23 +8116,6 @@ function RangeProperty({
             }}
           />
           {unit ? <span className={`range-value-unit${unit === "°" ? " degree" : ""}`}>{unit}</span> : null}
-          {/* Only where the field can keep a formula: not at the Position card's edges, nor on a name tag's keyring. */}
-          {advanced && editing && !disabled && onFormula ? (
-            <button
-              type="button"
-              className="formula-open"
-              aria-label={t("formula.open")}
-              title={t("formula.open")}
-              // Pressed without taking the focus, so the field does not commit half a formula on the way.
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                formulaEditorOpenRef.current = true;
-                setFormulaEditorOpen(true);
-              }}
-            >
-              fx
-            </button>
-          ) : null}
         </span>
       </span>
       <div className="range-control">
@@ -8205,6 +8219,8 @@ function TextProperty({ label, value, hint, disabled, maxLength = 24, onChange, 
 }
 
 function SelectProperty({ label, value, options, hint, fontSample, disabled, onChange, onReset }: Omit<SelectPropertyConfig, "id"> & { id?: string } & { disabled?: boolean; onReset?: () => void }) {
+  // As for a number field: a click on the words goes to the list, not to the reset arrow.
+  const fieldId = useId();
   if (fontSample !== undefined) return <FontPicker label={label} value={value} options={options} sample={fontSample} disabled={disabled} onChange={onChange} />;
   // Aufeinanderfolgende Eintraege mit derselben Ueberschrift werden zu einem
   // Block; ohne Ueberschrift stehen sie fuer sich.
@@ -8215,9 +8231,9 @@ function SelectProperty({ label, value, options, hint, fontSample, disabled, onC
     else blocks.push({ group: option.group, items: [option] });
   });
   return (
-    <label className="select-property">
+    <label className="select-property" htmlFor={fieldId}>
       <span>{label}{onReset ? <PropertyResetButton onClick={onReset} /> : null}</span>
-      <select value={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)}>
+      <select id={fieldId} value={value} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)}>
         {blocks.map((block) => (
           block.group ? (
             <optgroup key={block.group} label={block.group}>

@@ -45,7 +45,7 @@ Renomear o corpo renomeia em todas as fórmulas que o usam. Uma cópia de um cor
 
 ## O editor de fórmulas
 
-Uma fórmula mais longa fica mais fácil no editor de fórmulas: clique em um campo e depois no pequeno botão *fx* na ponta dele. Ele mostra o resultado enquanto você digita, ou por que não há resultado. Depois de `$`, lista as variáveis e os corpos com nome; depois de `$name.`, os campos daquele corpo, cada um com seu valor; as setas e [[Enter]] ou [[Tab]] escolhem um. Em seguida, [[Enter]] aplica a fórmula, [[Shift]]+[[Enter]] começa uma linha nova para manter uma fórmula longa legível e [[Esc]] fecha o editor sem mudanças. Ele se move pelo título.
+Uma fórmula mais longa fica mais fácil no editor de fórmulas: clique no *fx* no início de um campo guiado por uma fórmula, ou clique em qualquer campo e depois no *fx* que aparece no início dele. Ele mostra o resultado enquanto você digita, ou por que não há resultado. Depois de `$`, lista as variáveis e os corpos com nome; depois de `$name.`, os campos daquele corpo, cada um com seu valor; as setas e [[Enter]] ou [[Tab]] escolhem um. Em seguida, [[Enter]] aplica a fórmula, [[Shift]]+[[Enter]] começa uma linha nova para manter uma fórmula longa legível e [[Esc]] fecha o editor sem mudanças. Ele se move pelo título.
 
 ## Quando os valores mudam
 
