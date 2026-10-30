@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { objectAttributes, evaluateDesign } from "@/components/workplane/evaluateDesign";
 import { mcpShapeSummary } from "@/lib/editorMcpSummary";
-import { mcpParamsIn } from "@/lib/mcpAxes";
+import { mcpAnswerOut, mcpCommandParamsIn, mcpParamsIn } from "@/lib/mcpAxes";
 import { DEFAULT_WORKPLANE_WORKSPACE } from "@/lib/workplaneSettings";
 import type { WorkplaneShape } from "@/types/layerling";
 
@@ -36,4 +36,43 @@ describe("MCP names as the inspector shows them", () => {
     const reader = box({ id: "reader", formulas: { height: "$can.size.length + $can.size.width" } });
     expect(evaluateDesign([cylinder, reader], [], DEFAULT_WORKPLANE_WORKSPACE).patches.get("reader")?.height).toBe(40);
   });
+
+  const noSection = { sectionAxis: () => undefined };
+
+  it("turns points, normals and mesh positions both ways", () => {
+    // Up is [0, 0, 1] for the tools and [0, 1, 0] inside; the back is +Y outside and -z inside.
+    expect(mcpCommandParamsIn("lay_flat", { normal: [0, 0, -1] }, noSection)).toEqual({ normal: [0, -1, 0] });
+    expect(mcpCommandParamsIn("place_on_face", { point: [1, 2, 3], normal: [0, 1, 0] }, noSection)).toEqual({ point: [1, 3, -2], normal: [0, 0, -1] });
+    expect(mcpCommandParamsIn("import_mesh", { positions: [1, 2, 3, 4, 5, 6, 7, 8, 9] }, noSection).positions).toEqual([1, 3, -2, 4, 6, -5, 7, 9, -8]);
+    expect(mcpCommandParamsIn("mate_faces", { facePoint: { x: 1, y: 2, z: 3 } }, noSection).facePoint).toEqual({ x: 1, z: -2, elevation: 3 });
+    expect(mcpCommandParamsIn("sweep_sketch", { path: [[0, 0], [10, 5], { x: 1, y: 2 }] }, noSection).path).toEqual([[0, 0], [10, -5], { x: 1, z: -2 }]);
+    expect(mcpAnswerOut("list_faces", { object: { position: { x: 0, y: 0, z: 0 } }, faces: [{ id: 1, center: [1, 3, -2], normal: [0, 1, 0] }] }, {})).toEqual({
+      object: { position: { x: 0, y: 0, z: 0 } }, faces: [{ id: 1, center: [1, 2, 3], normal: [0, 0, 1] }],
+    });
+    expect(mcpAnswerOut("list_reference_points", { points: [{ id: "a", x: 1, z: -2, elevation: 3 }] }, {})).toEqual({ points: [{ id: "a", x: 1, y: 2, z: 3 }] });
+    expect(mcpAnswerOut("list_edges", { edges: [{ id: 1, points: [1, 3, -2, 4, 6, -5] }] }, {})).toEqual({ edges: [{ id: 1, points: [1, 2, 3, 4, 5, 6] }] });
+  });
+
+  it("names axes x, y, z with Y towards the back for alignment, sections and splits", () => {
+    expect(mcpCommandParamsIn("align_objects", { axis: "y", target: "max" }, noSection)).toEqual({ axis: "z", target: "min" });
+    expect(mcpCommandParamsIn("align_objects", { axis: "z", target: "max" }, noSection)).toEqual({ axis: "y", target: "max" });
+    expect(mcpCommandParamsIn("set_section_view", { axis: "y", offset: 12, flipped: false }, noSection)).toEqual({ axis: "z", offset: -12, flipped: true });
+    expect(mcpCommandParamsIn("set_section_view", { offset: 12 }, { sectionAxis: () => "z" })).toEqual({ offset: -12 });
+    const view = mcpAnswerOut("set_section_view", { settings: { enabled: true, axis: "z", offset: -12, flipped: true, showPlane: true }, bounds: { min: -30, max: 10, center: -10, step: 1 } }, {});
+    expect(view).toEqual({ settings: { enabled: true, axis: "y", offset: 12, flipped: false, showPlane: true, frame: undefined }, bounds: { min: -10, max: 30, center: 10, step: 1 } });
+    expect(mcpCommandParamsIn("split_objects", { axis: "y", position: 5, rotationY: 10 }, noSection)).toEqual({ axis: "y", position: -5, rotationY: -10 });
+    expect(mcpAnswerOut("split_objects", { axis: "y", position: -5, min: -20, max: 4, rotationY: -10 }, {})).toEqual({ axis: "y", position: 5, min: -4, max: 20, rotationY: 10 });
+    const measured = mcpAnswerOut("measure_section", { axis: "y", offset: 2, from: { x: 0, z: 0, elevation: 2, snap: "free" }, distance: 5, deltaX: 3, deltaZ: -4, deltaElevation: 0 }, {});
+    expect(measured).toEqual({ axis: "z", offset: 2, from: { x: 0, y: 0, z: 2, snap: "free" }, distance: 5, deltaX: 3, deltaY: 4, deltaZ: 0 });
+  });
+
+  it("names front-to-back settings by length, as the inspector and the formulas do, and still takes the older names", () => {
+    const tapered = mcpShapeSummary(box({ taperTopWidth: 12, taperTopDepth: 8, extrudeTopOffsetZ: 3 }));
+    expect(tapered.settings).toMatchObject({ taperTopWidth: 12, taperTopLength: 8, extrudeTopOffsetLength: 3 });
+    expect(tapered.settings).not.toHaveProperty("taperTopDepth");
+    expect(mcpParamsIn({ taperTopLength: 8, loftTiltY: 10, gridfinityDividerPositionsY: [20] })).toEqual({ taperTopDepth: 8, loftTiltZ: 10, gridfinityDividerPositionsZ: [20] });
+    expect(mcpParamsIn({ loftOffsetZ: 4 })).toEqual({ loftOffsetZ: 4 });
+    expect(() => mcpParamsIn({ loftOffsetLength: 4, loftOffsetZ: 4 })).toThrow(/loftOffsetLength or loftOffsetZ/);
+  });
 });
+
