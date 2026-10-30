@@ -166,7 +166,7 @@ export function mcpCommandParamsIn(action: string, params: Params, context: McpA
       const alongY = params.axis === "y";
       return { ...params, axis: axisSwap(params.axis), ...(alongY ? { target: params.target === "min" ? "max" : params.target === "max" ? "min" : params.target } : {}) };
     }
-    case "set_section_view": case "export_section_svg":
+    case "set_section_view": case "export_section_svg": case "sketch_from_section":
       return sectionIn(params, context.sectionAxis);
     case "measure_section":
       return { ...sectionIn(params, context.sectionAxis), from: pointIn(params.from), to: pointIn(params.to) };
@@ -237,7 +237,7 @@ export function mcpAnswerOut(action: string, answer: unknown, params: Params): u
       const settings = result.settings as Params;
       return { ...result, settings: { ...sectionOut(settings), frame: frameOut(settings.frame) }, bounds: rangeOut(result.bounds as Params, settings.axis) };
     }
-    case "export_section_svg":
+    case "export_section_svg": case "sketch_from_section":
       return sectionOut(result);
     case "measure_section": {
       const { deltaZ, deltaElevation, ...rest } = pointsOut(sectionOut(result)) as Params;

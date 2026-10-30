@@ -62,6 +62,8 @@ describe("MCP names as the inspector shows them", () => {
     expect(view).toEqual({ settings: { enabled: true, axis: "y", offset: 12, flipped: false, showPlane: true, frame: undefined }, bounds: { min: -10, max: 30, center: 10, step: 1 } });
     expect(mcpCommandParamsIn("split_objects", { axis: "y", position: 5, rotationY: 10 }, noSection)).toEqual({ axis: "y", position: -5, rotationY: -10 });
     expect(mcpAnswerOut("split_objects", { axis: "y", position: -5, min: -20, max: 4, rotationY: -10 }, {})).toEqual({ axis: "y", position: 5, min: -4, max: 20, rotationY: 10 });
+    expect(mcpCommandParamsIn("sketch_from_section", { axis: "y", offset: 12, flipped: false, height: 3 }, noSection)).toEqual({ axis: "z", offset: -12, flipped: true, height: 3 });
+    expect(mcpAnswerOut("sketch_from_section", { axis: "z", offset: -12, flipped: true, outlines: 2 }, {})).toEqual({ axis: "y", offset: 12, flipped: false, outlines: 2 });
     const measured = mcpAnswerOut("measure_section", { axis: "y", offset: 2, from: { x: 0, z: 0, elevation: 2, snap: "free" }, distance: 5, deltaX: 3, deltaZ: -4, deltaElevation: 0 }, {});
     expect(measured).toEqual({ axis: "z", offset: 2, from: { x: 0, y: 0, z: 2, snap: "free" }, distance: 5, deltaX: 3, deltaY: 4, deltaZ: 0 });
   });
