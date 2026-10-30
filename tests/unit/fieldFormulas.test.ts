@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DIMENSION_FORMULA_FIELDS, fieldFormulasEqual, formulaMatchesMillimeters, formulaMatchesValue, formulaToRemember, withFieldFormula } from "@/lib/fieldFormulas";
+import { DIMENSION_FORMULA_FIELDS, designFormulaToKeep, fieldFormulasEqual, formulaMatchesMillimeters, formulaMatchesValue, formulaToRemember, withFieldFormula } from "@/lib/fieldFormulas";
 import { isArithmeticInput } from "@/lib/measurementUnits";
 import { workplaneShapesEqual } from "@/lib/workplaneShapes";
 import type { WorkplaneShape } from "@/types/layerling";
@@ -57,6 +57,13 @@ describe("formulas of the dimension boxes (#180)", () => {
     expect(formulaMatchesMillimeters("(40+6)/2", 24, () => 23)).toBe(false);
     expect(formulaMatchesMillimeters(undefined, 23, () => 23)).toBe(false);
     expect(formulaMatchesMillimeters("bad", 23, () => Number.NaN)).toBe(false);
+  });
+
+  it("keeps an advanced mode formula typed into a box as typed, and nothing a number field reads on its own", () => {
+    expect(designFormulaToKeep(" $wall * 2 ")).toBe("$wall * 2");
+    expect(designFormulaToKeep("round($lid.size.width)")).toBe("round($lid.size.width)");
+    // A number, a calculation, a unit or a percentage is the box's own business; a broken formula is no formula.
+    for (const text of ["40", "+10", "(140+2)/2", "10 mm", "1in", "50%", "$wall *", ""]) expect(designFormulaToKeep(text), text).toBeNull();
   });
 
   it("names the inspector fields the boxes share their formulas with", () => {

@@ -23,7 +23,7 @@ Nella modalità avanzata ogni campo numerico dell'ispettore accetta una formula.
 
 I nomi iniziano con `$`. Maiuscole e minuscole non contano: `$Wall` e `$wall` sono la stessa cosa. I numeri sono nell'unità in cui il progetto mostra i suoi campi; dentro una formula non ci sono unità.
 
-Un campo comandato da una formula è colorato e segnato con *fx*. Facci clic e la formula torna per essere modificata. Una formula che non si può calcolare - un nome che non esiste, una divisione per zero, due formule che dipendono l'una dall'altra - colora il campo di rosso, e il suo suggerimento dice perché. Nel frattempo il campo mantiene il suo ultimo valore. Scrivere un numero semplice nel campo toglie la formula.
+Un campo comandato da una formula è colorato e segnato con *fx*. Facci clic e la formula torna per essere modificata. Una formula che non si può calcolare - un nome che non esiste, una divisione per zero, due formule che dipendono l'una dall'altra - colora il campo di rosso, e il suo suggerimento dice perché. Nel frattempo il campo mantiene il suo ultimo valore. Scrivere un numero semplice nel campo toglie la formula. Le caselle delle misure nell'area di lavoro fanno lo stesso: una larghezza, lunghezza, altezza o altezza dal piano comandata da una formula mostra *fx* nella sua casella, e un clic apre la casella sulla formula, con davanti la *fx* che apre l'editor delle formule.
 
 ## Dare un nome di variabile a un corpo
 

@@ -23,7 +23,7 @@ En mode avancé, chaque champ numérique de l'inspecteur accepte une formule. Ta
 
 Les noms commencent par `$`. Majuscules et minuscules ne comptent pas : `$Wall` et `$wall` sont la même chose. Les nombres sont dans l'unité où la création affiche ses champs ; une formule ne contient pas d'unités.
 
-Un champ commandé par une formule est teinté et marqué *fx*. Cliquez dedans et la formule revient pour être modifiée. Une formule qui ne peut pas être calculée - un nom qui n'existe pas, une division par zéro, deux formules qui dépendent l'une de l'autre - colore le champ en rouge, et son info-bulle dit pourquoi. Le champ garde en attendant sa dernière valeur. Taper un simple nombre dans le champ retire la formule.
+Un champ commandé par une formule est teinté et marqué *fx*. Cliquez dedans et la formule revient pour être modifiée. Une formule qui ne peut pas être calculée - un nom qui n'existe pas, une division par zéro, deux formules qui dépendent l'une de l'autre - colore le champ en rouge, et son info-bulle dit pourquoi. Le champ garde en attendant sa dernière valeur. Taper un simple nombre dans le champ retire la formule. Les cases de cotes de la zone de travail font de même : une largeur, une longueur, une hauteur ou une hauteur au-dessus du plateau commandée par une formule affiche *fx* dans sa case, et un clic ouvre la case sur la formule, précédée du *fx* qui ouvre l'éditeur de formules.
 
 ## Donner un nom de variable à un corps
 

@@ -23,7 +23,7 @@ Im erweiterten Modus nimmt jedes Zahlenfeld des Inspektors eine Formel an. Tippe
 
 Namen beginnen mit `$`. Groß- und Kleinschreibung spielt keine Rolle: `$Wall` und `$wall` sind dasselbe. Zahlen stehen in der Einheit, in der das Design seine Felder zeigt; in einer Formel gibt es keine Einheiten.
 
-Ein Feld, das eine Formel bestimmt, ist getönt und mit *fx* markiert. Klicke hinein, und die Formel kommt zum Ändern zurück. Eine Formel, die sich nicht ausrechnen lässt - ein Name, den es nicht gibt, eine Division durch null, zwei Formeln, die voneinander abhängen - färbt das Feld rot, und sein Tooltip sagt, warum. Das Feld behält solange seinen letzten Wert. Eine einfache Zahl ins Feld getippt nimmt die Formel wieder weg.
+Ein Feld, das eine Formel bestimmt, ist getönt und mit *fx* markiert. Klicke hinein, und die Formel kommt zum Ändern zurück. Eine Formel, die sich nicht ausrechnen lässt - ein Name, den es nicht gibt, eine Division durch null, zwei Formeln, die voneinander abhängen - färbt das Feld rot, und sein Tooltip sagt, warum. Das Feld behält solange seinen letzten Wert. Eine einfache Zahl ins Feld getippt nimmt die Formel wieder weg. Die Maßfelder auf der Arbeitsfläche machen es ebenso: Eine Breite, Länge, Höhe oder Höhe über der Platte, die eine Formel bestimmt, zeigt *fx* in ihrem Feld, und ein Klick öffnet das Feld mit der Formel, davor das *fx*, das den Formeleditor öffnet.
 
 ## Einem Körper einen Variablennamen geben
 
