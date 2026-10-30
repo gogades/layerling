@@ -45,7 +45,7 @@ Formula lahko bere katerokoli polje telesa, ki ima ime spremenljivke. Dodelite g
 
 ## Urejevalnik formul
 
-Daljšo formulo je lažje pisati v urejevalniku formul: kliknite v polje in nato na majhen gumb *fx* na njegovem koncu. Med tipkanjem kaže rezultat ali razlog, zakaj ga ni. Po `$` našteje spremenljivke in poimenovana telesa, po `$name.` polja tega telesa, vsako z njegovo vrednostjo; s puščicami in [[Enter]] ali [[Tab]] izberete eno. [[Enter]] nato uporabi formulo, [[Shift]]+[[Enter]] začne novo vrstico, da dolga formula ostane berljiva, [[Esc]] pa zapre urejevalnik brez spremembe. Premaknete ga lahko za naslov.
+Daljšo formulo je lažje pisati v urejevalniku formul: kliknite *fx* na začetku polja, ki ga vodi formula, ali kliknite v katero koli polje in nato na *fx*, ki se pojavi na njegovem začetku. Med tipkanjem kaže rezultat ali razlog, zakaj ga ni. Po `$` našteje spremenljivke in poimenovana telesa, po `$name.` polja tega telesa, vsako z njegovo vrednostjo; s puščicami in [[Enter]] ali [[Tab]] izberete eno. [[Enter]] nato uporabi formulo, [[Shift]]+[[Enter]] začne novo vrstico, da dolga formula ostane berljiva, [[Esc]] pa zapre urejevalnik brez spremembe. Premaknete ga lahko za naslov.
 
 ## Ko se vrednosti premaknejo
 

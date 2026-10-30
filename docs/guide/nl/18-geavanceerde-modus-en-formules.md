@@ -45,7 +45,7 @@ Als je het lichaam hernoemt, verandert de naam in elke formule die hem gebruikt.
 
 ## De formule-editor
 
-Een langere formule schrijf je makkelijker in de formule-editor: klik in een veld en dan op de kleine knop *fx* aan het eind. Die toont het resultaat terwijl je typt, of waarom er geen is. Na `$` toont hij de variabelen en de lichamen met een naam, na `$name.` de velden van dat lichaam, elk met zijn waarde; met de pijltoetsen en [[Enter]] of [[Tab]] kies je er een. [[Enter]] past daarna de formule toe, [[Shift]]+[[Enter]] begint een nieuwe regel om een lange formule leesbaar te houden, en [[Esc]] sluit de editor zonder wijziging. Je kunt hem aan zijn titel verplaatsen.
+Een langere formule schrijf je makkelijker in de formule-editor: klik op de *fx* aan het begin van een veld dat een formule stuurt, of klik in een willekeurig veld en dan op de *fx* die aan het begin verschijnt. Die toont het resultaat terwijl je typt, of waarom er geen is. Na `$` toont hij de variabelen en de lichamen met een naam, na `$name.` de velden van dat lichaam, elk met zijn waarde; met de pijltoetsen en [[Enter]] of [[Tab]] kies je er een. [[Enter]] past daarna de formule toe, [[Shift]]+[[Enter]] begint een nieuwe regel om een lange formule leesbaar te houden, en [[Esc]] sluit de editor zonder wijziging. Je kunt hem aan zijn titel verplaatsen.
 
 ## Als waarden bewegen
 
