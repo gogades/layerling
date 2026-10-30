@@ -29,6 +29,9 @@ const ATTRIBUTE_PATHS: Record<string, string> = {
   // The Taper and Twist cards (a pyramid's flat top uses the taper's top fields)
   topLength: "taper.top_length", topWidth: "taper.top_width", bottomLength: "taper.bottom_length", bottomWidth: "taper.bottom_width",
   extrudeTwist: "twist.angle", extrudeTopOffsetX: "twist.offset_width", extrudeTopOffsetZ: "twist.offset_length",
+  // The Slope along and Narrow along cards
+  slopeEnd: "slope.end_height", slopeAngle: "slope.angle", slopeCurve: "slope.curve",
+  narrowEnd: "narrow.end_width", narrowStart: "narrow.start", narrowCurve: "narrow.curve",
   // How finely a body is drawn
   sides: "detail.sides", steps: "detail.steps", quality: "detail.quality", segments: "detail.segments", loftSegments: "detail.segments",
   roundedBoxQuality: "detail.quality", starQuality: "detail.quality", heartQuality: "detail.quality", crescentQuality: "detail.quality", bentTubeQuality: "detail.quality",
