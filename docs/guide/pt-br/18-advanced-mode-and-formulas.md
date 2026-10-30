@@ -31,7 +31,7 @@ Uma fórmula pode ler qualquer campo de um corpo que tenha nome de variável. D�
 
 | Campo | Em uma fórmula |
 | --- | --- |
-| Largura, comprimento, altura, diâmetro | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Largura, comprimento, altura, diâmetro | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; num corpo redondo, a largura e o comprimento são o seu diâmetro |
 | Posição X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotação X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Pivô X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Tudo o que depende de um valor alterado acompanha na hora, como um só passo do 
 
 - **Arrastar um campo que tem fórmula** mantém a fórmula e soma a diferença: `$wall * 2` arrastado 5 mm além vira `$wall * 2 + 5`. Mover um corpo junto com o corpo que ele segue não muda nada na fórmula dele.
 - **Um corpo travado** não segue suas fórmulas; o campo dele avisa.
-- **As peças dentro de um grupo** ainda não podem ser lidas pelas fórmulas; as fórmulas trabalham com os corpos que estão direto no plano de trabalho.
+- **As peças dentro de um grupo** mantêm suas fórmulas e nomes de variável quando o grupo está fechado, e as fórmulas podem lê-las. Quando muda um valor do qual elas dependem, o grupo é reconstruído um instante depois do resto, no mesmo passo do histórico. Mover ou esticar o grupo soma a diferença às fórmulas das suas peças, como ao arrastar. Um grupo com arredondamentos ou chanfros próprios não é reconstruído; abra-o com {{ui:group.edit}} para atualizá-lo.
