@@ -284,7 +284,7 @@ import { handleSketchEditorKey } from "@/lib/sketchEditorKeys";
 import { sketchEscapeAction } from "@/lib/sketchEscape";
 import { booleanAutomationScene } from "@/lib/editorAutomation";
 import { debugShapeSummary, mcpPivotRequest, compactShapeSummary, mcpGridfinityLabelFont, mcpShapeSummary, mcpSketchFillProfile, mcpTextFont } from "@/lib/editorMcpSummary";
-import { MCP_INSPECTOR_AXES_ACTIONS, mcpParamsIn } from "@/lib/mcpAxes";
+import { mcpAnswerOut, mcpCommandParamsIn } from "@/lib/mcpAxes";
 import { sweepAnchorFromParams, sweepPathFromParams, sweepSectionFromParams, sweepSketchProfile } from "@/lib/sweepSketch";
 import { emptySketchProfile, cadShapeFromSketchProfile, cadShapeFromSketchSweep, revolveBuildProfile, shapeFromRevolvedSketchProfile, shapeFromCadMesh, sketchBodyAsOperation, sketchBodyOperation, sketchProfileLeftOfAxis, sketchReferenceShapeOnWorkplane, defaultMcpSketchProfile, type SketchMirrorAbout } from "@/lib/editorSketchCad";
 import { drawingLabelsInLanguage } from "@/lib/drawingLabels";
@@ -13075,7 +13075,7 @@ export function LayerlingEditor({
   }, [syncProjectShapes]);
 
   const executeMcpCommand = useCallback(async (command: LayerlingMcpCommand): Promise<unknown> => {
-    const params = MCP_INSPECTOR_AXES_ACTIONS.has(command.action) ? mcpParamsIn(command.params ?? {}) : command.params ?? {};
+    const params = mcpCommandParamsIn(command.action, command.params ?? {}, { sectionAxis: () => window.layerlingSectionView?.({}).settings.axis });
     const currentShapes = () => shapesRef.current;
     const findShape = (id: unknown) => (typeof id === "string" ? currentShapes().find((shape) => shape.id === id) ?? null : null);
 
@@ -16607,7 +16607,7 @@ export function LayerlingEditor({
           const command = payload?.command;
           if (command) {
             try {
-              const data = await executeMcpCommandRef.current?.(command);
+              const data = mcpAnswerOut(command.action, await executeMcpCommandRef.current?.(command), command.params ?? {});
               submitResult(command.id, true, data);
             } catch (error) {
               submitResult(command.id, false, undefined, error instanceof Error ? localizedError(error.message) : String(error));
