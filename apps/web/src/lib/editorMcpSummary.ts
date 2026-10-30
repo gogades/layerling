@@ -7,11 +7,11 @@ import { isCustomFontId } from "@/lib/customFonts";
 import { shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
 import { offersGroupResize } from "@/lib/groupScale";
 import { shapePivotWorld, type PivotPoint } from "@/lib/rotationPivot";
-import { MCP_SHAPE_SETTING_KEYS, mcpThreadSizeName } from "@/lib/mcpShapeSettings";
+import { MCP_SHAPE_SETTING_KEYS, mcpSettingName, mcpThreadSizeName } from "@/lib/mcpShapeSettings";
 import { DEFAULT_SKETCH_STROKE, normalizeSketchStroke } from "@/lib/sketchStroke";
 import { surfaceTextureEntry } from "@/lib/surfaceTextureShape";
 import { type LayerlingMcpShapeSummary } from "@/lib/layerlingMcpProtocol";
-import { mcpPlacement, mcpPoint } from "@/lib/mcpAxes";
+import { mcpKeyring, mcpPlacement, mcpPoint } from "@/lib/mcpAxes";
 import { vaseSettingsChanges } from "@/lib/vaseSettings";
 import { GRIDFINITY_LABEL_FONTS, gridfinityOutlinePoints } from "@/lib/gridfinityGeometry";
 import type { ShapeKind, SketchProfile, WorkplaneShape } from "@/types/layerling";
@@ -119,7 +119,7 @@ function mcpShapeSettings(shape: WorkplaneShape): Record<string, string | number
   // der Name aus dem Groessenmenue sagt es, und er laesst sich zuruecksenden.
   const threadSize = mcpThreadSizeName(shape);
   if (threadSize) settings.threadSize = threadSize;
-  return Object.keys(settings).length > 0 ? settings : undefined;
+  return Object.keys(settings).length > 0 ? Object.fromEntries(Object.entries(settings).map(([key, value]) => [mcpSettingName(key), value])) : undefined;
 }
 
 export function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary {
@@ -149,7 +149,7 @@ export function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary
     // A text's fill (#215) reads like a sketch body's: its stroke, and whether the counters are left out.
     ...(shape.kind === "text" ? { textStroke: shape.textStroke ?? null, textSilhouette: Boolean(shape.textSilhouette), textStretch: Boolean(shape.textStretch), textVertical: Boolean(shape.textVertical), textSpacing: shape.textSpacing ?? 0, textKerning: Boolean(shape.textKerning), textLetterWidth: shape.textLetterWidth ?? 100, textEdge: shape.textEdge ?? null } : {}),
     // A name tag's key ring hole (#215), on the layers it goes through; the bottom one carries the ear.
-    ...(shape.kind === "text" && shape.textKeyring ? { textKeyring: shape.textKeyring } : {}),
+    ...(shape.kind === "text" && shape.textKeyring ? { textKeyring: mcpKeyring(shape.textKeyring) } : {}),
     ...(shape.layeredText ? { layeredText: true } : {}),
     ...(shape.layeredIcon ? { layeredIcon: true } : {}),
     // A QR code (#553): the text and the choices it was made with.

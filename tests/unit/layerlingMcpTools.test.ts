@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error - die Brücke ist einfaches JavaScript und trägt keine Typen.
 import { creatableShapeKinds, shapeSettingSchema, threadProfiles, threadSizeNames, tools } from "../../scripts/layerling-mcp-tools.mjs";
 import { toolbarShapeAssets } from "@/lib/shapeCatalog";
-import { MCP_SHAPE_SETTING_KEYS } from "@/lib/mcpShapeSettings";
+import { MCP_SHAPE_SETTING_KEYS, mcpSettingName } from "@/lib/mcpShapeSettings";
 import { THREAD_SIZES } from "@/lib/threadGeometry";
 import { THREAD_PROFILES } from "@/lib/threadProfiles";
 
@@ -67,7 +67,7 @@ describe("the settings both shape tools accept", () => {
     // schickt ihn zurueck und nichts geschieht - so lag die Verjuengung eine
     // Weile da, und die Rundung eines Quaders stand in der Auskunft, obwohl sie
     // niemand setzen kann.
-    const reported = [...MCP_SHAPE_SETTING_KEYS].sort();
+    const reported = MCP_SHAPE_SETTING_KEYS.map(mcpSettingName).sort();
     expect([...settingKeys].sort()).toEqual(reported);
   });
 
