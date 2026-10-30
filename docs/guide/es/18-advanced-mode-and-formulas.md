@@ -23,7 +23,7 @@ En el modo avanzado, cada campo numérico del inspector acepta una fórmula. Esc
 
 Los nombres empiezan por `$`. Mayúsculas y minúsculas dan igual: `$Wall` y `$wall` son lo mismo. Los números van en la unidad en que el diseño muestra sus campos; dentro de una fórmula no hay unidades.
 
-Un campo que manda una fórmula aparece teñido y marcado con *fx*. Haz clic en él y la fórmula vuelve para cambiarla. Una fórmula que no se puede calcular - un nombre que no existe, una división por cero, dos fórmulas que dependen una de otra - pone el campo en rojo, y su descripción emergente dice por qué. Mientras tanto, el campo conserva su último valor. Escribir un número normal en el campo quita la fórmula.
+Un campo que manda una fórmula aparece teñido y marcado con *fx*. Haz clic en él y la fórmula vuelve para cambiarla. Una fórmula que no se puede calcular - un nombre que no existe, una división por cero, dos fórmulas que dependen una de otra - pone el campo en rojo, y su descripción emergente dice por qué. Mientras tanto, el campo conserva su último valor. Escribir un número normal en el campo quita la fórmula. Las casillas de medidas del área de trabajo hacen lo mismo: un ancho, largo, alto o altura sobre la placa que manda una fórmula muestra *fx* en su casilla, y un clic abre la casilla con la fórmula, con la *fx* delante para abrir el editor de fórmulas.
 
 ## Dar un nombre de variable a un cuerpo
 

@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
+import type { WorkplaneShape } from "@/types/layerling";
 
 export type TransformHandleKind = "scale" | "height" | "lift" | "rotate";
 export type RotationAxis = "x" | "y" | "z";
@@ -416,6 +417,8 @@ export type EditingDimension = {
   x: number;
   y: number;
   value: string;
+  /** What the box opened with: committed unchanged, it leaves the body and its formula alone. */
+  original: string;
 } | null;
 
 /** Click on a corner handle: width and depth open together, like the usual X and Y boxes. */
@@ -435,6 +438,8 @@ export type TransformOverlayProps = {
   box: TransformOverlayState;
   measureKey: string | null;
   editingDimension: EditingDimension;
+  /** The lone selected body, whose sizes a formula of the advanced mode may drive. */
+  formulaShape?: WorkplaneShape | null;
   editingCorner: EditingCorner;
   editingRotation: EditingRotation;
   rotationReadout: RotationReadout;
@@ -467,7 +472,8 @@ export type TransformOverlayProps = {
   onCancelCornerEdit: () => void;
   onEditingDimensionChange: (value: string) => void;
   /** `aroundCenter` with Alt+Enter (#327), `proportional` with Shift+Enter (#899). */
-  onCommitDimensionEdit: (aroundCenter?: boolean, proportional?: boolean) => void;
+  /** `value`: what the formula editor applied, in place of what the box holds. */
+  onCommitDimensionEdit: (aroundCenter?: boolean, proportional?: boolean, value?: string) => void;
   /** Tab in a dimension box: keep the value and open the next one (Shift: the one before) (#300). */
   onTabDimensionEdit: (backwards: boolean) => void;
   onCancelDimensionEdit: () => void;

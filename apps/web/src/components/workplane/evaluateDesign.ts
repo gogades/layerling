@@ -1,10 +1,10 @@
 import { propertyUsesLengthUnit, shapeNumberFields, type RangePropertyConfig } from "@/components/workplane/ShapeInspector";
 import { SELF_VARIABLE_NAME, type DesignVariable } from "@/lib/designVariables";
 import { restoreGroupedChildren } from "@/lib/editorBooleans";
-import { withFieldFormula } from "@/lib/fieldFormulas";
+import { isDesignFormula, withFieldFormula } from "@/lib/fieldFormulas";
 import { evaluateFormula, formulaReferences, renameReference, shiftFormula, type FormulaError, type FormulaResult } from "@/lib/formula";
 import { t } from "@/lib/i18n";
-import { displayToMillimeters, evaluateArithmetic, millimetersToDisplay } from "@/lib/measurementUnits";
+import { displayToMillimeters, millimetersToDisplay } from "@/lib/measurementUnits";
 import { shapeWithParametricSource } from "@/lib/workplaneShapes";
 import type { WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 
@@ -135,14 +135,6 @@ const GROUPED_PART_TOLERANCE = 0.01;
 /** A field's value as the Properties panel shows it: in the editor's unit for a length. */
 function shownValue(field: RangePropertyConfig, workspace: WorkplaneWorkspaceSettings) {
   return propertyUsesLengthUnit(field.id) ? millimetersToDisplay(field.value, workspace) : field.value;
-}
-
-/**
- * Whether a field's formula is the advanced mode's (names or functions). Plain arithmetic (#180) is a remembered
- * calculation, not a formula to keep true: a drag may have left it behind, and it never moves anything.
- */
-export function isDesignFormula(text: string | undefined): text is string {
-  return Boolean(text) && !Number.isFinite(evaluateArithmetic(text as string));
 }
 
 /** Whether a body, or a part inside it at any depth, has a variable name or a formula of the advanced mode. */

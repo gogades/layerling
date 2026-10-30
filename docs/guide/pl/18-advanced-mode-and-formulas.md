@@ -23,7 +23,7 @@ W trybie zaawansowanym każde pole liczbowe inspektora przyjmuje formułę. Wpis
 
 Nazwy zaczynają się od `$`. Wielkość liter nie ma znaczenia: `$Wall` i `$wall` to to samo. Liczby są w jednostce, w której projekt pokazuje swoje pola; w formule nie ma jednostek.
 
-Pole wyznaczane przez formułę jest zabarwione i oznaczone *fx*. Kliknij w nie, a formuła wróci do edycji. Formuła, której nie da się obliczyć - nazwa, która nie istnieje, dzielenie przez zero, dwie formuły zależne od siebie - barwi pole na czerwono, a podpowiedź mówi dlaczego. Pole zachowuje tymczasem ostatnią wartość. Wpisanie w pole zwykłej liczby usuwa formułę.
+Pole wyznaczane przez formułę jest zabarwione i oznaczone *fx*. Kliknij w nie, a formuła wróci do edycji. Formuła, której nie da się obliczyć - nazwa, która nie istnieje, dzielenie przez zero, dwie formuły zależne od siebie - barwi pole na czerwono, a podpowiedź mówi dlaczego. Pole zachowuje tymczasem ostatnią wartość. Wpisanie w pole zwykłej liczby usuwa formułę. Tak samo działają pola wymiarów na obszarze roboczym: szerokość, długość, wysokość lub wysokość nad płytą wyznaczana przez formułę pokazuje *fx* w swoim polu, a kliknięcie otwiera pole z formułą, a przed nim *fx*, które otwiera edytor formuł.
 
 ## Nazwa zmiennej dla bryły
 
