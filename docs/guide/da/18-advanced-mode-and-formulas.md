@@ -31,7 +31,7 @@ En formel kan læse ethvert felt fra et legeme med et variabelnavn. Giv det et i
 
 | Felt | I en formel |
 | --- | --- |
-| Bredde, længde, højde, diameter | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Bredde, længde, højde, diameter | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; på et rundt legeme er bredde og længde dets diameter |
 | Position X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotation X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Drejepunkt X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Alt, hvad der afhænger af en ændret værdi, følger med med det samme, som ét
 
 - **At trække et felt med en formel** beholder formlen og lægger forskellen til: `$wall * 2` trukket 5 mm længere bliver til `$wall * 2 + 5`. At flytte et legeme sammen med det legeme, det følger, ændrer intet i dets formel.
 - **Et låst legeme** følger ikke sine formler; dets felt siger det.
-- **Dele inde i en gruppe** kan endnu ikke læses af formler; formler arbejder med legemerne direkte på arbejdsplanet.
+- **Dele inde i en gruppe** beholder deres formler og variabelnavne, når gruppen er lukket, og formler kan læse dem. Når en værdi, de afhænger af, ændres, bygges gruppen igen et øjeblik efter resten, i samme trin i historikken. Flyttes eller strækkes gruppen, skrives forskellen på dens deles formler, som når du trækker. En gruppe med egne afrundinger eller affasninger bygges ikke igen; åbn den med {{ui:group.edit}} for at opdatere den.

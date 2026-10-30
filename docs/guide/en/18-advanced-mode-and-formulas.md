@@ -31,7 +31,7 @@ A formula can read any field of a body that has a variable name. Give it one in 
 
 | Field | In a formula |
 | --- | --- |
-| Width, length, height, diameter | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Width, length, height, diameter | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; a round body's width and length are its diameter |
 | Position X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotation X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Pivot X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Everything that depends on a changed value follows it right away, as one step of
 
 - **Dragging a field that has a formula** keeps the formula and adds the difference: `$wall * 2` dragged 5 mm further becomes `$wall * 2 + 5`. Moving a body together with the body it follows changes nothing in its formula.
 - **A locked body** does not follow its formulas; its field says so.
-- **Parts inside a group** cannot be read by formulas yet; formulas work with the bodies on the workplane itself.
+- **Parts inside a group** keep their formulas and variable names when the group is closed, and formulas can read them. When a value they depend on changes, the group is built again a moment after the rest, in the same step of the history. Moving or stretching the group writes the difference onto its parts' formulas, as dragging does. A group with fillets or chamfers of its own is not built again; open it with {{ui:group.edit}} to update it.

@@ -11,6 +11,7 @@ import { MCP_SHAPE_SETTING_KEYS, mcpThreadSizeName } from "@/lib/mcpShapeSetting
 import { DEFAULT_SKETCH_STROKE, normalizeSketchStroke } from "@/lib/sketchStroke";
 import { surfaceTextureEntry } from "@/lib/surfaceTextureShape";
 import { type LayerlingMcpShapeSummary } from "@/lib/layerlingMcpProtocol";
+import { mcpPlacement, mcpPoint } from "@/lib/mcpAxes";
 import { vaseSettingsChanges } from "@/lib/vaseSettings";
 import { GRIDFINITY_LABEL_FONTS, gridfinityOutlinePoints } from "@/lib/gridfinityGeometry";
 import type { ShapeKind, SketchProfile, WorkplaneShape } from "@/types/layerling";
@@ -51,7 +52,7 @@ export function debugShapeSummary(shape: WorkplaneShape): Record<string, unknown
 /** A body's own pivot in the coordinates the MCP tools use for positions. */
 function mcpPivotSummary(shape: WorkplaneShape) {
   const pivot = shapePivotWorld(shape);
-  return pivot ? { x: Number(pivot.x.toFixed(3)), z: Number(pivot.z.toFixed(3)), elevation: Number(pivot.y.toFixed(3)) } : null;
+  return pivot ? mcpPoint({ x: Number(pivot.x.toFixed(3)), z: Number(pivot.z.toFixed(3)), elevation: Number(pivot.y.toFixed(3)) }) : null;
 }
 
 /** The pivot an MCP update asks for: a point, null to clear it, undefined to leave it. */
@@ -131,27 +132,7 @@ export function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary
     locked: Boolean(shape.locked),
     ...(shape.shapeLocked ? { shapeLocked: true } : {}),
     hidden: Boolean(shape.hidden),
-    position: {
-      x: shape.x,
-      z: shape.z,
-      elevation: shape.elevation ?? 0,
-    },
-    dimensions: {
-      width: shapeWidth(shape),
-      depth: shapeDepth(shape),
-      height: shape.height,
-      size: shape.size,
-    },
-    rotation: {
-      x: shape.rotationX ?? 0,
-      y: shape.rotation,
-      z: shape.rotationZ ?? 0,
-    },
-    mirror: {
-      x: Boolean(shape.mirrorX),
-      y: Boolean(shape.mirrorY),
-      z: Boolean(shape.mirrorZ),
-    },
+    ...mcpPlacement(shape),
     rotationPivot: mcpPivotSummary(shape),
     edgeTreatments: shape.edgeTreatments ?? [],
     settings: mcpShapeSettings(shape),

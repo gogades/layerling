@@ -1,5 +1,6 @@
 import { propertyUsesLengthUnit, shapeNumberFields, type RangePropertyConfig } from "@/components/workplane/ShapeInspector";
 import { SELF_VARIABLE_NAME, type DesignVariable } from "@/lib/designVariables";
+import { restoreGroupedChildren } from "@/lib/editorBooleans";
 import { withFieldFormula } from "@/lib/fieldFormulas";
 import { evaluateFormula, formulaReferences, renameReference, shiftFormula, type FormulaError, type FormulaResult } from "@/lib/formula";
 import { t } from "@/lib/i18n";
@@ -91,12 +92,27 @@ export function attributePath(fieldId: string) {
   return prefix ? `${snakeCase(prefix)}.${snakeCase(fieldId.slice(prefix.length).replace(/^./, (first) => first.toLowerCase()))}` : snakeCase(fieldId);
 }
 
+/**
+ * Each field of a body under every name a formula reads it by: its path, and for a round body, whose one Diameter field
+ * is both its width and its length, `size.width` and `size.length` too - so any body's size reads the same way.
+ */
+function fieldPaths(fields: RangePropertyConfig[]) {
+  const paths = fields.map((field) => ({ path: attributePath(field.id), field }));
+  const diameter = fields.find((field) => field.id === "diameter");
+  if (diameter && !fields.some((field) => field.id === "width" || field.id === "length")) {
+    paths.push({ path: "size.width", field: diameter }, { path: "size.length", field: diameter });
+  }
+  return paths;
+}
+
 /** Beside the formula's own errors: a loop, a field the body no longer has, a locked body, two formulas fighting over one value. */
 export type DesignFormulaError = FormulaError | { kind: "cycle" } | { kind: "field" } | { kind: "locked" } | { kind: "conflict" };
 
 export type DesignEvaluation = {
-  /** What changed on each body, by id, as the inspector would have handed it over. */
+  /** What changed on each body of the workplane, by id, as the inspector would have handed it over. */
   patches: Map<string, Partial<WorkplaneShape>>;
+  /** What changed on parts inside a group - by the group on the workplane, then by part - which a build of the group applies. */
+  groups: Map<string, Map<string, Partial<WorkplaneShape>>>;
   /** The table with each row's value worked out again. */
   variables: DesignVariable[];
   /** What failed, by `variable:<name in lower case>` or `<body id>/<field id>`; those keep their last value. */
@@ -109,6 +125,9 @@ export function variableKey(name: string) {
 }
 
 const MAX_PASSES = 4;
+// A part inside a group comes back from a build of its group with its turn rounded to 2 decimals: closer than this is
+// no change, or every build would ask for the next one.
+const GROUPED_PART_TOLERANCE = 0.01;
 
 /** A field's value as the Properties panel shows it: in the editor's unit for a length. */
 function shownValue(field: RangePropertyConfig, workspace: WorkplaneWorkspaceSettings) {
@@ -123,9 +142,54 @@ export function isDesignFormula(text: string | undefined): text is string {
   return Boolean(text) && !Number.isFinite(evaluateArithmetic(text as string));
 }
 
+/** Whether a body, or a part inside it at any depth, has a variable name or a formula of the advanced mode. */
+function hasFormulas(shape: WorkplaneShape): boolean {
+  return Boolean(shape.variableName) || Object.values(shape.formulas ?? {}).some(isDesignFormula) || Boolean(shape.groupedShapes?.some(hasFormulas));
+}
+
 /** Whether a design has anything of the advanced mode: a variables table, a variable name or a formula. */
 export function designUsesFormulas(shapes: WorkplaneShape[], variables: DesignVariable[]) {
-  return variables.length > 0 || shapes.some((shape) => shape.variableName || Object.values(shape.formulas ?? {}).some(isDesignFormula));
+  return variables.length > 0 || shapes.some(hasFormulas);
+}
+
+/** `shapes` with `change` made to every body, parts inside groups at any depth too; the same arrays where nothing changes. */
+function mapBodies(shapes: WorkplaneShape[], change: (shape: WorkplaneShape) => WorkplaneShape): WorkplaneShape[] {
+  let changed = false;
+  const next = shapes.map((shape) => {
+    const parts = shape.groupedShapes && mapBodies(shape.groupedShapes, change);
+    const result = change(parts !== shape.groupedShapes ? { ...shape, groupedShapes: parts } : shape);
+    changed ||= result !== shape;
+    return result;
+  });
+  return changed ? next : shapes;
+}
+
+/** Whether a body other than `except.shapeId` (parts inside groups too) or a row other than `except.row` goes by `name`, in any case. */
+export function designNameTaken(shapes: WorkplaneShape[], rows: DesignVariable[], name: string, except: { shapeId?: string; row?: string } = {}) {
+  const wanted = name.toLowerCase();
+  const inBody = (shape: WorkplaneShape): boolean => (shape.id !== except.shapeId && shape.variableName?.toLowerCase() === wanted) || Boolean(shape.groupedShapes?.some(inBody));
+  return shapes.some(inBody) || rows.some((row) => row.name.toLowerCase() === wanted && row.name.toLowerCase() !== except.row?.toLowerCase());
+}
+
+/** A body formulas reach, with the body on the workplane it belongs to and whether a lock holds it. */
+type DesignBody = { shape: WorkplaneShape; topId: string; locked: boolean };
+
+/**
+ * Every body formulas reach: the design's own, and the parts inside its groups at any depth - where opening the group
+ * puts them, under the id they have in the group, as their formulas were typed. Only groups holding a name or a formula
+ * are opened.
+ */
+function designBodies(shapes: WorkplaneShape[]) {
+  const bodies: DesignBody[] = [];
+  const visit = (shape: WorkplaneShape, topId: string, locked: boolean) => {
+    bodies.push({ shape, topId, locked });
+    const parts = shape.groupedShapes;
+    // shortcut: a group with its own fillets or chamfers stays closed, as a build would lose them; open it with group editing.
+    if (!parts?.length || shape.edgeTreatments?.length || !parts.some(hasFormulas)) return;
+    restoreGroupedChildren(shape).forEach((part, index) => visit({ ...part, id: parts[index].id }, topId, locked || Boolean(part.locked)));
+  };
+  for (const shape of shapes) visit(shape, shape.id, Boolean(shape.locked));
+  return bodies;
 }
 
 function sameValue(a: number, b: number) {
@@ -146,11 +210,12 @@ type FormulaNode = { formula: string; row?: DesignVariable; shapeId?: string; fi
  * and what a reference reads. `working` is the design being worked out; setField changes a field the way typing would.
  */
 function designScope(shapes: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings) {
-  const working = new Map(shapes.map((shape) => [shape.id, shape]));
+  const bodies = designBodies(shapes);
+  const working = new Map(bodies.map(({ shape }) => [shape.id, shape]));
   const rows = variables.map((row) => ({ ...row }));
   const rowByName = new Map(rows.map((row) => [row.name.toLowerCase(), row]));
   const shapeByName = new Map<string, string>();
-  for (const shape of shapes) {
+  for (const { shape } of bodies) {
     const name = shape.variableName?.toLowerCase();
     if (name && !shapeByName.has(name)) shapeByName.set(name, shape.id);
   }
@@ -176,7 +241,7 @@ function designScope(shapes: WorkplaneShape[], variables: DesignVariable[], work
     if (!rest.length) return rowByName.has(name) ? { key: variableKey(name) } : null;
     const shapeId = name === SELF_VARIABLE_NAME ? ownerId : shapeByName.get(name);
     const path = rest.join(".");
-    const field = shapeId ? fieldsOf(shapeId).find((candidate) => attributePath(candidate.id).toLowerCase() === path) : undefined;
+    const field = shapeId ? fieldPaths(fieldsOf(shapeId)).find((candidate) => candidate.path.toLowerCase() === path)?.field : undefined;
     return field ? { key: `${shapeId}/${field.id}`, field } : null;
   };
   const reader = (ownerId?: string) => (reference: string) => {
@@ -190,17 +255,17 @@ function designScope(shapes: WorkplaneShape[], variables: DesignVariable[], work
     // onChange set it through `capture`; TypeScript cannot see that and still thinks it null.
     return captured as Partial<WorkplaneShape> | null;
   };
-  return { working, rows, shapeByName, fieldsOf, resolve, reader, setField };
+  return { bodies, working, rows, shapeByName, fieldsOf, resolve, reader, setField };
 }
 
-// shortcut: only the design's top-level bodies take part; parts inside closed groups come with group editing.
 export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings): DesignEvaluation {
-  const { working, rows, fieldsOf, resolve, reader, setField } = designScope(shapes, variables, workspace);
+  const { bodies, working, rows, fieldsOf, resolve, reader, setField } = designScope(shapes, variables, workspace);
+  const bodyById = new Map(bodies.map((body) => [body.shape.id, body]));
   const shown = (field: RangePropertyConfig) => shownValue(field, workspace);
 
   const nodes = new Map<string, FormulaNode>();
   for (const row of rows) if (row.formula.trim()) nodes.set(variableKey(row.name), { formula: row.formula, row });
-  for (const shape of shapes) {
+  for (const { shape } of bodies) {
     for (const [fieldId, formula] of Object.entries(shape.formulas ?? {})) {
       if (isDesignFormula(formula)) nodes.set(`${shape.id}/${fieldId}`, { formula, shapeId: shape.id, fieldId });
     }
@@ -245,14 +310,15 @@ export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariab
       }
       const shapeId = node.shapeId as string;
       const shape = working.get(shapeId) as WorkplaneShape;
+      const body = bodyById.get(shapeId) as DesignBody;
       const field = fieldsOf(shapeId).find((candidate) => candidate.id === node.fieldId);
       if (!field) {
         errors.set(key, { kind: "field" });
         continue;
       }
-      if (sameValue(shown(field), result.value)) continue;
-      // A locked body holds still, as it does for every other change; the field says why.
-      if (shape.locked) {
+      if (body.topId === shapeId ? sameValue(shown(field), result.value) : Math.abs(shown(field) - result.value) <= GROUPED_PART_TOLERANCE) continue;
+      // A locked body - or a part of a locked group - holds still, as it does for every other change; the field says why.
+      if (body.locked) {
         errors.set(key, { kind: "locked" });
         continue;
       }
@@ -261,18 +327,26 @@ export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariab
       if (!patch) continue;
       changed = true;
       if (pass === MAX_PASSES - 1) errors.set(key, { kind: "conflict" });
-      working.set(shapeId, { ...shape, ...patch });
+      const next = { ...shape, ...patch };
+      working.set(shapeId, next);
       patches.set(shapeId, { ...patches.get(shapeId), ...patch });
+      // A group that moved or grew takes its parts along: formulas read them where they now are.
+      if (next.groupedShapes?.length) {
+        for (const part of designBodies([next]).slice(1)) if (!patches.has(part.shape.id)) working.set(part.shape.id, part.shape);
+      }
     }
     if (!changed) break;
   }
-  // Fields that went round and came back where they started are no change.
+  // Fields that went round and came back where they started are no change; a part's change goes to its group's build.
+  const groups = new Map<string, Map<string, Partial<WorkplaneShape>>>();
   for (const [shapeId, patch] of patches) {
-    const left = changedFields(shapes.find((shape) => shape.id === shapeId) as WorkplaneShape, patch);
-    if (left) patches.set(shapeId, left);
+    const body = bodyById.get(shapeId) as DesignBody;
+    const left = changedFields(body.shape, patch);
+    if (left && body.topId === shapeId) patches.set(shapeId, left);
     else patches.delete(shapeId);
+    if (left && body.topId !== shapeId) groups.set(body.topId, (groups.get(body.topId) ?? new Map()).set(shapeId, left));
   }
-  return { patches, variables: rows, errors };
+  return { patches, groups, variables: rows, errors };
 }
 
 /**
@@ -282,7 +356,11 @@ export function evaluateDesign(shapes: WorkplaneShape[], variables: DesignVariab
  * `$a * 2` becomes `$a * 2 + 5`. The same array when nothing changes.
  */
 export function formulasAfterEdit(before: WorkplaneShape[], after: WorkplaneShape[], variables: DesignVariable[], workspace: WorkplaneWorkspaceSettings, advanced: boolean): WorkplaneShape[] {
-  const previous = new Map(before.map((shape) => [shape.id, shape]));
+  // Only bodies the edit touched, with the parts inside them: a moved or stretched group moves its parts too.
+  const previousTop = new Map(before.map((shape) => [shape.id, shape]));
+  const touched = after.filter((shape) => previousTop.has(shape.id) && previousTop.get(shape.id) !== shape);
+  if (!touched.length) return after;
+  const previous = new Map(designBodies(touched.map((shape) => previousTop.get(shape.id) as WorkplaneShape)).map(({ shape }) => [shape.id, shape]));
   const valueIn = (shape: WorkplaneShape, id: string) => {
     const field = shapeNumberFields(shapeWithParametricSource(shape), () => undefined, workspace).find((candidate) => candidate.id === id);
     return field ? shownValue(field, workspace) : Number.NaN;
@@ -294,10 +372,10 @@ export function formulasAfterEdit(before: WorkplaneShape[], after: WorkplaneShap
     const result = evaluateFormula(formula, scope.reader(shapeId));
     return result.ok ? result.value : Number.NaN;
   };
-  let changed = false;
-  const next = after.map((shape) => {
+  const changes = new Map<string, WorkplaneShape["formulas"]>();
+  for (const { shape } of designBodies(touched)) {
     const old = previous.get(shape.id);
-    if (!old || old === shape) return shape;
+    if (!old || old === shape) continue;
     const ids = Object.keys(shape.formulas ?? {}).filter((id) => isDesignFormula(shape.formulas?.[id]) && old.formulas?.[id] === shape.formulas?.[id]);
     let formulas = shape.formulas;
     for (const id of ids) {
@@ -310,18 +388,16 @@ export function formulasAfterEdit(before: WorkplaneShape[], after: WorkplaneShap
       const gives = formulaGives(shape.id, formulas?.[id] as string);
       if (Number.isFinite(gives) && !sameValue(gives, now)) formulas = withFieldFormula(formulas, id, shiftFormula(formulas?.[id] as string, now - gives));
     }
-    if (formulas === shape.formulas) return shape;
-    changed = true;
-    return { ...shape, formulas };
-  });
-  return changed ? next : after;
+    if (formulas !== shape.formulas) changes.set(shape.id, formulas);
+  }
+  return changes.size ? mapBodies(after, (shape) => (changes.has(shape.id) ? { ...shape, formulas: changes.get(shape.id) } : shape)) : after;
 }
 
 /** Every formula of the design with `$from` read as `$to` (any case): a renamed body or row keeps the formulas that use it. */
 export function withRenamedReference(shapes: WorkplaneShape[], rows: DesignVariable[], from: string, to: string) {
   const rewrite = (text: string) => renameReference(text, from, to);
   return {
-    shapes: shapes.map((shape) => {
+    shapes: mapBodies(shapes, (shape) => {
       const entries = Object.entries(shape.formulas ?? {});
       const rewritten = entries.map(([id, text]) => [id, rewrite(text)] as const);
       return rewritten.some(([, text], index) => text !== entries[index][1]) ? { ...shape, formulas: Object.fromEntries(rewritten) } : shape;
@@ -334,29 +410,40 @@ export function withRenamedReference(shapes: WorkplaneShape[], rows: DesignVaria
 }
 
 /**
- * The bodies an edit brought in (a paste, a copy, an inserted design) with their variable name taken away where another
- * body or a row already goes by it, in any case; and which names went.
+ * The bodies an edit brought in (a paste, a copy, an inserted design), parts inside them too, with their variable name
+ * taken away where another body or a row already goes by it, in any case; and which names went.
  */
 function withoutTakenNames(before: WorkplaneShape[], after: WorkplaneShape[], rows: DesignVariable[]) {
   const existing = new Set(before.map((shape) => shape.id));
   const staying = new Set(after.map((shape) => shape.id));
   // Only bodies still there hold their name: one replaced in the same edit (a cut, a rebuild) hands it on.
-  const taken = new Set([...before.filter((shape) => staying.has(shape.id)).map((shape) => shape.variableName?.toLowerCase()), ...rows.map((row) => row.name.toLowerCase())]);
+  const taken = new Set(rows.map((row) => row.name.toLowerCase()));
+  mapBodies(before.filter((shape) => staying.has(shape.id)), (shape) => {
+    if (shape.variableName) taken.add(shape.variableName.toLowerCase());
+    return shape;
+  });
   const blanked: string[] = [];
-  const shapes = after.map((shape) => {
-    const name = shape.variableName?.toLowerCase();
-    if (!name || existing.has(shape.id)) return shape;
+  const shapes = after.map((shape) => (existing.has(shape.id) ? shape : mapBodies([shape], (body) => {
+    const name = body.variableName?.toLowerCase();
+    if (!name) return body;
     if (!taken.has(name)) {
       taken.add(name);
-      return shape;
+      return body;
     }
-    blanked.push(shape.variableName as string);
-    return { ...shape, variableName: undefined };
-  });
+    blanked.push(body.variableName as string);
+    return { ...body, variableName: undefined };
+  })[0]));
   return { shapes: blanked.length ? shapes : after, blanked };
 }
 
-export type SettledDesign = { shapes: WorkplaneShape[]; variables: DesignVariable[]; errors: Map<string, DesignFormulaError>; blanked: string[] };
+export type SettledDesign = {
+  shapes: WorkplaneShape[];
+  variables: DesignVariable[];
+  errors: Map<string, DesignFormulaError>;
+  blanked: string[];
+  /** Groups whose parts the formulas changed, still to be built again: see DesignEvaluation.groups. */
+  stale: DesignEvaluation["groups"];
+};
 
 /**
  * An edit of the design, settled: the formulas it moved shifted or dropped (formulasAfterEdit), then in the advanced mode
@@ -381,7 +468,7 @@ export function designAfterEdit(
   }
   variables = renamed.rows;
   const edited = formulasAfterEdit(before, renamed.shapes, variables, workspace, advanced);
-  if (!advanced) return { shapes: edited, variables, errors: new Map(), blanked };
+  if (!advanced) return { shapes: edited, variables, errors: new Map(), blanked, stale: new Map() };
   const result = evaluateDesign(edited, variables, workspace);
   const shapes = result.patches.size
     ? edited.map((shape) => {
@@ -390,7 +477,7 @@ export function designAfterEdit(
     })
     : edited;
   const sameTable = JSON.stringify(result.variables) === JSON.stringify(variables);
-  return { shapes, variables: sameTable ? variables : result.variables, errors: result.errors, blanked };
+  return { shapes, variables: sameTable ? variables : result.variables, errors: result.errors, blanked, stale: result.groups };
 }
 
 /** What a field with a failed formula says when the pointer rests on it. */
@@ -430,7 +517,7 @@ export function formulaSuggestions(shapes: WorkplaneShape[], variables: DesignVa
   if (dot < 0) {
     const names: FormulaSuggestion[] = [
       ...scope.rows.map((row) => ({ label: `$${row.name}`, insert: row.name, detail: String(Number(row.value.toFixed(4))) })),
-      ...shapes.filter((shape) => shape.variableName).map((shape) => ({ label: `$${shape.variableName}`, insert: shape.variableName as string, detail: shape.name })),
+      ...scope.bodies.filter(({ shape }) => shape.variableName).map(({ shape }) => ({ label: `$${shape.variableName}`, insert: shape.variableName as string, detail: shape.name })),
       ...(ownerId ? [{ label: `$${SELF_VARIABLE_NAME}`, insert: SELF_VARIABLE_NAME, detail: "" }] : []),
     ];
     return { start, items: matching(names, token) };
@@ -439,7 +526,7 @@ export function formulaSuggestions(shapes: WorkplaneShape[], variables: DesignVa
   const shapeId = name === SELF_VARIABLE_NAME ? ownerId : scope.shapeByName.get(name);
   if (!shapeId) return { start, items: [] };
   const prefix = token.slice(0, dot + 1);
-  const fields = scope.fieldsOf(shapeId).map((field) => ({ label: attributePath(field.id), insert: `${prefix}${attributePath(field.id)}`, detail: `${Number(shownValue(field, workspace).toFixed(4))}` }));
+  const fields = fieldPaths(scope.fieldsOf(shapeId)).map(({ path, field }) => ({ label: path, insert: `${prefix}${path}`, detail: `${Number(shownValue(field, workspace).toFixed(4))}` }));
   // Size, position, rotation and pivot first, the shape's own settings (taper, twist, teeth...) after them.
   const rank = (path: string) => {
     const group = SUGGESTED_FIRST.findIndex((start) => path.startsWith(start));
@@ -450,6 +537,6 @@ export function formulaSuggestions(shapes: WorkplaneShape[], variables: DesignVa
 
 /** Every field of a body by the name formulas read it by, with its id and its value as the inspector shows it. */
 export function objectAttributes(shape: WorkplaneShape, workspace: WorkplaneWorkspaceSettings) {
-  return shapeNumberFields(shapeWithParametricSource(shape), () => undefined, workspace)
-    .map((field) => ({ field: attributePath(field.id), id: field.id, value: shownValue(field, workspace) }));
+  return fieldPaths(shapeNumberFields(shapeWithParametricSource(shape), () => undefined, workspace))
+    .map(({ path, field }) => ({ field: path, id: field.id, value: shownValue(field, workspace) }));
 }

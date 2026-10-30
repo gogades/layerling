@@ -31,7 +31,7 @@ Egy képlet bármelyik mezőt olvashatja egy olyan testből, amelynek változón
 
 | Mező | Képletben |
 | --- | --- |
-| Szélesség, hosszúság, magasság, átmérő | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Szélesség, hosszúság, magasság, átmérő | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; kerek testnél a szélesség és a hosszúság is az átmérője |
 | Pozíció X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Elforgatás X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Forgáspont X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Minden, ami egy megváltozott értéktől függ, azonnal követi, az előzménye
 
 - **Egy képletes mező húzása** megtartja a képletet, és hozzáadja a különbséget: a 5 mm-rel tovább húzott `$wall * 2` így lesz `$wall * 2 + 5`. Ha egy testet együtt mozgatsz azzal a testtel, amelyet követ, a képletében semmi sem változik.
 - **Egy zárolt test** nem követi a képleteit; a mezője jelzi ezt.
-- **Egy csoporton belüli részeket** a képletek még nem tudnak olvasni; a képletek a munkasíkon közvetlenül álló testekkel dolgoznak.
+- **Egy csoporton belüli részek** zárt csoportban is megtartják a képleteiket és a változóneveiket, és a képletek olvashatják őket. Ha megváltozik egy érték, amelytől függenek, a csoport egy pillanattal a többi után újraépül, az előzmények ugyanazon lépésében. A csoport mozgatása vagy nyújtása a különbséget a részei képleteihez írja, ahogy a húzás is. A saját lekerekítéssel vagy letöréssel rendelkező csoport nem épül újra; a frissítéshez nyisd meg a {{ui:group.edit}} gombbal.

@@ -259,6 +259,7 @@ import { meshPartCount } from "@/lib/meshPartCount";
 import { buildGroupedShapeOffThread, exportSolidVolumeOffThread, callOffFaceRead, faceReadInWorker, createFaceReadKeeper, faceReadPositionsOffThread, simplifyTrianglePositionsOffThread, splitShapesByPlaneOffThread, previewSplitConnectorsOffThread, articulateShapesOffThread, lidForShapesOffThread, checkClearanceOffThread, checkPrintOffThread, subscribeGeometryBusy, warmGeometryWorker } from "@/lib/geometryWorker";
 import { roundedAlignedValue } from "@/lib/alignRounding";
 import { buildSketchLoftFromSelection, canSketchLoft } from "@/lib/sketchLoft";
+import { regroupParts } from "@/lib/regroup";
 import { alignBounds, sizeAlignmentState, sizedShapesForSelection } from "@/lib/alignSize";
 import { ALIGN_PLATE_ID, alignPlateShape, distributedShapesForSelection, distributionState, type DistributeProblem, type DistributeResult } from "@/lib/alignDistribute";
 import { cloneAsGroupChild, meshDataToManifoldMesh, shapeToManifoldSolid, withClosedHolesNote, withConnectorsNote, unionOverlappingExportMeshes, exportBodiesWithLooseHoles, formatSectionOffset, SECTION_SEEN_FROM_KEYS, visibleExportShapes, multicolorExportSolids, exportFaceColors, colorSeparatedExportMeshes, disposeManifold, canIntersectShapes, buildIntersectionShapeFromSelection, canHullShapes, buildHullShapeFromSelection, groupedShape, quaternionForShape, rotationFromQuaternion, cleanShapePatch, restoreGroupedChildren, restoreGroupedChildrenForEdges } from "@/lib/editorBooleans";
@@ -269,6 +270,7 @@ import { handleSketchEditorKey } from "@/lib/sketchEditorKeys";
 import { sketchEscapeAction } from "@/lib/sketchEscape";
 import { booleanAutomationScene } from "@/lib/editorAutomation";
 import { debugShapeSummary, mcpPivotRequest, compactShapeSummary, mcpGridfinityLabelFont, mcpShapeSummary, mcpSketchFillProfile, mcpTextFont } from "@/lib/editorMcpSummary";
+import { MCP_INSPECTOR_AXES_ACTIONS, mcpParamsIn } from "@/lib/mcpAxes";
 import { sweepAnchorFromParams, sweepPathFromParams, sweepSectionFromParams, sweepSketchProfile } from "@/lib/sweepSketch";
 import { emptySketchProfile, cadShapeFromSketchProfile, cadShapeFromSketchSweep, revolveBuildProfile, shapeFromRevolvedSketchProfile, shapeFromCadMesh, sketchBodyAsOperation, sketchBodyOperation, sketchProfileLeftOfAxis, sketchReferenceShapeOnWorkplane, defaultMcpSketchProfile, type SketchMirrorAbout } from "@/lib/editorSketchCad";
 import { drawingLabelsInLanguage } from "@/lib/drawingLabels";
@@ -11358,38 +11360,8 @@ export function LayerlingEditor({
    * It also keeps what it does with its parts when it is resized (Discussion #526).
    */
   const rebuildGroupFromParts = useCallback(async (original: WorkplaneShape, parts: WorkplaneShape[]): Promise<{ group: WorkplaneShape; mergeWarning: string } | { group: null; failure: string }> => {
-    const operation = original.groupOperation === "intersection" || original.groupOperation === "hull" || original.groupOperation === "bundle" || original.groupOperation === "loft" ? original.groupOperation : "group";
-    const result = operation === "intersection"
-      ? await buildIntersectionShapeFromSelection(parts, workspaceSettingsRef.current.booleanTriangleLimit)
-      : operation === "hull"
-        ? await buildHullShapeFromSelection(parts, workspaceSettingsRef.current.booleanTriangleLimit)
-        : operation === "loft"
-        ? await buildSketchLoftFromSelection(parts)
-        : operation === "bundle"
-        ? { group: groupedShape(parts) }
-        : await buildGroupedShapeOffThread(parts, workspaceSettingsRef.current.booleanTriangleLimit, geometryAbortRef.current?.signal);
-    if (!result.group) {
-      return { group: null, failure: "failureNotice" in result && result.failureNotice ? result.failureNotice : t("status.groupChanged") };
-    }
-    // Its colour stays if it had been given one apart from its first part.
-    const firstSolid = original.groupedShapes?.find((child) => !child.hole) ?? original.groupedShapes?.[0];
-    const ownColour = Boolean(firstSolid && firstSolid.color !== original.color);
-    const rebuilt = canonicalizeShape({ ...result.group, groupOperation: operation });
-    const group = canonicalizeShape(carryShapePivot(original, withHoleMode({
-      ...rebuilt,
-      id: original.id,
-      name: original.name,
-      color: ownColour ? original.color : rebuilt.color,
-      transparent: original.transparent,
-      hidden: original.hidden,
-      groupResize: original.groupResize,
-      // Multicolor switched on or off stays so after Done; a group cut into one body lost it and turned one colour (#1323).
-      ...(typeof original.multicolor === "boolean" ? { multicolor: original.multicolor } : {}),
-    }, Boolean(original.hole))));
-    // The group's own paint (paint.ts) goes over to the group built again, where it lay in the world.
-    if (original.paint?.length && canPaintShape(group)) group.paint = rebasePaintStrokes(original.paint, original, group);
-    const mergeWarning = "mergeWarning" in result && typeof result.mergeWarning === "string" ? result.mergeWarning : "";
-    return { group, mergeWarning };
+    const result = await regroupParts(original, parts, workspaceSettingsRef.current.booleanTriangleLimit, geometryAbortRef.current?.signal);
+    return result.group ? { group: result.group, mergeWarning: result.mergeWarning ?? "" } : { group: null, failure: result.failureNotice ?? t("status.groupChanged") };
   }, []);
 
   const finishOpenGroup = useCallback(async (): Promise<OpenGroupOutcome> => {
@@ -12510,7 +12482,7 @@ export function LayerlingEditor({
   }, [syncProjectShapes]);
 
   const executeMcpCommand = useCallback(async (command: LayerlingMcpCommand): Promise<unknown> => {
-    const params = command.params ?? {};
+    const params = MCP_INSPECTOR_AXES_ACTIONS.has(command.action) ? mcpParamsIn(command.params ?? {}) : command.params ?? {};
     const currentShapes = () => shapesRef.current;
     const findShape = (id: unknown) => (typeof id === "string" ? currentShapes().find((shape) => shape.id === id) ?? null : null);
 
