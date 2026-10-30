@@ -31,7 +31,7 @@ Eine Formel kann jedes Feld eines Körpers lesen, der einen Variablennamen hat. 
 
 | Feld | In einer Formel |
 | --- | --- |
-| Breite, Länge, Höhe, Durchmesser | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Breite, Länge, Höhe, Durchmesser | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; bei einem runden Körper sind Breite und Länge sein Durchmesser |
 | Position X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Drehung X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Drehpunkt X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Alles, was von einem geänderten Wert abhängt, folgt ihm sofort, als ein Schrit
 
 - **Ein Feld mit Formel ziehen** behält die Formel und rechnet den Unterschied dazu: `$wall * 2` um 5 mm weiter gezogen wird zu `$wall * 2 + 5`. Wird ein Körper zusammen mit dem Körper verschoben, dem er folgt, ändert sich an seiner Formel nichts.
 - **Ein gesperrter Körper** folgt seinen Formeln nicht; sein Feld sagt es.
-- **Teile in einer Gruppe** können Formeln noch nicht lesen; Formeln arbeiten mit den Körpern direkt auf der Arbeitsebene.
+- **Teile in einer Gruppe** behalten ihre Formeln und Variablennamen, wenn die Gruppe geschlossen ist, und Formeln können sie lesen. Ändert sich ein Wert, von dem sie abhängen, wird die Gruppe einen Moment nach dem Rest neu aufgebaut, im selben Schritt des Verlaufs. Wird die Gruppe verschoben oder gestreckt, kommt der Unterschied auf die Formeln ihrer Teile, wie beim Ziehen. Eine Gruppe mit eigenen Rundungen oder Fasen wird nicht neu aufgebaut; öffne sie mit {{ui:group.edit}}, um sie zu aktualisieren.

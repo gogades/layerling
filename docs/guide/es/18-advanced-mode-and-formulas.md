@@ -31,7 +31,7 @@ Una fórmula puede leer cualquier campo de un cuerpo que tenga nombre de variabl
 
 | Campo | En una fórmula |
 | --- | --- |
-| Ancho, largo, alto, diámetro | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Ancho, largo, alto, diámetro | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; en un cuerpo redondo, el ancho y el largo son su diámetro |
 | Posición X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotación X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Pivote X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Todo lo que depende de un valor cambiado lo sigue al momento, como un solo paso 
 
 - **Arrastrar un campo que tiene fórmula** conserva la fórmula y le suma la diferencia: `$wall * 2` arrastrado 5 mm más pasa a ser `$wall * 2 + 5`. Mover un cuerpo junto con el cuerpo al que sigue no cambia nada en su fórmula.
 - **Un cuerpo bloqueado** no sigue sus fórmulas; su campo lo dice.
-- **Las piezas dentro de un grupo** aún no se pueden leer desde las fórmulas; las fórmulas trabajan con los cuerpos que están sobre el plano de trabajo.
+- **Las piezas dentro de un grupo** conservan sus fórmulas y nombres de variable cuando el grupo está cerrado, y las fórmulas pueden leerlas. Cuando cambia un valor del que dependen, el grupo se vuelve a construir un momento después del resto, en el mismo paso del historial. Mover o estirar el grupo añade la diferencia a las fórmulas de sus piezas, como al arrastrar. Un grupo con redondeos o chaflanes propios no se vuelve a construir; ábrelo con {{ui:group.edit}} para actualizarlo.

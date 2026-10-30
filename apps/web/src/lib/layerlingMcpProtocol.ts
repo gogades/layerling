@@ -19,14 +19,15 @@ export type LayerlingMcpShapeSummary = {
   /** Lock shape (#1277): moves, turns and groups, but keeps its size, settings, name and body. */
   shapeLocked?: boolean;
   hidden: boolean;
+  /** As the inspector shows them: X to the right, Y towards the back, Z up (lib/mcpAxes.ts). */
   position: {
     x: number;
+    y: number;
     z: number;
-    elevation: number;
   };
   dimensions: {
     width: number;
-    depth: number;
+    length: number;
     height: number;
     size: number;
   };
@@ -40,8 +41,8 @@ export type LayerlingMcpShapeSummary = {
     y: boolean;
     z: boolean;
   };
-  /** The body's own pivot, if it has one, in workplane coordinates. */
-  rotationPivot: { x: number; z: number; elevation: number } | null;
+  /** The body's own pivot, if it has one, in the coordinates of `position`. */
+  rotationPivot: { x: number; y: number; z: number } | null;
   /** The build plate the object stands on, counted from 1; only while the design has several (Discussion #456). */
   plate?: number;
   edgeTreatments: unknown[];

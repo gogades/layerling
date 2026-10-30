@@ -1,4 +1,4 @@
-import { evaluateDesign, formulaErrorText, formulaPreview, objectAttributes, variableKey, type DesignFormulaError } from "@/components/workplane/evaluateDesign";
+import { designNameTaken, evaluateDesign, formulaErrorText, formulaPreview, objectAttributes, variableKey, type DesignFormulaError } from "@/components/workplane/evaluateDesign";
 import { isVariableName, type DesignVariable } from "@/lib/designVariables";
 import { MAX_FIELD_FORMULA_LENGTH, withFieldFormula } from "@/lib/fieldFormulas";
 import { evaluateFormula } from "@/lib/formula";
@@ -47,10 +47,7 @@ function checkedFormula(text: unknown, label: string) {
 /** A name for a body or a row: valid, and not already taken by another body or row (in any case). */
 function checkedName(name: unknown, deps: FormulasMcpDeps, except: { shapeId?: string; row?: string }) {
   if (!isVariableName(name)) throw new Error(`${JSON.stringify(name)} is not a variable name: letters, digits and _, not starting with a digit, not "self"`);
-  const wanted = name.toLowerCase();
-  const takenByShape = deps.shapes().some((shape) => shape.id !== except.shapeId && shape.variableName?.toLowerCase() === wanted);
-  const takenByRow = deps.variables().some((row) => row.name.toLowerCase() !== except.row?.toLowerCase() && row.name.toLowerCase() === wanted);
-  if (takenByShape || takenByRow) throw new Error(`${name} is already used by another object or variable`);
+  if (designNameTaken(deps.shapes(), deps.variables(), name, except)) throw new Error(`${name} is already used by another object or variable`);
   return name;
 }
 
@@ -113,7 +110,8 @@ function objectAnswer(shape: WorkplaneShape, deps: FormulasMcpDeps) {
     mode: modeName(),
     ...(shape.variableName ? { variableName: shape.variableName } : {}),
     formulas: attributes
-      .filter((attribute) => shape.formulas?.[attribute.id] !== undefined)
+      // A round body's size.width and size.length are its diameter again: each formula once, under the field's own name.
+      .filter((attribute, index) => shape.formulas?.[attribute.id] !== undefined && attributes.findIndex((other) => other.id === attribute.id) === index)
       .map((attribute) => ({ field: attribute.field, formula: shape.formulas?.[attribute.id], value: attribute.value, ...errorOf(errors.get(`${shape.id}/${attribute.id}`)) })),
     attributes: attributes.map(({ field, value }) => ({ field, value })),
   };
@@ -122,8 +120,8 @@ function objectAnswer(shape: WorkplaneShape, deps: FormulasMcpDeps) {
 function objectFormulasCommand(params: Record<string, unknown>, deps: FormulasMcpDeps) {
   const id = typeof params.id === "string" ? params.id : "";
   const shape = deps.shapes().find((candidate) => candidate.id === id);
-  // shortcut: only bodies on the workplane itself; parts inside a group take formulas once group editing reads them.
-  if (!shape) throw new Error(`There is no object ${JSON.stringify(id)} on the workplane (parts inside a group cannot take formulas yet)`);
+  // A part inside a closed group is given its formulas as in the editor: open the group, set them, close it.
+  if (!shape) throw new Error(`There is no object ${JSON.stringify(id)} on the workplane (for a part inside a group, open the group with layerling_open_group first)`);
   if (params.variableName === undefined && params.formulas === undefined) return objectAnswer(shape, deps);
   requireAdvancedMode();
   if (shape.locked) throw new Error("The object is locked; unlock it first");
