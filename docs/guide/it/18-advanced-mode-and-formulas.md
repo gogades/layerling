@@ -31,7 +31,7 @@ Una formula può leggere qualsiasi campo di un corpo che ha un nome di variabile
 
 | Campo | In una formula |
 | --- | --- |
-| Larghezza, lunghezza, altezza, diametro | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Larghezza, lunghezza, altezza, diametro | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; per un corpo tondo, larghezza e lunghezza sono il suo diametro |
 | Posizione X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotazione X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Perno X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Tutto ciò che dipende da un valore cambiato lo segue subito, come un solo passo
 
 - **Trascinare un campo che ha una formula** mantiene la formula e aggiunge la differenza: `$wall * 2` trascinato 5 mm più in là diventa `$wall * 2 + 5`. Spostare un corpo insieme al corpo che segue non cambia nulla nella sua formula.
 - **Un corpo bloccato** non segue le sue formule; il suo campo lo dice.
-- **Le parti dentro un gruppo** non possono ancora essere lette dalle formule; le formule lavorano con i corpi direttamente sul piano di lavoro.
+- **Le parti dentro un gruppo** mantengono le loro formule e i nomi di variabile quando il gruppo è chiuso, e le formule possono leggerle. Quando cambia un valore da cui dipendono, il gruppo viene ricostruito un attimo dopo il resto, nello stesso passo della cronologia. Spostare o allungare il gruppo aggiunge la differenza alle formule delle sue parti, come il trascinamento. Un gruppo con raccordi o smussi propri non viene ricostruito; aprilo con {{ui:group.edit}} per aggiornarlo.

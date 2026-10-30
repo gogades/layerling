@@ -66,7 +66,7 @@ describe("MCP sizes", () => {
   it("create_shape and update_object ask for sizes above 0", () => {
     for (const name of ["layerling_create_shape", "layerling_update_object"]) {
       const tool = (tools as Tool[]).find((entry) => entry.name === name)!;
-      for (const key of ["width", "depth", "height", "size"]) {
+      for (const key of ["width", "length", "height", "size"]) {
         expect(tool.inputSchema.properties[key].exclusiveMinimum, `${name}.${key}`).toBe(0);
       }
     }

@@ -31,7 +31,7 @@ Une formule peut lire n'importe quel champ d'un corps qui a un nom de variable. 
 
 | Champ | Dans une formule |
 | --- | --- |
-| Largeur, longueur, hauteur, diamètre | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Largeur, longueur, hauteur, diamètre | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` ; pour un corps rond, la largeur et la longueur sont son diamètre |
 | Position X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotation X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Pivot X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Tout ce qui dépend d'une valeur modifiée la suit aussitôt, en une seule étap
 
 - **Faire glisser un champ qui a une formule** garde la formule et ajoute la différence : `$wall * 2` tiré 5 mm plus loin devient `$wall * 2 + 5`. Déplacer un corps avec le corps qu'il suit ne change rien à sa formule.
 - **Un corps verrouillé** ne suit pas ses formules ; son champ l'indique.
-- **Les pièces d'un groupe** ne peuvent pas encore être lues par les formules ; les formules travaillent avec les corps posés sur le plan de travail.
+- **Les pièces d'un groupe** gardent leurs formules et leurs noms de variable quand le groupe est fermé, et les formules peuvent les lire. Quand une valeur dont elles dépendent change, le groupe est reconstruit un instant après le reste, dans la même étape de l'historique. Déplacer ou étirer le groupe reporte la différence sur les formules de ses pièces, comme un glissement. Un groupe qui a ses propres congés ou chanfreins n'est pas reconstruit ; ouvrez-le avec {{ui:group.edit}} pour le mettre à jour.

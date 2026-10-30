@@ -31,7 +31,7 @@ Formula lahko bere katerokoli polje telesa, ki ima ime spremenljivke. Dodelite g
 
 | Polje | V formuli |
 | --- | --- |
-| Širina, dolžina, višina, premer | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Širina, dolžina, višina, premer | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; pri okroglem telesu sta širina in dolžina njegov premer |
 | Položaj X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Zasuk X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Vrtišče X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Vse, kar je odvisno od spremenjene vrednosti, ji takoj sledi, kot en korak zgodo
 
 - **Vlečenje polja s formulo** formulo obdrži in prišteje razliko: `$wall * 2`, povlečen 5 mm dlje, postane `$wall * 2 + 5`. Premik telesa skupaj s telesom, ki mu sledi, njegove formule ne spremeni.
 - **Zaklenjeno telo** ne sledi svojim formulam; njegovo polje to pove.
-- **Delov znotraj skupine** formule še ne morejo brati; formule delujejo s telesi neposredno na delovni ravnini.
+- **Deli znotraj skupine** ob zaprti skupini obdržijo svoje formule in imena spremenljivk, formule pa jih lahko berejo. Ko se spremeni vrednost, od katere so odvisni, se skupina zgradi znova trenutek za ostalim, v istem koraku zgodovine. Premik ali raztegnitev skupine prišteje razliko formulam njenih delov, tako kot vlečenje. Skupina z lastnimi zaokrožitvami ali posnetji se ne zgradi znova; odpri jo z {{ui:group.edit}}, da jo posodobiš.
