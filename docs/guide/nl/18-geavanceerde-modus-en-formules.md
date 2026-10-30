@@ -31,7 +31,7 @@ Een formule kan elk veld lezen van een lichaam dat een variabelenaam heeft. Geef
 
 | Veld | In een formule |
 | --- | --- |
-| Breedte, lengte, hoogte, diameter | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Breedte, lengte, hoogte, diameter | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; bij een rond lichaam zijn breedte en lengte de diameter |
 | Positie X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Rotatie X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Draaipunt X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Alles wat van een gewijzigde waarde afhangt, volgt meteen, als één stap in de 
 
 - **Een veld met een formule slepen** houdt de formule en telt het verschil erbij op: `$wall * 2` 5 mm verder gesleept wordt `$wall * 2 + 5`. Een lichaam samen verplaatsen met het lichaam dat het volgt, verandert niets aan de formule.
 - **Een vergrendeld lichaam** volgt zijn formules niet; het veld zegt het.
-- **Onderdelen in een groep** kunnen formules nog niet lezen; formules werken met de lichamen direct op het werkvlak.
+- **Onderdelen in een groep** houden hun formules en variabelenamen als de groep gesloten is, en formules kunnen ze lezen. Verandert een waarde waarvan ze afhangen, dan wordt de groep een moment na de rest opnieuw opgebouwd, in dezelfde stap van de geschiedenis. Verplaats of rek je de groep, dan komt het verschil op de formules van zijn onderdelen, zoals bij slepen. Een groep met eigen afrondingen of afschuiningen wordt niet opnieuw opgebouwd; open hem met {{ui:group.edit}} om hem bij te werken.

@@ -31,7 +31,7 @@ Formuła może czytać każde pole bryły, która ma nazwę zmiennej. Nadaj ją 
 
 | Pole | W formule |
 | --- | --- |
-| Szerokość, długość, wysokość, średnica | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Szerokość, długość, wysokość, średnica | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; w okrągłej bryle szerokość i długość to jej średnica |
 | Położenie X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Obrót X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Punkt obrotu X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Wszystko, co zależy od zmienionej wartości, od razu za nią podąża, jako jed
 
 - **Przeciąganie pola z formułą** zachowuje formułę i dodaje różnicę: `$wall * 2` przeciągnięte o 5 mm dalej staje się `$wall * 2 + 5`. Przesunięcie bryły razem z bryłą, za którą podąża, niczego w jej formule nie zmienia.
 - **Zablokowana bryła** nie podąża za swoimi formułami; jej pole o tym mówi.
-- **Części wewnątrz grupy** nie mogą jeszcze być czytane przez formuły; formuły działają z bryłami bezpośrednio na płaszczyźnie roboczej.
+- **Części wewnątrz grupy** zachowują swoje formuły i nazwy zmiennych, gdy grupa jest zamknięta, a formuły mogą je czytać. Gdy zmieni się wartość, od której zależą, grupa jest budowana od nowa chwilę po reszcie, w tym samym kroku historii. Przesunięcie lub rozciągnięcie grupy dopisuje różnicę do formuł jej części, tak jak przeciąganie. Grupa z własnymi zaokrągleniami lub fazami nie jest budowana od nowa; otwórz ją przez {{ui:group.edit}}, aby ją zaktualizować.

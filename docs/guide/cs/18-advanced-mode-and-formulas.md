@@ -31,7 +31,7 @@ Vzorec může číst libovolné pole tělesa, které má název proměnné. Zade
 
 | Pole | Ve vzorci |
 | --- | --- |
-| Šířka, délka, výška, průměr | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter` |
+| Šířka, délka, výška, průměr | `$name.size.width`, `.size.length`, `.size.height`, `.size.diameter`; u kulatého tělesa jsou šířka i délka jeho průměr |
 | Poloha X, Y, Z | `$name.position.x`, `.position.y`, `.position.z` |
 | Otočení X, Y, Z | `$name.rotation.x`, `.rotation.y`, `.rotation.z` |
 | Bod otáčení X, Y, Z | `$name.pivot.x`, `.pivot.y`, `.pivot.z` |
@@ -53,4 +53,4 @@ Vše, co závisí na změněné hodnotě, ji hned následuje, jako jeden krok hi
 
 - **Tažení pole se vzorcem** vzorec ponechá a přičte rozdíl: `$wall * 2` posunuté o 5 mm dál se změní na `$wall * 2 + 5`. Posunutí tělesa spolu s tělesem, které následuje, na jeho vzorci nic nezmění.
 - **Zamčené těleso** své vzorce nenásleduje; jeho pole to řekne.
-- **Díly uvnitř skupiny** zatím vzorce číst nemohou; vzorce pracují s tělesy přímo na pracovní rovině.
+- **Díly uvnitř skupiny** si při zavřené skupině ponechají své vzorce i názvy proměnných a vzorce je mohou číst. Když se změní hodnota, na které závisí, skupina se postaví znovu chvíli po zbytku, ve stejném kroku historie. Posunutí nebo roztažení skupiny připíše rozdíl do vzorců jejích dílů, stejně jako tažení. Skupina s vlastními zaobleními nebo zkoseními se znovu nestaví; otevřete ji pomocí {{ui:group.edit}} a aktualizujte ji.
