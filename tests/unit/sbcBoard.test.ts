@@ -405,7 +405,7 @@ describe("layerling_create_sbc_board", () => {
 
   it("is in the tool list with the card's choices", () => {
     expect(tool).toBeDefined();
-    expect(Object.keys(tool.inputSchema.properties)).toEqual(expect.arrayContaining(["board", "clearance", "reach", "x", "z", "asHole", "name"]));
+    expect(Object.keys(tool.inputSchema.properties)).toEqual(expect.arrayContaining(["board", "clearance", "reach", "x", "y", "asHole", "name"]));
     expect(tool.inputSchema.properties.reach).toMatchObject({ minimum: 0, maximum: MAX_SBC_REACH });
     expect(tool.inputSchema.required).toBeUndefined();
     expect(tool.inputSchema.properties.board.enum).toEqual(SBC_BOARD_ORDER);
