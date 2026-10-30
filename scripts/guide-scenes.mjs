@@ -72,8 +72,8 @@ async function labelAreas(ctx, areas) {
 
 /** A small, good-looking starting point: a plate with a few bodies. */
 async function sampleParts(ctx) {
-  const box = await create(ctx, { kind: "box", x: -20, z: 0, width: 30, depth: 30, height: 20, color: BLUE });
-  const cylinder = await create(ctx, { kind: "cylinder", x: 22, z: 4, width: 26, depth: 26, height: 30, color: ORANGE });
+  const box = await create(ctx, { kind: "box", x: -20, y: 0, width: 30, length: 30, height: 20, color: BLUE });
+  const cylinder = await create(ctx, { kind: "cylinder", x: 22, y: -4, width: 26, length: 26, height: 30, color: ORANGE });
   return { box, cylinder };
 }
 
@@ -126,8 +126,8 @@ export const scenes = {
 
   async "hole-before"(ctx) {
     await freshEditor(ctx);
-    const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 40, depth: 40, height: 20, color: BLUE });
-    const hole = await create(ctx, { kind: "cylinder", x: 0, z: 0, width: 16, depth: 16, height: 30, color: ORANGE });
+    const box = await create(ctx, { kind: "box", x: 0, y: 0, width: 40, length: 40, height: 20, color: BLUE });
+    const hole = await create(ctx, { kind: "cylinder", x: 0, y: 0, width: 16, length: 16, height: 30, color: ORANGE });
     await ctx.mcp("update_object", { id: hole, hole: true });
     await select(ctx, [hole]);
     await quiet(ctx);
@@ -140,7 +140,7 @@ export const scenes = {
 
   async "fillet-tool"(ctx) {
     await freshEditor(ctx);
-    const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 40, depth: 40, height: 25, color: BLUE });
+    const box = await create(ctx, { kind: "box", x: 0, y: 0, width: 40, length: 40, height: 25, color: BLUE });
     await select(ctx, [box]);
     await ctx.click(ctx.t("editor.tool.fillet"));
     await ctx.wait(4500);
@@ -153,7 +153,7 @@ export const scenes = {
 
   async "hollow-tool"(ctx) {
     await freshEditor(ctx);
-    const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 44, depth: 44, height: 30, color: GREEN });
+    const box = await create(ctx, { kind: "box", x: 0, y: 0, width: 44, length: 44, height: 30, color: GREEN });
     await select(ctx, [box]);
     await ctx.click(ctx.t("editor.tool.hollow"));
     await ctx.wait(1200);
@@ -162,7 +162,7 @@ export const scenes = {
 
   async "hollow-result"(ctx) {
     await freshEditor(ctx);
-    const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 44, depth: 44, height: 30, color: GREEN });
+    const box = await create(ctx, { kind: "box", x: 0, y: 0, width: 44, length: 44, height: 30, color: GREEN });
     await ctx.mcp("hollow_object", { id: box, thickness: 3, openings: "top", edges: "round" });
     await ctx.wait(5000);
     await select(ctx, []);
@@ -172,7 +172,7 @@ export const scenes = {
   // The Hollow tool leaves any side open: a drawer slot from a box.
   async "hollow-sides"(ctx) {
     await freshEditor(ctx);
-    const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 44, depth: 44, height: 30, color: GREEN });
+    const box = await create(ctx, { kind: "box", x: 0, y: 0, width: 44, length: 44, height: 30, color: GREEN });
     await ctx.mcp("hollow_object", { id: box, thickness: 3, openings: ["front"], edges: "round" });
     await ctx.wait(5000);
     await select(ctx, []);
@@ -182,9 +182,9 @@ export const scenes = {
   // A group cut with a hole, in its parts' colours (the Multicolor switch).
   async "group-multicolor"(ctx) {
     await freshEditor(ctx);
-    const body = await create(ctx, { kind: "box", x: 0, z: 0, width: 44, depth: 44, height: 24, color: ORANGE });
-    const peg = await create(ctx, { kind: "cylinder", x: 12, z: -12, width: 18, depth: 18, height: 40, color: BLUE });
-    const hole = await create(ctx, { kind: "cylinder", x: -8, z: 8, width: 18, depth: 18, height: 40, color: GREEN });
+    const body = await create(ctx, { kind: "box", x: 0, y: 0, width: 44, length: 44, height: 24, color: ORANGE });
+    const peg = await create(ctx, { kind: "cylinder", x: 12, y: 12, width: 18, length: 18, height: 40, color: BLUE });
+    const hole = await create(ctx, { kind: "cylinder", x: -8, y: -8, width: 18, length: 18, height: 40, color: GREEN });
     await ctx.mcp("update_object", { id: hole, hole: true });
     const group = await ctx.mcp("group_objects", { ids: [body, peg, hole] });
     const id = group.object?.id ?? group.id;
@@ -219,8 +219,8 @@ export const scenes = {
   // Align faces: the part that moves is selected and the tool is open.
   async "mate-faces"(ctx) {
     await freshEditor(ctx);
-    const left = await create(ctx, { kind: "box", x: -26, z: 0, width: 30, depth: 30, height: 24, color: BLUE });
-    await create(ctx, { kind: "box", x: 24, z: 6, width: 30, depth: 30, height: 30, color: ORANGE, rotation: 20 });
+    const left = await create(ctx, { kind: "box", x: -26, y: 0, width: 30, length: 30, height: 24, color: BLUE });
+    await create(ctx, { kind: "box", x: 24, y: -6, width: 30, length: 30, height: 30, color: ORANGE, rotationZ: 20 });
     await select(ctx, [left]);
     await ctx.click(ctx.t("editor.tool.mateFaces"));
     await ctx.wait(1500);
@@ -230,7 +230,7 @@ export const scenes = {
   // A turned body shows its angles under it, and the Rotation card in its settings takes them.
   async "rotation-card"(ctx) {
     await freshEditor(ctx);
-    const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 36, depth: 24, height: 20, color: GREEN, rotation: 35, rotationX: 0, rotationZ: 12 });
+    const box = await create(ctx, { kind: "box", x: 0, y: 0, width: 36, length: 24, height: 20, color: GREEN, rotationZ: 35, rotationX: 0, rotationY: -12 });
     await select(ctx, [box]);
     await ctx.wait(1500);
     await ctx.evaluate(`(() => { const card = [...document.querySelectorAll("button, summary, h3, strong")].find((el) => el.textContent.trim() === ${JSON.stringify(ctx.t("inspector.rotation"))}); card?.click(); return Boolean(card); })()`);
@@ -242,8 +242,8 @@ export const scenes = {
 
   async "pattern-tool"(ctx) {
     await freshEditor(ctx);
-    const plate = await create(ctx, { kind: "cylinder", x: 0, z: 0, width: 60, depth: 60, height: 6, color: BLUE });
-    const hole = await create(ctx, { kind: "cylinder", x: 20, z: 0, width: 6, depth: 6, height: 10, color: ORANGE });
+    const plate = await create(ctx, { kind: "cylinder", x: 0, y: 0, width: 60, length: 60, height: 6, color: BLUE });
+    const hole = await create(ctx, { kind: "cylinder", x: 20, y: 0, width: 6, length: 6, height: 10, color: ORANGE });
     await ctx.mcp("update_object", { id: hole, hole: true });
     await select(ctx, [hole]);
     await ctx.click(ctx.t("editor.tool.array"));
@@ -255,10 +255,10 @@ export const scenes = {
 
   async "object-list"(ctx) {
     await freshEditor(ctx);
-    const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 40, depth: 40, height: 20, name: ctx.language === "de" ? "Grundplatte" : "Base plate", color: BLUE });
-    const hole = await create(ctx, { kind: "cylinder", x: 0, z: 0, width: 14, depth: 14, height: 30, name: ctx.language === "de" ? "Bohrung" : "Bore", color: ORANGE });
+    const box = await create(ctx, { kind: "box", x: 0, y: 0, width: 40, length: 40, height: 20, name: ctx.language === "de" ? "Grundplatte" : "Base plate", color: BLUE });
+    const hole = await create(ctx, { kind: "cylinder", x: 0, y: 0, width: 14, length: 14, height: 30, name: ctx.language === "de" ? "Bohrung" : "Bore", color: ORANGE });
     await ctx.mcp("update_object", { id: hole, hole: true });
-    await create(ctx, { kind: "sphere", x: 45, z: 5, width: 20, depth: 20, height: 20, color: GREEN });
+    await create(ctx, { kind: "sphere", x: 45, y: -5, width: 20, length: 20, height: 20, color: GREEN });
     await ctx.mcp("group_objects", { ids: [box, hole] });
     await ctx.wait(2500);
     await ctx.click(ctx.t("editor.tool.showOutliner"));
@@ -303,8 +303,8 @@ export const scenes = {
 
   async "curved-text"(ctx) {
     await freshEditor(ctx);
-    await create(ctx, { kind: "cylinder", x: 0, z: 0, width: 64, depth: 64, height: 4, color: BLUE });
-    const text = await create(ctx, { kind: "text", x: 0, z: 0, elevation: 4, height: 3, text: "layerling", color: ORANGE });
+    await create(ctx, { kind: "cylinder", x: 0, y: 0, width: 64, length: 64, height: 4, color: BLUE });
+    const text = await create(ctx, { kind: "text", x: 0, y: 0, z: 4, height: 3, text: "layerling", color: ORANGE });
     await ctx.mcp("update_object", { id: text, textCurved: true, textRadius: 20, textSize: 8 });
     await select(ctx, [text]);
     await ctx.click(ctx.t("view.top"));
@@ -442,8 +442,8 @@ scenes["tape-measure"] = async (ctx) => {
 
 scenes["open-group"] = async (ctx) => {
   await freshEditor(ctx);
-  const box = await create(ctx, { kind: "box", x: 0, z: 0, width: 40, depth: 40, height: 20, name: ctx.language === "de" ? "Grundplatte" : "Base plate", color: BLUE });
-  const hole = await create(ctx, { kind: "cylinder", x: 0, z: 0, width: 14, depth: 14, height: 30, name: ctx.language === "de" ? "Bohrung" : "Bore", color: ORANGE });
+  const box = await create(ctx, { kind: "box", x: 0, y: 0, width: 40, length: 40, height: 20, name: ctx.language === "de" ? "Grundplatte" : "Base plate", color: BLUE });
+  const hole = await create(ctx, { kind: "cylinder", x: 0, y: 0, width: 14, length: 14, height: 30, name: ctx.language === "de" ? "Bohrung" : "Bore", color: ORANGE });
   await ctx.mcp("update_object", { id: hole, hole: true });
   await ctx.mcp("group_objects", { ids: [box, hole] });
   await ctx.wait(2500);
@@ -456,8 +456,8 @@ scenes["open-group"] = async (ctx) => {
 
 scenes["align"] = async (ctx) => {
   await freshEditor(ctx);
-  const a = await create(ctx, { kind: "box", x: -20, z: -10, width: 30, depth: 20, height: 15, color: BLUE });
-  const b = await create(ctx, { kind: "cylinder", x: 25, z: 15, width: 24, depth: 24, height: 25, color: ORANGE });
+  const a = await create(ctx, { kind: "box", x: -20, y: 10, width: 30, length: 20, height: 15, color: BLUE });
+  const b = await create(ctx, { kind: "cylinder", x: 25, y: -15, width: 24, length: 24, height: 25, color: ORANGE });
   await select(ctx, [a, b]);
   await ctx.click(ctx.t("editor.tool.align"));
   await ctx.wait(1200);
@@ -466,7 +466,7 @@ scenes["align"] = async (ctx) => {
 
 scenes["printer-overhang"] = async (ctx) => {
   await freshEditor(ctx);
-  await create(ctx, { kind: "box", x: 0, z: 0, width: 210, depth: 50, height: 30, color: BLUE });
+  await create(ctx, { kind: "box", x: 0, y: 0, width: 210, length: 50, height: 30, color: BLUE });
   await ctx.evaluate(`window.dispatchEvent(new Event("layerling:open-workspace-settings")); true`);
   await ctx.wait(1000);
   await ctx.click(ctx.t("workspace.workplane"), "button, [role=tab]");
@@ -563,7 +563,7 @@ async function setSliderValue(ctx, label, value) {
 
 scenes["pattern-spiral"] = async (ctx) => {
   await freshEditor(ctx);
-  const post = await create(ctx, { kind: "box", x: 22, z: 0, width: 10, depth: 10, height: 6, color: ORANGE });
+  const post = await create(ctx, { kind: "box", x: 22, y: 0, width: 10, length: 10, height: 6, color: ORANGE });
   await select(ctx, [post]);
   await ctx.click(ctx.t("editor.tool.array"));
   // The development server builds the panel the first time it is opened.
@@ -582,7 +582,7 @@ scenes["property-reset"] = async (ctx) => {
   await ctx.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 1180, deviceScaleFactor: 1, mobile: false });
   await freshEditor(ctx);
   // A cone as the toolbar makes it, then two values moved away from their defaults: each gets its arrow.
-  const cone = await create(ctx, { kind: "cone", x: 0, z: 0, color: BLUE });
+  const cone = await create(ctx, { kind: "cone", x: 0, y: 0, color: BLUE });
   await ctx.mcp("update_object", { id: cone, height: 34, topRadius: 5 });
   await select(ctx, [cone]);
   await quiet(ctx);
@@ -610,9 +610,9 @@ scenes["edge-lines"] = async (ctx) => {
   await switchEdgeLinesOn(ctx);
   await ctx.click(ctx.t("workspace.close"));
   await ctx.wait(800);
-  await create(ctx, { kind: "box", x: -34, z: 0, width: 28, depth: 28, height: 24, color: "#1f3a5f" });
-  await create(ctx, { kind: "cylinder", x: 4, z: 0, width: 28, depth: 28, height: 24, color: "#2e5e3e" });
-  await create(ctx, { kind: "cone", x: 42, z: 0, width: 28, depth: 28, height: 24, color: "#6b1f2a" });
+  await create(ctx, { kind: "box", x: -34, y: 0, width: 28, length: 28, height: 24, color: "#1f3a5f" });
+  await create(ctx, { kind: "cylinder", x: 4, y: 0, width: 28, length: 28, height: 24, color: "#2e5e3e" });
+  await create(ctx, { kind: "cone", x: 42, y: 0, width: 28, length: 28, height: 24, color: "#6b1f2a" });
   await select(ctx, []);
   await quiet(ctx);
   await ctx.shot("edge-lines");
