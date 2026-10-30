@@ -23,7 +23,7 @@ In the advanced mode every number field of the inspector takes a formula. Type i
 
 Names start with `$`. Upper and lower case do not matter: `$Wall` and `$wall` are the same. Numbers are in the unit the design shows its fields in; there are no units inside a formula.
 
-A field a formula drives is tinted and marked *fx*. Click into it and the formula comes back to change. A formula that cannot be worked out - a name that does not exist, a division by zero, two formulas that depend on each other - turns the field red, and its tooltip says why. The field keeps its last value meanwhile. Typing a plain number into the field takes the formula away again.
+A field a formula drives is tinted and marked *fx*. Click into it and the formula comes back to change. A formula that cannot be worked out - a name that does not exist, a division by zero, two formulas that depend on each other - turns the field red, and its tooltip says why. The field keeps its last value meanwhile. Typing a plain number into the field takes the formula away again. The size boxes on the work area do the same: a width, length, height or height above the plate that a formula drives shows *fx* in its box, and a click opens the box on the formula, with the *fx* in front of it to open the formula editor.
 
 ## Giving a body a variable name
 

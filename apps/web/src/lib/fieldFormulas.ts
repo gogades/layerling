@@ -1,4 +1,5 @@
-import { isArithmeticInput, parseMeasurementInput } from "@/lib/measurementUnits";
+import { evaluateFormula } from "@/lib/formula";
+import { evaluateArithmetic, isArithmeticInput, parseMeasurementInput } from "@/lib/measurementUnits";
 
 /**
  * A calculation typed into a number field stays with the body (#180): "(140+2)/2" under
@@ -16,6 +17,22 @@ export const MAX_FIELD_FORMULA_LENGTH = 500;
 export function formulaToRemember(text: string): string | null {
   const trimmed = text.trim();
   return trimmed.length <= MAX_FIELD_FORMULA_LENGTH && isArithmeticInput(trimmed) ? trimmed : null;
+}
+
+/**
+ * Whether a field's formula is the advanced mode's (names or functions). Plain arithmetic (#180) is a remembered
+ * calculation, not a formula to keep true: a drag may have left it behind, and it never moves anything.
+ */
+export function isDesignFormula(text: string | undefined): text is string {
+  return Boolean(text) && !Number.isFinite(evaluateArithmetic(text as string));
+}
+
+/** A formula of the advanced mode typed into a field, as it is kept; null for a number, a calculation or what does not parse. */
+export function designFormulaToKeep(text: string): string | null {
+  const trimmed = text.trim();
+  if (!isDesignFormula(trimmed) || trimmed.length > MAX_FIELD_FORMULA_LENGTH) return null;
+  const result = evaluateFormula(trimmed, () => 1);
+  return result.ok || result.error.kind !== "syntax" ? trimmed : null;
 }
 
 /** Whether a remembered formula still gives the field's value (in the field's own units), so it is worth showing again. */

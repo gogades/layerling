@@ -23,7 +23,7 @@ No modo avançado, cada campo numérico do inspetor aceita uma fórmula. Digite 
 
 Os nomes começam com `$`. Maiúsculas e minúsculas não importam: `$Wall` e `$wall` são a mesma coisa. Os números ficam na unidade em que o projeto mostra seus campos; dentro de uma fórmula não há unidades.
 
-Um campo comandado por uma fórmula fica colorido e marcado com *fx*. Clique nele e a fórmula volta para ser alterada. Uma fórmula que não pode ser calculada - um nome que não existe, uma divisão por zero, duas fórmulas que dependem uma da outra - deixa o campo vermelho, e a dica dele diz por quê. Enquanto isso, o campo mantém seu último valor. Digitar um número comum no campo tira a fórmula de novo.
+Um campo comandado por uma fórmula fica colorido e marcado com *fx*. Clique nele e a fórmula volta para ser alterada. Uma fórmula que não pode ser calculada - um nome que não existe, uma divisão por zero, duas fórmulas que dependem uma da outra - deixa o campo vermelho, e a dica dele diz por quê. Enquanto isso, o campo mantém seu último valor. Digitar um número comum no campo tira a fórmula de novo. As caixas de medidas na área de trabalho fazem o mesmo: uma largura, comprimento, altura ou altura acima da mesa comandada por uma fórmula mostra *fx* na sua caixa, e um clique abre a caixa com a fórmula, com o *fx* na frente para abrir o editor de fórmulas.
 
 ## Dar um nome de variável a um corpo
 

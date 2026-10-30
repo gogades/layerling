@@ -366,11 +366,10 @@ import { printerPresetById } from "@/lib/printBed";
 import { maxSideDrop, narrowCrossWidth, narrowEndWidth, normalizeNarrowStart, normalizeSlopeCurve, normalizeSlopeFrom, normalizeSlopeSide, shapeSupportsNarrow, shapeSupportsSlope, SLOPE_MIN_END, slopeAlongWidth, slopeEndHeight, slopeSidesFor } from "@/lib/slopeAlong";
 import type { BentTubeInnerProfile, BentTubeProfile, CustomSnapGrid, GearType, GridfinityCompartmentLabel, GridfinityType, GridSize, MeasurementAccuracy, ShapeCustomization, SketchProfile, SketchStroke, SketchStrokeAlign, SketchStrokeJoin, ThreadDrive, ThreadHead, ThreadProfile, ThreadRole, WorkplaneShape, WorkplaneWorkspaceSettings } from "@/types/layerling";
 import { selectWholeValue } from "@/lib/numberField";
-import { MAX_FIELD_FORMULA_LENGTH, formulaMatchesValue, formulaToRemember, withFieldFormula, type FieldFormulas } from "@/lib/fieldFormulas";
-import { evaluateFormula } from "@/lib/formula";
+import { designFormulaToKeep, formulaMatchesValue, formulaToRemember, isDesignFormula, withFieldFormula, type FieldFormulas } from "@/lib/fieldFormulas";
 import { useAdvancedMode } from "@/lib/useSimpleMode";
 import { DesignFormulasContext } from "@/components/workplane/designFormulasContext";
-import { formulaErrorText, isDesignFormula } from "@/components/workplane/evaluateDesign";
+import { formulaErrorText } from "@/components/workplane/evaluateDesign";
 import { VariableNameField } from "@/components/workplane/VariableNameField";
 import { FormulaEditor } from "@/components/workplane/FormulaEditor";
 import { useKeptColors, useRecentColors } from "@/lib/recentColors";
@@ -8275,8 +8274,7 @@ function RangeProperty({
     const finiteNext = Number.isFinite(next) ? acrossGap(next, controlValue) : controlValue;
     const nextModelValue = toModelValue(finiteNext);
     // In the advanced mode a formula with names rides along with the value as it stands; the editor then works it out.
-    const syntax = advanced && !Number.isFinite(next) ? evaluateFormula(text, () => 1) : null;
-    const typedDesignFormula = syntax && (syntax.ok || syntax.error.kind !== "syntax") && text.trim().length <= MAX_FIELD_FORMULA_LENGTH ? text.trim() : null;
+    const typedDesignFormula = advanced && !Number.isFinite(next) ? designFormulaToKeep(text) : null;
     // The formula rides along with the value it set, in the same change; a plain number clears it.
     onFormula?.(typedDesignFormula ?? (Number.isFinite(next) ? formulaToRemember(text) : null));
     onChange(freePosition ? clamp(nextModelValue, -POSITION_TYPED_LIMIT, POSITION_TYPED_LIMIT) : allowsAboveSliderMax ? Math.max(min, nextModelValue) : clamp(nextModelValue, min, max));

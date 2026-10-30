@@ -1,4 +1,5 @@
-import { useRef, type CSSProperties } from "react";
+import { useContext, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Lock } from "lucide-react";
 import { t } from "@/lib/i18n";
 import * as THREE from "three";
@@ -6,6 +7,7 @@ import {
   measureKeyForHandle,
   ROTATION_WHEEL_SHIFT_SNAP_DEGREES,
   ROTATION_WHEEL_SNAP_DEGREES,
+  type DimensionMark,
   type TransformOverlayProps,
   type TransformOverlayState,
 } from "@/components/workplane/transformOverlayTypes";
@@ -44,7 +46,11 @@ export {
   type TransformOverlayState,
 } from "@/components/workplane/transformOverlayTypes";
 import { sizeDimensionAxis } from "@/lib/dimensionAxisColors";
+import { DesignFormulasContext } from "@/components/workplane/designFormulasContext";
+import { FormulaEditor } from "@/components/workplane/FormulaEditor";
+import { DIMENSION_FORMULA_FIELDS, isDesignFormula } from "@/lib/fieldFormulas";
 import { selectWholeValue } from "@/lib/numberField";
+import { useAdvancedMode } from "@/lib/useSimpleMode";
 import { useTouchSecondTap } from "@/lib/touchSecondTap";
 import { visibleWorkArea, type VisibleWorkArea } from "@/lib/visibleWorkArea";
 
@@ -66,6 +72,7 @@ export function TransformOverlay({
   box,
   measureKey,
   editingDimension,
+  formulaShape,
   editingCorner,
   editingRotation,
   rotationReadout,
@@ -106,6 +113,24 @@ export function TransformOverlay({
   // visible" is on, so the marks appear as soon as the shape is selected.
   const rootRef = useRef<HTMLDivElement>(null);
   const { armed, accept } = useTouchSecondTap();
+  // In the advanced mode a size a formula drives is tinted fx, red where the formula failed, as its field in the Properties panel.
+  const advanced = useAdvancedMode();
+  const designFormulas = useContext(DesignFormulasContext);
+  const formulaErrors = designFormulas.errors;
+  // The fx mark beside the open box of a lone body opens the formula editor; the box waits for it, focus or not.
+  const dimensionInputRef = useRef<HTMLInputElement>(null);
+  const [formulaEditorOpen, setFormulaEditorOpen] = useState(false);
+  const formulaEditorOpenRef = useRef(false);
+  const showFormulaEditor = (open: boolean) => {
+    formulaEditorOpenRef.current = open;
+    setFormulaEditorOpen(open);
+  };
+  const formulaOf = (axis: DimensionMark["axis"]) => {
+    const formula = formulaShape?.formulas?.[DIMENSION_FORMULA_FIELDS[axis]];
+    return advanced && isDesignFormula(formula) ? formula : undefined;
+  };
+  const formulaState = (axis: DimensionMark["axis"]) => (!formulaOf(axis) ? undefined
+    : formulaErrors.has(`${formulaShape?.id}/${DIMENSION_FORMULA_FIELDS[axis]}`) ? "error" : "driven");
   const keepVisible = visibleWorkArea(rootRef.current, box.width, box.height);
   const marks = measureKey
     ? (box.dimensions[measureKey] ?? [])
@@ -152,6 +177,38 @@ export function TransformOverlay({
       Math.max(...scaleHandles.map((handle) => handle.x)) - Math.min(...scaleHandles.map((handle) => handle.x)),
       Math.max(...scaleHandles.map((handle) => handle.y)) - Math.min(...scaleHandles.map((handle) => handle.y)),
     ) < SMALL_BODY_SCREEN_PX;
+  const dimensionInput = editingDimension ? (
+    <input
+      ref={dimensionInputRef}
+      className="dimension-input" autoComplete="off"
+      data-axis={sizeDimensionAxis(editingDimension.axis)}
+      style={formulaShape && advanced ? undefined : overlayPoint(keepVisible, editingDimension.x, editingDimension.y)}
+      data-formula={formulaState(editingDimension.axis)}
+      value={editingDimension.value}
+      autoFocus
+      inputMode={advanced ? "text" : "decimal"}
+      onPointerDown={(event) => event.stopPropagation()}
+      onFocus={(event) => {
+        // A new box, or a click back into it, starts without the formula editor.
+        showFormulaEditor(false);
+        selectWholeValue(event.currentTarget);
+      }}
+      onChange={(event) => onEditingDimensionChange(event.target.value)}
+      onBlur={() => { if (!formulaEditorOpenRef.current) onCommitDimensionEdit(); }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          onCommitDimensionEdit(event.altKey, event.shiftKey);
+        }
+        if (event.key === "Escape") {
+          onCancelDimensionEdit();
+        }
+        if (event.key === "Tab") {
+          event.preventDefault();
+          onTabDimensionEdit(event.shiftKey);
+        }
+      }}
+    />
+  ) : null;
   return (
     <div
       ref={rootRef}
@@ -229,6 +286,8 @@ export function TransformOverlay({
           data-axis={sizeDimensionAxis(mark.axis)}
           type="button"
           style={overlayPoint(keepVisible, mark.labelX, mark.labelY)}
+          data-formula={formulaState(mark.axis)}
+          title={formulaOf(mark.axis)}
           disabled={locked || sizeLocked}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => { if (accept(mark.key)) onBeginDimensionEdit(mark); }}
@@ -236,31 +295,42 @@ export function TransformOverlay({
           {mark.label}
         </button>
       ))}
-      {editingDimension ? (
-        <input
-          className="dimension-input" autoComplete="off"
-          data-axis={sizeDimensionAxis(editingDimension.axis)}
-          style={overlayPoint(keepVisible, editingDimension.x, editingDimension.y)}
-          value={editingDimension.value}
-          autoFocus
-          inputMode="decimal"
-          onPointerDown={(event) => event.stopPropagation()}
-          onFocus={(event) => selectWholeValue(event.currentTarget)}
-          onChange={(event) => onEditingDimensionChange(event.target.value)}
-          onBlur={() => onCommitDimensionEdit()}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              onCommitDimensionEdit(event.altKey, event.shiftKey);
-            }
-            if (event.key === "Escape") {
-              onCancelDimensionEdit();
-            }
-            if (event.key === "Tab") {
-              event.preventDefault();
-              onTabDimensionEdit(event.shiftKey);
-            }
+      {editingDimension && formulaShape && advanced ? (
+        <span className="dimension-edit" style={overlayPoint(keepVisible, editingDimension.x, editingDimension.y)}>
+          <button
+            type="button"
+            className="formula-open"
+            tabIndex={-1}
+            aria-label={t("formula.open")}
+            title={t("formula.open")}
+            // Pressed without taking the focus, so the box does not commit half a formula on the way.
+            onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => showFormulaEditor(true)}
+          >
+            fx
+          </button>
+          {dimensionInput}
+        </span>
+      ) : dimensionInput}
+      {formulaEditorOpen && editingDimension && formulaShape && dimensionInputRef.current ? createPortal(
+        <FormulaEditor
+          anchor={dimensionInputRef.current}
+          title={t("formula.editorTitle", { field: t(`prop.${DIMENSION_FORMULA_FIELDS[editingDimension.axis]}`) })}
+          unit={null}
+          initial={editingDimension.value}
+          preview={(text) => designFormulas.preview(text, formulaShape.id)}
+          suggest={(before) => designFormulas.suggest(before, formulaShape.id)}
+          onApply={(formula) => {
+            showFormulaEditor(false);
+            onCommitDimensionEdit(false, false, formula);
           }}
-        />
+          onCancel={() => {
+            showFormulaEditor(false);
+            onCancelDimensionEdit();
+          }}
+        />,
+        document.body,
       ) : null}
       {editingCorner?.entries.map((entry, index) => (
         <input
@@ -269,6 +339,7 @@ export function TransformOverlay({
           data-corner-input="true"
           data-axis={sizeDimensionAxis(entry.axis)}
           style={overlayPoint(keepVisible, entry.x, entry.y)}
+          data-formula={formulaState(entry.axis)}
           value={entry.value}
           autoFocus={index === 0}
           inputMode="text"

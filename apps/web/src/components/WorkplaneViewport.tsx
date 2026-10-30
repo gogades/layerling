@@ -54,7 +54,8 @@ import { rememberCameraView, useDesignViews } from "@/components/workplane/camer
 import { timedCameraDamping } from "@/lib/cameraInertia";
 import { fitCameraDepthRange, frameBounds, resetCamera, selectionBounds, startViewOf, setCameraOntoPlane, setCameraToViewDirection, setCameraToViewFace, stepCameraTurn, syncViewCube, toggleCameraProjection, zoomCameraBy } from "@/components/workplane/cameraRig";
 import { disposeCutPreviewResources, renderFrame } from "@/components/workplane/renderFrame";
-import { DIMENSION_FORMULA_FIELDS, formulaMatchesMillimeters, formulaToRemember, withFieldFormula } from "@/lib/fieldFormulas";
+import { DIMENSION_FORMULA_FIELDS, designFormulaToKeep, formulaMatchesMillimeters, formulaToRemember, isDesignFormula, withFieldFormula } from "@/lib/fieldFormulas";
+import { getAdvancedMode } from "@/lib/simpleMode";
 import { displayToMillimeters, formatLengthMm, lengthDisplayUnit, measurementOptionLabel, millimetersToDisplay, parseLengthMm, parseMeasurementInput, resolveLengthMm, setLengthUnit } from "@/lib/measurementUnits";
 import { computeCornerRulerRelativeCoordinates, cornerRulerArmLength, cornerRulerElevationArmLength, toggledCornerRulerArms, cornerRulerAxisModes, cornerRulerPlateArms, cornerRulerFrameForWorkplane, cornerRulerShiftVector, pointAlongRuler, rotateCornerRulerFrame, rulerDimensionMatch, toggledCornerRulerAxis, toggledCornerRulerMode, type CornerRulerAxis, type RulerDimensionField } from "@/lib/rulerDimensions";
 import { createMoveDimensionOverlay, type MoveDimensionAxis, type MoveDimensionOverlayData } from "@/lib/moveDimensionLines";
@@ -5151,8 +5152,8 @@ export function WorkplaneViewport({
     bakeRotatedShapes.forEach((id) => onUpdateShape(id, { bakeTransform: true }));
   }, [onDuplicateShapesMoved, onInteractionActiveChange, onUpdateShape, settleLiftMoveDimension, settleSlide, suppressCornerEditAfterDrag, suppressLiftEditAfterDrag]);
 
-  // The calculation a box was last set from (#180), while it still gives the body's size; the
-  // box then opens on the formula instead of the number, as the Properties field does.
+  // The calculation a box was last set from (#180) while it still gives the body's size, or the advanced mode's formula;
+  // the box then opens on the formula instead of the number, as the Properties field does.
   const formulaForDimensionMark = useCallback((mark: DimensionMark): string | undefined => {
     if (mark.axis !== "width" && mark.axis !== "depth" && mark.axis !== "height") return undefined;
     const shape = shapesRef.current.find((entry) => entry.id === selectedIdsRef.current[0]);
@@ -5160,7 +5161,7 @@ export function WorkplaneViewport({
     if (!shape || !formula) return undefined;
     const frame = selectionFrameForShapes([shape], [shape.id]);
     const extent = mark.axis === "width" ? frame?.width ?? shapeWidth(shape) : mark.axis === "depth" ? frame?.depth ?? shapeDepth(shape) : frame?.height ?? shape.height;
-    return formulaMatchesMillimeters(formula, extent, parseMeasureMm) ? formula : undefined;
+    return (getAdvancedMode() && isDesignFormula(formula)) || formulaMatchesMillimeters(formula, extent, parseMeasureMm) ? formula : undefined;
   }, []);
 
   // Whether the framing square counts this size to the middle of the body: typing it then grows the body to both sides.
@@ -5175,7 +5176,7 @@ export function WorkplaneViewport({
     if (selectedIdsRef.current.length !== 1) return undefined;
     const shape = shapesRef.current.find((entry) => entry.id === selectedIdsRef.current[0]);
     const formula = shape?.formulas?.[DIMENSION_FORMULA_FIELDS.elevation];
-    return formulaMatchesMillimeters(formula, elevation, parseMeasureMm) ? formula : undefined;
+    return (getAdvancedMode() && isDesignFormula(formula)) || formulaMatchesMillimeters(formula, elevation, parseMeasureMm) ? formula : undefined;
   }, []);
 
   const beginDimensionEdit = useCallback((mark: DimensionMark) => {
@@ -5189,7 +5190,7 @@ export function WorkplaneViewport({
     setPinnedMeasureKey(mark.handleKey);
     // The height above the plate, shown with the other sizes (#979), keeps its calculation as the arrow's box does.
     const formula = mark.axis === "elevation" ? elevationFormulaFor(parseMeasureMm(mark.label)) : formulaForDimensionMark(mark);
-    setEditingDimension({ key: mark.key, axis: mark.axis, x: mark.labelX, y: mark.labelY, value: formula ?? mark.label });
+    setEditingDimension({ key: mark.key, axis: mark.axis, x: mark.labelX, y: mark.labelY, value: formula ?? mark.label, original: formula ?? mark.label });
   }, [elevationFormulaFor, formulaForDimensionMark, rememberResizeAnchor]);
 
   const beginLiftEdit = useCallback((handleKey: string, x: number, y: number) => {
@@ -5211,12 +5212,14 @@ export function WorkplaneViewport({
     setPinnedMeasureKey(elevationMark?.handleKey ?? handleKey);
     setActiveRotationWheel(false);
     setRotationReadout(null);
+    const value = elevationFormulaFor(elevation) ?? formatMeasure(elevation, workspaceRef.current.accuracy);
     setEditingDimension({
       key: "elevation",
       axis: "elevation",
       x: clamp(editX, 44, Math.max(44, (transformOverlayRef.current?.width ?? 900) - 44)),
       y: clamp(editY, 34, Math.max(34, (transformOverlayRef.current?.height ?? 600) - 34)),
-      value: elevationFormulaFor(elevation) ?? formatMeasure(elevation, workspaceRef.current.accuracy),
+      value,
+      original: value,
     });
   }, [elevationFormulaFor]);
 
@@ -5310,12 +5313,14 @@ export function WorkplaneViewport({
   }, []);
 
   const dimensionPatchFor = useCallback((shape: WorkplaneShape, axis: "width" | "depth" | "height", text: string, keepProportions = false): Partial<WorkplaneShape> | null => {
-    const sized = dimensionSizePatchFor(shape, axis, text, keepProportions);
+    // A formula of the advanced mode is kept as typed: working the design out gives the body its size.
+    const designFormula = getAdvancedMode() ? designFormulaToKeep(text) : null;
+    const sized = designFormula ? {} : dimensionSizePatchFor(shape, axis, text, keepProportions);
     if (!sized) return null;
     // A GT2 pulley (Discussion #1319) takes a typed size as teeth and belt width.
-    const patch = pulleySizedPatch(shape, sized);
+    const patch = designFormula ? sized : pulleySizedPatch(shape, sized);
     // The calculation rides along with the size it set, in the same change (#180); a plain number clears it.
-    const formula = formulaToRemember(text);
+    const formula = designFormula ?? formulaToRemember(text);
     return shape.formulas || formula ? { ...patch, formulas: withFieldFormula(shape.formulas, DIMENSION_FORMULA_FIELDS[axis], formula) } : patch;
   }, [dimensionSizePatchFor]);
 
@@ -5370,30 +5375,30 @@ export function WorkplaneViewport({
     onInteractionActiveChange?.(false);
   }, [onInteractionActiveChange, onUpdateShape]);
 
-  const commitDimensionEdit = useCallback((aroundCenter = false, proportional = false) => {
+  const commitDimensionEdit = useCallback((aroundCenter = false, proportional = false, value?: string) => {
     // Alt+Enter (#327): no edge is held, so the shape grows round its middle.
     if (aroundCenter) lastResizeAnchorRef.current = null;
     // With Keep proportions ticked, or with Shift+Enter, the other two measures follow, as in the properties
     // panel and as Shift does when a corner is dragged; the box on the body passed the one measure alone (#899).
     const keepProportions = proportional || proportionLockRef.current;
-    const edit = editingDimension;
+    const edit = editingDimension && value !== undefined ? { ...editingDimension, value } : editingDimension;
     const id = selectedIdsRef.current[0];
     const shape = shapesRef.current.find((entry) => entry.id === id);
-    if (!edit || !shape) {
-      setEditingDimension(null);
-      return;
-    }
+    setEditingDimension(null);
+    setPinnedMeasureKey(null);
+    // Left as it opened, the box changes nothing: neither the exact size for its rounded reading nor the formula behind it.
+    if (!edit || !shape || edit.value.trim() === edit.original) return;
     if (edit.axis === "elevation") {
       const value = parseMeasureMm(edit.value);
-      if (Number.isFinite(value)) {
+      const designFormula = getAdvancedMode() && selectedIdsRef.current.length === 1 ? designFormulaToKeep(edit.value) : null;
+      if (designFormula) {
+        onUpdateShape(id, { formulas: withFieldFormula(shape.formulas, DIMENSION_FORMULA_FIELDS.elevation, designFormula) });
+      } else if (Number.isFinite(value)) {
         const activeWorkplane = placementWorkplaneRef.current;
         const frame = selectionFrameForShapes(shapesRef.current, selectedIdsRef.current, activeWorkplane);
         const lift = frame ? liftGeometryForFrame(frame, activeWorkplane) : null;
-        const currentElevation = lift
-          ? lift.elevation
-          : shape.elevation ?? 0;
-        const targetElevation = cleanNearZero(clamp(value, MIN_ELEVATION, MAX_ELEVATION), 0.0005);
-        const delta = targetElevation - currentElevation;
+        const currentElevation = lift ? lift.elevation : shape.elevation ?? 0;
+        const delta = cleanNearZero(clamp(value, MIN_ELEVATION, MAX_ELEVATION), 0.0005) - currentElevation;
         const axis = lift ? lift.axis : new THREE.Vector3(0, 1, 0);
         // One change for all bodies, or each update would start from the shapes as they were (#259).
         onInteractionActiveChange?.(true);
@@ -5412,18 +5417,12 @@ export function WorkplaneViewport({
         });
         onInteractionActiveChange?.(false);
       }
-      setEditingDimension(null);
-      setPinnedMeasureKey(null);
-      return;
-    }
-    if (selectedIdsRef.current.length > 1) {
+    } else if (selectedIdsRef.current.length > 1) {
       applyTypedSelectionSize([{ axis: edit.axis, text: edit.value }], keepProportions);
     } else {
       const patch = dimensionPatchFor(shape, edit.axis, edit.value, keepProportions);
       if (patch) onUpdateShape(id, patch);
     }
-    setEditingDimension(null);
-    setPinnedMeasureKey(null);
   }, [applyTypedSelectionSize, dimensionPatchFor, editingDimension, onInteractionActiveChange, onUpdateShape]);
 
   /**
@@ -5516,7 +5515,7 @@ export function WorkplaneViewport({
   useEffect(() => {
     if (!editingDimension) return;
     const applyOnOutsidePress = (event: PointerEvent) => {
-      if ((event.target as HTMLElement | null)?.closest?.(".dimension-input")) return;
+      if ((event.target as HTMLElement | null)?.closest?.(".dimension-input, .dimension-edit, .formula-editor")) return;
       commitDimensionEdit();
     };
     window.addEventListener("pointerdown", applyOnOutsidePress, true);
@@ -9202,6 +9201,7 @@ export function WorkplaneViewport({
               box={dimensionsHidden ? { ...transformOverlay, alwaysVisibleDimensionKeys: [] } : transformOverlay}
               measureKey={pinnedMeasureKey ?? hoverMeasureKey}
               editingDimension={editingDimension}
+              formulaShape={selectedShape}
               editingCorner={editingCorner}
               editingRotation={editingRotation}
               rotationReadout={rotationReadout}
