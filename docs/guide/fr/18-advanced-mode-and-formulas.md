@@ -45,7 +45,7 @@ Renommer le corps le renomme dans toutes les formules qui l'utilisent. Une copie
 
 ## L'éditeur de formule
 
-Une formule plus longue s'écrit plus facilement dans l'éditeur de formule : cliquez dans un champ, puis sur le petit bouton *fx* à son extrémité. Il montre le résultat pendant que vous tapez, ou pourquoi il n'y en a pas. Après `$`, il propose les variables et les corps nommés, après `$name.` les champs de ce corps, chacun avec sa valeur ; les flèches et [[Enter]] ou [[Tab]] en choisissent un. [[Enter]] applique ensuite la formule, [[Shift]]+[[Enter]] commence une nouvelle ligne pour garder une longue formule lisible, et [[Esc]] ferme l'éditeur sans changement. Il se déplace par son titre.
+Une formule plus longue s'écrit plus facilement dans l'éditeur de formule : cliquez sur le *fx* au début d'un champ piloté par une formule, ou cliquez dans n'importe quel champ, puis sur le *fx* qui apparaît à son début. Il montre le résultat pendant que vous tapez, ou pourquoi il n'y en a pas. Après `$`, il propose les variables et les corps nommés, après `$name.` les champs de ce corps, chacun avec sa valeur ; les flèches et [[Enter]] ou [[Tab]] en choisissent un. [[Enter]] applique ensuite la formule, [[Shift]]+[[Enter]] commence une nouvelle ligne pour garder une longue formule lisible, et [[Esc]] ferme l'éditeur sans changement. Il se déplace par son titre.
 
 ## Quand les valeurs bougent
 

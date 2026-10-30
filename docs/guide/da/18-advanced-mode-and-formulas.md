@@ -45,7 +45,7 @@ Omdøber du legemet, ændres navnet i hver formel, der bruger det. En kopi af et
 
 ## Formeleditoren
 
-En længere formel er lettere at skrive i formeleditoren: klik i et felt og derefter på den lille knap *fx* for enden af det. Den viser resultatet, mens du skriver, eller hvorfor der ikke er noget. Efter `$` viser den variablerne og de navngivne legemer, efter `$name.` det legemes felter, hver med sin værdi; piletasterne og [[Enter]] eller [[Tab]] vælger et. [[Enter]] anvender derefter formlen, [[Shift]]+[[Enter]] starter en ny linje, så en lang formel forbliver læselig, og [[Esc]] lukker editoren uden ændring. Den kan flyttes i sin titel.
+En længere formel er lettere at skrive i formeleditoren: klik på *fx* i starten af et felt, som en formel styrer, eller klik i et hvilket som helst felt og derefter på det *fx*, der dukker op i starten af det. Den viser resultatet, mens du skriver, eller hvorfor der ikke er noget. Efter `$` viser den variablerne og de navngivne legemer, efter `$name.` det legemes felter, hver med sin værdi; piletasterne og [[Enter]] eller [[Tab]] vælger et. [[Enter]] anvender derefter formlen, [[Shift]]+[[Enter]] starter en ny linje, så en lang formel forbliver læselig, og [[Esc]] lukker editoren uden ændring. Den kan flyttes i sin titel.
 
 ## Når værdier flytter sig
 

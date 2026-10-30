@@ -45,7 +45,7 @@ Al renombrar el cuerpo, el nombre cambia en todas las fórmulas que lo usan. Una
 
 ## El editor de fórmulas
 
-Una fórmula más larga se escribe mejor en el editor de fórmulas: haz clic en un campo y luego en el pequeño botón *fx* de su extremo. Muestra el resultado mientras escribes, o por qué no lo hay. Tras `$` lista las variables y los cuerpos con nombre; tras `$name.`, los campos de ese cuerpo, cada uno con su valor; las flechas y [[Enter]] o [[Tab]] eligen uno. Después, [[Enter]] aplica la fórmula, [[Mayús]]+[[Enter]] empieza una línea nueva para que una fórmula larga se lea bien y [[Esc]] cierra el editor sin cambios. Se mueve por su título.
+Una fórmula más larga se escribe mejor en el editor de fórmulas: haz clic en el *fx* al principio de un campo que dirige una fórmula, o haz clic en cualquier campo y luego en el *fx* que aparece al principio. Muestra el resultado mientras escribes, o por qué no lo hay. Tras `$` lista las variables y los cuerpos con nombre; tras `$name.`, los campos de ese cuerpo, cada uno con su valor; las flechas y [[Enter]] o [[Tab]] eligen uno. Después, [[Enter]] aplica la fórmula, [[Mayús]]+[[Enter]] empieza una línea nueva para que una fórmula larga se lea bien y [[Esc]] cierra el editor sin cambios. Se mueve por su título.
 
 ## Cuando los valores se mueven
 

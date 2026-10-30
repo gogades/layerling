@@ -45,7 +45,7 @@ Renaming the body renames it in every formula that uses it. A copy of a named bo
 
 ## The formula editor
 
-A longer formula is easier in the formula editor: click into a field and then the small *fx* button at its end. It shows the result while you type, or why there is none. After `$` it lists the variables and named bodies, after `$name.` the fields of that body, each with its value; the arrow keys and [[Enter]] or [[Tab]] take one. [[Enter]] then applies the formula, [[Shift]]+[[Enter]] starts a new line to keep a long formula readable, and [[Esc]] closes the editor without a change. It can be moved by its title.
+A longer formula is easier in the formula editor: click the *fx* at the start of a field a formula drives, or click into any field and then the *fx* that appears at its start. It shows the result while you type, or why there is none. After `$` it lists the variables and named bodies, after `$name.` the fields of that body, each with its value; the arrow keys and [[Enter]] or [[Tab]] take one. [[Enter]] then applies the formula, [[Shift]]+[[Enter]] starts a new line to keep a long formula readable, and [[Esc]] closes the editor without a change. It can be moved by its title.
 
 ## When values move
 

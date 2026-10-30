@@ -45,7 +45,7 @@ Wird der Körper umbenannt, ändert sich der Name in jeder Formel, die ihn verwe
 
 ## Der Formeleditor
 
-Eine längere Formel schreibt sich leichter im Formeleditor: Klicke in ein Feld und dann auf den kleinen Knopf *fx* an seinem Ende. Er zeigt das Ergebnis, während du tippst, oder warum es keines gibt. Nach `$` listet er die Variablen und benannten Körper auf, nach `$name.` die Felder dieses Körpers, jedes mit seinem Wert; die Pfeiltasten und [[Enter]] oder [[Tab]] übernehmen einen Eintrag. [[Enter]] übernimmt dann die Formel, [[Umschalt]]+[[Enter]] beginnt eine neue Zeile, damit eine lange Formel lesbar bleibt, und [[Esc]] schließt den Editor ohne Änderung. Er lässt sich an seinem Titel verschieben.
+Eine längere Formel schreibt sich leichter im Formeleditor: Klicke auf das *fx* am Anfang eines Felds, das eine Formel steuert, oder klicke in ein beliebiges Feld und dann auf das *fx*, das an seinem Anfang erscheint. Er zeigt das Ergebnis, während du tippst, oder warum es keines gibt. Nach `$` listet er die Variablen und benannten Körper auf, nach `$name.` die Felder dieses Körpers, jedes mit seinem Wert; die Pfeiltasten und [[Enter]] oder [[Tab]] übernehmen einen Eintrag. [[Enter]] übernimmt dann die Formel, [[Umschalt]]+[[Enter]] beginnt eine neue Zeile, damit eine lange Formel lesbar bleibt, und [[Esc]] schließt den Editor ohne Änderung. Er lässt sich an seinem Titel verschieben.
 
 ## Wenn sich Werte bewegen
 
