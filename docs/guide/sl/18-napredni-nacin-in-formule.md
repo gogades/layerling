@@ -23,7 +23,7 @@ V naprednem načinu vsako številsko polje inšpektorja sprejme formulo. Vnesite
 
 Imena se začnejo z `$`. Velike in male črke niso pomembne: `$Wall` in `$wall` sta isto. Števila so v enoti, v kateri model prikazuje svoja polja; enot v formuli ni.
 
-Polje, ki ga določa formula, je obarvano in označeno z *fx*. Kliknite vanj in formula se vrne za urejanje. Formula, ki je ni mogoče izračunati - ime, ki ne obstaja, deljenje z nič, dve formuli, odvisni druga od druge -, obarva polje rdeče, opis orodja pa pove zakaj. Polje medtem obdrži zadnjo vrednost. Če v polje vnesete navadno število, formula spet izgine.
+Polje, ki ga določa formula, je obarvano in označeno z *fx*. Kliknite vanj in formula se vrne za urejanje. Formula, ki je ni mogoče izračunati - ime, ki ne obstaja, deljenje z nič, dve formuli, odvisni druga od druge -, obarva polje rdeče, opis orodja pa pove zakaj. Polje medtem obdrži zadnjo vrednost. Če v polje vnesete navadno število, formula spet izgine. Enako delajo polja mer na delovni površini: širina, dolžina, višina ali višina nad ploščo, ki jo določa formula, pokaže *fx* v svojem polju, klik pa odpre polje s formulo, pred njim pa *fx*, ki odpre urejevalnik formul.
 
 ## Ime spremenljivke za telo
 

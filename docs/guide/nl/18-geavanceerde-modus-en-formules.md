@@ -23,7 +23,7 @@ In de geavanceerde modus neemt elk getalveld van de inspector een formule aan. T
 
 Namen beginnen met `$`. Hoofdletters en kleine letters maken niet uit: `$Wall` en `$wall` zijn hetzelfde. Getallen staan in de eenheid waarin het ontwerp zijn velden toont; in een formule staan geen eenheden.
 
-Een veld dat een formule bepaalt, is getint en gemarkeerd met *fx*. Klik erin en de formule komt terug om te wijzigen. Een formule die niet uit te rekenen is - een naam die niet bestaat, een deling door nul, twee formules die van elkaar afhangen - kleurt het veld rood, en de tooltip zegt waarom. Het veld houdt zolang zijn laatste waarde. Een gewoon getal in het veld typen haalt de formule weer weg.
+Een veld dat een formule bepaalt, is getint en gemarkeerd met *fx*. Klik erin en de formule komt terug om te wijzigen. Een formule die niet uit te rekenen is - een naam die niet bestaat, een deling door nul, twee formules die van elkaar afhangen - kleurt het veld rood, en de tooltip zegt waarom. Het veld houdt zolang zijn laatste waarde. Een gewoon getal in het veld typen haalt de formule weer weg. De maatvakjes op het werkvlak doen hetzelfde: een breedte, lengte, hoogte of hoogte boven de plaat die een formule bepaalt, toont *fx* in zijn vakje, en een klik opent het vakje met de formule, met de *fx* ervoor die de formule-editor opent.
 
 ## Een lichaam een variabelenaam geven
 

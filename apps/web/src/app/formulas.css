@@ -351,3 +351,57 @@ html[data-theme="dark"] .formula-editor {
   color: var(--formula-mark);
   background: var(--formula-tint);
 }
+
+/* A size on the work area that a formula drives: the box of the value is tinted and marked fx, as its field in the
+   Properties panel, and opens on the formula. */
+.dimension-label[data-formula],
+.dimension-input[data-formula] {
+  background-image: linear-gradient(var(--formula-tint), var(--formula-tint));
+}
+
+/* Wide enough for the formula it opens on. */
+.dimension-input[data-formula] {
+  min-width: 64px;
+  max-width: 260px;
+  width: auto;
+  field-sizing: content;
+}
+
+.dimension-label[data-formula="error"],
+.dimension-input[data-formula="error"] {
+  background-image: linear-gradient(var(--formula-error-tint), var(--formula-error-tint));
+}
+
+.dimension-label[data-formula]::before {
+  margin-right: 4px;
+  color: var(--formula-mark);
+  font: italic 700 11px/1 var(--font-ui);
+  content: "fx";
+}
+
+.dimension-label[data-formula="error"]::before {
+  color: var(--formula-error);
+}
+
+/* The open box of a lone body in the advanced mode, with its fx mark in front, which opens the formula editor. */
+.dimension-edit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 2px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 2px 8px rgba(166, 86, 0, 0.18);
+  pointer-events: auto;
+  transform: translate3d(var(--overlay-x, 0), var(--overlay-y, 0), 0) translate(-50%, -50%);
+}
+
+.dimension-edit .dimension-input {
+  position: static;
+  transform: none;
+  box-shadow: none;
+}

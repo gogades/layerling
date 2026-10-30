@@ -23,7 +23,7 @@ I avanceret tilstand tager hvert talfelt i inspektøren en formel. Skriv den som
 
 Navne begynder med `$`. Store og små bogstaver betyder ikke noget: `$Wall` og `$wall` er det samme. Tal står i den enhed, designet viser sine felter i; der er ingen enheder i en formel.
 
-Et felt, som en formel styrer, er farvet og mærket *fx*. Klik i det, og formlen kommer tilbage, så du kan ændre den. En formel, der ikke kan regnes ud - et navn, der ikke findes, en division med nul, to formler, der afhænger af hinanden - farver feltet rødt, og dets værktøjstip siger hvorfor. Feltet beholder imens sin seneste værdi. Skriver du et almindeligt tal i feltet, forsvinder formlen igen.
+Et felt, som en formel styrer, er farvet og mærket *fx*. Klik i det, og formlen kommer tilbage, så du kan ændre den. En formel, der ikke kan regnes ud - et navn, der ikke findes, en division med nul, to formler, der afhænger af hinanden - farver feltet rødt, og dets værktøjstip siger hvorfor. Feltet beholder imens sin seneste værdi. Skriver du et almindeligt tal i feltet, forsvinder formlen igen. Målfelterne på arbejdsfladen gør det samme: en bredde, længde, højde eller højde over pladen, som en formel styrer, viser *fx* i sit felt, og et klik åbner feltet med formlen, med *fx* foran, som åbner formeleditoren.
 
 ## Giv et legeme et variabelnavn
 
