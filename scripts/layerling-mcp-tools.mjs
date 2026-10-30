@@ -2154,8 +2154,8 @@ export const tools = [
       properties: {
         ...editorTargetSchema.properties,
         axis: { type: "string", enum: ["x", "y", "z"], description: "Cutting axis, as in layerling_set_section_view. Defaults to the axis of the section view." },
-        offset: { type: "number", description: "Where the plane cuts, in mm: an x position, a height above the plate or a z position. Defaults to the section view's position, or the middle of the design." },
-        flipped: { type: "boolean", description: "Which side the sketch faces and its body grows into: false towards smaller x, height or z (the side the section view takes away unless flipped), true towards greater. Defaults to the section view's." },
+        offset: { type: "number", description: "Where the plane cuts, in mm: an x position, a y position (towards the back) or a height above the plate. Defaults to the section view's position, or the middle of the design." },
+        flipped: { type: "boolean", description: "Which side the sketch faces and its body grows into: false towards smaller x, y or z (the side the section view takes away unless flipped), true towards greater. Defaults to the section view's." },
         height: { type: "number", description: "Build the body at once, this many mm out of the cut (more than 0, at most 1000). Left out, the sketch opens in the editor instead." },
         name: { type: "string", description: "Name of the new body (with height)." },
         color: { type: "string", description: "Colour of the new body (with height)." },
