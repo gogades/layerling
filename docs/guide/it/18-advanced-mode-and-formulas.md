@@ -45,7 +45,7 @@ Rinominare il corpo lo rinomina in tutte le formule che lo usano. Una copia di u
 
 ## L'editor di formule
 
-Una formula più lunga si scrive meglio nell'editor di formule: fai clic in un campo e poi sul piccolo pulsante *fx* alla sua estremità. Mostra il risultato mentre scrivi, o perché non c'è. Dopo `$` elenca le variabili e i corpi con nome, dopo `$name.` i campi di quel corpo, ognuno con il suo valore; le frecce e [[Enter]] o [[Tab]] ne scelgono uno. [[Enter]] applica poi la formula, [[Shift]]+[[Enter]] inizia una nuova riga per tenere leggibile una formula lunga, e [[Esc]] chiude l'editor senza modifiche. Si sposta dal titolo.
+Una formula più lunga si scrive meglio nell'editor di formule: fai clic sull'*fx* all'inizio di un campo guidato da una formula, oppure fai clic in un campo qualsiasi e poi sull'*fx* che compare all'inizio. Mostra il risultato mentre scrivi, o perché non c'è. Dopo `$` elenca le variabili e i corpi con nome, dopo `$name.` i campi di quel corpo, ognuno con il suo valore; le frecce e [[Enter]] o [[Tab]] ne scelgono uno. [[Enter]] applica poi la formula, [[Shift]]+[[Enter]] inizia una nuova riga per tenere leggibile una formula lunga, e [[Esc]] chiude l'editor senza modifiche. Si sposta dal titolo.
 
 ## Quando i valori si muovono
 

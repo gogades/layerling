@@ -45,7 +45,7 @@ A(z) {{ui:variables.title}} ablak a szalagon lévő gombjával vagy a [[Ctrl]]+[
 
 ## A képletszerkesztő
 
-Egy hosszabb képletet könnyebb a képletszerkesztőben írni: kattints egy mezőbe, majd a végén lévő kis *fx* gombra. Gépelés közben mutatja az eredményt, vagy azt, hogy miért nincs. A `$` után felsorolja a változókat és az elnevezett testeket, a `$name.` után annak a testnek a mezőit, mindegyiket az értékével; a nyilak és az [[Enter]] vagy [[Tab]] kiválaszt egyet. Az [[Enter]] ezután alkalmazza a képletet, a [[Shift]]+[[Enter]] új sort kezd, hogy egy hosszú képlet olvasható maradjon, az [[Esc]] pedig változtatás nélkül bezárja a szerkesztőt. A címénél mozgatható.
+Egy hosszabb képletet könnyebb a képletszerkesztőben írni: kattints a képlet által vezérelt mező elején lévő *fx*-re, vagy kattints bármelyik mezőbe, majd az elején megjelenő *fx*-re. Gépelés közben mutatja az eredményt, vagy azt, hogy miért nincs. A `$` után felsorolja a változókat és az elnevezett testeket, a `$name.` után annak a testnek a mezőit, mindegyiket az értékével; a nyilak és az [[Enter]] vagy [[Tab]] kiválaszt egyet. Az [[Enter]] ezután alkalmazza a képletet, a [[Shift]]+[[Enter]] új sort kezd, hogy egy hosszú képlet olvasható maradjon, az [[Esc]] pedig változtatás nélkül bezárja a szerkesztőt. A címénél mozgatható.
 
 ## Amikor az értékek elmozdulnak
 

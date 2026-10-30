@@ -45,7 +45,7 @@ Přejmenováním tělesa se název změní ve všech vzorcích, které ho použ�
 
 ## Editor vzorců
 
-Delší vzorec se lépe píše v editoru vzorců: klikněte do pole a pak na malé tlačítko *fx* na jeho konci. Ukazuje výsledek už při psaní, nebo proč žádný není. Po `$` nabídne proměnné a pojmenovaná tělesa, po `$name.` pole tohoto tělesa, každé s jeho hodnotou; šipky a [[Enter]] nebo [[Tab]] jednu položku vyberou. [[Enter]] pak vzorec použije, [[Shift]]+[[Enter]] začne nový řádek, aby dlouhý vzorec zůstal čitelný, a [[Esc]] editor zavře beze změny. Lze ho posunout za titulek.
+Delší vzorec se lépe píše v editoru vzorců: klikněte na *fx* na začátku pole, které řídí vzorec, nebo klikněte do libovolného pole a pak na *fx*, které se objeví na jeho začátku. Ukazuje výsledek už při psaní, nebo proč žádný není. Po `$` nabídne proměnné a pojmenovaná tělesa, po `$name.` pole tohoto tělesa, každé s jeho hodnotou; šipky a [[Enter]] nebo [[Tab]] jednu položku vyberou. [[Enter]] pak vzorec použije, [[Shift]]+[[Enter]] začne nový řádek, aby dlouhý vzorec zůstal čitelný, a [[Esc]] editor zavře beze změny. Lze ho posunout za titulek.
 
 ## Když se hodnoty pohnou
 
