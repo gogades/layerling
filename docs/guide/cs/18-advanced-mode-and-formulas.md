@@ -23,7 +23,7 @@ V pokročilém režimu přijme každé číselné pole inspektoru vzorec. Napiš
 
 Jména začínají znakem `$`. Velká a malá písmena nehrají roli: `$Wall` a `$wall` jsou totéž. Čísla jsou v jednotce, ve které návrh zobrazuje svá pole; uvnitř vzorce žádné jednotky nejsou.
 
-Pole, které určuje vzorec, je podbarvené a označené *fx*. Klikněte do něj a vzorec se vrátí k úpravě. Vzorec, který nejde spočítat - jméno, které neexistuje, dělení nulou, dva vzorce závislé na sobě -, obarví pole červeně a jeho popisek řekne proč. Pole si zatím ponechá poslední hodnotu. Napsáním obyčejného čísla do pole se vzorec opět odstraní.
+Pole, které určuje vzorec, je podbarvené a označené *fx*. Klikněte do něj a vzorec se vrátí k úpravě. Vzorec, který nejde spočítat - jméno, které neexistuje, dělení nulou, dva vzorce závislé na sobě -, obarví pole červeně a jeho popisek řekne proč. Pole si zatím ponechá poslední hodnotu. Napsáním obyčejného čísla do pole se vzorec opět odstraní. Stejně se chovají políčka rozměrů na pracovní ploše: šířka, délka, výška nebo výška nad deskou, kterou určuje vzorec, ukazuje ve svém políčku *fx* a kliknutí políčko otevře se vzorcem, před ním *fx*, které otevře editor vzorců.
 
 ## Pojmenování tělesa proměnnou
 

@@ -23,7 +23,7 @@ Haladó módban az inspektor minden számmezője elfogad egy képletet. Írd be 
 
 A nevek `$` jellel kezdődnek. A kis- és nagybetű nem számít: `$Wall` és `$wall` ugyanaz. A számok abban a mértékegységben vannak, amelyben a terv a mezőit mutatja; a képletben nincsenek mértékegységek.
 
-Egy képlet által irányított mező színezett és *fx* jelölésű. Kattints bele, és a képlet visszajön szerkesztésre. Egy ki nem számítható képlet - nem létező név, nullával való osztás, két egymástól függő képlet - pirosra színezi a mezőt, és az elemleírás megmondja, miért. A mező addig megtartja az utolsó értékét. Ha egyszerű számot írsz a mezőbe, a képlet ismét eltűnik.
+Egy képlet által irányított mező színezett és *fx* jelölésű. Kattints bele, és a képlet visszajön szerkesztésre. Egy ki nem számítható képlet - nem létező név, nullával való osztás, két egymástól függő képlet - pirosra színezi a mezőt, és az elemleírás megmondja, miért. A mező addig megtartja az utolsó értékét. Ha egyszerű számot írsz a mezőbe, a képlet ismét eltűnik. A munkaterület méretmezői ugyanígy működnek: a képlet által irányított szélesség, hosszúság, magasság vagy lap feletti magasság *fx* jelet mutat a mezőjében, és egy kattintás a képlettel nyitja meg a mezőt, előtte az *fx*, amely megnyitja a képletszerkesztőt.
 
 ## Változónév adása egy testnek
 
