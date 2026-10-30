@@ -253,9 +253,9 @@ const ACTIONS = [
     key: "group-many", label: "Group 60 boxes with 20 cylinder holes",
     setup: async () => {
       const made = [];
-      for (let k = 0; k < 60; k += 1) made.push((await mcp("create_shape", { kind: "box", x: (k % 10) * 9 - 45, z: Math.floor(k / 10) * 9 - 27, width: 10, depth: 10, height: 6 })).object.id);
+      for (let k = 0; k < 60; k += 1) made.push((await mcp("create_shape", { kind: "box", x: (k % 10) * 9 - 45, y: Math.floor(k / 10) * 9 - 27, width: 10, length: 10, height: 6 })).object.id);
       for (let k = 0; k < 20; k += 1) {
-        const hole = (await mcp("create_shape", { kind: "cylinder", x: (k % 10) * 9 - 41, z: Math.floor(k / 10) * 27 - 18, width: 5, depth: 5, height: 10 })).object.id;
+        const hole = (await mcp("create_shape", { kind: "cylinder", x: (k % 10) * 9 - 41, y: Math.floor(k / 10) * 27 - 18, width: 5, length: 5, height: 10 })).object.id;
         await mcp("update_object", { id: hole, hole: true });
         made.push(hole);
       }
@@ -267,9 +267,9 @@ const ACTIONS = [
     key: "group-round", label: "Group 40 cylinders with 20 sphere holes (no box shortcut)",
     setup: async () => {
       const made = [];
-      for (let k = 0; k < 40; k += 1) made.push((await mcp("create_shape", { kind: "cylinder", x: (k % 8) * 9 - 32, z: Math.floor(k / 8) * 9 - 18, width: 12, depth: 12, height: 10, sides: 64 })).object.id);
+      for (let k = 0; k < 40; k += 1) made.push((await mcp("create_shape", { kind: "cylinder", x: (k % 8) * 9 - 32, y: Math.floor(k / 8) * 9 - 18, width: 12, length: 12, height: 10, sides: 64 })).object.id);
       for (let k = 0; k < 20; k += 1) {
-        const hole = (await mcp("create_shape", { kind: "sphere", x: (k % 10) * 8 - 36, z: Math.floor(k / 10) * 18 - 9, width: 8, depth: 8, height: 8, elevation: 6 })).object.id;
+        const hole = (await mcp("create_shape", { kind: "sphere", x: (k % 10) * 8 - 36, y: Math.floor(k / 10) * 18 - 9, width: 8, length: 8, height: 8, z: 6 })).object.id;
         await mcp("update_object", { id: hole, hole: true });
         made.push(hole);
       }
@@ -282,7 +282,7 @@ const ACTIONS = [
     key: "face-group", label: "Push the top of a group of four overlapping 512-sided cylinders",
     setup: async () => {
       const made = [];
-      for (let k = 0; k < 4; k += 1) made.push((await mcp("create_shape", { kind: "cylinder", x: (k % 2) * 10 - 5, z: Math.floor(k / 2) * 10 - 5, width: 30, depth: 30, height: 20, sides: 512 })).object.id);
+      for (let k = 0; k < 4; k += 1) made.push((await mcp("create_shape", { kind: "cylinder", x: (k % 2) * 10 - 5, y: Math.floor(k / 2) * 10 - 5, width: 30, length: 30, height: 20, sides: 512 })).object.id);
       return (await mcp("group_objects", { ids: made })).object.id;
     },
     run: (id) => mcp("push_face", { targetId: id, targetFace: "top", separate: true }),
@@ -291,7 +291,7 @@ const ACTIONS = [
     key: "cut-mesh", label: "Cut a cylinder out of an imported 200k-triangle sphere",
     setup: async () => {
       const sphere = await mcp("import_file", { fileName: "sphere.stl", base64: cutStl });
-      const hole = (await mcp("create_shape", { kind: "cylinder", x: 0, z: 0, width: 20, depth: 20, height: 100 })).object.id;
+      const hole = (await mcp("create_shape", { kind: "cylinder", x: 0, y: 0, width: 20, length: 20, height: 100 })).object.id;
       return { solid: importedIds(sphere)[0], hole };
     },
     run: ({ solid, hole }) => mcp("boolean_cut", { solidIds: [solid], holeIds: [hole] }),
@@ -331,7 +331,7 @@ const ACTIONS = [
     key: "split-four-warm", label: "The same, workers already started",
     setup: async () => {
       const boxes = [];
-      for (let k = 0; k < 4; k += 1) boxes.push((await mcp("create_shape", { kind: "box", x: k * 15, z: 60, width: 10, depth: 10, height: 10 })).object.id);
+      for (let k = 0; k < 4; k += 1) boxes.push((await mcp("create_shape", { kind: "box", x: k * 15, y: 60, width: 10, length: 10, height: 10 })).object.id);
       await mcp("split_objects", { ids: boxes, axis: "y", position: 60 });
       await mcp("delete_objects", { ids: ids((await mcp("list_objects")).objects) });
       const made = [];
@@ -348,7 +348,7 @@ const ACTIONS = [
     key: "export-stl", label: "Export STL of a 300k-triangle import and 40 boxes",
     setup: async () => {
       await mcp("import_file", { fileName: "sphere.stl", base64: bigStl });
-      for (let k = 0; k < 40; k += 1) await mcp("create_shape", { kind: "box", x: (k % 8) * 12 + 60, z: Math.floor(k / 8) * 12 - 30, width: 10, depth: 10, height: 10 });
+      for (let k = 0; k < 40; k += 1) await mcp("create_shape", { kind: "box", x: (k % 8) * 12 + 60, y: Math.floor(k / 8) * 12 - 30, width: 10, length: 10, height: 10 });
     },
     run: () => mcp("export_mesh", { format: "stl" }),
   },
@@ -356,7 +356,7 @@ const ACTIONS = [
     key: "export-3mf", label: "Export 3MF of the same",
     setup: async () => {
       await mcp("import_file", { fileName: "sphere.stl", base64: bigStl });
-      for (let k = 0; k < 40; k += 1) await mcp("create_shape", { kind: "box", x: (k % 8) * 12 + 60, z: Math.floor(k / 8) * 12 - 30, width: 10, depth: 10, height: 10 });
+      for (let k = 0; k < 40; k += 1) await mcp("create_shape", { kind: "box", x: (k % 8) * 12 + 60, y: Math.floor(k / 8) * 12 - 30, width: 10, length: 10, height: 10 });
     },
     run: () => mcp("export_mesh", { format: "3mf" }),
   },
@@ -369,7 +369,7 @@ const ACTIONS = [
     key: "section", label: "Switch the section view on (300k import and 40 boxes)",
     setup: async () => {
       await mcp("import_file", { fileName: "sphere.stl", base64: bigStl });
-      for (let k = 0; k < 40; k += 1) await mcp("create_shape", { kind: "box", x: (k % 8) * 12 + 60, z: Math.floor(k / 8) * 12 - 30, width: 10, depth: 10, height: 10 });
+      for (let k = 0; k < 40; k += 1) await mcp("create_shape", { kind: "box", x: (k % 8) * 12 + 60, y: Math.floor(k / 8) * 12 - 30, width: 10, length: 10, height: 10 });
     },
     run: () => mcp("set_section_view", { enabled: true, axis: "x" }),
   },
@@ -382,7 +382,7 @@ const ACTIONS = [
     key: "save-lyl", label: "Save a .lyl: 300k import, 60 boxes, 60 undo steps",
     setup: async () => {
       await mcp("import_file", { fileName: "sphere.stl", base64: bigStl });
-      for (let k = 0; k < 60; k += 1) await mcp("create_shape", { kind: "box", x: (k % 10) * 12 + 60, z: Math.floor(k / 10) * 12 - 30, width: 10, depth: 10, height: 10 });
+      for (let k = 0; k < 60; k += 1) await mcp("create_shape", { kind: "box", x: (k % 10) * 12 + 60, y: Math.floor(k / 10) * 12 - 30, width: 10, length: 10, height: 10 });
     },
     run: () => mcp("save_project", {}),
   },
@@ -390,7 +390,7 @@ const ACTIONS = [
     key: "open-lyl", label: "Open that .lyl (file chooser)",
     setup: async (page) => {
       await mcp("import_file", { fileName: "sphere.stl", base64: bigStl });
-      for (let k = 0; k < 60; k += 1) await mcp("create_shape", { kind: "box", x: (k % 10) * 12 + 60, z: Math.floor(k / 10) * 12 - 30, width: 10, depth: 10, height: 10 });
+      for (let k = 0; k < 60; k += 1) await mcp("create_shape", { kind: "box", x: (k % 10) * 12 + 60, y: Math.floor(k / 10) * 12 - 30, width: 10, length: 10, height: 10 });
       const saved = await mcp("save_project", {});
       const file = join(scratch, "measure.lyl");
       writeFileSync(file, Buffer.from(saved.base64, "base64"));
@@ -415,8 +415,8 @@ const ACTIONS = [
   {
     key: "export-step", label: "Export STEP of 40 boxes and 20 cylinders (first time: loads the CAD kernel)",
     setup: async () => {
-      for (let k = 0; k < 40; k += 1) await mcp("create_shape", { kind: "box", x: (k % 8) * 12 - 45, z: Math.floor(k / 8) * 12 - 30, width: 10, depth: 10, height: 10 });
-      for (let k = 0; k < 20; k += 1) await mcp("create_shape", { kind: "cylinder", x: (k % 10) * 12 - 55, z: 45, width: 8, depth: 8, height: 12 });
+      for (let k = 0; k < 40; k += 1) await mcp("create_shape", { kind: "box", x: (k % 8) * 12 - 45, y: Math.floor(k / 8) * 12 - 30, width: 10, length: 10, height: 10 });
+      for (let k = 0; k < 20; k += 1) await mcp("create_shape", { kind: "cylinder", x: (k % 10) * 12 - 55, y: 45, width: 8, length: 8, height: 12 });
     },
     run: async (_, page) => {
       await page.getByRole("button", { name: "Exportieren", exact: true }).first().click();
