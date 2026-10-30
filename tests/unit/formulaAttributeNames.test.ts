@@ -35,9 +35,10 @@ describe("the names formulas read fields by", () => {
     expect(new Set(paths).size, paths.join(" ")).toBe(paths.length);
   });
 
-  it("names the taper, twist and vase fields by their group", () => {
+  it("names the taper, twist, slope, narrow and vase fields by their group", () => {
     expect(["topLength", "bottomWidth", "extrudeTwist", "extrudeTopOffsetX", "sides", "teeth", "vaseFloor.rubberFeet", "vase.swayAngle"].map(attributePath))
       .toEqual(["taper.top_length", "taper.bottom_width", "twist.angle", "twist.offset_width", "detail.sides", "gear.teeth", "vase.floor.rubber_feet", "vase.sway_angle"]);
+    expect(["slopeEnd", "slopeAngle", "narrowEnd", "narrowStart"].map(attributePath)).toEqual(["slope.end_height", "slope.angle", "narrow.end_width", "narrow.start"]);
     // A field the table does not know yet takes its kind's group from its id.
     expect(attributePath("gridfinityPaddingBack")).toBe("gridfinity.padding_back");
     expect(attributePath("hingeSomethingNew")).toBe("hinge.something_new");
