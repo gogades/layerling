@@ -41,7 +41,7 @@ Renommer le corps le renomme dans toutes les formules qui l'utilisent. Une copie
 
 ## Le tableau des variables
 
-{{ui:variables.title}} s'ouvre avec son bouton dans le ruban ou avec [[Ctrl]]+[[Shift]]+[[V]]. Chaque ligne a un nom, une valeur ou une formule, son résultat et une courte description. {{ui:variables.add}} ajoute une ligne ; la corbeille en supprime une. Un changement compte dès que vous appuyez sur [[Enter]] ou quittez la cellule, et [[Ctrl]]+[[Z]] l'annule comme toute autre étape. Un résultat impossible à calculer affiche une marque rouge ; son info-bulle dit pourquoi. Renommer une ligne la renomme dans toutes les formules. Sous le tableau, vous voyez quels corps ont un nom de variable. La fenêtre se déplace par son titre et s'agrandit par son coin inférieur droit.
+{{ui:variables.title}} s'ouvre avec son bouton à côté de {{ui:editor.tool.note}} en bas à gauche ou avec [[Ctrl]]+[[Shift]]+[[V]]. Chaque ligne a un nom, une valeur ou une formule, son résultat et une courte description. {{ui:variables.add}} ajoute une ligne ; la corbeille en supprime une. Un changement compte dès que vous appuyez sur [[Enter]] ou quittez la cellule, et [[Ctrl]]+[[Z]] l'annule comme toute autre étape. Un résultat impossible à calculer affiche une marque rouge ; son info-bulle dit pourquoi. Renommer une ligne la renomme dans toutes les formules. Sous le tableau, vous voyez quels corps ont un nom de variable. La fenêtre se déplace par son titre et s'agrandit par son coin inférieur droit.
 
 ## L'éditeur de formule
 

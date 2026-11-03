@@ -20,6 +20,7 @@ import { FramingSquareIcon } from "@/components/FramingSquareIcon";
 import { ProtractorIcon } from "@/components/ProtractorIcon";
 import { GridEyeIcon } from "@/components/GridEyeIcon";
 import { ToolbarNoteIcon } from "@/components/toolbarIcons";
+import { VariablesToolButton } from "@/components/workplane/VariablesPanel";
 import { CAMERA_BAR_PANEL, CameraBarHandle, useCameraBarPeek } from "@/components/workplane/CameraBarHandle";
 import { DetailLevelControl } from "@/components/workplane/DetailLevelControl";
 import { setDetail, type DetailFlags, type EditorDetail } from "@/lib/detailLevel";
@@ -9881,15 +9882,7 @@ export function WorkplaneViewport({
             </div>
             {onNoteTool && onToggleNotes ? (
               <div className="camera-group note-control-group" role="group" aria-label={t("visibility.notes")}>
-                <button
-                  className={noteMode ? "active" : ""}
-                  aria-label={t("editor.tool.note")}
-                  aria-pressed={noteMode}
-                  title={t("editor.tool.note")}
-                  onClick={onNoteTool}
-                >
-                  <ToolbarNoteIcon />
-                </button>
+                <button className={noteMode ? "active" : ""} aria-label={t("editor.tool.note")} aria-pressed={noteMode} title={t("editor.tool.note")} onClick={onNoteTool}><ToolbarNoteIcon /></button>
                 <button
                   className={`note-visibility-button ${notesShown ? "" : "active"}`}
                   aria-label={t("visibility.notes")}
@@ -9900,6 +9893,7 @@ export function WorkplaneViewport({
                 >
                   {notesShown ? <Eye size={22} strokeWidth={2.1} aria-hidden="true" /> : <EyeOff size={22} strokeWidth={2.1} aria-hidden="true" />}
                 </button>
+                <VariablesToolButton />
               </div>
             ) : null}
           </>
