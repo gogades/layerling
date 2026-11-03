@@ -3003,7 +3003,8 @@ function readMcpEditorIdentity() {
 const LOCKED_SHAPE_PATCH_KEYS = new Set(["locked", "shapeLocked", "hidden", "name"]);
 
 /** What update_object still takes for a part of locked shape, or a group holding one (#1277): where it is, how it turns, the locks. */
-const MCP_SHAPE_LOCK_PARAMS = new Set(["id", "editorNumber", "editorId", "timeoutMs", "x", "z", "elevation", "rotation", "rotationX", "rotationZ", "rotationPivot", "hidden", "transparent", "locked", "shapeLocked"]);
+// The MCP's own names (mcpAxes), with the older ones it still accepts, so a refusal names what the call said.
+const MCP_SHAPE_LOCK_PARAMS = new Set(["id", "editorNumber", "editorId", "timeoutMs", "x", "y", "z", "elevation", "rotation", "rotationX", "rotationY", "rotationZ", "rotationPivot", "hidden", "transparent", "locked", "shapeLocked"]);
 
 /** A preview of an intersection is not calculated for more triangles than this: it would stutter while a shape is moved (#372). */
 const INTERSECT_PREVIEW_MAX_TRIANGLES = 40000;
@@ -13452,7 +13453,8 @@ export function LayerlingEditor({
         // Lock shape (#1277): where it stands and how it turns may change, nothing else - unless the call unlocks the shape too.
         const unlocksShapeFully = params.shapeLocked === false && target.shapeLocked && !target.groupedShapes?.some(holdsShapeLock);
         if (holdsShapeLock(target) && !unlocksShapeFully) {
-          const refused = Object.keys(params).filter((key) => params[key] !== undefined && !MCP_SHAPE_LOCK_PARAMS.has(key));
+          const asked = command.params ?? {};
+          const refused = Object.keys(asked).filter((key) => asked[key] !== undefined && !MCP_SHAPE_LOCK_PARAMS.has(key));
           if (refused.length) {
             throw new Error(target.shapeLocked
               ? `The shape of this object is locked: it can be moved and turned, but ${refused.join(", ")} would change it. Pass shapeLocked: false to change it.`
