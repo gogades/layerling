@@ -1272,7 +1272,7 @@ export function SecondaryToolbar({
       plain("scalePercent", t("scalePercent.title"), t("editor.group.modify"), canModifySelection, onScalePercent, { icon: Percent, active: scalePercentActive }),
       ...arrangeTools.map((tool) => fromTool(tool, t("editor.group.arrange"))),
       plain("note", t("editor.tool.note"), visibilityGroup, true, onNoteTool, { icon: ToolbarNoteIcon, active: noteMode }),
-      ...(advancedMode ? [plain("variables", t("variables.title"), fileGroup, true, toggleVariablesPanel, { icon: Variable, active: variablesOpen, keywords: ["variable", "formula", "parameter", "formel"] })] : []),
+      ...(advancedMode ? [plain("variables", t("variables.title"), visibilityGroup, true, toggleVariablesPanel, { icon: Variable, active: variablesOpen, keywords: ["variable", "formula", "parameter", "formel"] })] : []),
       plain("import", t("editor.import"), fileGroup, true, () => onTopPanel("import"), { icon: ToolbarImportIcon }),
       plain("export", t("editor.export"), fileGroup, true, () => onTopPanel("export"), { icon: ToolbarVectorExportIcon }),
       plain("file-backups", t("backups.title"), fileGroup, true, () => window.dispatchEvent(new Event(OPEN_FILE_BACKUPS_EVENT)), { icon: ArchiveRestore, keywords: ["backup", "backups", "version", "versions", "restore", "sicherung", "fassung", "wiederherstellen"] }),
