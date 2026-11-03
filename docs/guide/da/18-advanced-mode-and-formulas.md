@@ -41,7 +41,7 @@ Omdøber du legemet, ændres navnet i hver formel, der bruger det. En kopi af et
 
 ## Variabeltabellen
 
-{{ui:variables.title}} åbner med sin knap i båndet eller med [[Ctrl]]+[[Shift]]+[[V]]. Hver række har et navn, en værdi eller formel, dens resultat og en kort beskrivelse. {{ui:variables.add}} tilføjer en række; skraldespanden fjerner en. En ændring tæller, så snart du trykker [[Enter]] eller forlader cellen, og [[Ctrl]]+[[Z]] fortryder den som ethvert andet trin. Et resultat, der ikke kan regnes ud, viser et rødt mærke; dets værktøjstip siger hvorfor. Omdøber du en række, ændres navnet i hver formel. Under tabellen ser du, hvilke legemer der har et variabelnavn. Vinduet kan flyttes i sin titel og gøres større i sit nederste højre hjørne.
+{{ui:variables.title}} åbner med sin knap ved siden af {{ui:editor.tool.note}} nederst til venstre eller med [[Ctrl]]+[[Shift]]+[[V]]. Hver række har et navn, en værdi eller formel, dens resultat og en kort beskrivelse. {{ui:variables.add}} tilføjer en række; skraldespanden fjerner en. En ændring tæller, så snart du trykker [[Enter]] eller forlader cellen, og [[Ctrl]]+[[Z]] fortryder den som ethvert andet trin. Et resultat, der ikke kan regnes ud, viser et rødt mærke; dets værktøjstip siger hvorfor. Omdøber du en række, ændres navnet i hver formel. Under tabellen ser du, hvilke legemer der har et variabelnavn. Vinduet kan flyttes i sin titel og gøres større i sit nederste højre hjørne.
 
 ## Formeleditoren
 
