@@ -23,9 +23,13 @@ const variants: Array<[string, WorkplaneShape]> = [
   ...kinds.map((kind): [string, WorkplaneShape] => [kind, shapeOf(kind)]),
   ["gear, simple teeth", shapeOf("gear", { gearProfile: "simple" } as Partial<WorkplaneShape>)],
   ["gear, helical", shapeOf("gear", { gearType: "helical" } as Partial<WorkplaneShape>)],
+  ["rib on a foot", shapeOf("rib", { ribFoot: true } as Partial<WorkplaneShape>)],
+  ["hirth joint, saw teeth", shapeOf("hirth", { hirthSteepFlank: 70 } as Partial<WorkplaneShape>)],
+  ["gear, spiral bevel", shapeOf("gear", { gearType: "bevel", bevelHelixAngle: 30 } as Partial<WorkplaneShape>)],
   ["thread, nut", shapeOf("thread", { threadRole: "nut" } as Partial<WorkplaneShape>)],
   ["thread, screw", shapeOf("thread", { threadRole: "screw" } as Partial<WorkplaneShape>)],
   ["gridfinity baseplate", shapeOf("gridfinity", { gridfinityType: "baseplate" } as Partial<WorkplaneShape>)],
+  ["blind hole with a drill point", shapeOf("cylinder", { hole: true, drillPointAngle: 118 } as Partial<WorkplaneShape>)],
 ];
 
 describe("the names formulas read fields by", () => {
@@ -40,8 +44,12 @@ describe("the names formulas read fields by", () => {
       .toEqual(["taper.top_length", "taper.bottom_width", "twist.angle", "twist.offset_width", "detail.sides", "gear.teeth", "vase.floor.rubber_feet", "vase.sway_angle"]);
     expect(["slopeEnd", "slopeAngle", "narrowEnd", "narrowStart"].map(attributePath)).toEqual(["slope.end_height", "slope.angle", "narrow.end_width", "narrow.start"]);
     expect(["headDiameter", "driveSize", "driveDepth", "portCorner"].map(attributePath)).toEqual(["thread.head_diameter", "thread.drive_size", "thread.drive_depth", "port.corner"]);
+    expect(["curvedConeTop", "curvedConeBend"].map(attributePath)).toEqual(["cone.top_diameter", "cone.bend"]);
     expect(["collarHeight", "collarDiameter", "portClearance"].map(attributePath)).toEqual(["thread.collar_height", "thread.collar_diameter", "port.clearance"]);
     expect(["loftSectionCount", "loftSectionDepth", "loftSectionOffsetZ"].map(attributePath)).toEqual(["loft.sections", "loft.section_length", "loft.section_offset_length"]);
+    expect(["screwBossHole", "screwBossGussetHeight", "snapFitLeadAngle"].map(attributePath)).toEqual(["screw_boss.hole", "screw_boss.gusset_height", "snap_fit.lead_angle"]);
+    expect(["pulleyBeltWidth", "ribThickness", "hirthSteepFlank"].map(attributePath)).toEqual(["pulley.belt_width", "rib.thickness", "hirth.steep_flank"]);
+    expect(attributePath("drillPointAngle")).toBe("hole.drill_point_angle");
     // A field the table does not know yet takes its kind's group from its id.
     expect(attributePath("gridfinityPaddingBack")).toBe("gridfinity.padding_back");
     expect(attributePath("hingeSomethingNew")).toBe("hinge.something_new");
