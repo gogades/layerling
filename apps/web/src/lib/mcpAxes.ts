@@ -94,6 +94,14 @@ function pointIn(value: unknown) {
   return { ...rest, x, z: flipped(y), elevation: z };
 }
 
+/** A point { x, y, z } as the inspector names it, as the editor's three.js { x, y, z } with y up. */
+function vectorRecordIn(value: unknown) {
+  const { x, y, z } = (value ?? {}) as Params;
+  if (typeof x !== "number" || typeof y !== "number" || typeof z !== "number") return value;
+  const [inX, inY, inZ] = vectorIn([x, y, z]);
+  return { x: inX, y: inY, z: inZ };
+}
+
 /** An axis as the inspector names it, as the editor names it, and back: Y and Z change places. */
 const axisSwap = (axis: unknown) => (axis === "y" ? "z" : axis === "z" ? "y" : axis);
 
@@ -159,6 +167,10 @@ export function mcpCommandParamsIn(action: string, params: Params, context: McpA
       return Array.isArray(params.points) ? { ...params, points: params.points.map(pointIn) } : params;
     case "add_note":
       return params.at ? { ...params, at: pointIn(params.at) } : params;
+    case "measure_angle":
+      return Array.isArray(params.points) ? { ...params, points: params.points.map((point) => (isVector(point) ? vectorIn(point) : point)) } : params;
+    case "make_cable_channel":
+      return { ...params, entry: vectorRecordIn(params.entry), exit: vectorRecordIn(params.exit) };
     case "sweep_sketch":
       return Array.isArray(params.path)
         ? { ...params, path: params.path.map((point) => (Array.isArray(point) && point.length === 2 ? [point[0], flipped(point[1])] : point && typeof point === "object" && "y" in point ? { x: (point as Params).x, z: flipped((point as Params).y) } : point)) }
@@ -168,6 +180,9 @@ export function mcpCommandParamsIn(action: string, params: Params, context: McpA
       const alongY = params.axis === "y";
       return { ...params, axis: axisSwap(params.axis), ...(alongY ? { target: params.target === "min" ? "max" : params.target === "max" ? "min" : params.target } : {}) };
     }
+    case "measurements":
+      // A length typed along one axis (Discussion #610) is a distance, so only the axis's name changes.
+      return params.axis === undefined ? params : { ...params, axis: axisSwap(params.axis) };
     case "set_section_view": case "export_section_svg": case "sketch_from_section":
       return sectionIn(params, context.sectionAxis);
     case "measure_section":
@@ -195,7 +210,7 @@ export function mcpCommandParamsIn(action: string, params: Params, context: McpA
 
 // Object summaries are already in the inspector's names (mcpPlacement); the scene's settings stay as they are stored.
 const KEEP_KEYS = new Set(["object", "objects", "parts", "shapes", "workspace", "rawShapes", "children", "svg"]);
-const VECTOR_KEYS = new Set(["point", "normal", "center", "origin", "direction"]);
+const VECTOR_KEYS = new Set(["point", "normal", "center", "origin", "direction", "entry", "exit"]);
 
 /** Points and vectors anywhere in an answer, as the inspector names them. */
 function pointsOut(value: unknown, key?: string): unknown {
@@ -257,7 +272,8 @@ export function mcpAnswerOut(action: string, answer: unknown, params: Params): u
       };
     }
     case "lay_flat": case "place_on_face": case "perforate_face": case "push_face": case "mate_faces": case "list_faces": case "list_edges":
-    case "add_reference_points": case "list_reference_points": case "set_workplane": case "list_notes": case "add_note": case "update_note":
+    case "add_reference_points": case "list_reference_points": case "set_workplane": case "list_notes": case "add_note": case "update_note": case "make_cable_channel":
+    case "check_print":
       return pointsOut(result);
     default:
       return answer;

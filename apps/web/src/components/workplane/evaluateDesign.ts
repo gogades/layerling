@@ -37,7 +37,7 @@ const ATTRIBUTE_PATHS: Record<string, string> = {
   roundedBoxQuality: "detail.quality", starQuality: "detail.quality", heartQuality: "detail.quality", crescentQuality: "detail.quality", bentTubeQuality: "detail.quality",
   // Each kind's own settings
   cornerFillet: "round.corner", topBottomFillet: "round.top_bottom",
-  topRadius: "cone.top_radius", baseRadius: "cone.base_radius",
+  topRadius: "cone.top_radius", baseRadius: "cone.base_radius", curvedConeTop: "cone.top_diameter", curvedConeBend: "cone.bend",
   slotSmallEnd: "slot.small_end", slotCentreDistance: "slot.centre_distance",
   torusTube: "torus.tube",
   outerDiameter: "tube.outer_diameter", innerDiameter: "tube.inner_diameter", thickness: "tube.wall",
@@ -60,7 +60,7 @@ const ATTRIBUTE_PATHS: Record<string, string> = {
   portCorner: "port.corner", portClearance: "port.clearance",
   turns: "spring.turns", wire: "spring.wire",
   teeth: "gear.teeth", gearModule: "gear.module", gearPressureAngle: "gear.pressure_angle", gearBacklash: "gear.backlash",
-  centerHole: "gear.center_hole", gearRim: "gear.rim", toothSize: "gear.tooth_size", toothWidth: "gear.tooth_width", helixAngle: "gear.helix_angle",
+  centerHole: "gear.center_hole", gearRim: "gear.rim", toothSize: "gear.tooth_size", toothWidth: "gear.tooth_width", helixAngle: "gear.helix_angle", bevelHelixAngle: "gear.bevel_helix_angle",
   gridfinityUnitsX: "gridfinity.units_across", gridfinityUnitsZ: "gridfinity.units_deep", gridfinityUnitsY: "gridfinity.units_high",
   gridfinityLipChamfer: "gridfinity.lip_chamfer", gridfinityBinCornerRadius: "gridfinity.corner_radius", gridfinityCornerRadius: "gridfinity.corner_radius",
   gridfinityWallThickness: "gridfinity.wall", gridfinityFloorHeight: "gridfinity.floor_height", gridfinityDividerThickness: "gridfinity.divider_thickness",
@@ -87,7 +87,7 @@ const snakeCase = (text: string) => text.replace(/([a-z0-9])([A-Z])/g, "$1_$2").
 
 // A field the table does not name yet still gets its kind's group from the start of its id: gridfinityPaddingBack reads
 // `gridfinity.padding_back`.
-const GROUP_PREFIXES = ["bentTube", "crescent", "dovetail", "gear", "gridfinity", "heart", "hinge", "honeycomb", "knurl", "loft", "screwHole", "slot", "sketch", "star", "teardrop", "text", "thread", "torus"];
+const GROUP_PREFIXES = ["bentTube", "crescent", "dovetail", "gear", "gridfinity", "heart", "hinge", "hirth", "honeycomb", "knurl", "loft", "pulley", "rib", "screwBoss", "screwHole", "slot", "sketch", "snapFit", "star", "teardrop", "text", "thread", "torus"];
 
 /** The name a formula reads a field by after `$name.`: see ATTRIBUTE_PATHS. A vase's settings read `vase.floor.rubber_feet`. */
 export function attributePath(fieldId: string) {
