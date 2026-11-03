@@ -41,7 +41,7 @@ A test átnevezése minden olyan képletben átnevezi, amely használja. Egy eln
 
 ## A változótábla
 
-A(z) {{ui:variables.title}} ablak a szalagon lévő gombjával vagy a [[Ctrl]]+[[Shift]]+[[V]] billentyűkkel nyílik meg. Minden sorban van egy név, egy érték vagy képlet, annak eredménye és egy rövid leírás. A(z) {{ui:variables.add}} hozzáad egy sort; a kuka eltávolít egyet. Egy módosítás akkor számít, amikor megnyomod az [[Enter]] billentyűt vagy elhagyod a cellát, és a [[Ctrl]]+[[Z]] visszavonja, mint bármely más lépést. Egy ki nem számítható eredmény piros jelet mutat; az elemleírás megmondja, miért. Egy sor átnevezése minden képletben átnevezi. A tábla alatt látod, mely testeknek van változóneve. Az ablak a címénél mozgatható, és a jobb alsó sarkánál nagyítható.
+A(z) {{ui:variables.title}} ablak a bal alsó sarokban, a(z) {{ui:editor.tool.note}} melletti gombjával vagy a [[Ctrl]]+[[Shift]]+[[V]] billentyűkkel nyílik meg. Minden sorban van egy név, egy érték vagy képlet, annak eredménye és egy rövid leírás. A(z) {{ui:variables.add}} hozzáad egy sort; a kuka eltávolít egyet. Egy módosítás akkor számít, amikor megnyomod az [[Enter]] billentyűt vagy elhagyod a cellát, és a [[Ctrl]]+[[Z]] visszavonja, mint bármely más lépést. Egy ki nem számítható eredmény piros jelet mutat; az elemleírás megmondja, miért. Egy sor átnevezése minden képletben átnevezi. A tábla alatt látod, mely testeknek van változóneve. Az ablak a címénél mozgatható, és a jobb alsó sarkánál nagyítható.
 
 ## A képletszerkesztő
 

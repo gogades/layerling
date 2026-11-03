@@ -41,7 +41,7 @@ Wird der Körper umbenannt, ändert sich der Name in jeder Formel, die ihn verwe
 
 ## Die Variablentabelle
 
-{{ui:variables.title}} öffnet sich mit ihrem Knopf in der Leiste oder mit [[Strg]]+[[Umschalt]]+[[V]]. Jede Zeile hat einen Namen, einen Wert oder eine Formel, ihr Ergebnis und eine kurze Beschreibung. {{ui:variables.add}} fügt eine Zeile hinzu; der Papierkorb entfernt eine. Eine Änderung zählt, sobald du [[Enter]] drückst oder die Zelle verlässt, und [[Strg]]+[[Z]] nimmt sie zurück wie jeden anderen Schritt. Ein Ergebnis, das sich nicht ausrechnen lässt, zeigt ein rotes Zeichen; sein Tooltip sagt, warum. Wird eine Zeile umbenannt, ändert sich der Name in jeder Formel. Unter der Tabelle siehst du, welche Körper einen Variablennamen haben. Das Fenster lässt sich an seinem Titel verschieben und an seiner rechten unteren Ecke vergrößern.
+{{ui:variables.title}} öffnet sich mit ihrem Knopf neben {{ui:editor.tool.note}} unten links oder mit [[Strg]]+[[Umschalt]]+[[V]]. Jede Zeile hat einen Namen, einen Wert oder eine Formel, ihr Ergebnis und eine kurze Beschreibung. {{ui:variables.add}} fügt eine Zeile hinzu; der Papierkorb entfernt eine. Eine Änderung zählt, sobald du [[Enter]] drückst oder die Zelle verlässt, und [[Strg]]+[[Z]] nimmt sie zurück wie jeden anderen Schritt. Ein Ergebnis, das sich nicht ausrechnen lässt, zeigt ein rotes Zeichen; sein Tooltip sagt, warum. Wird eine Zeile umbenannt, ändert sich der Name in jeder Formel. Unter der Tabelle siehst du, welche Körper einen Variablennamen haben. Das Fenster lässt sich an seinem Titel verschieben und an seiner rechten unteren Ecke vergrößern.
 
 ## Der Formeleditor
 

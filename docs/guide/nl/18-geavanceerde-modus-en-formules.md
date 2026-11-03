@@ -41,7 +41,7 @@ Als je het lichaam hernoemt, verandert de naam in elke formule die hem gebruikt.
 
 ## De variabelentabel
 
-{{ui:variables.title}} opent met de knop in het lint of met [[Ctrl]]+[[Shift]]+[[V]]. Elke rij heeft een naam, een waarde of formule, het resultaat en een korte beschrijving. {{ui:variables.add}} voegt een rij toe; de prullenbak verwijdert er een. Een wijziging telt zodra je op [[Enter]] drukt of de cel verlaat, en [[Ctrl]]+[[Z]] neemt haar terug zoals elke andere stap. Een resultaat dat niet uit te rekenen is, toont een rood teken; de tooltip zegt waarom. Als je een rij hernoemt, verandert de naam in elke formule. Onder de tabel zie je welke lichamen een variabelenaam hebben. Het venster kun je aan zijn titel verplaatsen en aan de hoek rechtsonder groter maken.
+{{ui:variables.title}} opent met de knop naast {{ui:editor.tool.note}} linksonder of met [[Ctrl]]+[[Shift]]+[[V]]. Elke rij heeft een naam, een waarde of formule, het resultaat en een korte beschrijving. {{ui:variables.add}} voegt een rij toe; de prullenbak verwijdert er een. Een wijziging telt zodra je op [[Enter]] drukt of de cel verlaat, en [[Ctrl]]+[[Z]] neemt haar terug zoals elke andere stap. Een resultaat dat niet uit te rekenen is, toont een rood teken; de tooltip zegt waarom. Als je een rij hernoemt, verandert de naam in elke formule. Onder de tabel zie je welke lichamen een variabelenaam hebben. Het venster kun je aan zijn titel verplaatsen en aan de hoek rechtsonder groter maken.
 
 ## De formule-editor
 
