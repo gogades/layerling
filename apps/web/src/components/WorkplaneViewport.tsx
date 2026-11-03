@@ -18,6 +18,7 @@ import { FramingSquareIcon } from "@/components/FramingSquareIcon";
 import { ProtractorIcon } from "@/components/ProtractorIcon";
 import { GridEyeIcon } from "@/components/GridEyeIcon";
 import { ToolbarNoteIcon } from "@/components/toolbarIcons";
+import { VariablesToolButton } from "@/components/workplane/VariablesPanel";
 import { CAMERA_BAR_PANEL, CameraBarHandle } from "@/components/workplane/CameraBarHandle";
 import { AlignOverlay, MirrorOverlay, type AlignOverlayState, type MirrorOverlayState } from "@/components/workplane/ActionOverlays";
 import { ALIGN_PLATE_ID } from "@/lib/alignDistribute";
@@ -8587,15 +8588,7 @@ export function WorkplaneViewport({
             </div>
             {onNoteTool && onToggleNotes ? (
               <div className="camera-group note-control-group" role="group" aria-label={t("visibility.notes")}>
-                <button
-                  className={noteMode ? "active" : ""}
-                  aria-label={t("editor.tool.note")}
-                  aria-pressed={noteMode}
-                  title={t("editor.tool.note")}
-                  onClick={onNoteTool}
-                >
-                  <ToolbarNoteIcon />
-                </button>
+                <button className={noteMode ? "active" : ""} aria-label={t("editor.tool.note")} aria-pressed={noteMode} title={t("editor.tool.note")} onClick={onNoteTool}><ToolbarNoteIcon /></button>
                 <button
                   className={`note-visibility-button ${notesVisible ? "" : "active"}`}
                   aria-label={t("visibility.notes")}
@@ -8606,6 +8599,7 @@ export function WorkplaneViewport({
                 >
                   {notesVisible ? <Eye size={22} strokeWidth={2.1} aria-hidden="true" /> : <EyeOff size={22} strokeWidth={2.1} aria-hidden="true" />}
                 </button>
+                <VariablesToolButton />
               </div>
             ) : null}
           </>

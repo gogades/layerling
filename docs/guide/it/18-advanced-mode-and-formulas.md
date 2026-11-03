@@ -41,7 +41,7 @@ Rinominare il corpo lo rinomina in tutte le formule che lo usano. Una copia di u
 
 ## La tabella delle variabili
 
-{{ui:variables.title}} si apre con il suo pulsante nella barra o con [[Ctrl]]+[[Shift]]+[[V]]. Ogni riga ha un nome, un valore o una formula, il suo risultato e una breve descrizione. {{ui:variables.add}} aggiunge una riga; il cestino ne toglie una. Una modifica vale appena premi [[Enter]] o lasci la cella, e [[Ctrl]]+[[Z]] la annulla come ogni altro passo. Un risultato che non si può calcolare mostra un segno rosso; il suo suggerimento dice perché. Rinominare una riga la rinomina in tutte le formule. Sotto la tabella vedi quali corpi hanno un nome di variabile. La finestra si sposta dal titolo e si ingrandisce dall'angolo in basso a destra.
+{{ui:variables.title}} si apre con il suo pulsante accanto a {{ui:editor.tool.note}} in basso a sinistra o con [[Ctrl]]+[[Shift]]+[[V]]. Ogni riga ha un nome, un valore o una formula, il suo risultato e una breve descrizione. {{ui:variables.add}} aggiunge una riga; il cestino ne toglie una. Una modifica vale appena premi [[Enter]] o lasci la cella, e [[Ctrl]]+[[Z]] la annulla come ogni altro passo. Un risultato che non si può calcolare mostra un segno rosso; il suo suggerimento dice perché. Rinominare una riga la rinomina in tutte le formule. Sotto la tabella vedi quali corpi hanno un nome di variabile. La finestra si sposta dal titolo e si ingrandisce dall'angolo in basso a destra.
 
 ## L'editor di formule
 

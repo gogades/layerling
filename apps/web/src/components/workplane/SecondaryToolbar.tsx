@@ -1170,7 +1170,7 @@ export function SecondaryToolbar({
       plain("scalePercent", t("scalePercent.title"), t("editor.group.modify"), canModifySelection, onScalePercent, { icon: Percent, active: scalePercentActive }),
       ...arrangeTools.map((tool) => fromTool(tool, t("editor.group.arrange"))),
       plain("note", t("editor.tool.note"), visibilityGroup, true, onNoteTool, { icon: ToolbarNoteIcon, active: noteMode }),
-      ...(advancedMode ? [plain("variables", t("variables.title"), fileGroup, true, toggleVariablesPanel, { icon: Variable, active: variablesOpen, keywords: ["variable", "formula", "parameter", "formel"] })] : []),
+      ...(advancedMode ? [plain("variables", t("variables.title"), visibilityGroup, true, toggleVariablesPanel, { icon: Variable, active: variablesOpen, keywords: ["variable", "formula", "parameter", "formel"] })] : []),
       plain("import", t("editor.import"), fileGroup, true, () => onTopPanel("import"), { icon: ToolbarImportIcon }),
       plain("export", t("editor.export"), fileGroup, true, () => onTopPanel("export"), { icon: ToolbarVectorExportIcon }),
       plain("attachments", t("editor.attachments"), fileGroup, true, () => onTopPanel("attachments"), { icon: ToolbarAttachmentsIcon, keywords: ["attachment", "file", "notes", "instructions", "readme", "anhang", "datei"] }),
@@ -1371,11 +1371,6 @@ export function SecondaryToolbar({
         <div className="toolbar-section-label">{t("editor.group.file")}</div>
         {collapseBox(t("editor.group.file"), ToolbarVectorExportIcon)}
         <div className="action-buttons">
-          {advancedMode ? (
-            <button className={`action-icon-button ${variablesOpen ? "active" : ""}`} aria-label={t("variables.title")} aria-pressed={variablesOpen} title={`${t("variables.title")} (${COMMAND_SHORTCUTS.variables})`} onClick={toggleVariablesPanel}>
-              <Variable size={20} />
-            </button>
-          ) : null}
           {simpleMode ? null : <button className="action-icon-button" aria-label={t("editor.import")} title={`${t("editor.import")} (${COMMAND_SHORTCUTS.import})`} onClick={() => onTopPanel("import")} disabled={historyViewActive}>
             <ToolbarImportIcon />
           </button>}

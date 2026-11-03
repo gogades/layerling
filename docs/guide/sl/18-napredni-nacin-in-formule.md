@@ -41,7 +41,7 @@ Formula lahko bere katerokoli polje telesa, ki ima ime spremenljivke. Dodelite g
 
 ## Tabela spremenljivk
 
-{{ui:variables.title}} se odpre z gumbom na traku ali s [[Ctrl]]+[[Shift]]+[[V]]. Vsaka vrstica ima ime, vrednost ali formulo, njen rezultat in kratek opis. {{ui:variables.add}} doda vrstico; koš jo odstrani. Sprememba velja, ko pritisnete [[Enter]] ali zapustite celico, [[Ctrl]]+[[Z]] pa jo razveljavi kot vsak drug korak. Rezultat, ki ga ni mogoče izračunati, pokaže rdečo oznako; opis orodja pove zakaj. Če vrstico preimenujete, se ime spremeni v vsaki formuli. Pod tabelo vidite, katera telesa imajo ime spremenljivke. Okno lahko premaknete za naslov in povečate za spodnji desni kot.
+{{ui:variables.title}} se odpre z gumbom poleg {{ui:editor.tool.note}} spodaj levo ali s [[Ctrl]]+[[Shift]]+[[V]]. Vsaka vrstica ima ime, vrednost ali formulo, njen rezultat in kratek opis. {{ui:variables.add}} doda vrstico; koš jo odstrani. Sprememba velja, ko pritisnete [[Enter]] ali zapustite celico, [[Ctrl]]+[[Z]] pa jo razveljavi kot vsak drug korak. Rezultat, ki ga ni mogoče izračunati, pokaže rdečo oznako; opis orodja pove zakaj. Če vrstico preimenujete, se ime spremeni v vsaki formuli. Pod tabelo vidite, katera telesa imajo ime spremenljivke. Okno lahko premaknete za naslov in povečate za spodnji desni kot.
 
 ## Urejevalnik formul
 

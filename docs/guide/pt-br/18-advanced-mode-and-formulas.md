@@ -41,7 +41,7 @@ Renomear o corpo renomeia em todas as fórmulas que o usam. Uma cópia de um cor
 
 ## A tabela de variáveis
 
-{{ui:variables.title}} abre pelo botão na faixa de opções ou com [[Ctrl]]+[[Shift]]+[[V]]. Cada linha tem um nome, um valor ou fórmula, o resultado e uma descrição curta. {{ui:variables.add}} adiciona uma linha; a lixeira remove uma. Uma mudança vale assim que você aperta [[Enter]] ou sai da célula, e [[Ctrl]]+[[Z]] a desfaz como qualquer outro passo. Um resultado que não pode ser calculado mostra uma marca vermelha; a dica dela diz por quê. Renomear uma linha a renomeia em todas as fórmulas. Abaixo da tabela, você vê quais corpos têm nome de variável. A janela se move pelo título e aumenta pelo canto inferior direito.
+{{ui:variables.title}} abre pelo botão ao lado de {{ui:editor.tool.note}} no canto inferior esquerdo ou com [[Ctrl]]+[[Shift]]+[[V]]. Cada linha tem um nome, um valor ou fórmula, o resultado e uma descrição curta. {{ui:variables.add}} adiciona uma linha; a lixeira remove uma. Uma mudança vale assim que você aperta [[Enter]] ou sai da célula, e [[Ctrl]]+[[Z]] a desfaz como qualquer outro passo. Um resultado que não pode ser calculado mostra uma marca vermelha; a dica dela diz por quê. Renomear uma linha a renomeia em todas as fórmulas. Abaixo da tabela, você vê quais corpos têm nome de variável. A janela se move pelo título e aumenta pelo canto inferior direito.
 
 ## O editor de fórmulas
 

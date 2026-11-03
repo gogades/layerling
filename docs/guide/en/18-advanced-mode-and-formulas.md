@@ -41,7 +41,7 @@ Renaming the body renames it in every formula that uses it. A copy of a named bo
 
 ## The variables table
 
-{{ui:variables.title}} opens with its button in the ribbon or [[Ctrl]]+[[Shift]]+[[V]]. Each row has a name, a value or a formula, its result and a short description. {{ui:variables.add}} adds a row; the bin removes one. A change counts once you press [[Enter]] or leave the cell, and [[Ctrl]]+[[Z]] takes it back like any other step. A result that cannot be worked out shows a red mark; its tooltip says why. Renaming a row renames it in every formula. Below the table you see which bodies have a variable name. The window can be moved by its title and made larger at its lower right corner.
+{{ui:variables.title}} opens with its button beside {{ui:editor.tool.note}} at the bottom left or [[Ctrl]]+[[Shift]]+[[V]]. Each row has a name, a value or a formula, its result and a short description. {{ui:variables.add}} adds a row; the bin removes one. A change counts once you press [[Enter]] or leave the cell, and [[Ctrl]]+[[Z]] takes it back like any other step. A result that cannot be worked out shows a red mark; its tooltip says why. Renaming a row renames it in every formula. Below the table you see which bodies have a variable name. The window can be moved by its title and made larger at its lower right corner.
 
 ## The formula editor
 

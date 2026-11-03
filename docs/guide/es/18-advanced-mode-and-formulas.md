@@ -41,7 +41,7 @@ Al renombrar el cuerpo, el nombre cambia en todas las fórmulas que lo usan. Una
 
 ## La tabla de variables
 
-{{ui:variables.title}} se abre con su botón en la cinta o con [[Ctrl]]+[[Mayús]]+[[V]]. Cada fila tiene un nombre, un valor o una fórmula, su resultado y una breve descripción. {{ui:variables.add}} añade una fila; la papelera la quita. Un cambio cuenta en cuanto pulsas [[Enter]] o sales de la celda, y [[Ctrl]]+[[Z]] lo deshace como cualquier otro paso. Un resultado que no se puede calcular muestra una marca roja; su descripción emergente dice por qué. Al renombrar una fila, el nombre cambia en todas las fórmulas. Debajo de la tabla ves qué cuerpos tienen nombre de variable. La ventana se mueve por su título y se agranda por su esquina inferior derecha.
+{{ui:variables.title}} se abre con su botón junto a {{ui:editor.tool.note}} abajo a la izquierda o con [[Ctrl]]+[[Mayús]]+[[V]]. Cada fila tiene un nombre, un valor o una fórmula, su resultado y una breve descripción. {{ui:variables.add}} añade una fila; la papelera la quita. Un cambio cuenta en cuanto pulsas [[Enter]] o sales de la celda, y [[Ctrl]]+[[Z]] lo deshace como cualquier otro paso. Un resultado que no se puede calcular muestra una marca roja; su descripción emergente dice por qué. Al renombrar una fila, el nombre cambia en todas las fórmulas. Debajo de la tabla ves qué cuerpos tienen nombre de variable. La ventana se mueve por su título y se agranda por su esquina inferior derecha.
 
 ## El editor de fórmulas
 

@@ -41,7 +41,7 @@ Zmiana nazwy bryły zmienia ją w każdej formule, która jej używa. Kopia nazw
 
 ## Tabela zmiennych
 
-{{ui:variables.title}} otwiera się przyciskiem na wstążce albo skrótem [[Ctrl]]+[[Shift]]+[[V]]. Każdy wiersz ma nazwę, wartość lub formułę, jej wynik i krótki opis. {{ui:variables.add}} dodaje wiersz; kosz go usuwa. Zmiana obowiązuje, gdy naciśniesz [[Enter]] albo opuścisz komórkę, a [[Ctrl]]+[[Z]] cofa ją jak każdy inny krok. Wynik, którego nie da się obliczyć, ma czerwony znak; podpowiedź mówi dlaczego. Zmiana nazwy wiersza zmienia ją w każdej formule. Pod tabelą widać, które bryły mają nazwę zmiennej. Okno można przesuwać za tytuł i powiększać za prawy dolny róg.
+{{ui:variables.title}} otwiera się przyciskiem obok {{ui:editor.tool.note}} w lewym dolnym rogu albo skrótem [[Ctrl]]+[[Shift]]+[[V]]. Każdy wiersz ma nazwę, wartość lub formułę, jej wynik i krótki opis. {{ui:variables.add}} dodaje wiersz; kosz go usuwa. Zmiana obowiązuje, gdy naciśniesz [[Enter]] albo opuścisz komórkę, a [[Ctrl]]+[[Z]] cofa ją jak każdy inny krok. Wynik, którego nie da się obliczyć, ma czerwony znak; podpowiedź mówi dlaczego. Zmiana nazwy wiersza zmienia ją w każdej formule. Pod tabelą widać, które bryły mają nazwę zmiennej. Okno można przesuwać za tytuł i powiększać za prawy dolny róg.
 
 ## Edytor formuł
 

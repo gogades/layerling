@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useSyncExternalStore, type KeyboardEvent } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2, Variable, X } from "lucide-react";
 import { GuideHelpLink } from "@/components/GuideHelpLink";
 import { FormulaEditor } from "@/components/workplane/FormulaEditor";
 import { MovableToolPanel } from "@/components/workplane/MovableToolPanel";
 import type { DesignFormulas } from "@/components/workplane/designFormulasContext";
 import { formulaErrorText, variableKey } from "@/components/workplane/evaluateDesign";
 import { isVariableName, type DesignVariable } from "@/lib/designVariables";
+import { COMMAND_SHORTCUTS } from "@/lib/commandKeywords";
 import { MAX_FIELD_FORMULA_LENGTH } from "@/lib/fieldFormulas";
 import { evaluateFormula } from "@/lib/formula";
 import { t } from "@/lib/i18n";
@@ -16,7 +17,7 @@ import { useLanguage } from "@/lib/useLanguage";
 import { useAdvancedMode } from "@/lib/useSimpleMode";
 import type { WorkplaneShape } from "@/types/layerling";
 
-// Open or closed, for the ribbon button and Ctrl+Shift+V alike; a page-wide switch like the panel's own position.
+// Open or closed, for the camera bar's button and Ctrl+Shift+V alike; a page-wide switch like the panel's own position.
 const listeners = new Set<() => void>();
 let panelOpen = false;
 
@@ -32,6 +33,17 @@ export function useVariablesPanelOpen() {
       listeners.delete(listener);
     };
   }, () => panelOpen, () => false);
+}
+
+/** The table's button beside the notes in the camera bar; only the advanced mode has it. */
+export function VariablesToolButton() {
+  const open = useVariablesPanelOpen();
+  if (!useAdvancedMode()) return null;
+  return (
+    <button className={open ? "active" : ""} aria-label={t("variables.title")} aria-pressed={open} title={`${t("variables.title")} (${COMMAND_SHORTCUTS.variables})`} onClick={toggleVariablesPanel}>
+      <Variable size={22} strokeWidth={2.1} aria-hidden="true" />
+    </button>
+  );
 }
 
 /** Whether text is a formula the table can keep: it reads (names may still be unknown) and is not too long. */

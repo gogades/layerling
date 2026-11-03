@@ -41,7 +41,7 @@ Přejmenováním tělesa se název změní ve všech vzorcích, které ho použ�
 
 ## Tabulka proměnných
 
-{{ui:variables.title}} se otevře tlačítkem na pásu karet nebo zkratkou [[Ctrl]]+[[Shift]]+[[V]]. Každý řádek má název, hodnotu nebo vzorec, jeho výsledek a krátký popis. {{ui:variables.add}} přidá řádek; koš ho odstraní. Změna platí, jakmile stisknete [[Enter]] nebo opustíte buňku, a [[Ctrl]]+[[Z]] ji vrátí jako každý jiný krok. Výsledek, který nejde spočítat, ukazuje červenou značku; její popisek řekne proč. Přejmenováním řádku se název změní ve všech vzorcích. Pod tabulkou vidíte, která tělesa mají název proměnné. Okno lze posunout za titulek a zvětšit za pravý dolní roh.
+{{ui:variables.title}} se otevře tlačítkem vedle {{ui:editor.tool.note}} vlevo dole nebo zkratkou [[Ctrl]]+[[Shift]]+[[V]]. Každý řádek má název, hodnotu nebo vzorec, jeho výsledek a krátký popis. {{ui:variables.add}} přidá řádek; koš ho odstraní. Změna platí, jakmile stisknete [[Enter]] nebo opustíte buňku, a [[Ctrl]]+[[Z]] ji vrátí jako každý jiný krok. Výsledek, který nejde spočítat, ukazuje červenou značku; její popisek řekne proč. Přejmenováním řádku se název změní ve všech vzorcích. Pod tabulkou vidíte, která tělesa mají název proměnné. Okno lze posunout za titulek a zvětšit za pravý dolní roh.
 
 ## Editor vzorců
 
