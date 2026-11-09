@@ -7,11 +7,10 @@ import { isCustomFontId } from "@/lib/customFonts";
 import { shapeDepth, shapeWidth } from "@/lib/workplaneShapes";
 import { offersGroupResize } from "@/lib/groupScale";
 import { shapePivotWorld, type PivotPoint } from "@/lib/rotationPivot";
-import { MCP_SHAPE_SETTING_KEYS, mcpSettingName, mcpThreadSizeName } from "@/lib/mcpShapeSettings";
+import { MCP_SHAPE_SETTING_KEYS, mcpThreadSizeName } from "@/lib/mcpShapeSettings";
 import { DEFAULT_SKETCH_STROKE, normalizeSketchStroke } from "@/lib/sketchStroke";
 import { surfaceTextureEntry } from "@/lib/surfaceTextureShape";
 import { type LayerlingMcpShapeSummary } from "@/lib/layerlingMcpProtocol";
-import { mcpKeyring, mcpPlacement, mcpPoint } from "@/lib/mcpAxes";
 import { vaseSettingsChanges } from "@/lib/vaseSettings";
 import { GRIDFINITY_LABEL_FONTS, gridfinityOutlinePoints } from "@/lib/gridfinityGeometry";
 import type { ShapeKind, SketchProfile, WorkplaneShape } from "@/types/layerling";
@@ -52,7 +51,7 @@ export function debugShapeSummary(shape: WorkplaneShape): Record<string, unknown
 /** A body's own pivot in the coordinates the MCP tools use for positions. */
 function mcpPivotSummary(shape: WorkplaneShape) {
   const pivot = shapePivotWorld(shape);
-  return pivot ? mcpPoint({ x: Number(pivot.x.toFixed(3)), z: Number(pivot.z.toFixed(3)), elevation: Number(pivot.y.toFixed(3)) }) : null;
+  return pivot ? { x: Number(pivot.x.toFixed(3)), z: Number(pivot.z.toFixed(3)), elevation: Number(pivot.y.toFixed(3)) } : null;
 }
 
 /** The pivot an MCP update asks for: a point, null to clear it, undefined to leave it. */
@@ -119,7 +118,7 @@ function mcpShapeSettings(shape: WorkplaneShape): Record<string, string | number
   // der Name aus dem Groessenmenue sagt es, und er laesst sich zuruecksenden.
   const threadSize = mcpThreadSizeName(shape);
   if (threadSize) settings.threadSize = threadSize;
-  return Object.keys(settings).length > 0 ? Object.fromEntries(Object.entries(settings).map(([key, value]) => [mcpSettingName(key), value])) : undefined;
+  return Object.keys(settings).length > 0 ? settings : undefined;
 }
 
 export function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary {
@@ -132,7 +131,27 @@ export function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary
     locked: Boolean(shape.locked),
     ...(shape.shapeLocked ? { shapeLocked: true } : {}),
     hidden: Boolean(shape.hidden),
-    ...mcpPlacement(shape),
+    position: {
+      x: shape.x,
+      z: shape.z,
+      elevation: shape.elevation ?? 0,
+    },
+    dimensions: {
+      width: shapeWidth(shape),
+      depth: shapeDepth(shape),
+      height: shape.height,
+      size: shape.size,
+    },
+    rotation: {
+      x: shape.rotationX ?? 0,
+      y: shape.rotation,
+      z: shape.rotationZ ?? 0,
+    },
+    mirror: {
+      x: Boolean(shape.mirrorX),
+      y: Boolean(shape.mirrorY),
+      z: Boolean(shape.mirrorZ),
+    },
     rotationPivot: mcpPivotSummary(shape),
     edgeTreatments: shape.edgeTreatments ?? [],
     settings: mcpShapeSettings(shape),
@@ -151,7 +170,7 @@ export function mcpShapeSummary(shape: WorkplaneShape): LayerlingMcpShapeSummary
     // A text's fill (#215) reads like a sketch body's: its stroke, and whether the counters are left out.
     ...(shape.kind === "text" ? { textStroke: shape.textStroke ?? null, textSilhouette: Boolean(shape.textSilhouette), textStretch: Boolean(shape.textStretch), textVertical: Boolean(shape.textVertical), textSpacing: shape.textSpacing ?? 0, textKerning: Boolean(shape.textKerning), textLetterWidth: shape.textLetterWidth ?? 100, textEdge: shape.textEdge ?? null } : {}),
     // A name tag's key ring hole (#215), on the layers it goes through; the bottom one carries the ear.
-    ...(shape.kind === "text" && shape.textKeyring ? { textKeyring: mcpKeyring(shape.textKeyring) } : {}),
+    ...(shape.kind === "text" && shape.textKeyring ? { textKeyring: shape.textKeyring } : {}),
     ...(shape.layeredText ? { layeredText: true } : {}),
     ...(shape.layeredIcon ? { layeredIcon: true } : {}),
     // A QR code (#553): the text and the choices it was made with.
