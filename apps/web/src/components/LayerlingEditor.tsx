@@ -284,7 +284,6 @@ import { handleSketchEditorKey } from "@/lib/sketchEditorKeys";
 import { sketchEscapeAction } from "@/lib/sketchEscape";
 import { booleanAutomationScene } from "@/lib/editorAutomation";
 import { debugShapeSummary, mcpPivotRequest, compactShapeSummary, mcpGridfinityLabelFont, mcpShapeSummary, mcpSketchFillProfile, mcpTextFont } from "@/lib/editorMcpSummary";
-import { mcpAnswerOut, mcpCommandParamsIn } from "@/lib/mcpAxes";
 import { sweepAnchorFromParams, sweepPathFromParams, sweepSectionFromParams, sweepSketchProfile } from "@/lib/sweepSketch";
 import { emptySketchProfile, cadShapeFromSketchProfile, cadShapeFromSketchSweep, revolveBuildProfile, shapeFromRevolvedSketchProfile, shapeFromCadMesh, sketchBodyAsOperation, sketchBodyOperation, sketchProfileLeftOfAxis, sketchReferenceShapeOnWorkplane, defaultMcpSketchProfile, type SketchMirrorAbout } from "@/lib/editorSketchCad";
 import { drawingLabelsInLanguage } from "@/lib/drawingLabels";
@@ -3003,8 +3002,7 @@ function readMcpEditorIdentity() {
 const LOCKED_SHAPE_PATCH_KEYS = new Set(["locked", "shapeLocked", "hidden", "name"]);
 
 /** What update_object still takes for a part of locked shape, or a group holding one (#1277): where it is, how it turns, the locks. */
-// The MCP's own names (mcpAxes), with the older ones it still accepts, so a refusal names what the call said.
-const MCP_SHAPE_LOCK_PARAMS = new Set(["id", "editorNumber", "editorId", "timeoutMs", "x", "y", "z", "elevation", "rotation", "rotationX", "rotationY", "rotationZ", "rotationPivot", "hidden", "transparent", "locked", "shapeLocked"]);
+const MCP_SHAPE_LOCK_PARAMS = new Set(["id", "editorNumber", "editorId", "timeoutMs", "x", "z", "elevation", "rotation", "rotationX", "rotationZ", "rotationPivot", "hidden", "transparent", "locked", "shapeLocked"]);
 
 /** A preview of an intersection is not calculated for more triangles than this: it would stutter while a shape is moved (#372). */
 const INTERSECT_PREVIEW_MAX_TRIANGLES = 40000;
@@ -13076,7 +13074,7 @@ export function LayerlingEditor({
   }, [syncProjectShapes]);
 
   const executeMcpCommand = useCallback(async (command: LayerlingMcpCommand): Promise<unknown> => {
-    const params = mcpCommandParamsIn(command.action, command.params ?? {}, { sectionAxis: () => window.layerlingSectionView?.({}).settings.axis });
+    const params = command.params ?? {};
     const currentShapes = () => shapesRef.current;
     const findShape = (id: unknown) => (typeof id === "string" ? currentShapes().find((shape) => shape.id === id) ?? null : null);
 
@@ -16609,7 +16607,7 @@ export function LayerlingEditor({
           const command = payload?.command;
           if (command) {
             try {
-              const data = mcpAnswerOut(command.action, await executeMcpCommandRef.current?.(command), command.params ?? {});
+              const data = await executeMcpCommandRef.current?.(command);
               submitResult(command.id, true, data);
             } catch (error) {
               submitResult(command.id, false, undefined, error instanceof Error ? localizedError(error.message) : String(error));

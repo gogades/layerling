@@ -142,7 +142,7 @@ describe("a reference image (#680)", () => {
   it("has an action in the AI bridge to add, move, calibrate, fade and lock one", () => {
     const tool = (tools as Array<{ name: string; inputSchema: { properties: Record<string, unknown> } }>).find((entry) => entry.name === "layerling_reference_image")!;
     expect(tool).toBeTruthy();
-    for (const key of ["id", "base64", "fileName", "width", "x", "y", "rotationZ", "opacity", "calibrate", "locked"]) {
+    for (const key of ["id", "base64", "fileName", "width", "x", "z", "rotation", "opacity", "calibrate", "locked"]) {
       expect(tool.inputSchema.properties, key).toHaveProperty(key);
     }
   });

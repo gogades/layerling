@@ -55,29 +55,6 @@ export const MCP_SHAPE_SETTING_KEYS = [
 ] as const satisfies readonly (keyof WorkplaneShape)[];
 
 /**
- * The settings MCP names as the inspector and the formulas do (lib/mcpAxes.ts): sizes from front to back are a length,
- * not a depth, and what runs that way says so instead of naming the editor's inside z. The values stay as the inspector
- * shows them. The settings' own names on the left are still accepted.
- */
-export const MCP_SETTING_NAMES: Partial<Record<(typeof MCP_SHAPE_SETTING_KEYS)[number], string>> = {
-  topDepth: "topLength",
-  taperTopDepth: "taperTopLength",
-  taperBottomDepth: "taperBottomLength",
-  extrudeTopOffsetZ: "extrudeTopOffsetLength",
-  gridfinityCompartmentsZ: "gridfinityCompartmentsY",
-  gridfinityDividerPositionsZ: "gridfinityDividerPositionsY",
-  loftBottomDepth: "loftBottomLength",
-  loftTopDepth: "loftTopLength",
-  loftOffsetZ: "loftOffsetLength",
-  loftTiltZ: "loftTiltY",
-};
-
-/** The name MCP gives a setting. */
-export function mcpSettingName(key: string) {
-  return MCP_SETTING_NAMES[key as keyof typeof MCP_SETTING_NAMES] ?? key;
-}
-
-/**
  * `threadSize` aus der Bruecke: eine Normgroesse beim Namen, die hier in
  * Durchmesser, Steigung und Profil aufgeloest wird, bevor der Editor die Werte
  * wie jede andere Gewindeangabe prueft. Das Profil folgt derselben Regel wie
