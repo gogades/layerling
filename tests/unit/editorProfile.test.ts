@@ -89,6 +89,36 @@ describe("starting with a host-selected layout", () => {
     }
   });
 
+  it.each([["full", "advanced"], ["simple", "off"]])("under a %s profile, a link asking for the advanced mode stores %s", (base, expected) => {
+    const script = document.createElement("script");
+    script.type = "application/json";
+    script.id = EDITOR_PROFILE_ELEMENT_ID;
+    script.textContent = JSON.stringify({ version: 1, base });
+    document.head.appendChild(script);
+    window.history.replaceState(null, "", "/?mode=advanced");
+    window.localStorage.setItem(SIMPLE_MODE_STORAGE_KEY, "off");
+    Function(SIMPLE_MODE_BOOT_SCRIPT)();
+    expect(window.localStorage.getItem(SIMPLE_MODE_STORAGE_KEY)).toBe(expected);
+  });
+
+  it.each([["full", true], ["simple", false]])("under a %s profile, the advanced mode can be switched on: %s", async (base, expected) => {
+    vi.resetModules();
+    const readyState = vi.spyOn(document, "readyState", "get").mockReturnValue("loading");
+    try {
+      const mode = await import("@/lib/simpleMode");
+      const script = document.createElement("script");
+      script.type = "application/json";
+      script.id = EDITOR_PROFILE_ELEMENT_ID;
+      script.textContent = JSON.stringify({ version: 1, base });
+      document.head.appendChild(script);
+      mode.setAdvancedMode(true);
+      expect(mode.getAdvancedMode()).toBe(expected);
+      expect(mode.getSimpleMode()).toBe(base === "simple");
+    } finally {
+      readyState.mockRestore();
+    }
+  });
+
   it("opts out of larger simple-mode controls before the page paints", () => {
     const script = document.createElement("script");
     script.type = "application/json";
