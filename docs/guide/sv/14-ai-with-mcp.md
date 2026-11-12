@@ -169,6 +169,10 @@ AI:n arbetar med samma funktioner som du, via samma väg som din användning i r
 | `layerling_measure_angle` | mäter en vinkel som gradskivan: vid hörnet mellan tre punkter eller mellan två plana ytor, och visar den i vyn |
 | `layerling_saved_view` | sparar den aktuella vyn under tangenten 7, 8, 9 eller 0 och går tillbaka till den, som Skift+tangent och själva tangenten (endast vyn); anger också startvyn för nya designer |
 | `layerling_build_plates` | listar, lägger till, namnger, ordnar och tar bort byggplattorna, flyttar objekt till en platta och ordnar dem på plattorna, som plattraden |
+| `layerling_advanced_mode` | slår på eller av avancerat läge och läser av läget (enkelt, normalt, avancerat) |
+| `layerling_variables` | läser variabeltabellen med värden och fel och lägger till, ändrar, byter namn på eller tar bort rader som tabellfönstret |
+| `layerling_object_formulas` | ger en kropp ett variabelnamn och formler via läsbara fältnamn (`size.width`, `rotation.z`, `taper.top_length`...) och visar varje fält med sitt värde |
+| `layerling_evaluate_formula` | räknar ut en formel i designen som den är, utan att ändra något, som resultatet i formelredigeraren |
 | `layerling_clear_history` | raderar alla ångra-steg för gott, precis som historikvyns knapp ”Ta bort historik”; kräver `confirm: true` |
 | `layerling_list_backups` | listar de automatiska säkerhetskopiorna (Tidigare versioner) av den öppna designen, eller med `all: true` av alla designer i den här webbläsaren |
 | `layerling_open_backup` | öppnar en säkerhetskopia via dess `id` som en ny design, aldrig kopplad till den ursprungliga filen |
