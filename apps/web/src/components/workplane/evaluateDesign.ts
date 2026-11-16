@@ -41,6 +41,7 @@ const ATTRIBUTE_PATHS: Record<string, string> = {
   slotSmallEnd: "slot.small_end", slotCentreDistance: "slot.centre_distance",
   torusTube: "torus.tube",
   wedgeAngle: "wedge.angle",
+  sectorAngle: "sector.angle", sectorEndRadius: "sector.end_radius",
   outerDiameter: "tube.outer_diameter", innerDiameter: "tube.inner_diameter", thickness: "tube.wall",
   loftBottomWidth: "loft.bottom_width", loftBottomDepth: "loft.bottom_length", loftBottomCorner: "loft.bottom_corner",
   loftTopWidth: "loft.top_width", loftTopDepth: "loft.top_length", loftTopCorner: "loft.top_corner",
